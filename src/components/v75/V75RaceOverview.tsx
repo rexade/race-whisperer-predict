@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +37,43 @@ const ensureStringForDisplay = (value: any): string => {
 const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
   console.log('🎯 V75RaceOverview - Rendering with races:', races.length);
   
+  // CRITICAL DEBUG: Check ALL data that will be rendered
+  races.forEach((race, raceIndex) => {
+    console.log(`🏁 RACE ${raceIndex} DEBUG:`, {
+      raceNumber: race.raceNumber,
+      raceId: race.raceId,
+      track: race.track,
+      name: race.name,
+      trackType: typeof race.track,
+      nameType: typeof race.name
+    });
+    
+    race.horses.forEach((horse, horseIndex) => {
+      console.log(`🐎 HORSE ${horseIndex} FULL DEBUG:`, {
+        horseId: horse.horseId,
+        horseName: horse.horseName,
+        horseNameType: typeof horse.horseName,
+        horseNameStringified: JSON.stringify(horse.horseName),
+        driverName: horse.driverName,
+        driverNameType: typeof horse.driverName,
+        driverNameStringified: JSON.stringify(horse.driverName),
+        track: horse.track,
+        trackType: typeof horse.track
+      });
+      
+      // CRITICAL: If any of these are objects, log an error
+      if (typeof horse.horseName === 'object') {
+        console.error('🚨 CRITICAL: Horse name is an object!', horse.horseName);
+      }
+      if (typeof horse.driverName === 'object') {
+        console.error('🚨 CRITICAL: Driver name is an object!', horse.driverName);
+      }
+      if (typeof horse.track === 'object') {
+        console.error('🚨 CRITICAL: Track is an object!', horse.track);
+      }
+    });
+  });
+  
   const getTopNormalizedTimes = () => {
     const allHorses = races.flatMap(race => 
       race.horses.filter(horse => horse.modernNormalizedResult)
@@ -45,7 +81,7 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
     
     // Add debugging for each horse before sorting
     allHorses.forEach((horse, index) => {
-      console.log(`🐎 V75RaceOverview - Horse ${index}: ID=${horse.horseId}, Name=`, JSON.stringify(horse.horseName), 'Type:', typeof horse.horseName);
+      console.log(`🐎 V75RaceOverview - TOP TIMES Horse ${index}: ID=${horse.horseId}, Name=`, JSON.stringify(horse.horseName), 'Type:', typeof horse.horseName);
       
       // Additional safety check - if horseName is still an object, we have a problem
       if (typeof horse.horseName === 'object') {
@@ -95,7 +131,15 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
               <div>
                 <p className="text-sm text-gray-600">Tracks</p>
                 <p className="text-2xl font-bold">
-                  {new Set(races.map(r => r.track)).size}
+                  {new Set(races.map(r => {
+                    // CRITICAL DEBUG: Check track values
+                    console.log('🏁 Track value for unique set:', r.track, 'Type:', typeof r.track);
+                    if (typeof r.track === 'object') {
+                      console.error('🚨 CRITICAL: Race track is an object!', r.track);
+                      return ensureStringForDisplay(r.track);
+                    }
+                    return r.track;
+                  })).size}
                 </p>
               </div>
             </div>
@@ -133,45 +177,65 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
 
       {/* Race Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {races.map(race => (
-          <Card key={race.raceNumber} className={`border-l-4 ${race.analysisComplete ? 'border-l-green-500' : 'border-l-red-500'}`}>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center justify-between">
-                <span>Race {race.raceNumber}</span>
-                <Badge variant={race.analysisComplete ? "default" : "destructive"}>
-                  {race.analysisComplete ? "Complete" : "Failed"}
-                </Badge>
-              </CardTitle>
-              <p className="text-sm text-gray-600">{race.name}</p>
-            </CardHeader>
-            
-            <CardContent className="space-y-2">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <strong>Track:</strong> {race.track}
-                </div>
-                <div>
-                  <strong>Distance:</strong> {race.distance}m
-                </div>
-                <div>
-                  <strong>Start:</strong> {race.startMethod}
-                </div>
-                <div>
-                  <strong>Horses:</strong> {race.horses.length}
-                </div>
-              </div>
+        {races.map(race => {
+          // CRITICAL DEBUG: Check each race's properties before rendering
+          console.log(`🏁 RENDERING RACE ${race.raceNumber}:`, {
+            raceNumber: race.raceNumber,
+            name: race.name,
+            nameType: typeof race.name,
+            track: race.track,
+            trackType: typeof race.track,
+            distance: race.distance,
+            distanceType: typeof race.distance,
+            startMethod: race.startMethod,
+            startMethodType: typeof race.startMethod
+          });
+          
+          // Safety check for all string fields
+          const safeName = ensureStringForDisplay(race.name);
+          const safeTrack = ensureStringForDisplay(race.track);
+          const safeStartMethod = ensureStringForDisplay(race.startMethod);
+          
+          return (
+            <Card key={race.raceNumber} className={`border-l-4 ${race.analysisComplete ? 'border-l-green-500' : 'border-l-red-500'}`}>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center justify-between">
+                  <span>Race {race.raceNumber}</span>
+                  <Badge variant={race.analysisComplete ? "default" : "destructive"}>
+                    {race.analysisComplete ? "Complete" : "Failed"}
+                  </Badge>
+                </CardTitle>
+                <p className="text-sm text-gray-600">{safeName}</p>
+              </CardHeader>
               
-              {race.analysisComplete && (
-                <div className="mt-3 pt-3 border-t">
-                  <p className="text-xs text-gray-500 mb-1">Analyzed Horses:</p>
-                  <p className="text-sm font-medium">
-                    {race.horses.filter(h => h.rawKmTime).length}/{race.horses.length}
-                  </p>
+              <CardContent className="space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <strong>Track:</strong> {safeTrack}
+                  </div>
+                  <div>
+                    <strong>Distance:</strong> {race.distance}m
+                  </div>
+                  <div>
+                    <strong>Start:</strong> {safeStartMethod}
+                  </div>
+                  <div>
+                    <strong>Horses:</strong> {race.horses.length}
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+                
+                {race.analysisComplete && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-xs text-gray-500 mb-1">Analyzed Horses:</p>
+                    <p className="text-sm font-medium">
+                      {race.horses.filter(h => h.rawKmTime).length}/{race.horses.length}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Top Normalized Times */}
@@ -192,16 +256,27 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
                   originalHorseName: horse.horseName,
                   horseNameType: typeof horse.horseName,
                   isObject: typeof horse.horseName === 'object',
-                  objectKeys: typeof horse.horseName === 'object' ? Object.keys(horse.horseName) : 'N/A'
+                  objectKeys: typeof horse.horseName === 'object' ? Object.keys(horse.horseName) : 'N/A',
+                  driverName: horse.driverName,
+                  driverNameType: typeof horse.driverName
                 });
                 
                 // If horseName is still an object at this point, force extract the name
                 let safeHorseName: string;
+                let safeDriverName: string;
+                
                 if (typeof horse.horseName === 'object' && horse.horseName !== null) {
                   console.error('🚨 EMERGENCY OBJECT CONVERSION - Horse name is an object at render time!', horse.horseName);
                   safeHorseName = ensureStringForDisplay(horse.horseName);
                 } else {
                   safeHorseName = ensureStringForDisplay(horse.horseName);
+                }
+                
+                if (typeof horse.driverName === 'object' && horse.driverName !== null) {
+                  console.error('🚨 EMERGENCY OBJECT CONVERSION - Driver name is an object at render time!', horse.driverName);
+                  safeDriverName = ensureStringForDisplay(horse.driverName);
+                } else {
+                  safeDriverName = ensureStringForDisplay(horse.driverName);
                 }
                 
                 // Final validation before render
@@ -210,7 +285,17 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
                   safeHorseName = 'Emergency Fallback Name';
                 }
                 
-                console.log('✅ V75RaceOverview - Final safe name for render:', safeHorseName);
+                if (typeof safeDriverName !== 'string') {
+                  console.error('🚨 FINAL VALIDATION FAILED - safeDriverName is not a string!', safeDriverName);
+                  safeDriverName = 'Emergency Fallback Driver';
+                }
+                
+                console.log('✅ V75RaceOverview - Final safe names for render:', {
+                  safeHorseName,
+                  safeDriverName,
+                  horseNameType: typeof safeHorseName,
+                  driverNameType: typeof safeDriverName
+                });
                 
                 return (
                   <div key={`${horse.raceId}-${horse.horseId}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -226,7 +311,7 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
                       <div>
                         <p className="font-semibold">{safeHorseName}</p>
                         <p className="text-sm text-gray-600">
-                          Race {horse.raceNumber} • {ensureStringForDisplay(horse.driverName)} • Post {horse.postPosition}
+                          Race {horse.raceNumber} • {safeDriverName} • Post {horse.postPosition}
                         </p>
                       </div>
                     </div>
