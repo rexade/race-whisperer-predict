@@ -9,33 +9,49 @@ interface V75RaceOverviewProps {
   races: V75RaceResult[];
 }
 
-// Safety function to ensure we never render an object as React child
+// Enhanced safety function to ensure we never render an object as React child
 const ensureStringForDisplay = (value: any): string => {
+  console.log('🔍 V75RaceOverview - ensureStringForDisplay input:', JSON.stringify(value), 'Type:', typeof value);
+  
   if (typeof value === 'string') {
+    console.log('✅ V75RaceOverview - Value is already a string:', value);
     return value;
   }
   
   if (value && typeof value === 'object') {
+    console.log('🔧 V75RaceOverview - Value is object, extracting name...');
     if ('name' in value && typeof value.name === 'string') {
+      console.log('✅ V75RaceOverview - Extracted name from object.name:', value.name);
       return value.name;
     }
     if ('id' in value && 'name' in value) {
+      console.log('✅ V75RaceOverview - Extracted name from id/name object:', value.name);
       return String(value.name || 'Unknown Horse');
     }
+    console.error('❌ V75RaceOverview - Object has no valid name property:', JSON.stringify(value));
   }
   
+  console.warn('⚠️ V75RaceOverview - Fallback conversion:', value, 'to string');
   return String(value || 'Unknown Horse');
 };
 
 const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
-  const getTotalPrize = () => {
-    return races.reduce((total, race) => total + race.prize, 0);
-  };
-
+  console.log('🎯 V75RaceOverview - Rendering with races:', races.length);
+  
   const getTopNormalizedTimes = () => {
     const allHorses = races.flatMap(race => 
       race.horses.filter(horse => horse.modernNormalizedResult)
     );
+    
+    // Add debugging for each horse before sorting
+    allHorses.forEach((horse, index) => {
+      console.log(`🐎 V75RaceOverview - Horse ${index}: ID=${horse.horseId}, Name=`, JSON.stringify(horse.horseName), 'Type:', typeof horse.horseName);
+      
+      // Additional safety check - if horseName is still an object, we have a problem
+      if (typeof horse.horseName === 'object') {
+        console.error('🚨 CRITICAL - Horse name is still an object in getTopNormalizedTimes!', horse.horseName);
+      }
+    });
     
     return allHorses
       .sort((a, b) => {
@@ -171,9 +187,30 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
           <CardContent>
             <div className="space-y-3">
               {topTimes.map((horse, index) => {
-                // Ensure horse name is always a string before rendering
-                const safeHorseName = ensureStringForDisplay(horse.horseName);
-                console.log('V75RaceOverview - Horse name:', safeHorseName, 'Original:', horse.horseName, 'Type:', typeof horse.horseName);
+                // CRITICAL: Ensure horse name is always a string before rendering - TRIPLE CHECK
+                console.log(`🛡️ V75RaceOverview - CRITICAL RENDER CHECK - Horse ${horse.horseId}:`, {
+                  originalHorseName: horse.horseName,
+                  horseNameType: typeof horse.horseName,
+                  isObject: typeof horse.horseName === 'object',
+                  objectKeys: typeof horse.horseName === 'object' ? Object.keys(horse.horseName) : 'N/A'
+                });
+                
+                // If horseName is still an object at this point, force extract the name
+                let safeHorseName: string;
+                if (typeof horse.horseName === 'object' && horse.horseName !== null) {
+                  console.error('🚨 EMERGENCY OBJECT CONVERSION - Horse name is an object at render time!', horse.horseName);
+                  safeHorseName = ensureStringForDisplay(horse.horseName);
+                } else {
+                  safeHorseName = ensureStringForDisplay(horse.horseName);
+                }
+                
+                // Final validation before render
+                if (typeof safeHorseName !== 'string') {
+                  console.error('🚨 FINAL VALIDATION FAILED - safeHorseName is not a string!', safeHorseName);
+                  safeHorseName = 'Emergency Fallback Name';
+                }
+                
+                console.log('✅ V75RaceOverview - Final safe name for render:', safeHorseName);
                 
                 return (
                   <div key={`${horse.raceId}-${horse.horseId}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -189,7 +226,7 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
                       <div>
                         <p className="font-semibold">{safeHorseName}</p>
                         <p className="text-sm text-gray-600">
-                          Race {horse.raceNumber} • {horse.driverName} • Post {horse.postPosition}
+                          Race {horse.raceNumber} • {ensureStringForDisplay(horse.driverName)} • Post {horse.postPosition}
                         </p>
                       </div>
                     </div>
