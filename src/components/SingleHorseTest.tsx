@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -186,10 +185,10 @@ const SingleHorseTest: React.FC = () => {
       console.log(`1640m autostart adjustment: +3.6s → ${normalizedTime}s`);
     }
     
-    // Step 2: If volte start, add 1 second
+    // Step 2: If volte start, subtract 1 second (normalize to auto)
     if (startMethod.toLowerCase() === "volte") {
-      normalizedTime += 1.0;
-      console.log(`Volte start adjustment: +1.0s → ${normalizedTime}s`);
+      normalizedTime -= 1.0;
+      console.log(`Volte start adjustment: -1.0s → ${normalizedTime}s`);
     }
     
     console.log(`Final normalized time: ${normalizedTime}s`);
@@ -271,7 +270,7 @@ const SingleHorseTest: React.FC = () => {
             <ol className="text-sm text-blue-700 space-y-1">
               <li>1. Convert all times to seconds</li>
               <li>2. If 1640m autostart: add 3.6 seconds</li>
-              <li>3. If volte start: add 1 second</li>
+              <li>3. If volte start: subtract 1 second (normalize to auto)</li>
               <li>4. Take best 3 normalized times</li>
               <li>5. Calculate average = RAW TIME</li>
             </ol>

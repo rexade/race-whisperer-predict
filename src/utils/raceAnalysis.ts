@@ -27,7 +27,7 @@ export interface RaceData {
  * Simplified normalization formula for RAW time calculation:
  * 1. Convert all times to seconds
  * 2. If 1640m autostart: add 3.6 seconds
- * 3. If volte start: add 1 second
+ * 3. If volte start: subtract 1 second (normalizing to auto equivalent)
  */
 export const normalizeTimeSimplified = (
   timeSeconds: number,
@@ -41,9 +41,9 @@ export const normalizeTimeSimplified = (
     normalizedTime += 3.6;
   }
   
-  // Step 2: If volte start, add 1 second
+  // Step 2: If volte start, subtract 1 second (normalizing to auto equivalent)
   if (startMethod.toLowerCase() === "volte") {
-    normalizedTime += 1.0;
+    normalizedTime -= 1.0;
   }
   
   return Math.round(normalizedTime * 10) / 10;
