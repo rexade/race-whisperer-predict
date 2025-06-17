@@ -1,14 +1,14 @@
 
 import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { fetchEnhancedRaceData, EnhancedHorseData } from '../../services/enhancedAtgApi';
-import { calculateRawTimesForRace } from '../../services/timeProcessor';
+import { fetchEnhancedRaceData, EnhancedHorseData } from '../../../services/enhancedAtgApi';
+import { calculateRawTimesForRace } from '../../../services/timeProcessor';
 import { 
   applyModernNormalization, 
   ModernNormalizedResult, 
   NormalizationWeights,
   ModernNormalizationFactors
-} from '../../services/modernNormalization';
+} from '../../../services/modernNormalization';
 
 export const useRaceAnalysis = () => {
   const [loading, setLoading] = useState(false);
