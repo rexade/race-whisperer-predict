@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -84,10 +85,12 @@ const SingleHorseTest: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [horseData, setHorseData] = useState<ATGHorseData | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>("");
 
   const fetchHorseData = async () => {
     setLoading(true);
     setError("");
+    setDebugInfo("");
     
     try {
       console.log("Fetching horse data from ATG API...");
@@ -107,7 +110,7 @@ const SingleHorseTest: React.FC = () => {
       
     } catch (err) {
       console.error("Error fetching horse data:", err);
-      setError(`Failed to fetch horse data: ${err.message}`);
+      setError(`Failed to fetch horse data: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -116,105 +119,167 @@ const SingleHorseTest: React.FC = () => {
   const processRealATGHistoricalData = (atgData: ATGHorseData) => {
     console.log(`\n=== Processing REAL ATG historical data for ${atgData.horse.name} (ID: ${atgData.horse.id}) ===`);
     
+    let debugMessages: string[] = [];
+    debugMessages.push(`Processing data for ${atgData.horse.name} (ID: ${atgData.horse.id})`);
+    
+    // Debug: Log the entire structure
+    console.log("Full ATG data structure:", JSON.stringify(atgData, null, 2));
+    debugMessages.push(`Full data structure logged to console`);
+    
     let historicalRaces: HistoricalRace[] = [];
     
-    if (atgData.results && atgData.results.records && Array.isArray(atgData.results.records)) {
-      console.log(`Found ${atgData.results.records.length} real historical records from ATG API`);
-      
-      // Calculate date 8 months ago
-      const eightMonthsAgo = new Date();
-      eightMonthsAgo.setMonth(eightMonthsAgo.getMonth() - 8);
-      console.log(`Filtering races newer than: ${eightMonthsAgo.toISOString().split('T')[0]}`);
-      
-      // Process all records and apply filtering
-      historicalRaces = atgData.results.records
-        .map(record => {
-          // Check if race is within 8 months
-          const raceDate = new Date(record.date);
-          const isWithin8Months = raceDate >= eightMonthsAgo;
-          
-          // Check if we have valid time data (not a code like "kubu")
-          const hasValidTime = record.kmTime && 
-            typeof record.kmTime === 'object' && 
-            'minutes' in record.kmTime && 
-            'seconds' in record.kmTime && 
-            'tenths' in record.kmTime;
-          
-          const isNotDisqualified = !record.disqualified && !record.galloped;
-          const hasValidPlace = record.place && record.place !== "0" && !isNaN(parseInt(record.place));
-          
-          console.log(`Record ${record.date}: within8Months=${isWithin8Months}, hasValidTime=${hasValidTime}, isNotDisqualified=${isNotDisqualified}, hasValidPlace=${hasValidPlace}, place=${record.place}, kmTime=`, record.kmTime);
-          
-          // Only return races that meet ALL criteria
-          if (isWithin8Months && hasValidTime && isNotDisqualified && hasValidPlace) {
-            return {
-              date: record.date,
-              distance: record.start.distance,
-              startMethod: record.race.startMethod,
-              track: record.track.name,
-              kmTime: record.kmTime as { minutes: number; seconds: number; tenths: number },
-              finishOrder: parseInt(record.place),
-              postPosition: record.start.postPosition,
-              galloped: record.galloped || false,
-              disqualified: record.disqualified || false
-            };
-          }
-          return null;
-        })
-        .filter(race => race !== null) as HistoricalRace[];
-      
-      console.log(`Filtered to ${historicalRaces.length} valid historical races (within 8 months, not DQ/galloped, valid times)`);
-      
-      // If we have very few races within 8 months, let's also show what we filtered out for debugging
-      if (historicalRaces.length < 3) {
-        console.log("\n=== DEBUG: Showing what was filtered out ===");
-        atgData.results.records.forEach(record => {
-          const raceDate = new Date(record.date);
-          const eightMonthsAgo = new Date();
-          eightMonthsAgo.setMonth(eightMonthsAgo.getMonth() - 8);
-          
-          const isWithin8Months = raceDate >= eightMonthsAgo;
-          const hasValidTime = record.kmTime && typeof record.kmTime === 'object' && 'minutes' in record.kmTime;
-          const isNotDisqualified = !record.disqualified && !record.galloped;
-          const hasValidPlace = record.place && record.place !== "0";
-          
-          console.log(`${record.date}: 8mo=${isWithin8Months}, time=${hasValidTime}, notDQ=${isNotDisqualified}, place=${hasValidPlace} - kmTime:`, record.kmTime);
-        });
-      }
-    } else {
-      console.log("No historical data found in ATG response");
-      setError("No historical race data available for this horse");
+    if (!atgData.results) {
+      const errorMsg = "No 'results' property found in ATG data";
+      console.error(errorMsg);
+      debugMessages.push(errorMsg);
+      setError(errorMsg);
+      setDebugInfo(debugMessages.join('\n'));
       return;
     }
+    
+    if (!atgData.results.records) {
+      const errorMsg = "No 'records' property found in results";
+      console.error(errorMsg);
+      debugMessages.push(errorMsg);
+      setError(errorMsg);
+      setDebugInfo(debugMessages.join('\n'));
+      return;
+    }
+    
+    if (!Array.isArray(atgData.results.records)) {
+      const errorMsg = "Records is not an array";
+      console.error(errorMsg);
+      debugMessages.push(errorMsg);
+      setError(errorMsg);
+      setDebugInfo(debugMessages.join('\n'));
+      return;
+    }
+    
+    console.log(`Found ${atgData.results.records.length} total records from ATG API`);
+    debugMessages.push(`Found ${atgData.results.records.length} total records`);
+    
+    // Calculate date 8 months ago
+    const eightMonthsAgo = new Date();
+    eightMonthsAgo.setMonth(eightMonthsAgo.getMonth() - 8);
+    const cutoffDate = eightMonthsAgo.toISOString().split('T')[0];
+    console.log(`Filtering races newer than: ${cutoffDate}`);
+    debugMessages.push(`Filtering races newer than: ${cutoffDate}`);
+    
+    // Debug each record
+    atgData.results.records.forEach((record, index) => {
+      console.log(`\n--- Processing Record ${index + 1}/${atgData.results!.records.length} ---`);
+      console.log(`Date: ${record.date}`);
+      console.log(`Distance: ${record.start?.distance}m`);
+      console.log(`Start method: ${record.race?.startMethod}`);
+      console.log(`Track: ${record.track?.name}`);
+      console.log(`Place: ${record.place}`);
+      console.log(`kmTime:`, record.kmTime);
+      console.log(`Galloped: ${record.galloped}`);
+      console.log(`Disqualified: ${record.disqualified}`);
+      
+      // Check date filter
+      const raceDate = new Date(record.date);
+      const isWithin8Months = raceDate >= eightMonthsAgo;
+      
+      // Check time validity - more flexible approach
+      const hasValidTime = record.kmTime && 
+        typeof record.kmTime === 'object' && 
+        'minutes' in record.kmTime && 
+        'seconds' in record.kmTime && 
+        'tenths' in record.kmTime &&
+        typeof record.kmTime.minutes === 'number' &&
+        typeof record.kmTime.seconds === 'number' &&
+        typeof record.kmTime.tenths === 'number';
+      
+      // Check if not disqualified/galloped
+      const isNotDisqualified = !record.disqualified && !record.galloped;
+      
+      // Check place - be more flexible with place validation
+      const hasValidPlace = record.place && 
+        record.place !== "0" && 
+        record.place !== "" && 
+        !isNaN(parseInt(record.place));
+      
+      // Check required fields
+      const hasRequiredFields = record.start?.distance && 
+        record.race?.startMethod && 
+        record.track?.name &&
+        record.start?.postPosition;
+      
+      console.log(`Validation results:`);
+      console.log(`  - Within 8 months: ${isWithin8Months}`);
+      console.log(`  - Has valid time: ${hasValidTime}`);
+      console.log(`  - Not DQ/galloped: ${isNotDisqualified}`);
+      console.log(`  - Has valid place: ${hasValidPlace}`);
+      console.log(`  - Has required fields: ${hasRequiredFields}`);
+      
+      const isValidRace = isWithin8Months && hasValidTime && isNotDisqualified && hasValidPlace && hasRequiredFields;
+      console.log(`  - Overall valid: ${isValidRace}`);
+      
+      if (isValidRace) {
+        const race: HistoricalRace = {
+          date: record.date,
+          distance: record.start.distance,
+          startMethod: record.race.startMethod,
+          track: record.track.name,
+          kmTime: record.kmTime as { minutes: number; seconds: number; tenths: number },
+          finishOrder: parseInt(record.place),
+          postPosition: record.start.postPosition,
+          galloped: record.galloped || false,
+          disqualified: record.disqualified || false
+        };
+        historicalRaces.push(race);
+        console.log(`✓ Added to valid races`);
+        debugMessages.push(`✓ ${record.date}: Valid race added (${record.start.distance}m ${record.race.startMethod}, place ${record.place})`);
+      } else {
+        const reasons = [];
+        if (!isWithin8Months) reasons.push("too old");
+        if (!hasValidTime) reasons.push("invalid time");
+        if (!isNotDisqualified) reasons.push("DQ/galloped");
+        if (!hasValidPlace) reasons.push("invalid place");
+        if (!hasRequiredFields) reasons.push("missing fields");
+        
+        console.log(`✗ Skipped: ${reasons.join(", ")}`);
+        debugMessages.push(`✗ ${record.date}: Skipped (${reasons.join(", ")})`);
+      }
+    });
+    
+    console.log(`\n=== Final Results ===`);
+    console.log(`Filtered to ${historicalRaces.length} valid historical races`);
+    debugMessages.push(`\nFinal result: ${historicalRaces.length} valid races found`);
     
     if (historicalRaces.length === 0) {
-      console.log("No valid historical races found after filtering");
-      setError("No valid historical races found for RAW time calculation");
+      const errorMsg = "No valid historical races found after filtering. Check debug info for details.";
+      console.log(errorMsg);
+      debugMessages.push(errorMsg);
+      setError(errorMsg);
+      setDebugInfo(debugMessages.join('\n'));
       return;
     }
     
+    setDebugInfo(debugMessages.join('\n'));
     calculateRawTimeFromHistory(historicalRaces);
   };
 
   const calculateRawTimeFromHistory = (historicalRaces: HistoricalRace[]) => {
-    console.log("\n=== Starting Simplified RAW Time Calculation (8-month filter + DQ/Gallop exclusion) ===");
-    console.log(`Processing ${historicalRaces.length} total races`);
+    console.log("\n=== Starting Simplified RAW Time Calculation ===");
+    console.log(`Processing ${historicalRaces.length} valid races`);
     
     const processed: ProcessedTime[] = [];
     
     for (const race of historicalRaces) {
-      // Skip disqualified, galloped races, or races without time
-      if (race.disqualified || race.galloped || !race.kmTime) {
-        console.log(`Skipping race ${race.date} - disqualified: ${race.disqualified}, galloped: ${race.galloped}, no time: ${!race.kmTime}`);
-        continue;
-      }
-      
       const originalTimeSeconds = convertKmTimeToSeconds(race.kmTime);
+      console.log(`\nProcessing race ${race.date}:`);
+      console.log(`  Original time: ${race.kmTime.minutes}:${race.kmTime.seconds}.${race.kmTime.tenths} = ${originalTimeSeconds}s`);
+      console.log(`  Distance: ${race.distance}m, Start: ${race.startMethod}`);
+      
       const normalizedTime = normalizeTimeSimplified(
         originalTimeSeconds,
         race.distance,
         race.startMethod
       );
+      
+      console.log(`  Normalized time: ${normalizedTime}s`);
       
       processed.push({
         originalTimeSeconds,
@@ -222,7 +287,7 @@ const SingleHorseTest: React.FC = () => {
         raceDate: race.date,
         distance: race.distance,
         startMethod: race.startMethod,
-        finishOrder: race.finishOrder || 0,
+        finishOrder: race.finishOrder,
         valid: true
       });
     }
@@ -230,20 +295,20 @@ const SingleHorseTest: React.FC = () => {
     // Sort by normalized time (best/fastest first)
     processed.sort((a, b) => a.normalizedTime - b.normalizedTime);
     
-    console.log(`\n=== All ${processed.length} Valid Times (within 8 months, no DQ/gallop, sorted by normalized time) ===`);
+    console.log(`\n=== All ${processed.length} Valid Times (sorted by normalized time) ===`);
     processed.forEach((time, index) => {
-      console.log(`${index + 1}. ${time.raceDate}: ${time.originalTimeSeconds}s → ${time.normalizedTime}s (${time.distance}m ${time.startMethod})`);
+      console.log(`${index + 1}. ${time.raceDate}: ${time.originalTimeSeconds.toFixed(1)}s → ${time.normalizedTime.toFixed(1)}s (${time.distance}m ${time.startMethod}, place ${time.finishOrder})`);
     });
     
-    // Step 3: Take the best 3 times and calculate average
-    const best3Times = processed.slice(0, 3);
+    // Take the best 3 times and calculate average
+    const best3Times = processed.slice(0, Math.min(3, processed.length));
     const rawTimeResult = best3Times.length > 0 
       ? best3Times.reduce((sum, time) => sum + time.normalizedTime, 0) / best3Times.length
       : 0;
     
-    console.log(`\n=== RAW Time Calculation (Simplified Formula, 8-month filter) ===`);
-    console.log(`Best 3 normalized times: ${best3Times.map(t => t.normalizedTime + 's').join(', ')}`);
-    console.log(`RAW Time (Best 3 Average): ${rawTimeResult.toFixed(2)}s`);
+    console.log(`\n=== RAW Time Calculation (Simplified Formula) ===`);
+    console.log(`Best ${best3Times.length} normalized times: ${best3Times.map(t => t.normalizedTime.toFixed(1) + 's').join(', ')}`);
+    console.log(`RAW Time (Best ${best3Times.length} Average): ${rawTimeResult.toFixed(2)}s`);
     
     setProcessedTimes(processed);
     setRawTime(rawTimeResult);
@@ -263,7 +328,7 @@ const SingleHorseTest: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calculator className="h-5 w-5" />
-            Simplified RAW Time Calculator - Real ATG Data
+            Simplified RAW Time Calculator - Real ATG Data (Fixed)
           </CardTitle>
           <p className="text-gray-600">
             Testing simplified RAW time calculation using real ATG API data for race 2025-06-22_19_5, start #2
@@ -291,6 +356,15 @@ const SingleHorseTest: React.FC = () => {
                 <h3 className="font-semibold text-red-800">Error</h3>
               </div>
               <p className="text-red-700">{error}</p>
+            </div>
+          )}
+
+          {debugInfo && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <h3 className="font-semibold text-yellow-800 mb-2">Debug Information</h3>
+              <pre className="text-xs text-yellow-700 whitespace-pre-wrap max-h-40 overflow-y-auto">
+                {debugInfo}
+              </pre>
             </div>
           )}
 
@@ -327,7 +401,7 @@ const SingleHorseTest: React.FC = () => {
                   {formatTime(rawTime)}
                 </div>
                 <p className="text-sm text-green-600">
-                  Based on best 3 normalized times from {processedTimes.length} valid races
+                  Based on best {Math.min(3, processedTimes.length)} normalized times from {processedTimes.length} valid races
                 </p>
                 {horseData && (
                   <p className="text-sm text-blue-600 mt-1">
