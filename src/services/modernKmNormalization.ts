@@ -81,10 +81,10 @@ const DEFAULT_WEIGHTS: NormalizationWeights = {
  * Higher start points = better form = faster times
  */
 const calculateStartPointsAdjustment = (startPoints: number): number => {
-  // Baseline: 50 start points = 0 adjustment
-  // Every 10 points above/below = -/+ 0.05s
-  const baseline = 50;
-  const adjustment = (baseline - startPoints) * 0.005;
+  // Baseline: 500 start points = 0 adjustment (reduced from 50)
+  // Every 100 points above/below = -/+ 0.1s (reduced multiplier from 0.005 to 0.001)
+  const baseline = 500;
+  const adjustment = (baseline - startPoints) * 0.001;
   
   console.log(`Start Points adjustment: ${startPoints} points → ${adjustment.toFixed(3)}s`);
   return adjustment;
@@ -133,9 +133,9 @@ const calculateEarningsPerStartAdjustment = (earningsPerStart: number): number =
   // Convert from öre to SEK (divide by 100)
   const earningsInSek = earningsPerStart / 100;
   // Baseline: 3000 SEK per start = 0 adjustment
-  // Every 1000 SEK above/below = -/+ 0.05s
+  // Every 1000 SEK above/below = -/+ 0.02s (reduced multiplier from 0.00005 to 0.00002)
   const baseline = 3000;
-  const adjustment = (baseline - earningsInSek) * 0.00005;
+  const adjustment = (baseline - earningsInSek) * 0.00002;
   
   console.log(`Earnings/Start adjustment: ${earningsInSek.toFixed(0)} SEK → ${adjustment.toFixed(3)}s`);
   return adjustment;
