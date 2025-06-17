@@ -22,6 +22,18 @@ export interface V75HorseResult {
   track: string;
   distance: number;
   startMethod: string;
+  // Enhanced statistics from race data
+  statistics?: {
+    startPoints: number;
+    placePercentage: number;
+    winPercentage: number;
+    earningsPerStart: number;
+  };
+  driver2025WinPercentage?: number;
+  sulkyType?: string;
+  shoesFront?: boolean;
+  shoesBack?: boolean;
+  homeTrack?: string;
 }
 
 export interface V75RaceResult {
@@ -182,7 +194,19 @@ export const useV75Analysis = () => {
               driverName: `${horse.driver.firstName} ${horse.driver.lastName}`,
               track: race.track,
               distance: horse.distance,
-              startMethod: race.startMethod
+              startMethod: race.startMethod,
+              // Enhanced statistics
+              statistics: {
+                startPoints: horse.statistics.startPoints,
+                placePercentage: horse.statistics.placePercentage,
+                winPercentage: horse.statistics.winPercentage,
+                earningsPerStart: horse.statistics.earningsPerStart,
+              },
+              driver2025WinPercentage: horse.driver.winPercentage2025,
+              sulkyType: horse.sulky.type,
+              shoesFront: horse.shoes.front,
+              shoesBack: horse.shoes.back,
+              homeTrack: horse.homeTrack
             });
           }
           
@@ -267,20 +291,20 @@ export const useV75Analysis = () => {
           distance: horse.distance,
           raceDistance: race.distance,
           startMethod: race.startMethod,
-          shoesFront: "0",
-          shoesBack: "0",
-          sulkyType: "VA",
-          homeTrack: "Unknown",
+          shoesFront: horse.shoesFront ? "1" : "0",
+          shoesBack: horse.shoesBack ? "1" : "0",
+          sulkyType: horse.sulkyType || "VA",
+          homeTrack: horse.homeTrack || "Unknown",
           driverExperience: 0,
           driverWinPercentage: 0,
-          driverWinPercentage2025: 0,
-          horseForm: 0,
+          driverWinPercentage2025: horse.driver2025WinPercentage || 0,
+          horseForm: horse.statistics?.winPercentage || 0,
           raceType: 'trot',
           timeOfDay: '',
-          startPoints: 500,
-          placePercentage: 5000,
-          horseWinPercentage: 1500,
-          earningsPerStart: 300000
+          startPoints: horse.statistics?.startPoints || 500,
+          placePercentage: horse.statistics?.placePercentage || 5000,
+          horseWinPercentage: horse.statistics?.winPercentage || 1500,
+          earningsPerStart: horse.statistics?.earningsPerStart || 300000
         };
         
         const modernNormalizedResult = applyModernKmNormalization(horse.rawKmTime, factors, weights);

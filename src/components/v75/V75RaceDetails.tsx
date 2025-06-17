@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Clock, MapPin, Users } from "lucide-react";
+import { Trophy, Clock, MapPin, Users, Medal, Banknote, Zap, Ruler } from "lucide-react";
 import { V75RaceResult } from './hooks/useV75Analysis';
 
 interface V75RaceDetailsProps {
@@ -25,6 +25,45 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
     if (position === 2) return 'bg-gray-100 text-gray-800';
     if (position === 3) return 'bg-orange-100 text-orange-800';
     return 'bg-blue-100 text-blue-800';
+  };
+
+  const getRankIcon = (rank: number) => {
+    if (rank === 1) return <Medal className="h-4 w-4 text-yellow-500" />;
+    if (rank === 2) return <Medal className="h-4 w-4 text-gray-400" />;
+    if (rank === 3) return <Medal className="h-4 w-4 text-amber-600" />;
+    return null;
+  };
+
+  const getRankBadgeStyle = (rank: number) => {
+    if (rank <= 3) return "bg-gradient-to-r from-green-500 to-green-600 text-white font-bold";
+    if (rank <= 5) return "bg-blue-100 text-blue-700 border border-blue-300";
+    return "bg-gray-100 text-gray-600";
+  };
+
+  const formatEarnings = (earnings: number) => {
+    const adjustedEarnings = earnings / 100;
+    if (adjustedEarnings >= 1000) {
+      return `${(adjustedEarnings / 1000).toFixed(0)}k`;
+    }
+    return adjustedEarnings.toFixed(0);
+  };
+
+  const getShoesDisplay = (frontHasShoe: boolean, backHasShoe: boolean) => {
+    const frontBarefoot = !frontHasShoe;
+    const backBarefoot = !backHasShoe;
+    
+    if (frontBarefoot && backBarefoot) return "All Barefoot";
+    if (frontBarefoot) return "Front Barefoot";
+    if (backBarefoot) return "Back Barefoot";
+    return "Shod";
+  };
+
+  const getShoesColor = (frontHasShoe: boolean, backHasShoe: boolean) => {
+    const frontBarefoot = !frontHasShoe;
+    const backBarefoot = !backHasShoe;
+    
+    if (frontBarefoot || backBarefoot) return "text-orange-600 font-medium";
+    return "text-gray-600";
   };
 
   // Sort horses by normalized time (fastest first)
@@ -93,56 +132,145 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
         </CardContent>
       </Card>
 
-      {/* Results Table */}
-      <Card>
+      {/* Enhanced Results Table */}
+      <Card className="border-purple-200 shadow-lg">
         <CardHeader>
-          <CardTitle>Race Results (Sorted by Normalized Time)</CardTitle>
+          <CardTitle>Enhanced Race Analysis (Sorted by Normalized Time)</CardTitle>
         </CardHeader>
         
-        <CardContent>
+        <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">Pos</TableHead>
-                  <TableHead>Horse</TableHead>
-                  <TableHead>Driver</TableHead>
-                  <TableHead className="text-center">Post</TableHead>
-                  <TableHead className="text-right">RAW Time</TableHead>
-                  <TableHead className="text-right">Normalized</TableHead>
-                  <TableHead className="text-right">Difference</TableHead>
-                  <TableHead className="text-right">Total Adj</TableHead>
+                <TableRow className="bg-purple-50">
+                  <TableHead className="w-16 text-center">Rank</TableHead>
+                  <TableHead className="w-12 text-center">Start</TableHead>
+                  <TableHead className="min-w-[150px]">Horse & Driver</TableHead>
+                  <TableHead className="w-24 text-center">RAW Time (KM)</TableHead>
+                  <TableHead className="w-24 text-center font-bold">Modern Time (KM)</TableHead>
+                  <TableHead className="w-20 text-center">Start Points</TableHead>
+                  <TableHead className="w-20 text-center">Place %</TableHead>
+                  <TableHead className="w-20 text-center">Horse Win%</TableHead>
+                  <TableHead className="w-20 text-center">Earnings/Start</TableHead>
+                  <TableHead className="w-20 text-center">Driver 2025%</TableHead>
+                  <TableHead className="w-20 text-center">Sulky</TableHead>
+                  <TableHead className="w-24 text-center">Shoes</TableHead>
+                  <TableHead className="w-20 text-center">Home Track</TableHead>
+                  <TableHead className="w-20 text-center">Distance</TableHead>
+                  <TableHead className="w-24 text-center font-bold">Total Adj</TableHead>
                 </TableRow>
               </TableHeader>
               
               <TableBody>
                 {sortedHorses.map((horse, index) => {
                   const result = horse.modernNormalizedResult!;
-                  const rawSeconds = result.rawTime.minutes * 60 + result.rawTime.seconds + result.rawTime.tenths / 10;
-                  const normalizedSeconds = result.modernNormalizedTime.minutes * 60 + result.modernNormalizedTime.seconds + result.modernNormalizedTime.tenths / 10;
-                  const difference = normalizedSeconds - rawSeconds;
+                  const rank = index + 1;
+                  const isTopPerformer = rank <= 3;
                   
                   return (
-                    <TableRow key={horse.horseId}>
+                    <TableRow 
+                      key={horse.horseId}
+                      className={`${isTopPerformer ? 'bg-green-50/50 border-l-4 border-l-green-500' : ''} hover:bg-gray-50/50 transition-colors`}
+                    >
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {getRankIcon(rank)}
+                          <Badge className={getRankBadgeStyle(rank)}>
+                            {rank}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell className="text-center font-bold text-lg">
+                        {horse.postPosition}
+                      </TableCell>
+                      
                       <TableCell>
-                        <Badge className={getPositionColor(index + 1)}>
-                          {index + 1}
+                        <div className="space-y-1">
+                          <div className="font-medium text-gray-900">{horse.horseName}</div>
+                          <div className="text-sm text-gray-600">{horse.driverName}</div>
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell className="text-center">
+                        <div className="font-mono text-sm text-gray-700">
+                          {formatKmTime(result.rawTime)}
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell className="text-center">
+                        <div className={`font-mono text-sm font-bold ${isTopPerformer ? 'text-green-700' : 'text-gray-900'}`}>
+                          {formatKmTime(result.modernNormalizedTime)}
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell className="text-center">
+                        <span className="text-sm font-medium text-blue-700">
+                          {horse.statistics?.startPoints || '-'}
+                        </span>
+                      </TableCell>
+                      
+                      <TableCell className="text-center">
+                        <span className="text-sm font-medium text-indigo-700">
+                          {horse.statistics?.placePercentage ? (horse.statistics.placePercentage / 100).toFixed(1) + '%' : '-'}
+                        </span>
+                      </TableCell>
+                      
+                      <TableCell className="text-center">
+                        <span className="text-sm font-medium text-purple-700">
+                          {horse.statistics?.winPercentage ? (horse.statistics.winPercentage / 100).toFixed(1) + '%' : '-'}
+                        </span>
+                      </TableCell>
+                      
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Banknote className="h-3 w-3 text-amber-500" />
+                          <span className="text-sm font-medium text-amber-700">
+                            {horse.statistics?.earningsPerStart ? formatEarnings(horse.statistics.earningsPerStart) : '-'}
+                          </span>
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Zap className="h-3 w-3 text-green-500" />
+                          <span className="text-sm font-bold text-green-700">
+                            {horse.driver2025WinPercentage ? (horse.driver2025WinPercentage / 100).toFixed(1) + '%' : '-'}
+                          </span>
+                        </div>
+                      </TableCell>
+                      
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="text-xs border-gray-300">
+                          {horse.sulkyType || 'VA'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-medium">{horse.horseName}</TableCell>
-                      <TableCell>{horse.driverName}</TableCell>
-                      <TableCell className="text-center">{horse.postPosition}</TableCell>
-                      <TableCell className="text-right font-mono">
-                        {formatKmTime(result.rawTime)}
+                      
+                      <TableCell className="text-center">
+                        <span className={`text-xs font-medium ${getShoesColor(horse.shoesFront || false, horse.shoesBack || false)}`}>
+                          {getShoesDisplay(horse.shoesFront || false, horse.shoesBack || false)}
+                        </span>
                       </TableCell>
-                      <TableCell className="text-right font-mono font-bold text-purple-600">
-                        {formatKmTime(result.modernNormalizedTime)}
+                      
+                      <TableCell className="text-center">
+                        <span className="text-xs text-gray-600">
+                          {horse.homeTrack || 'Unknown'}
+                        </span>
                       </TableCell>
-                      <TableCell className={`text-right font-mono ${difference >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {formatAdjustment(difference)}
+                      
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Ruler className="h-3 w-3 text-blue-500" />
+                          <span className="text-xs font-medium text-blue-700">
+                            {horse.distance}m
+                          </span>
+                        </div>
                       </TableCell>
-                      <TableCell className="text-right font-mono text-sm text-gray-600">
-                        {formatAdjustment(result.adjustments.total)}
+                      
+                      <TableCell className="text-center">
+                        <span className={`text-sm font-mono font-bold ${isTopPerformer ? 'text-green-700' : 'text-gray-600'}`}>
+                          {formatAdjustment(result.adjustments.total)}
+                        </span>
                       </TableCell>
                     </TableRow>
                   );
@@ -151,13 +279,25 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                 {horsesWithoutTimes.map(horse => (
                   <TableRow key={horse.horseId} className="opacity-50">
                     <TableCell>-</TableCell>
-                    <TableCell className="font-medium">{horse.horseName}</TableCell>
-                    <TableCell>{horse.driverName}</TableCell>
                     <TableCell className="text-center">{horse.postPosition}</TableCell>
-                    <TableCell className="text-right text-gray-400">No data</TableCell>
-                    <TableCell className="text-right text-gray-400">No data</TableCell>
-                    <TableCell className="text-right text-gray-400">-</TableCell>
-                    <TableCell className="text-right text-gray-400">-</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="font-medium text-gray-900">{horse.horseName}</div>
+                        <div className="text-sm text-gray-600">{horse.driverName}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center text-gray-400">No data</TableCell>
+                    <TableCell className="text-center text-gray-400">No data</TableCell>
+                    <TableCell className="text-center text-gray-400">-</TableCell>
+                    <TableCell className="text-center text-gray-400">-</TableCell>
+                    <TableCell className="text-center text-gray-400">-</TableCell>
+                    <TableCell className="text-center text-gray-400">-</TableCell>
+                    <TableCell className="text-center text-gray-400">-</TableCell>
+                    <TableCell className="text-center text-gray-400">-</TableCell>
+                    <TableCell className="text-center text-gray-400">-</TableCell>
+                    <TableCell className="text-center text-gray-400">-</TableCell>
+                    <TableCell className="text-center text-gray-400">-</TableCell>
+                    <TableCell className="text-center text-gray-400">-</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -165,72 +305,14 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
           </div>
           
           {horsesWithoutTimes.length > 0 && (
-            <p className="text-sm text-gray-500 mt-4">
-              {horsesWithoutTimes.length} horse(s) could not be analyzed due to insufficient historical data.
-            </p>
+            <div className="p-4 bg-gray-50 border-t">
+              <p className="text-sm text-gray-500">
+                {horsesWithoutTimes.length} horse(s) could not be analyzed due to insufficient historical data.
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
-
-      {/* Detailed Adjustments */}
-      {sortedHorses.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Detailed Adjustments</CardTitle>
-          </CardHeader>
-          
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Horse</TableHead>
-                    <TableHead className="text-right">Post Pos</TableHead>
-                    <TableHead className="text-right">Equipment</TableHead>
-                    <TableHead className="text-right">Driver</TableHead>
-                    <TableHead className="text-right">Driver 2025</TableHead>
-                    <TableHead className="text-right">Distance</TableHead>
-                    <TableHead className="text-right">Race Type</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                
-                <TableBody>
-                  {sortedHorses.slice(0, 5).map(horse => {
-                    const adj = horse.modernNormalizedResult!.adjustments;
-                    return (
-                      <TableRow key={horse.horseId}>
-                        <TableCell className="font-medium">{horse.horseName}</TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatAdjustment(adj.postPosition)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatAdjustment(adj.equipment)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatAdjustment(adj.driver)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatAdjustment(adj.driver2025)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatAdjustment(adj.distance)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm">
-                          {formatAdjustment(adj.raceType)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-sm font-bold">
-                          {formatAdjustment(adj.total)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };
