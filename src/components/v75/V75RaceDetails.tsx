@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,6 +8,24 @@ import { V75RaceResult } from './hooks/useV75Analysis';
 interface V75RaceDetailsProps {
   race: V75RaceResult;
 }
+
+// Final safety function to ensure we never render an object as React child
+const ensureStringForDisplay = (value: any): string => {
+  if (typeof value === 'string') {
+    return value;
+  }
+  
+  if (value && typeof value === 'object') {
+    if ('name' in value && typeof value.name === 'string') {
+      return value.name;
+    }
+    if ('id' in value && 'name' in value) {
+      return String(value.name || 'Unknown Horse');
+    }
+  }
+  
+  return String(value || 'Unknown Horse');
+};
 
 const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
   const formatKmTime = (time: { minutes: number; seconds: number; tenths: number }) => {
@@ -167,7 +184,9 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                   const rank = index + 1;
                   const isTopPerformer = rank <= 3;
                   
-                  console.log('Rendering horse name:', horse.horseName, 'Type:', typeof horse.horseName);
+                  // Ensure horse name is always a string before rendering
+                  const safeHorseName = ensureStringForDisplay(horse.horseName);
+                  console.log('Final render check - Horse name:', safeHorseName, 'Original:', horse.horseName, 'Type:', typeof horse.horseName);
                   
                   return (
                     <TableRow 
@@ -189,7 +208,7 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                       
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="font-medium text-gray-900">{horse.horseName}</div>
+                          <div className="font-medium text-gray-900">{safeHorseName}</div>
                           <div className="text-sm text-gray-600">{horse.driverName}</div>
                         </div>
                       </TableCell>
@@ -279,13 +298,16 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                 })}
                 
                 {horsesWithoutTimes.map(horse => {
+                  // Ensure horse name is always a string for horses without times too
+                  const safeHorseName = ensureStringForDisplay(horse.horseName);
+                  
                   return (
                     <TableRow key={horse.horseId} className="opacity-50">
                       <TableCell>-</TableCell>
                       <TableCell className="text-center">{horse.postPosition}</TableCell>
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="font-medium text-gray-900">{horse.horseName}</div>
+                          <div className="font-medium text-gray-900">{safeHorseName}</div>
                           <div className="text-sm text-gray-600">{horse.driverName}</div>
                         </div>
                       </TableCell>
