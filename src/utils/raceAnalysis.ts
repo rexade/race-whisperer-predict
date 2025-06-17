@@ -24,10 +24,14 @@ export interface RaceData {
 }
 
 /**
- * Simplified normalization formula for RAW time calculation:
+ * Normalization formula with 2140m as reference point:
  * 1. Convert all times to seconds
- * 2. If 1640m autostart: add 3.6 seconds
- * 3. If volte start: subtract 1 second (normalizing to auto equivalent)
+ * 2. Apply distance-based adjustments to normalize to 2140m:
+ *    - Distance difference in km × 2.7 seconds per km
+ *    - 1640m: Add 1.35s (shorter distance, so slower normalized time)
+ *    - 2140m: No adjustment (reference distance)
+ *    - 2640m: Subtract 1.35s (longer distance, so faster normalized time)
+ * 3. If volte start: subtract 1 second (normalize to auto)
  */
 export const normalizeTimeSimplified = (
   timeSeconds: number,
@@ -36,12 +40,17 @@ export const normalizeTimeSimplified = (
 ): number => {
   let normalizedTime = timeSeconds;
   
-  // Step 1: If 1640m autostart, add 3.6 seconds
-  if (distance === 1640 && startMethod.toLowerCase() === "auto") {
-    normalizedTime += 3.6;
-  }
+  // Step 1: Apply distance-based adjustments to normalize to 2140m
+  const referenceDistance = 2140; // Our reference point
+  const distanceDifferenceKm = (distance - referenceDistance) / 1000;
+  const distanceAdjustment = distanceDifferenceKm * 2.7;
   
-  // Step 2: If volte start, subtract 1 second (normalizing to auto equivalent)
+  // Subtract the adjustment because:
+  // - If race is shorter than 2140m (negative difference), we add time (make it slower)
+  // - If race is longer than 2140m (positive difference), we subtract time (make it faster)
+  normalizedTime -= distanceAdjustment;
+  
+  // Step 2: If volte start, subtract 1 second (normalize to auto)
   if (startMethod.toLowerCase() === "volte") {
     normalizedTime -= 1.0;
   }
