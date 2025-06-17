@@ -1,6 +1,21 @@
-
 import { KmTime, addSecondsToKmTime, subtractSecondsFromKmTime, kmTimeToSeconds, cloneKmTime } from './utils/kmTimeUtils';
-import { ModernKmNormalizedResult } from './types/kmTimeTypes';
+
+export interface ModernKmNormalizedResult {
+  rawTime: KmTime;
+  modernNormalizedTime: KmTime;
+  adjustments: {
+    postPosition: number;
+    equipment: number;
+    driver: number;
+    driver2025: number;
+    track: number;
+    form: number;
+    distance: number;
+    raceType: number;
+    timeOfDay: number;
+    total: number;
+  };
+}
 
 export interface ModernNormalizationFactors {
   postPosition: number;

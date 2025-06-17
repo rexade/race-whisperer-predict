@@ -1,8 +1,11 @@
 
 import { ATGStartInfo } from './atgApi';
 import { HorseRawTime } from './types/timeProcessorTypes';
+import { HorseRawKmTime } from './types/kmTimeTypes';
 import { processHorseTimes } from './horseProcessing';
+import { processHorseKmTimes } from './horseProcessing';
 import { fetchHorseHistoricalData, processHistoricalRecords } from './atgHistoricalApi';
+import { kmTimeToSeconds } from './utils/kmTimeUtils';
 
 // Re-export types and utilities for backward compatibility
 export type { ProcessedTime, HorseRawTime } from './types/timeProcessorTypes';

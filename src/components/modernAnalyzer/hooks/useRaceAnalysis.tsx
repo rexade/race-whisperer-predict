@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { fetchEnhancedRaceData, EnhancedHorseData } from '../../../services/enhancedAtgApi';
@@ -6,11 +5,10 @@ import { calculateRawKmTimesForRaceWithId } from '../../../services/kmTimeProces
 import { validateRaceData, fixRaceDataIssues } from '../../../services/raceDataValidator';
 import { 
   applyModernKmNormalization,
-  ModernKmNormalizedResult, 
   NormalizationWeights,
   ModernNormalizationFactors
 } from '../../../services/modernKmNormalization';
-import { KmTime } from '../../../services/types/kmTimeTypes';
+import { ModernKmNormalizedResult, KmTime } from '../../../services/types/kmTimeTypes';
 
 // Enhanced horse data with KM time
 interface EnhancedHorseDataWithKmTime extends EnhancedHorseData {
