@@ -1,3 +1,4 @@
+
 import { KmTime, addSecondsToKmTime, subtractSecondsFromKmTime, kmTimeToSeconds, cloneKmTime } from './utils/kmTimeUtils';
 
 export interface ModernKmNormalizedResult {
@@ -150,8 +151,8 @@ export const applyModernKmNormalization = (
   const isVolteStart = startMethodLower.includes("volte") || startMethodLower === "v";
   
   if (isVolteStart) {
-    baseNormalizedTime = subtractSecondsFromKmTime(baseNormalizedTime, 1.0);
-    console.log(`🔥 VOLTE START DETECTED (${factors.startMethod}) - Applied 1.0s baseline penalty → ${baseNormalizedTime.minutes}:${baseNormalizedTime.seconds.toString().padStart(2, '0')}.${baseNormalizedTime.tenths}`);
+    baseNormalizedTime = addSecondsToKmTime(baseNormalizedTime, 1.0);
+    console.log(`🔥 VOLTE START DETECTED (${factors.startMethod}) - Added 1.0s penalty (raw time assumes auto) → ${baseNormalizedTime.minutes}:${baseNormalizedTime.seconds.toString().padStart(2, '0')}.${baseNormalizedTime.tenths}`);
   } else {
     console.log(`Auto start detected (${factors.startMethod}) - No volte penalty applied`);
   }
