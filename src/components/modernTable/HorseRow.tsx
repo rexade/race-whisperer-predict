@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Badge } from "@/components/ui/badge";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -32,7 +33,7 @@ const ensureStringForDisplay = (value: any): string => {
     console.error('❌ HorseRow - Horse name is an object but no valid name found:', JSON.stringify(value));
   }
   
-  return String(value || 'Unknown Horse');
+  return String(value || 'Unknown');
 };
 
 const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
@@ -93,7 +94,11 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
 
   // Ensure horse name is safely extracted as string
   const safeHorseName = ensureStringForDisplay(horse.name);
+  const safeDriverFirstName = ensureStringForDisplay(horse.driver.firstName);
+  const safeDriverLastName = ensureStringForDisplay(horse.driver.lastName);
+  
   console.log('🛡️ HorseRow - Final safety check, horse name:', safeHorseName, 'Original:', horse.name);
+  console.log('🛡️ HorseRow - Driver names:', safeDriverFirstName, safeDriverLastName);
 
   return (
     <TableRow 
@@ -116,7 +121,7 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
         <div className="space-y-1">
           <div className="font-medium text-gray-900">{safeHorseName}</div>
           <div className="text-sm text-gray-600">
-            {horse.driver.firstName} {horse.driver.lastName}
+            {safeDriverFirstName} {safeDriverLastName}
           </div>
         </div>
       </TableCell>
