@@ -4,8 +4,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Trophy } from "lucide-react";
-import { format, addMonths, subMonths } from "date-fns";
+import { CalendarIcon, Trophy, AlertCircle, Info } from "lucide-react";
+import { format, addMonths, subMonths, isBefore, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { fetchV75CalendarDates, V75CalendarDate } from '../../services/v75CalendarApi';
 
@@ -24,15 +24,23 @@ const V75DatePicker: React.FC<V75DatePickerProps> = ({
   const [v75Dates, setV75Dates] = useState<V75CalendarDate[]>([]);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [apiError, setApiError] = useState(false);
 
   const loadV75Dates = async (date: Date) => {
     setLoading(true);
+    setApiError(false);
+    
     try {
       const dates = await fetchV75CalendarDates(date.getFullYear(), date.getMonth() + 1);
       setV75Dates(dates);
+      
+      if (dates.length === 0) {
+        console.log(`No V75 dates found for ${format(date, 'MMMM yyyy')}`);
+      }
     } catch (error) {
       console.error('Error loading V75 dates:', error);
       setV75Dates([]);
+      setApiError(true);
     } finally {
       setLoading(false);
     }
@@ -81,6 +89,9 @@ const V75DatePicker: React.FC<V75DatePickerProps> = ({
   const selectedV75Data = selectedDate 
     ? v75Dates.find(v75 => v75.date === format(selectedDate, 'yyyy-MM-dd'))
     : undefined;
+
+  // Check if we should show historical data hint
+  const isCurrentOrFutureMonth = !isBefore(currentMonth, startOfDay(new Date()));
 
   return (
     <div className="space-y-4">
@@ -154,17 +165,39 @@ const V75DatePicker: React.FC<V75DatePickerProps> = ({
                   className={cn("p-3 pointer-events-auto")}
                 />
                 
-                <div className="mt-3 p-2 bg-purple-50 rounded-md">
-                  <div className="flex items-center gap-2 text-xs text-purple-700">
-                    <Trophy className="h-3 w-3" />
-                    <span>Purple dates have V75 races</span>
+                {apiError && isCurrentOrFutureMonth ? (
+                  <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+                    <div className="flex items-center gap-2 text-xs text-yellow-700">
+                      <AlertCircle className="h-3 w-3" />
+                      <span>No V75 data available for future dates</span>
+                    </div>
+                    <div className="text-xs text-yellow-600 mt-1">
+                      Try selecting a previous month with historical data
+                    </div>
                   </div>
-                  {v75Dates.length > 0 && (
+                ) : v75Dates.length > 0 ? (
+                  <div className="mt-3 p-2 bg-purple-50 rounded-md">
+                    <div className="flex items-center gap-2 text-xs text-purple-700">
+                      <Trophy className="h-3 w-3" />
+                      <span>Purple dates have V75 races</span>
+                    </div>
                     <div className="text-xs text-gray-600 mt-1">
                       {v75Dates.length} V75 date(s) available this month
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 p-2 bg-gray-50 border border-gray-200 rounded-md">
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <Info className="h-3 w-3" />
+                      <span>No V75 races found this month</span>
+                    </div>
+                    {isCurrentOrFutureMonth && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        Try previous months for historical V75 data
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>
