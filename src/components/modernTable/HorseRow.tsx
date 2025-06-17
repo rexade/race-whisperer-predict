@@ -107,7 +107,7 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
       
       <TableCell className="text-center">
         <span className="text-sm font-medium text-purple-700">
-          {(horse.statistics.winPercentage / 100).toFixed(1)}%
+          {(horse.statistics.winPercentage / 10000).toFixed(1)}%
         </span>
       </TableCell>
       
