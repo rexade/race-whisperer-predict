@@ -1,4 +1,5 @@
 
+
 import { ATGStartInfo } from './atgApi';
 import { HorseRawTime } from './types/timeProcessorTypes';
 import { processHorseTimes } from './horseProcessing';
@@ -10,6 +11,29 @@ export type { ProcessedTime, HorseRawTime } from './types/timeProcessorTypes';
 export { convertKmTimeToSeconds } from './utils/timeConversion';
 export { normalizeTimeSimplified } from './utils/timeNormalization';
 export { processHorseTimes } from './horseProcessing';
+
+/**
+ * Converts HorseRawKmTime to legacy HorseRawTime format (seconds-based)
+ */
+const convertKmTimeToLegacyFormat = (horseKmTime: any): HorseRawTime => {
+  const legacyTimes = horseKmTime.allTimes.map((kmTime: any) => ({
+    originalTime: kmTimeToSeconds(kmTime.originalTime),
+    normalizedTime: kmTimeToSeconds(kmTime.normalizedTime),
+    raceDate: kmTime.raceDate,
+    distance: kmTime.distance,
+    startMethod: kmTime.startMethod,
+    finishOrder: kmTime.finishOrder,
+    valid: kmTime.valid
+  }));
+
+  return {
+    horseId: horseKmTime.horseId,
+    horseName: horseKmTime.horseName,
+    allTimes: legacyTimes,
+    best3Average: kmTimeToSeconds(horseKmTime.best3Average),
+    validTimesCount: horseKmTime.validTimesCount
+  };
+};
 
 export const calculateRawTimesForRace = async (
   starts: ATGStartInfo[],
@@ -65,12 +89,14 @@ export const calculateRawTimesForRace = async (
       }));
       
       // Process the times using existing logic - CALCULATE RAW TIME ONLY
-      const horseRawTime = await processHorseTimes(
+      const horseKmTime = await processHorseTimes(
         start.horse.id,
         start.horse.name,
         historicalRaces
       );
       
+      // Convert KM time result to legacy seconds format
+      const horseRawTime = convertKmTimeToLegacyFormat(horseKmTime);
       rawTimes.push(horseRawTime);
       
       // THROW AWAY HISTORICAL DATA - IT'S ONLY FOR RAW TIME CALCULATION
@@ -163,12 +189,14 @@ export const calculateRawTimesForRaceWithId = async (
       }));
       
       // Process the times using existing logic - CALCULATE RAW TIME ONLY
-      const horseRawTime = await processHorseTimes(
+      const horseKmTime = await processHorseTimes(
         start.horse.id,
         start.horse.name,
         historicalRaces
       );
       
+      // Convert KM time result to legacy seconds format
+      const horseRawTime = convertKmTimeToLegacyFormat(horseKmTime);
       rawTimes.push(horseRawTime);
       
       // THROW AWAY HISTORICAL DATA - NEVER TOUCH AGAIN
@@ -208,3 +236,4 @@ export const calculateRawTimesForRaceWithId = async (
 
   return rawTimes;
 };
+
