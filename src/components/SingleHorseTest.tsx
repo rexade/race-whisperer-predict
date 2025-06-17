@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Clock, Calculator, CheckCircle, AlertCircle } from "lucide-react";
+import { normalizeTimeSimplified, convertKmTimeToSeconds } from '../services/timeProcessor';
 
 interface HistoricalRace {
   date: string;
@@ -163,36 +164,6 @@ const SingleHorseTest: React.FC = () => {
     ];
     
     return races;
-  };
-
-  const convertKmTimeToSeconds = (kmTime: { minutes: number; seconds: number; tenths: number }): number => {
-    return kmTime.minutes * 60 + kmTime.seconds + kmTime.tenths / 10;
-  };
-
-  const normalizeTimeSimplified = (
-    timeSeconds: number,
-    distance: number,
-    startMethod: string
-  ): number => {
-    console.log(`\n--- Normalizing Time ---`);
-    console.log(`Original time: ${timeSeconds}s, Distance: ${distance}m, Start: ${startMethod}`);
-    
-    let normalizedTime = timeSeconds;
-    
-    // Step 1: If 1640m autostart, add 3.6 seconds
-    if (distance === 1640 && startMethod.toLowerCase() === "auto") {
-      normalizedTime += 3.6;
-      console.log(`1640m autostart adjustment: +3.6s → ${normalizedTime}s`);
-    }
-    
-    // Step 2: If volte start, subtract 1 second (normalize to auto)
-    if (startMethod.toLowerCase() === "volte") {
-      normalizedTime -= 1.0;
-      console.log(`Volte start adjustment: -1.0s → ${normalizedTime}s`);
-    }
-    
-    console.log(`Final normalized time: ${normalizedTime}s`);
-    return Math.round(normalizedTime * 10) / 10; // Round to 1 decimal place
   };
 
   const calculateRawTimeFromHistory = (historicalRaces: HistoricalRace[]) => {
