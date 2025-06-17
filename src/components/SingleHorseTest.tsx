@@ -168,10 +168,10 @@ const SingleHorseTest: React.FC = () => {
     console.log(`Found ${atgData.horse.results.records.length} total records from ATG API`);
     debugMessages.push(`Found ${atgData.horse.results.records.length} total records`);
     
-    // Calculate date 8 months ago
-    const eightMonthsAgo = new Date();
-    eightMonthsAgo.setMonth(eightMonthsAgo.getMonth() - 8);
-    const cutoffDate = eightMonthsAgo.toISOString().split('T')[0];
+    // Calculate date 12 months ago (1 year)
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+    const cutoffDate = twelveMonthsAgo.toISOString().split('T')[0];
     console.log(`Filtering races newer than: ${cutoffDate}`);
     debugMessages.push(`Filtering races newer than: ${cutoffDate}`);
     
@@ -189,7 +189,7 @@ const SingleHorseTest: React.FC = () => {
       
       // Check date filter
       const raceDate = new Date(record.date);
-      const isWithin8Months = raceDate >= eightMonthsAgo;
+      const isWithin12Months = raceDate >= twelveMonthsAgo;
       
       // Check time validity - more flexible approach
       const hasValidTime = record.kmTime && 
@@ -217,13 +217,13 @@ const SingleHorseTest: React.FC = () => {
         record.start?.postPosition;
       
       console.log(`Validation results:`);
-      console.log(`  - Within 8 months: ${isWithin8Months}`);
+      console.log(`  - Within 12 months: ${isWithin12Months}`);
       console.log(`  - Has valid time: ${hasValidTime}`);
       console.log(`  - Not DQ/galloped: ${isNotDisqualified}`);
       console.log(`  - Has valid place: ${hasValidPlace}`);
       console.log(`  - Has required fields: ${hasRequiredFields}`);
       
-      const isValidRace = isWithin8Months && hasValidTime && isNotDisqualified && hasValidPlace && hasRequiredFields;
+      const isValidRace = isWithin12Months && hasValidTime && isNotDisqualified && hasValidPlace && hasRequiredFields;
       console.log(`  - Overall valid: ${isValidRace}`);
       
       if (isValidRace) {
@@ -243,7 +243,7 @@ const SingleHorseTest: React.FC = () => {
         debugMessages.push(`✓ ${record.date}: Valid race added (${record.start.distance}m ${record.race.startMethod}, place ${record.place})`);
       } else {
         const reasons = [];
-        if (!isWithin8Months) reasons.push("too old");
+        if (!isWithin12Months) reasons.push("too old");
         if (!hasValidTime) reasons.push("invalid time");
         if (!isNotDisqualified) reasons.push("DQ/galloped");
         if (!hasValidPlace) reasons.push("invalid place");
