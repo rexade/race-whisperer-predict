@@ -1,10 +1,9 @@
 
 import { ATGHistoricalRace, ATGStartInfo } from './atgApi';
-import { normalizeKmTime } from '../utils/raceAnalysis';
 
 export interface ProcessedTime {
   originalTime: number; // in seconds
-  normalizedTime: number; // normalized to 2140m autostart
+  normalizedTime: number; // normalized using simplified formula
   raceDate: string;
   distance: number;
   startMethod: string;
@@ -16,12 +15,38 @@ export interface HorseRawTime {
   horseId: number;
   horseName: string;
   allTimes: ProcessedTime[];
-  top3Average: number;
+  best3Average: number;
   validTimesCount: number;
 }
 
 export const convertKmTimeToSeconds = (kmTime: { minutes: number; seconds: number; tenths: number }): number => {
   return kmTime.minutes * 60 + kmTime.seconds + kmTime.tenths / 10;
+};
+
+/**
+ * Simplified normalization formula:
+ * 1. Convert all times to seconds
+ * 2. If 1640m autostart: add 3.6 seconds
+ * 3. If volte start: add 1 second
+ */
+export const normalizeTimeSimplified = (
+  timeSeconds: number,
+  distance: number,
+  startMethod: string
+): number => {
+  let normalizedTime = timeSeconds;
+  
+  // Step 1: If 1640m autostart, add 3.6 seconds
+  if (distance === 1640 && startMethod.toLowerCase() === "auto") {
+    normalizedTime += 3.6;
+  }
+  
+  // Step 2: If volte start, add 1 second
+  if (startMethod.toLowerCase() === "volte") {
+    normalizedTime += 1.0;
+  }
+  
+  return Math.round(normalizedTime * 10) / 10; // Round to 1 decimal place
 };
 
 export const processHorseTimes = async (
@@ -31,34 +56,29 @@ export const processHorseTimes = async (
 ): Promise<HorseRawTime> => {
   const processedTimes: ProcessedTime[] = [];
 
+  console.log(`\n=== Processing times for ${horseName} (ID: ${horseId}) ===`);
+
   for (const race of historicalRaces) {
     // Skip if no time recorded or horse was disqualified/galloped
     if (!race.kmTime || race.disqualified || race.galloped) {
+      console.log(`Skipping race ${race.date} - disqualified: ${race.disqualified}, galloped: ${race.galloped}`);
       continue;
     }
 
     const originalTimeSeconds = convertKmTimeToSeconds(race.kmTime);
     
-    // Normalize to 2140m autostart for comparison
-    const normalizedTime = normalizeKmTime(
+    // Apply simplified normalization
+    const normalizedTime = normalizeTimeSimplified(
       originalTimeSeconds,
-      false, // barefoot - would need equipment data
-      false, // shoe change - would need equipment data
-      "VA", // sulky type - would need equipment data
-      undefined, // driver win percentage - would need current driver stats
-      undefined, // final odds
-      race.postPosition,
-      race.startMethod.toLowerCase(),
       race.distance,
-      race.distance // horse distance same as race distance for historical data
+      race.startMethod
     );
 
-    // Apply target normalization to 2140m autostart
-    const targetNormalizedTime = normalizeToTarget(normalizedTime, race.distance, race.startMethod, 2140, "auto");
+    console.log(`${race.date}: ${originalTimeSeconds}s → ${normalizedTime}s (${race.distance}m ${race.startMethod})`);
 
     processedTimes.push({
       originalTime: originalTimeSeconds,
-      normalizedTime: targetNormalizedTime,
+      normalizedTime: normalizedTime,
       raceDate: race.date,
       distance: race.distance,
       startMethod: race.startMethod,
@@ -67,46 +87,25 @@ export const processHorseTimes = async (
     });
   }
 
-  // Sort by normalized time (best first)
+  // Sort by normalized time (best/fastest first)
   processedTimes.sort((a, b) => a.normalizedTime - b.normalizedTime);
 
-  // Calculate top 3 average
-  const top3Times = processedTimes.slice(0, 3);
-  const top3Average = top3Times.length > 0 
-    ? top3Times.reduce((sum, time) => sum + time.normalizedTime, 0) / top3Times.length
+  // Calculate best 3 average (RAW TIME)
+  const best3Times = processedTimes.slice(0, 3);
+  const best3Average = best3Times.length > 0 
+    ? best3Times.reduce((sum, time) => sum + time.normalizedTime, 0) / best3Times.length
     : 0;
+
+  console.log(`Best 3 times: ${best3Times.map(t => t.normalizedTime + 's').join(', ')}`);
+  console.log(`RAW Time (Best 3 Average): ${best3Average.toFixed(2)}s`);
 
   return {
     horseId,
     horseName,
     allTimes: processedTimes,
-    top3Average,
+    best3Average,
     validTimesCount: processedTimes.length
   };
-};
-
-// Helper function to normalize times to a target distance and start method
-const normalizeToTarget = (
-  normalizedTime: number,
-  originalDistance: number,
-  originalStartMethod: string,
-  targetDistance: number,
-  targetStartMethod: string
-): number => {
-  let adjustment = 0;
-
-  // Distance scaling
-  const distanceRatio = targetDistance / originalDistance;
-  let scaledTime = normalizedTime * distanceRatio;
-
-  // Start method adjustment
-  if (originalStartMethod.toLowerCase() === "volte" && targetStartMethod === "auto") {
-    adjustment += 1.0; // Volte is typically faster
-  } else if (originalStartMethod.toLowerCase() === "auto" && targetStartMethod === "volte") {
-    adjustment -= 1.0;
-  }
-
-  return scaledTime + adjustment;
 };
 
 export const calculateRawTimesForRace = async (
@@ -114,6 +113,8 @@ export const calculateRawTimesForRace = async (
   progressCallback?: (current: number, total: number) => void
 ): Promise<HorseRawTime[]> => {
   const rawTimes: HorseRawTime[] = [];
+
+  console.log(`\n=== Calculating RAW times for ${starts.length} horses ===`);
 
   for (let i = 0; i < starts.length; i++) {
     const start = starts[i];
@@ -142,31 +143,58 @@ export const calculateRawTimesForRace = async (
         horseId: start.horse.id,
         horseName: start.horse.name,
         allTimes: [],
-        top3Average: 0,
+        best3Average: 0,
         validTimesCount: 0
       });
     }
   }
 
+  // Sort by RAW time (best first)
+  rawTimes.sort((a, b) => {
+    if (a.best3Average === 0 && b.best3Average === 0) return 0;
+    if (a.best3Average === 0) return 1;
+    if (b.best3Average === 0) return -1;
+    return a.best3Average - b.best3Average;
+  });
+
+  console.log(`\n=== Final RAW Time Rankings ===`);
+  rawTimes.forEach((horse, index) => {
+    if (horse.best3Average > 0) {
+      console.log(`${index + 1}. ${horse.horseName}: ${horse.best3Average.toFixed(2)}s (${horse.validTimesCount} races)`);
+    }
+  });
+
   return rawTimes;
 };
 
-// Temporary function to simulate historical data
+// Temporary function to simulate historical data with varied distances and start methods
 // This should be replaced with actual API calls once we have the correct endpoints
 const generateSimulatedHistory = (horseId: number, horseName: string): ATGHistoricalRace[] => {
   const races: ATGHistoricalRace[] = [];
-  const raceCount = Math.floor(Math.random() * 10) + 5; // 5-14 historical races
+  const raceCount = Math.floor(Math.random() * 8) + 6; // 6-13 historical races
+
+  const distances = [1640, 2140, 2640];
+  const startMethods = ["auto", "volte"];
+  const tracks = ["Solvalla", "Åby", "Jägersro", "Mantorp", "Bergsåker"];
 
   for (let i = 0; i < raceCount; i++) {
     const date = new Date();
-    date.setDate(date.getDate() - (i * 14 + Math.random() * 14)); // Every 2-4 weeks
+    date.setDate(date.getDate() - (i * 10 + Math.random() * 10)); // Every 10-20 days
     
-    const distances = [1640, 2140, 2640, 3140];
     const distance = distances[Math.floor(Math.random() * distances.length)];
-    const startMethod = Math.random() > 0.3 ? "auto" : "volte";
+    const startMethod = startMethods[Math.floor(Math.random() * startMethods.length)];
+    const track = tracks[Math.floor(Math.random() * tracks.length)];
     
-    // Generate realistic time based on distance
-    const baseTime = (distance / 1640) * 75; // ~75 seconds for 1640m
+    // Generate realistic time based on distance and start method
+    let baseTime;
+    if (distance === 1640) {
+      baseTime = startMethod === "auto" ? 72 : 70; // ~72s for 1640m auto, ~70s for volte
+    } else if (distance === 2140) {
+      baseTime = startMethod === "auto" ? 75 : 73; // ~75s for 2140m auto, ~73s for volte
+    } else { // 2640
+      baseTime = startMethod === "auto" ? 78 : 76; // ~78s for 2640m auto, ~76s for volte
+    }
+    
     const variation = Math.random() * 4 - 2; // +/- 2 seconds variation
     const totalSeconds = baseTime + variation;
     
@@ -179,12 +207,12 @@ const generateSimulatedHistory = (horseId: number, horseName: string): ATGHistor
       date: date.toISOString().split('T')[0],
       distance,
       startMethod,
-      track: "Solvalla",
+      track,
       kmTime: { minutes, seconds, tenths },
       finishOrder: Math.floor(Math.random() * 12) + 1,
       postPosition: Math.floor(Math.random() * 12) + 1,
-      galloped: Math.random() < 0.05,
-      disqualified: Math.random() < 0.02
+      galloped: Math.random() < 0.03, // 3% chance of galloping
+      disqualified: Math.random() < 0.01 // 1% chance of disqualification
     });
   }
 

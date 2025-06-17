@@ -78,8 +78,7 @@ const SingleHorseTest: React.FC = () => {
       
       setHorseData(data);
       
-      // For now, we'll use simulated historical data since we don't have the horse history endpoint
-      // In a real implementation, you'd fetch the horse's racing history here
+      // Generate simulated historical data and calculate RAW time
       const simulatedHistory = generateSimulatedHistoryForHorse(data.horse.id, data.horse.name);
       calculateRawTimeFromHistory(simulatedHistory);
       
@@ -94,7 +93,7 @@ const SingleHorseTest: React.FC = () => {
   const generateSimulatedHistoryForHorse = (horseId: number, horseName: string): HistoricalRace[] => {
     console.log(`Generating simulated history for ${horseName} (ID: ${horseId})`);
     
-    // Simulate realistic harness racing history
+    // Simulate realistic harness racing history with varied distances and start methods
     const races: HistoricalRace[] = [
       {
         date: "2024-06-10",
@@ -131,10 +130,10 @@ const SingleHorseTest: React.FC = () => {
       },
       {
         date: "2024-05-01",
-        distance: 2640,
+        distance: 1640,
         startMethod: "auto",
         track: "Jägersro",
-        kmTime: { minutes: 1, seconds: 17, tenths: 9 },
+        kmTime: { minutes: 1, seconds: 11, tenths: 9 },
         finishOrder: 4,
         postPosition: 8,
         galloped: false,
@@ -143,11 +142,22 @@ const SingleHorseTest: React.FC = () => {
       {
         date: "2024-04-18",
         distance: 2140,
-        startMethod: "auto",
+        startMethod: "volte",
         track: "Solvalla",
         kmTime: { minutes: 1, seconds: 16, tenths: 1 },
         finishOrder: 6,
         postPosition: 11,
+        galloped: false,
+        disqualified: false
+      },
+      {
+        date: "2024-04-05",
+        distance: 1640,
+        startMethod: "volte",
+        track: "Mantorp",
+        kmTime: { minutes: 1, seconds: 13, tenths: 5 },
+        finishOrder: 2,
+        postPosition: 4,
         galloped: false,
         disqualified: false
       }
@@ -160,44 +170,34 @@ const SingleHorseTest: React.FC = () => {
     return kmTime.minutes * 60 + kmTime.seconds + kmTime.tenths / 10;
   };
 
-  const normalizeToStandard = (
+  const normalizeTimeSimplified = (
     timeSeconds: number,
-    originalDistance: number,
-    originalStartMethod: string,
-    postPosition: number
+    distance: number,
+    startMethod: string
   ): number => {
-    let adjustedTime = timeSeconds;
+    console.log(`\n--- Normalizing Time ---`);
+    console.log(`Original time: ${timeSeconds}s, Distance: ${distance}m, Start: ${startMethod}`);
     
-    console.log(`\nOriginal time: ${timeSeconds}s, Distance: ${originalDistance}m, Start: ${originalStartMethod}, Post: ${postPosition}`);
+    let normalizedTime = timeSeconds;
     
-    // Distance normalization to 2140m
-    const distanceRatio = 2140 / originalDistance;
-    adjustedTime = adjustedTime * distanceRatio;
-    console.log(`After distance normalization (${distanceRatio.toFixed(3)}x): ${adjustedTime.toFixed(2)}s`);
-    
-    // Start method adjustment
-    if (originalStartMethod === "volte") {
-      adjustedTime += 1.0;
-      console.log(`After volte adjustment (+1.0s): ${adjustedTime.toFixed(2)}s`);
+    // Step 1: If 1640m autostart, add 3.6 seconds
+    if (distance === 1640 && startMethod.toLowerCase() === "auto") {
+      normalizedTime += 3.6;
+      console.log(`1640m autostart adjustment: +3.6s → ${normalizedTime}s`);
     }
     
-    // Post position adjustment for auto start
-    if (originalStartMethod === "auto") {
-      const postAdjustments = {
-        1: 0.1, 2: 0.05, 3: 0.0, 4: -0.05, 5: -0.2,
-        6: -0.05, 7: 0.0, 8: 0.1, 9: 0.15, 10: 0.15,
-        11: 0.2, 12: 0.3
-      };
-      const postAdjustment = postAdjustments[postPosition as keyof typeof postAdjustments] || 0;
-      adjustedTime += postAdjustment;
-      console.log(`After post position adjustment (${postAdjustment > 0 ? '+' : ''}${postAdjustment}s): ${adjustedTime.toFixed(2)}s`);
+    // Step 2: If volte start, add 1 second
+    if (startMethod.toLowerCase() === "volte") {
+      normalizedTime += 1.0;
+      console.log(`Volte start adjustment: +1.0s → ${normalizedTime}s`);
     }
     
-    return Math.round(adjustedTime * 10) / 10;
+    console.log(`Final normalized time: ${normalizedTime}s`);
+    return Math.round(normalizedTime * 10) / 10; // Round to 1 decimal place
   };
 
   const calculateRawTimeFromHistory = (historicalRaces: HistoricalRace[]) => {
-    console.log("=== Starting RAW Time Calculation ===");
+    console.log("\n=== Starting Simplified RAW Time Calculation ===");
     const processed: ProcessedTime[] = [];
     
     for (const race of historicalRaces) {
@@ -208,11 +208,10 @@ const SingleHorseTest: React.FC = () => {
       }
       
       const originalTimeSeconds = convertKmTimeToSeconds(race.kmTime);
-      const normalizedTime = normalizeToStandard(
+      const normalizedTime = normalizeTimeSimplified(
         originalTimeSeconds,
         race.distance,
-        race.startMethod,
-        race.postPosition
+        race.startMethod
       );
       
       processed.push({
@@ -226,7 +225,7 @@ const SingleHorseTest: React.FC = () => {
       });
     }
     
-    // Sort by normalized time (best first)
+    // Sort by normalized time (best/fastest first)
     processed.sort((a, b) => a.normalizedTime - b.normalizedTime);
     
     console.log("\n=== All Valid Times (sorted by normalized time) ===");
@@ -234,18 +233,18 @@ const SingleHorseTest: React.FC = () => {
       console.log(`${index + 1}. ${time.raceDate}: ${time.originalTimeSeconds}s → ${time.normalizedTime}s (${time.distance}m ${time.startMethod})`);
     });
     
-    // Calculate top 3 average
-    const top3Times = processed.slice(0, 3);
-    const top3Average = top3Times.length > 0 
-      ? top3Times.reduce((sum, time) => sum + time.normalizedTime, 0) / top3Times.length
+    // Step 3: Take the best 3 times and calculate average
+    const best3Times = processed.slice(0, 3);
+    const rawTimeResult = best3Times.length > 0 
+      ? best3Times.reduce((sum, time) => sum + time.normalizedTime, 0) / best3Times.length
       : 0;
     
-    console.log(`\n=== RAW Time Calculation ===`);
-    console.log(`Top 3 times: ${top3Times.map(t => t.normalizedTime + 's').join(', ')}`);
-    console.log(`RAW Time (Top 3 Average): ${top3Average.toFixed(2)}s`);
+    console.log(`\n=== RAW Time Calculation (Simplified Formula) ===`);
+    console.log(`Best 3 normalized times: ${best3Times.map(t => t.normalizedTime + 's').join(', ')}`);
+    console.log(`RAW Time (Best 3 Average): ${rawTimeResult.toFixed(2)}s`);
     
     setProcessedTimes(processed);
-    setRawTime(top3Average);
+    setRawTime(rawTimeResult);
     setIsCalculated(true);
   };
 
@@ -262,11 +261,21 @@ const SingleHorseTest: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calculator className="h-5 w-5" />
-            ATG Horse RAW Time Test
+            Simplified RAW Time Calculator
           </CardTitle>
           <p className="text-gray-600">
-            Testing RAW time calculation using real ATG API data for race 2025-06-22_19_5, start #2
+            Testing simplified RAW time calculation using real ATG API data for race 2025-06-22_19_5, start #2
           </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2">
+            <h4 className="font-semibold text-blue-800 mb-2">Simplified Formula:</h4>
+            <ol className="text-sm text-blue-700 space-y-1">
+              <li>1. Convert all times to seconds</li>
+              <li>2. If 1640m autostart: add 3.6 seconds</li>
+              <li>3. If volte start: add 1 second</li>
+              <li>4. Take best 3 normalized times</li>
+              <li>5. Calculate average = RAW TIME</li>
+            </ol>
+          </div>
         </CardHeader>
         <CardContent>
           <Button onClick={fetchHorseData} disabled={loading} className="mb-4">
@@ -310,13 +319,13 @@ const SingleHorseTest: React.FC = () => {
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <CheckCircle className="h-5 w-5 text-green-600" />
-                  <h3 className="font-semibold text-green-800">RAW Time Result</h3>
+                  <h3 className="font-semibold text-green-800">RAW Time Result (Simplified)</h3>
                 </div>
                 <div className="text-2xl font-bold text-green-700">
                   {formatTime(rawTime)}
                 </div>
                 <p className="text-sm text-green-600">
-                  Based on top 3 normalized times from {processedTimes.length} valid races
+                  Based on best 3 normalized times from {processedTimes.length} valid races
                 </p>
                 {horseData && (
                   <p className="text-sm text-blue-600 mt-1">
@@ -326,11 +335,11 @@ const SingleHorseTest: React.FC = () => {
               </div>
               
               <div>
-                <h4 className="font-semibold mb-2">Historical Race Times (Normalized to 2140m Auto)</h4>
+                <h4 className="font-semibold mb-2">Historical Race Times (Simplified Normalization)</h4>
                 <div className="space-y-2">
                   {processedTimes.map((time, index) => (
                     <div key={index} className={`flex items-center justify-between p-3 rounded border ${
-                      index < 3 ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'
+                      index < 3 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
                     }`}>
                       <div>
                         <div className="font-medium">{time.raceDate}</div>
@@ -343,8 +352,8 @@ const SingleHorseTest: React.FC = () => {
                           {formatTime(time.originalTimeSeconds)} → {formatTime(time.normalizedTime)}
                         </div>
                         {index < 3 && (
-                          <Badge variant="secondary" className="text-xs">
-                            Top 3
+                          <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+                            Best 3
                           </Badge>
                         )}
                       </div>

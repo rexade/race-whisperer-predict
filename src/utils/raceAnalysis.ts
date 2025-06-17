@@ -5,13 +5,13 @@ export interface HorseData {
   driverWinPercentage: number;
   postPosition: number;
   normalizedTime: number;
-  rawTime: number; // New: The calculated RAW time (top 3 average)
+  rawTime: number; // The calculated RAW time using simplified formula
   bestTime?: number;
   recentStarts?: number;
   totalEarnings?: string;
   equipment?: string[];
-  horseId: number; // New: ATG horse ID
-  validHistoricalRaces: number; // New: Number of valid historical races used
+  horseId: number;
+  validHistoricalRaces: number;
 }
 
 export interface RaceData {
@@ -23,6 +23,33 @@ export interface RaceData {
   horses: HorseData[];
 }
 
+/**
+ * Simplified normalization formula for RAW time calculation:
+ * 1. Convert all times to seconds
+ * 2. If 1640m autostart: add 3.6 seconds
+ * 3. If volte start: add 1 second
+ */
+export const normalizeTimeSimplified = (
+  timeSeconds: number,
+  distance: number,
+  startMethod: string
+): number => {
+  let normalizedTime = timeSeconds;
+  
+  // Step 1: If 1640m autostart, add 3.6 seconds
+  if (distance === 1640 && startMethod.toLowerCase() === "auto") {
+    normalizedTime += 3.6;
+  }
+  
+  // Step 2: If volte start, add 1 second
+  if (startMethod.toLowerCase() === "volte") {
+    normalizedTime += 1.0;
+  }
+  
+  return Math.round(normalizedTime * 10) / 10;
+};
+
+// Keep the original complex normalization for other uses if needed
 export const normalizeKmTimeHistoric = (
   seconds: number,
   startMethod: string,
@@ -147,7 +174,7 @@ export const fetchRaceData = async (
         
         progressCallback?.(`Calculating RAW times for race ${i + 1}...`, 50 + (i / raceInfos.length) * 30);
         
-        // Calculate RAW times for all horses in this race
+        // Calculate RAW times for all horses in this race using simplified formula
         const rawTimes = await calculateRawTimesForRace(raceData.starts, (current, total) => {
           const raceProgress = 50 + (i / raceInfos.length) * 30;
           const horseProgress = (current / total) * (30 / raceInfos.length);
@@ -165,8 +192,8 @@ export const fetchRaceData = async (
             driver: driverName,
             driverWinPercentage: start.driver.statistics?.winPercentage || 0,
             postPosition: start.postPosition,
-            normalizedTime: rawTimeData?.top3Average || 0,
-            rawTime: rawTimeData?.top3Average || 0,
+            normalizedTime: rawTimeData?.best3Average || 0,
+            rawTime: rawTimeData?.best3Average || 0,
             horseId: start.horse.id,
             validHistoricalRaces: rawTimeData?.validTimesCount || 0,
             bestTime: rawTimeData?.allTimes[0]?.normalizedTime,
