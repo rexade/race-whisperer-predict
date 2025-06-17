@@ -51,13 +51,13 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
     const data = await response.json();
     console.log("ATG Race Data:", data);
     
-    // Extract race information
+    // Extract race information - race data is at root level, not nested under data.race
     const raceInfo = {
-      raceId: data.race.id,
-      raceNumber: data.race.number,
-      distance: data.race.distance,
-      startMethod: data.race.startMethod,
-      track: data.race.track,
+      raceId: data.id,
+      raceNumber: data.number,
+      distance: data.distance,
+      startMethod: data.startMethod,
+      track: data.track.name,
       horses: [] as EnhancedHorseData[]
     };
     
@@ -68,8 +68,8 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
           horseId: start.horse.id,
           name: start.horse.name,
           postPosition: start.postPosition,
-          distance: start.distance || data.race.distance,
-          startMethod: data.race.startMethod,
+          distance: start.distance || data.distance,
+          startMethod: data.startMethod,
           shoes: {
             front: start.horse.shoes?.front || "1",
             back: start.horse.shoes?.back || "1"
