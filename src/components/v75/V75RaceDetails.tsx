@@ -66,15 +66,44 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
     return "text-gray-600";
   };
 
-  // Helper function to safely extract horse name as string
+  // Enhanced helper function to safely extract horse name as string with debugging
   const getHorseNameAsString = (horseName: any): string => {
+    console.log('Processing horse name:', horseName, 'Type:', typeof horseName);
+    
+    // If it's already a string, return it
     if (typeof horseName === 'string') {
       return horseName;
     }
-    if (horseName && typeof horseName === 'object' && 'name' in horseName) {
-      return (horseName as any).name || 'Unknown Horse';
+    
+    // If it's null or undefined
+    if (!horseName) {
+      console.warn('Horse name is null/undefined, using fallback');
+      return 'Unknown Horse';
     }
-    return 'Unknown Horse';
+    
+    // If it's an object with name property
+    if (typeof horseName === 'object' && horseName !== null) {
+      if ('name' in horseName && typeof horseName.name === 'string') {
+        console.log('Extracted name from object:', horseName.name);
+        return horseName.name;
+      }
+      
+      // If it's an object with id and name
+      if ('id' in horseName && 'name' in horseName) {
+        const nameValue = (horseName as any).name;
+        if (typeof nameValue === 'string') {
+          console.log('Extracted name from id/name object:', nameValue);
+          return nameValue;
+        }
+      }
+      
+      console.warn('Horse name is an object but no valid name found:', horseName);
+      return 'Unknown Horse';
+    }
+    
+    // Fallback for any other type
+    console.warn('Horse name is unexpected type:', typeof horseName, horseName);
+    return String(horseName) || 'Unknown Horse';
   };
 
   // Sort horses by normalized time (fastest first)
