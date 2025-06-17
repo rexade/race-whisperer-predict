@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Badge } from "@/components/ui/badge";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -44,12 +45,12 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
     return adjustedEarnings.toFixed(0);
   };
 
-  const isBarefootFront = (shoes: string) => shoes === "0";
-  const isBarefootBack = (shoes: string) => shoes === "0";
+  const isBarefootFront = (hasShoe: boolean) => !hasShoe;
+  const isBarefootBack = (hasShoe: boolean) => !hasShoe;
 
-  const getShoesDisplay = (front: string, back: string) => {
-    const frontBarefoot = isBarefootFront(front);
-    const backBarefoot = isBarefootBack(back);
+  const getShoesDisplay = (frontHasShoe: boolean, backHasShoe: boolean) => {
+    const frontBarefoot = isBarefootFront(frontHasShoe);
+    const backBarefoot = isBarefootBack(backHasShoe);
     
     if (frontBarefoot && backBarefoot) return "All Barefoot";
     if (frontBarefoot) return "Front Barefoot";
@@ -57,9 +58,9 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
     return "Shod";
   };
 
-  const getShoesColor = (front: string, back: string) => {
-    const frontBarefoot = isBarefootFront(front);
-    const backBarefoot = isBarefootBack(back);
+  const getShoesColor = (frontHasShoe: boolean, backHasShoe: boolean) => {
+    const frontBarefoot = isBarefootFront(frontHasShoe);
+    const backBarefoot = isBarefootBack(backHasShoe);
     
     if (frontBarefoot || backBarefoot) return "text-orange-600 font-medium";
     return "text-gray-600";

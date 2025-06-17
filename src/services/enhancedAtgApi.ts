@@ -1,3 +1,4 @@
+
 export interface EnhancedHorseData {
   horseId: number;
   name: string;
@@ -5,8 +6,8 @@ export interface EnhancedHorseData {
   distance: number;
   startMethod: string;
   shoes: {
-    front: string;
-    back: string;
+    front: boolean;
+    back: boolean;
   };
   sulky: {
     type: string;
@@ -116,6 +117,15 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
         
         console.log(`Driver 2025 win percentage resolved to: ${winPercentage2025}% from path: statistics.years.2025.winPercentage`);
         
+        // Debug shoes structure
+        console.log(`Shoes data for ${start.horse.name}:`, {
+          shoes: start.horse.shoes,
+          front: start.horse.shoes?.front,
+          back: start.horse.shoes?.back,
+          frontHasShoe: start.horse.shoes?.front?.hasShoe,
+          backHasShoe: start.horse.shoes?.back?.hasShoe
+        });
+        
         const enhancedHorse: EnhancedHorseData = {
           horseId: start.horse.id,
           name: start.horse.name,
@@ -123,8 +133,8 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
           distance: start.distance || data.distance,
           startMethod: data.startMethod,
           shoes: {
-            front: start.horse.shoes?.front || "1",
-            back: start.horse.shoes?.back || "1"
+            front: start.horse.shoes?.front?.hasShoe || false,
+            back: start.horse.shoes?.back?.hasShoe || false
           },
           sulky: {
             type: start.horse.sulky?.type?.code || "VA"
