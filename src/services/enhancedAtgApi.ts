@@ -1,4 +1,3 @@
-
 export interface EnhancedHorseData {
   horseId: number;
   name: string;
@@ -104,25 +103,63 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
         
         console.log(`Processing horse "${start.horse.name}" (ID: ${start.horse.id}) - Post Position: ${postPos}`);
         
-        // Debug driver statistics structure
-        console.log(`Driver statistics for ${start.driver.firstName} ${start.driver.lastName}:`, {
-          statistics: start.driver.statistics,
-          year2025: start.driver.statistics?.year2025,
-          thisYear: start.driver.statistics?.thisYear,
-          winPercentage: start.driver.statistics?.winPercentage
+        // Enhanced driver statistics debugging
+        console.log(`Full driver object for ${start.driver.firstName} ${start.driver.lastName}:`, start.driver);
+        console.log(`Driver statistics structure:`, {
+          hasStatistics: !!start.driver.statistics,
+          statisticsKeys: start.driver.statistics ? Object.keys(start.driver.statistics) : [],
+          fullStatistics: start.driver.statistics
         });
         
-        // Try multiple paths to get 2025 win percentage
+        // Try all possible paths to get driver win percentage
         let winPercentage2025 = 0;
-        if (start.driver.statistics?.year2025?.winPercentage) {
-          winPercentage2025 = start.driver.statistics.year2025.winPercentage;
-        } else if (start.driver.statistics?.thisYear?.winPercentage) {
-          winPercentage2025 = start.driver.statistics.thisYear.winPercentage;
-        } else if (start.driver.statistics?.winPercentage) {
-          winPercentage2025 = start.driver.statistics.winPercentage;
+        let dataSource = 'none';
+        
+        // Check all possible nested paths
+        const paths = [
+          { path: start.driver.statistics?.year2025?.winPercentage, source: 'year2025.winPercentage' },
+          { path: start.driver.statistics?.thisYear?.winPercentage, source: 'thisYear.winPercentage' },
+          { path: start.driver.statistics?.year2025?.winRate, source: 'year2025.winRate' },
+          { path: start.driver.statistics?.thisYear?.winRate, source: 'thisYear.winRate' },
+          { path: start.driver.statistics?.current?.winPercentage, source: 'current.winPercentage' },
+          { path: start.driver.statistics?.season?.winPercentage, source: 'season.winPercentage' },
+          { path: start.driver.statistics?.winPercentage, source: 'winPercentage' },
+          { path: start.driver.winPercentage, source: 'driver.winPercentage' },
+          // Try alternative naming conventions
+          { path: start.driver.statistics?.['2025']?.winPercentage, source: '2025.winPercentage' },
+          { path: start.driver.statistics?.wins?.percentage, source: 'wins.percentage' }
+        ];
+        
+        for (const { path, source } of paths) {
+          if (path !== undefined && path !== null && path > 0) {
+            winPercentage2025 = path;
+            dataSource = source;
+            break;
+          }
         }
         
-        console.log(`Driver 2025 win percentage resolved to: ${winPercentage2025}%`);
+        // If still no data, try to extract from any nested object that has winPercentage
+        if (winPercentage2025 === 0 && start.driver.statistics) {
+          const findWinPercentage = (obj: any, prefix = ''): any => {
+            for (const [key, value] of Object.entries(obj)) {
+              if (typeof value === 'object' && value !== null) {
+                const result = findWinPercentage(value, `${prefix}${key}.`);
+                if (result.value > 0) return result;
+              } else if (key.toLowerCase().includes('win') && key.toLowerCase().includes('percentage') && typeof value === 'number' && value > 0) {
+                return { value, source: `${prefix}${key}` };
+              }
+            }
+            return { value: 0, source: 'not found' };
+          };
+          
+          const result = findWinPercentage(start.driver.statistics);
+          if (result.value > 0) {
+            winPercentage2025 = result.value;
+            dataSource = `found: ${result.source}`;
+          }
+        }
+        
+        console.log(`Driver 2025 win percentage resolved to: ${winPercentage2025}% from source: ${dataSource}`);
         
         const enhancedHorse: EnhancedHorseData = {
           horseId: start.horse.id,
