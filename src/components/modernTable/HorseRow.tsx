@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Badge } from "@/components/ui/badge";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -101,13 +102,13 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
       
       <TableCell className="text-center">
         <span className="text-sm font-medium text-indigo-700">
-          {horse.statistics.placePercentage.toFixed(1)}%
+          {(horse.statistics.placePercentage / 100).toFixed(1)}%
         </span>
       </TableCell>
       
       <TableCell className="text-center">
         <span className="text-sm font-medium text-purple-700">
-          {(horse.statistics.winPercentage / 10).toFixed(1)}%
+          {(horse.statistics.winPercentage / 100).toFixed(1)}%
         </span>
       </TableCell>
       
@@ -136,12 +137,6 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
             {horse.driver.winPercentage2025.toFixed(1)}%
           </span>
         </div>
-      </TableCell>
-      
-      <TableCell className="text-center">
-        <span className="text-xs text-gray-600">
-          {horse.driver.experience} starts
-        </span>
       </TableCell>
       
       <TableCell className="text-center">
