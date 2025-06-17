@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { fetchV75RaceData, fetchV75GameInfo } from '../../../services/v75CalendarApi';
@@ -13,7 +14,7 @@ export interface V75HorseResult {
   raceNumber: number;
   raceId: string;
   horseId: number;
-  horseName: string;
+  horseName: string; // This should ALWAYS be a string
   postPosition: number;
   rawKmTime?: KmTime;
   modernNormalizedResult?: ModernKmNormalizedResult;
@@ -46,6 +47,47 @@ export interface V75RaceResult {
   horses: V75HorseResult[];
   analysisComplete: boolean;
 }
+
+// Helper function to safely extract horse name as string
+const extractHorseNameAsString = (horseName: any): string => {
+  console.log('Extracting horse name:', horseName, 'Type:', typeof horseName);
+  
+  // If it's already a string, return it
+  if (typeof horseName === 'string') {
+    console.log('Horse name is already a string:', horseName);
+    return horseName;
+  }
+  
+  // If it's null or undefined
+  if (!horseName) {
+    console.warn('Horse name is null/undefined, using fallback');
+    return 'Unknown Horse';
+  }
+  
+  // If it's an object with name property
+  if (typeof horseName === 'object' && horseName !== null) {
+    if ('name' in horseName && typeof horseName.name === 'string') {
+      console.log('Extracted name from object:', horseName.name);
+      return horseName.name;
+    }
+    
+    // If it's an object with id and name
+    if ('id' in horseName && 'name' in horseName) {
+      const nameValue = (horseName as any).name;
+      if (typeof nameValue === 'string') {
+        console.log('Extracted name from id/name object:', nameValue);
+        return nameValue;
+      }
+    }
+    
+    console.warn('Horse name is an object but no valid name found:', horseName);
+    return 'Unknown Horse';
+  }
+  
+  // Fallback for any other type
+  console.warn('Horse name is unexpected type:', typeof horseName, horseName);
+  return String(horseName) || 'Unknown Horse';
+};
 
 export const useV75Analysis = () => {
   const [loading, setLoading] = useState(false);
@@ -119,9 +161,7 @@ export const useV75Analysis = () => {
           // Convert horses to ATG starts format for KM time calculation
           const atgStarts = race.horses.map(horse => {
             // Ensure we get the horse name as a string - handle both string and object cases
-            const horseName = typeof horse.name === 'string' ? horse.name : 
-                             (horse.name && typeof horse.name === 'object' && 'name' in horse.name) ? 
-                             (horse.name as any).name : `Horse ${horse.horseId}`;
+            const horseName = extractHorseNameAsString(horse.name);
 
             console.log(`Processing horse: ${horseName} (ID: ${horse.horseId})`);
             
@@ -164,10 +204,9 @@ export const useV75Analysis = () => {
             const rawTimeData = rawKmTimes.find(rt => rt.horseId === horse.horseId);
             const rawKmTime = rawTimeData?.best3Average;
             
-            // Ensure we get the horse name as a string - handle both string and object cases
-            const horseName = typeof horse.name === 'string' ? horse.name : 
-                             (horse.name && typeof horse.name === 'object' && 'name' in horse.name) ? 
-                             (horse.name as any).name : `Horse ${horse.horseId}`;
+            // CRUCIAL: Extract horse name as string to prevent object rendering
+            const safeHorseName = extractHorseNameAsString(horse.name);
+            console.log(`Setting horse name for ${horse.horseId}: "${safeHorseName}" (type: ${typeof safeHorseName})`);
             
             let modernNormalizedResult: ModernKmNormalizedResult | undefined;
             
@@ -200,7 +239,7 @@ export const useV75Analysis = () => {
               raceNumber: race.raceNumber,
               raceId: race.raceId,
               horseId: horse.horseId,
-              horseName, // Use the extracted string name
+              horseName: safeHorseName, // This is now guaranteed to be a string
               postPosition: horse.postPosition,
               rawKmTime,
               modernNormalizedResult,

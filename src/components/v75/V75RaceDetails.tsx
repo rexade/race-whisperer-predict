@@ -66,46 +66,6 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
     return "text-gray-600";
   };
 
-  // Enhanced helper function to safely extract horse name as string with debugging
-  const getHorseNameAsString = (horseName: any): string => {
-    console.log('Processing horse name:', horseName, 'Type:', typeof horseName);
-    
-    // If it's already a string, return it
-    if (typeof horseName === 'string') {
-      return horseName;
-    }
-    
-    // If it's null or undefined
-    if (!horseName) {
-      console.warn('Horse name is null/undefined, using fallback');
-      return 'Unknown Horse';
-    }
-    
-    // If it's an object with name property
-    if (typeof horseName === 'object' && horseName !== null) {
-      if ('name' in horseName && typeof horseName.name === 'string') {
-        console.log('Extracted name from object:', horseName.name);
-        return horseName.name;
-      }
-      
-      // If it's an object with id and name
-      if ('id' in horseName && 'name' in horseName) {
-        const nameValue = (horseName as any).name;
-        if (typeof nameValue === 'string') {
-          console.log('Extracted name from id/name object:', nameValue);
-          return nameValue;
-        }
-      }
-      
-      console.warn('Horse name is an object but no valid name found:', horseName);
-      return 'Unknown Horse';
-    }
-    
-    // Fallback for any other type
-    console.warn('Horse name is unexpected type:', typeof horseName, horseName);
-    return String(horseName) || 'Unknown Horse';
-  };
-
   // Sort horses by normalized time (fastest first)
   const sortedHorses = race.horses
     .filter(horse => horse.modernNormalizedResult)
@@ -206,7 +166,8 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                   const result = horse.modernNormalizedResult!;
                   const rank = index + 1;
                   const isTopPerformer = rank <= 3;
-                  const safeHorseName = getHorseNameAsString(horse.horseName);
+                  
+                  console.log('Rendering horse name:', horse.horseName, 'Type:', typeof horse.horseName);
                   
                   return (
                     <TableRow 
@@ -228,7 +189,7 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                       
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="font-medium text-gray-900">{safeHorseName}</div>
+                          <div className="font-medium text-gray-900">{horse.horseName}</div>
                           <div className="text-sm text-gray-600">{horse.driverName}</div>
                         </div>
                       </TableCell>
@@ -318,15 +279,13 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                 })}
                 
                 {horsesWithoutTimes.map(horse => {
-                  const safeHorseName = getHorseNameAsString(horse.horseName);
-                  
                   return (
                     <TableRow key={horse.horseId} className="opacity-50">
                       <TableCell>-</TableCell>
                       <TableCell className="text-center">{horse.postPosition}</TableCell>
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="font-medium text-gray-900">{safeHorseName}</div>
+                          <div className="font-medium text-gray-900">{horse.horseName}</div>
                           <div className="text-sm text-gray-600">{horse.driverName}</div>
                         </div>
                       </TableCell>
