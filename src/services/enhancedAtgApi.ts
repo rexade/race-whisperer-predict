@@ -35,6 +35,10 @@ export interface EnhancedRaceData {
   distance: number;
   startMethod: string;
   track: string;
+  // New root-level race data fields
+  name: string;
+  date: string;
+  prize: number;
   horses: EnhancedHorseData[];
   dataQuality: {
     hasValidPostPositions: boolean;
@@ -58,16 +62,23 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
       raceId: data.id,
       startsCount: data.starts?.length || 0,
       distance: data.distance,
-      startMethod: data.startMethod
+      startMethod: data.startMethod,
+      name: data.name,
+      date: data.date,
+      prize: data.prize
     });
     
-    // Extract race information
+    // Extract race information including new root-level fields
     const raceInfo = {
       raceId: data.id,
       raceNumber: data.number,
       distance: data.distance,
       startMethod: data.startMethod,
       track: data.track.name,
+      // Extract new root-level race data
+      name: data.name || "Unknown Race",
+      date: data.date || "Unknown Date", 
+      prize: data.prize || 0,
       horses: [] as EnhancedHorseData[],
       dataQuality: {
         hasValidPostPositions: true,

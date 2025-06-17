@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TrendingUp, Clock, Trophy, Settings, Medal, Banknote, Zap, Award } from "lucide-react";
+import { TrendingUp, Clock, Trophy, Settings, Medal, Banknote, Zap, Award, Calendar, MapPin } from "lucide-react";
 import { EnhancedHorseData } from '../services/enhancedAtgApi';
 import { ModernNormalizedResult } from '../services/modernNormalization';
 
@@ -11,10 +11,14 @@ interface ModernNormalizationTableProps {
   horses: EnhancedHorseData[];
   results: ModernNormalizedResult[];
   raceInfo: {
+    raceId: string;
     raceNumber: number;
     distance: number;
     startMethod: string;
     track: string;
+    name: string;
+    date: string;
+    prize: number;
   };
 }
 
@@ -60,6 +64,25 @@ const ModernNormalizationTable: React.FC<ModernNormalizationTableProps> = ({
     return earnings.toString();
   };
 
+  const formatPrize = (prize: number) => {
+    if (prize >= 1000000) {
+      return `${(prize / 1000000).toFixed(1)}M`;
+    }
+    if (prize >= 1000) {
+      return `${(prize / 1000).toFixed(0)}k`;
+    }
+    return prize.toString();
+  };
+
+  const formatDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('sv-SE');
+    } catch {
+      return dateStr;
+    }
+  };
+
   const isBarefootFront = (shoes: string) => shoes === "0";
   const isBarefootBack = (shoes: string) => shoes === "0";
 
@@ -91,16 +114,34 @@ const ModernNormalizationTable: React.FC<ModernNormalizationTableProps> = ({
             {combinedData.length} horses analyzed
           </Badge>
         </CardTitle>
-        <div className="flex flex-wrap gap-2 mt-2">
-          <Badge variant="outline" className="border-purple-300">
-            Race {raceInfo.raceNumber} • {raceInfo.distance}m
-          </Badge>
-          <Badge variant="outline" className="border-purple-300">
-            {raceInfo.startMethod === "auto" ? "Auto Start" : "Volte Start"}
-          </Badge>
-          <Badge variant="outline" className="border-purple-300">
-            {raceInfo.track}
-          </Badge>
+        
+        {/* Enhanced race information display */}
+        <div className="space-y-2 mt-3">
+          <div className="flex items-center gap-2 text-lg font-semibold text-purple-700">
+            <Trophy className="h-5 w-5" />
+            {raceInfo.name}
+          </div>
+          
+          <div className="flex flex-wrap gap-3 mt-2">
+            <Badge variant="outline" className="border-purple-300 flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              {formatDate(raceInfo.date)}
+            </Badge>
+            <Badge variant="outline" className="border-purple-300">
+              Race {raceInfo.raceNumber} • {raceInfo.distance}m
+            </Badge>
+            <Badge variant="outline" className="border-purple-300">
+              {raceInfo.startMethod === "auto" ? "Auto Start" : "Volte Start"}
+            </Badge>
+            <Badge variant="outline" className="border-purple-300 flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              {raceInfo.track}
+            </Badge>
+            <Badge variant="outline" className="border-purple-300 flex items-center gap-1">
+              <Banknote className="h-3 w-3" />
+              {formatPrize(raceInfo.prize)} SEK
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       
@@ -112,13 +153,16 @@ const ModernNormalizationTable: React.FC<ModernNormalizationTableProps> = ({
                 <TableHead className="w-16 text-center">Rank</TableHead>
                 <TableHead className="w-12 text-center">Start</TableHead>
                 <TableHead className="min-w-[150px]">Horse & Driver</TableHead>
+                <TableHead className="w-20 text-center">Start Points</TableHead>
+                <TableHead className="w-20 text-center">Place %</TableHead>
+                <TableHead className="w-20 text-center">Horse Win%</TableHead>
+                <TableHead className="w-20 text-center">Earnings/Start</TableHead>
                 <TableHead className="w-20 text-center">Driver Win%</TableHead>
                 <TableHead className="w-20 text-center">Driver 2025%</TableHead>
-                <TableHead className="w-20 text-center">Earnings/Start</TableHead>
-                <TableHead className="w-20 text-center">Horse Win%</TableHead>
+                <TableHead className="w-20 text-center">Driver Exp</TableHead>
                 <TableHead className="w-20 text-center">Sulky</TableHead>
                 <TableHead className="w-24 text-center">Shoes</TableHead>
-                <TableHead className="w-20 text-center">Track</TableHead>
+                <TableHead className="w-20 text-center">Home Track</TableHead>
                 <TableHead className="w-24 text-center">RAW Time</TableHead>
                 <TableHead className="w-24 text-center font-bold">Modern Time</TableHead>
                 <TableHead className="w-20 text-center">Km Time</TableHead>
@@ -157,9 +201,33 @@ const ModernNormalizationTable: React.FC<ModernNormalizationTableProps> = ({
                         <div className="text-sm text-gray-600">
                           {horse.driver.firstName} {horse.driver.lastName}
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {horse.driver.experience} starts
-                        </div>
+                      </div>
+                    </TableCell>
+                    
+                    <TableCell className="text-center">
+                      <span className="text-sm font-medium text-blue-700">
+                        {horse.statistics.startPoints}
+                      </span>
+                    </TableCell>
+                    
+                    <TableCell className="text-center">
+                      <span className="text-sm font-medium text-indigo-700">
+                        {horse.statistics.placePercentage.toFixed(1)}%
+                      </span>
+                    </TableCell>
+                    
+                    <TableCell className="text-center">
+                      <span className="text-sm font-medium text-purple-700">
+                        {horse.statistics.winPercentage.toFixed(1)}%
+                      </span>
+                    </TableCell>
+                    
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Banknote className="h-3 w-3 text-amber-500" />
+                        <span className="text-sm font-medium text-amber-700">
+                          {formatEarnings(horse.statistics.earningsPerStart)}
+                        </span>
                       </div>
                     </TableCell>
                     
@@ -182,17 +250,8 @@ const ModernNormalizationTable: React.FC<ModernNormalizationTableProps> = ({
                     </TableCell>
                     
                     <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Banknote className="h-3 w-3 text-amber-500" />
-                        <span className="text-sm font-medium text-amber-700">
-                          {formatEarnings(horse.statistics.earningsPerStart)}
-                        </span>
-                      </div>
-                    </TableCell>
-                    
-                    <TableCell className="text-center">
-                      <span className="text-sm font-medium text-purple-700">
-                        {horse.statistics.winPercentage.toFixed(1)}%
+                      <span className="text-xs text-gray-600">
+                        {horse.driver.experience} starts
                       </span>
                     </TableCell>
                     
@@ -252,11 +311,11 @@ const ModernNormalizationTable: React.FC<ModernNormalizationTableProps> = ({
             </div>
             <div className="flex items-center gap-1">
               <Trophy className="h-4 w-4" />
-              <span>2025 current form included</span>
+              <span>All statistical data points</span>
             </div>
             <div className="flex items-center gap-1">
               <Banknote className="h-4 w-4" />
-              <span>Financial performance data</span>
+              <span>Financial & performance metrics</span>
             </div>
             <div className="flex items-center gap-1">
               <Medal className="h-4 w-4" />
