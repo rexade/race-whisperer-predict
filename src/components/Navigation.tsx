@@ -2,7 +2,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Sparkles, Calendar, Activity } from "lucide-react";
+import { Sparkles, Calendar, Activity, Trophy } from "lucide-react";
 
 const Navigation: React.FC = () => {
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -25,6 +25,13 @@ const Navigation: React.FC = () => {
               <Button variant="ghost" className="flex items-center gap-2 p-0">
                 <Sparkles className="h-4 w-4" />
                 Modern Analyzer
+              </Button>
+            </NavLink>
+            
+            <NavLink to="/v75-analyzer" className={navLinkClass}>
+              <Button variant="ghost" className="flex items-center gap-2 p-0">
+                <Trophy className="h-4 w-4" />
+                V75 Analyzer
               </Button>
             </NavLink>
             
