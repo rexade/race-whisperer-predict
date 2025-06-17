@@ -1,4 +1,3 @@
-
 export interface EnhancedHorseData {
   horseId: number;
   name: string;
@@ -27,6 +26,7 @@ export interface EnhancedHorseData {
     experience: number;
   };
   rawTime?: number;
+  startNumber?: number; // Add actual start number for API calls
 }
 
 export interface EnhancedRaceData {
@@ -36,10 +36,15 @@ export interface EnhancedRaceData {
   startMethod: string;
   track: string;
   horses: EnhancedHorseData[];
+  dataQuality: {
+    hasValidPostPositions: boolean;
+    duplicatePositions: number[];
+    missingData: string[];
+  };
 }
 
 export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRaceData> => {
-  console.log(`Fetching enhanced race data for: ${raceId}`);
+  console.log(`\n=== Fetching enhanced race data for: ${raceId} ===`);
   
   try {
     const response = await fetch(`https://www.atg.se/services/racinginfo/v1/api/races/${raceId}`);
@@ -49,25 +54,51 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
     }
     
     const data = await response.json();
-    console.log("ATG Race Data:", data);
+    console.log("ATG Race Data received:", {
+      raceId: data.id,
+      startsCount: data.starts?.length || 0,
+      distance: data.distance,
+      startMethod: data.startMethod
+    });
     
-    // Extract race information - race data is at root level, not nested under data.race
+    // Extract race information
     const raceInfo = {
       raceId: data.id,
       raceNumber: data.number,
       distance: data.distance,
       startMethod: data.startMethod,
       track: data.track.name,
-      horses: [] as EnhancedHorseData[]
+      horses: [] as EnhancedHorseData[],
+      dataQuality: {
+        hasValidPostPositions: true,
+        duplicatePositions: [] as number[],
+        missingData: [] as string[]
+      }
     };
     
-    // Process each horse start
-    for (const start of data.starts || []) {
+    // Track post positions to detect duplicates
+    const postPositionMap = new Map<number, number>(); // position -> count
+    const postPositions: number[] = [];
+    
+    console.log("\n=== Processing horse starts ===");
+    
+    // Process each horse start with enhanced validation
+    for (let index = 0; index < (data.starts || []).length; index++) {
+      const start = data.starts[index];
+      const startNumber = index + 1; // Sequential start number for API calls
+      
       try {
+        const postPos = start.postPosition;
+        postPositions.push(postPos);
+        postPositionMap.set(postPos, (postPositionMap.get(postPos) || 0) + 1);
+        
+        console.log(`Start ${startNumber}: Horse "${start.horse.name}" (ID: ${start.horse.id}) - Post Position: ${postPos}`);
+        
         const enhancedHorse: EnhancedHorseData = {
           horseId: start.horse.id,
           name: start.horse.name,
-          postPosition: start.postPosition,
+          postPosition: postPos,
+          startNumber: startNumber, // Add sequential start number
           distance: start.distance || data.distance,
           startMethod: data.startMethod,
           shoes: {
@@ -97,18 +128,52 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
         };
         
         raceInfo.horses.push(enhancedHorse);
-        console.log(`Processed horse: ${enhancedHorse.name} (${enhancedHorse.horseId})`);
         
       } catch (error) {
-        console.error(`Error processing horse ${start.horse.name}:`, error);
+        console.error(`Error processing horse ${start.horse?.name || 'Unknown'} at index ${index}:`, error);
+        raceInfo.dataQuality.missingData.push(`Horse at start ${startNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
     
-    console.log(`Enhanced race data processed: ${raceInfo.horses.length} horses`);
+    // Validate post positions and detect duplicates
+    console.log("\n=== Post Position Analysis ===");
+    console.log("Post positions found:", postPositions);
+    
+    const duplicatePositions: number[] = [];
+    postPositionMap.forEach((count, position) => {
+      if (count > 1) {
+        duplicatePositions.push(position);
+        console.warn(`⚠️  DUPLICATE POST POSITION DETECTED: Position ${position} appears ${count} times`);
+      }
+    });
+    
+    raceInfo.dataQuality.duplicatePositions = duplicatePositions;
+    raceInfo.dataQuality.hasValidPostPositions = duplicatePositions.length === 0;
+    
+    if (duplicatePositions.length > 0) {
+      console.error(`❌ Race data quality issue: Found ${duplicatePositions.length} duplicate post positions`);
+      raceInfo.dataQuality.hasValidPostPositions = false;
+    } else {
+      console.log("✅ All post positions are unique");
+    }
+    
+    // Validate expected vs actual horse count
+    const expectedHorses = Math.max(...postPositions);
+    const actualHorses = raceInfo.horses.length;
+    
+    console.log(`Expected horses (max post position): ${expectedHorses}`);
+    console.log(`Actual horses processed: ${actualHorses}`);
+    
+    if (expectedHorses !== actualHorses) {
+      console.warn(`⚠️  Horse count mismatch: Expected ${expectedHorses}, got ${actualHorses}`);
+    }
+    
+    console.log(`\n✅ Enhanced race data processed: ${raceInfo.horses.length} horses with data quality score: ${raceInfo.dataQuality.hasValidPostPositions ? 'GOOD' : 'ISSUES'}`);
+    
     return raceInfo;
     
   } catch (error) {
-    console.error("Error fetching enhanced race data:", error);
+    console.error("❌ Error fetching enhanced race data:", error);
     throw error;
   }
 };
@@ -135,6 +200,7 @@ export const fetchEnhancedStartData = async (raceId: string, startNumber: number
       horseId: data.horse.id,
       name: data.horse.name,
       postPosition: data.postPosition,
+      startNumber: startNumber, // Add sequential start number
       distance: data.start?.distance || 2140,
       startMethod: data.race?.startMethod || "auto",
       shoes: {

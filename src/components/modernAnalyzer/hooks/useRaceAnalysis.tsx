@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { fetchEnhancedRaceData, EnhancedHorseData } from '../../../services/enhancedAtgApi';
 import { calculateRawTimesForRaceWithId } from '../../../services/timeProcessor';
+import { validateRaceData, fixRaceDataIssues } from '../../../services/raceDataValidator';
 import { 
   applyModernNormalization, 
   ModernNormalizedResult, 
@@ -56,17 +57,45 @@ export const useRaceAnalysis = () => {
       setCurrentTask("Fetching enhanced race data...");
       setProgress(20);
       
-      // Fetch enhanced race data
-      const raceData = await fetchEnhancedRaceData(raceId);
+      // Fetch enhanced race data with validation
+      let raceData = await fetchEnhancedRaceData(raceId);
+      
+      // Validate and fix data quality issues
+      const validation = validateRaceData(raceData);
+      
+      if (!validation.isValid) {
+        console.warn('Race data has quality issues, attempting to fix...');
+        
+        toast({
+          title: "Data Quality Issues Detected",
+          description: `Found ${validation.errors.length} errors. Attempting automatic fixes...`,
+          variant: "destructive",
+        });
+        
+        // Attempt to fix the issues
+        raceData = fixRaceDataIssues(raceData);
+        
+        // Validate again
+        const finalValidation = validateRaceData(raceData);
+        if (!finalValidation.isValid) {
+          throw new Error(`Unable to fix race data issues: ${finalValidation.errors.join(', ')}`);
+        }
+        
+        toast({
+          title: "Data Issues Fixed",
+          description: "Race data has been automatically corrected and is ready for analysis.",
+        });
+      }
+      
       setRaceInfo(raceData);
       
       setCurrentTask("Calculating RAW times with historical data...");
       setProgress(50);
       
-      // Calculate RAW times for all horses using real historical data
-      const atgStarts = raceData.horses.map(horse => ({
+      // Create proper mapping using sequential start numbers
+      const atgStarts = raceData.horses.map((horse, index) => ({
         horse: { id: horse.horseId, name: horse.name },
-        number: horse.postPosition,
+        number: horse.startNumber || (index + 1), // Use startNumber if available, otherwise sequential
         postPosition: horse.postPosition,
         distance: horse.distance,
         driver: {
@@ -76,7 +105,12 @@ export const useRaceAnalysis = () => {
         }
       }));
       
-      // Use the enhanced function that accepts race ID
+      console.log('\n=== Start number mapping for historical data fetch ===');
+      atgStarts.forEach(start => {
+        console.log(`Start ${start.number}: ${start.horse.name} (Post: ${start.postPosition})`);
+      });
+      
+      // Use the enhanced function with proper start number mapping
       const rawTimes = await calculateRawTimesForRaceWithId(raceId, atgStarts, (current, total) => {
         const progressValue = 50 + (current / total) * 30;
         setProgress(progressValue);

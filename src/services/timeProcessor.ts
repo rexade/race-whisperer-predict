@@ -1,4 +1,3 @@
-
 import { ATGStartInfo } from './atgApi';
 import { HorseRawTime } from './types/timeProcessorTypes';
 import { processHorseTimes } from './horseProcessing';
@@ -106,7 +105,6 @@ export const calculateRawTimesForRace = async (
   return rawTimes;
 };
 
-// Enhanced version that accepts race ID
 export const calculateRawTimesForRaceWithId = async (
   raceId: string,
   starts: ATGStartInfo[],
@@ -115,16 +113,19 @@ export const calculateRawTimesForRaceWithId = async (
   const rawTimes: HorseRawTime[] = [];
 
   console.log(`\n=== Calculating RAW times for race ${raceId} with ${starts.length} horses ===`);
+  console.log('Start mapping:', starts.map(s => `${s.number}: ${s.horse.name} (ID: ${s.horse.id})`));
 
   for (let i = 0; i < starts.length; i++) {
     const start = starts[i];
+    const startNumber = start.number; // Use the start number from the mapping
     progressCallback?.(i + 1, starts.length);
 
     try {
-      console.log(`Processing horse ${i + 1}/${starts.length}: ${start.horse.name} (ID: ${start.horse.id})`);
+      console.log(`\n--- Processing horse ${i + 1}/${starts.length}: ${start.horse.name} (ID: ${start.horse.id}) ---`);
+      console.log(`Using start number: ${startNumber} (post position: ${start.postPosition})`);
       
-      // Fetch historical data for this horse using the correct race ID
-      const historicalData = await fetchHorseHistoricalData(raceId, start.number);
+      // Fetch historical data using the start number (not post position)
+      const historicalData = await fetchHorseHistoricalData(raceId, startNumber);
       
       if (!historicalData.horse.results?.records) {
         console.warn(`No historical records found for horse ${start.horse.name}`);
@@ -166,7 +167,7 @@ export const calculateRawTimesForRaceWithId = async (
       rawTimes.push(horseRawTime);
       
     } catch (error) {
-      console.error(`Error processing times for horse ${start.horse.name}:`, error);
+      console.error(`❌ Error processing times for horse ${start.horse.name} (start ${startNumber}):`, error);
       
       // Create fallback data
       rawTimes.push({
