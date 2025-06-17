@@ -7,7 +7,6 @@ import { Trophy, Calendar, TrendingUp, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import WeightManager from "./WeightManager";
 import V75DatePicker from "./v75/V75DatePicker";
-import V75RaceOverview from "./v75/V75RaceOverview";
 import V75RaceDetails from "./v75/V75RaceDetails";
 import ProgressIndicator from "./modernAnalyzer/ProgressIndicator";
 import ErrorDisplay from "./modernAnalyzer/ErrorDisplay";
@@ -17,7 +16,7 @@ import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/in
 const V75Analyzer: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [weights, setWeights] = useState<NormalizationWeights>(getDefaultWeights());
-  const [activeRaceTab, setActiveRaceTab] = useState("overview");
+  const [activeRaceTab, setActiveRaceTab] = useState("race-1");
   
   const {
     loading,
@@ -43,6 +42,13 @@ const V75Analyzer: React.FC = () => {
       reanalyzeWithNewWeights(weights);
     }
   }, [weights]);
+
+  // Update active tab when results are loaded
+  useEffect(() => {
+    if (v75Results.length > 0) {
+      setActiveRaceTab(`race-${v75Results[0].raceNumber}`);
+    }
+  }, [v75Results]);
 
   const totalHorsesAnalyzed = v75Results.reduce((total, race) => 
     total + race.horses.filter(h => h.rawKmTime).length, 0
@@ -181,18 +187,13 @@ const V75Analyzer: React.FC = () => {
             
             <CardContent>
               <Tabs value={activeRaceTab} onValueChange={setActiveRaceTab}>
-                <TabsList className="grid w-full grid-cols-8">
-                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-7">
                   {v75Results.map(race => (
                     <TabsTrigger key={race.raceNumber} value={`race-${race.raceNumber}`}>
                       Race {race.raceNumber}
                     </TabsTrigger>
                   ))}
                 </TabsList>
-                
-                <TabsContent value="overview" className="mt-6">
-                  <V75RaceOverview races={v75Results} />
-                </TabsContent>
                 
                 {v75Results.map(race => (
                   <TabsContent key={race.raceNumber} value={`race-${race.raceNumber}`} className="mt-6">
