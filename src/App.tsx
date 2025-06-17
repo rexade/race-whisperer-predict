@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import SingleHorseTest from "./components/SingleHorseTest";
+import ModernNormalizationAnalyzer from "./components/ModernNormalizationAnalyzer";
 import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
@@ -16,6 +17,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<SingleHorseTest />} />
           <Route path="/index" element={<Index />} />
+          <Route path="/modern" element={<ModernNormalizationAnalyzer />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
