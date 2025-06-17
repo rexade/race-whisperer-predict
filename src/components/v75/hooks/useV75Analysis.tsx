@@ -161,13 +161,16 @@ export const useV75Analysis = () => {
         
         try {
           // Convert horses to ATG starts format for KM time calculation
+          // CRITICAL FIX: We only pass the horse name as a string, not an object
           const atgStarts = race.horses.map(horse => {
-            // CRITICAL: Ensure we get the horse name as a string - handle both string and object cases
             const horseName = extractHorseNameAsString(horse.name);
             console.log(`🐎 Processing horse: ${horseName} (ID: ${horse.horseId}) - Original name:`, JSON.stringify(horse.name));
             
             return {
-              horse: { id: horse.horseId, name: horseName }, // This stays as object for internal processing
+              horse: { 
+                id: horse.horseId, 
+                name: horseName // This ensures name is always a string
+              },
               number: horse.postPosition,
               postPosition: horse.postPosition,
               distance: horse.distance,
@@ -215,6 +218,10 @@ export const useV75Analysis = () => {
               throw new Error(`Horse name extraction failed for horse ${horse.horseId}`);
             }
             
+            // CRITICAL: Extract driver names as strings too
+            const safeDriverFirstName = extractHorseNameAsString(horse.driver.firstName);
+            const safeDriverLastName = extractHorseNameAsString(horse.driver.lastName);
+            
             let modernNormalizedResult: ModernKmNormalizedResult | undefined;
             
             if (rawKmTime) {
@@ -250,7 +257,7 @@ export const useV75Analysis = () => {
               postPosition: horse.postPosition,
               rawKmTime,
               modernNormalizedResult,
-              driverName: `${horse.driver.firstName} ${horse.driver.lastName}`,
+              driverName: `${safeDriverFirstName} ${safeDriverLastName}`, // Both names are strings
               track: race.track,
               distance: horse.distance,
               startMethod: race.startMethod,
