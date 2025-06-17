@@ -1,7 +1,7 @@
-
-import { ProcessedTime, HorseRawTime } from './types/timeProcessorTypes';
-import { convertKmTimeToSeconds } from './utils/timeConversion';
-import { normalizeTimeSimplified } from './utils/timeNormalization';
+import { ProcessedKmTime, HorseRawKmTime } from './types/kmTimeTypes';
+import { KmTime } from './utils/kmTimeUtils';
+import { convertToKmTime } from './utils/timeConversion';
+import { normalizeKmTimeSimplified } from './utils/kmTimeNormalization';
 
 // Updated interface to match ATG API structure
 export interface ATGHistoricalRace {
@@ -21,14 +21,14 @@ export interface ATGHistoricalRace {
   disqualified: boolean;
 }
 
-export const processHorseTimes = async (
+export const processHorseKmTimes = async (
   horseId: number, 
   horseName: string, 
   historicalRaces: ATGHistoricalRace[]
-): Promise<HorseRawTime> => {
-  const processedTimes: ProcessedTime[] = [];
+): Promise<HorseRawKmTime> => {
+  const processedTimes: ProcessedKmTime[] = [];
 
-  console.log(`\n=== Processing times for ${horseName} (ID: ${horseId}) ===`);
+  console.log(`\n=== Processing KM times for ${horseName} (ID: ${horseId}) ===`);
   console.log(`Found ${historicalRaces.length} historical races to process`);
 
   for (const race of historicalRaces) {
@@ -39,20 +39,20 @@ export const processHorseTimes = async (
     }
 
     try {
-      const originalTimeSeconds = convertKmTimeToSeconds(race.kmTime);
+      const originalKmTime = convertToKmTime(race.kmTime);
       
-      // Apply simplified normalization
-      const normalizedTime = normalizeTimeSimplified(
-        originalTimeSeconds,
+      // Apply simplified normalization keeping KM time format
+      const normalizedKmTime = normalizeKmTimeSimplified(
+        originalKmTime,
         race.distance,
         race.startMethod
       );
 
-      console.log(`${race.date}: ${originalTimeSeconds.toFixed(1)}s → ${normalizedTime.toFixed(1)}s (${race.distance}m ${race.startMethod}, place ${race.finishOrder})`);
+      console.log(`${race.date}: ${originalKmTime.minutes}:${originalKmTime.seconds.toString().padStart(2, '0')}.${originalKmTime.tenths} → ${normalizedKmTime.minutes}:${normalizedKmTime.seconds.toString().padStart(2, '0')}.${normalizedKmTime.tenths} (${race.distance}m ${race.startMethod}, place ${race.finishOrder})`);
 
       processedTimes.push({
-        originalTime: originalTimeSeconds,
-        normalizedTime: normalizedTime,
+        originalTime: originalKmTime,
+        normalizedTime: normalizedKmTime,
         raceDate: race.date,
         distance: race.distance,
         startMethod: race.startMethod,
@@ -65,19 +65,35 @@ export const processHorseTimes = async (
     }
   }
 
-  // Sort by normalized time (best/fastest first)
-  processedTimes.sort((a, b) => a.normalizedTime - b.normalizedTime);
+  // Sort by normalized time (best/fastest first) - compare by converting to seconds
+  processedTimes.sort((a, b) => {
+    const aSeconds = a.normalizedTime.minutes * 60 + a.normalizedTime.seconds + a.normalizedTime.tenths / 10;
+    const bSeconds = b.normalizedTime.minutes * 60 + b.normalizedTime.seconds + b.normalizedTime.tenths / 10;
+    return aSeconds - bSeconds;
+  });
 
-  // Calculate best 3 average (RAW TIME)
+  // Calculate best 3 average (RAW TIME) in KM format
   const best3Times = processedTimes.slice(0, 3);
-  const best3Average = best3Times.length > 0 
-    ? best3Times.reduce((sum, time) => sum + time.normalizedTime, 0) / best3Times.length
-    : 0;
+  let best3Average: KmTime = { minutes: 0, seconds: 0, tenths: 0 };
+  
+  if (best3Times.length > 0) {
+    const totalSeconds = best3Times.reduce((sum, time) => {
+      return sum + (time.normalizedTime.minutes * 60 + time.normalizedTime.seconds + time.normalizedTime.tenths / 10);
+    }, 0) / best3Times.length;
+    
+    // Convert back to KM time format
+    const minutes = Math.floor(totalSeconds / 60);
+    const remainingSeconds = totalSeconds % 60;
+    const seconds = Math.floor(remainingSeconds);
+    const tenths = Math.round((remainingSeconds - seconds) * 10);
+    
+    best3Average = { minutes, seconds, tenths };
+  }
 
   console.log(`Processed ${processedTimes.length} valid times for ${horseName}`);
   if (best3Times.length > 0) {
-    console.log(`Best 3 times: ${best3Times.map(t => t.normalizedTime.toFixed(1) + 's').join(', ')}`);
-    console.log(`RAW Time (Best 3 Average): ${best3Average.toFixed(2)}s`);
+    console.log(`Best 3 times: ${best3Times.map(t => `${t.normalizedTime.minutes}:${t.normalizedTime.seconds.toString().padStart(2, '0')}.${t.normalizedTime.tenths}`).join(', ')}`);
+    console.log(`RAW Time (Best 3 Average): ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
   } else {
     console.log(`No valid times found for RAW time calculation`);
   }
@@ -90,3 +106,6 @@ export const processHorseTimes = async (
     validTimesCount: processedTimes.length
   };
 };
+
+// Keep the old function for backward compatibility
+export const processHorseTimes = processHorseKmTimes;

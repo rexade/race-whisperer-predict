@@ -4,11 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Medal, Banknote, Award, Zap, Ruler } from "lucide-react";
 import { EnhancedHorseData } from '../../services/enhancedAtgApi';
-import { ModernNormalizedResult } from '../../services/modernNormalization';
+import { ModernKmNormalizedResult } from '../../services/types/kmTimeTypes';
+import { formatKmTime } from '../../services/utils/kmTimeUtils';
 
 interface HorseRowProps {
   horse: EnhancedHorseData;
-  result: ModernNormalizedResult;
+  result: ModernKmNormalizedResult;
   rank: number;
 }
 
@@ -38,7 +39,7 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
   };
 
   const formatEarnings = (earnings: number) => {
-    const adjustedEarnings = earnings / 100; // Divide by 100 as requested
+    const adjustedEarnings = earnings / 100;
     if (adjustedEarnings >= 1000) {
       return `${(adjustedEarnings / 1000).toFixed(0)}k`;
     }
@@ -96,13 +97,13 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
       
       <TableCell className="text-center">
         <div className="font-mono text-sm text-gray-700">
-          {result.rawTime}
+          {formatKmTime(result.rawTime)}
         </div>
       </TableCell>
       
       <TableCell className="text-center">
         <div className={`font-mono text-sm font-bold ${isTopPerformer ? 'text-green-700' : 'text-gray-900'}`}>
-          {result.modernNormalizedTime}
+          {formatKmTime(result.modernNormalizedTime)}
         </div>
       </TableCell>
       

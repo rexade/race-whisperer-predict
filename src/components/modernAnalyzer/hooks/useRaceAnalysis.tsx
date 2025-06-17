@@ -1,40 +1,47 @@
+
 import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { fetchEnhancedRaceData, EnhancedHorseData } from '../../../services/enhancedAtgApi';
-import { calculateRawTimesForRaceWithId } from '../../../services/timeProcessor';
+import { calculateRawKmTimesForRaceWithId } from '../../../services/kmTimeProcessor';
 import { validateRaceData, fixRaceDataIssues } from '../../../services/raceDataValidator';
 import { 
-  applyModernNormalization, 
-  ModernNormalizedResult, 
+  applyModernKmNormalization,
+  ModernKmNormalizedResult, 
   NormalizationWeights,
   ModernNormalizationFactors
-} from '../../../services/modernNormalization';
+} from '../../../services/modernKmNormalization';
+import { KmTime } from '../../../services/types/kmTimeTypes';
+
+// Enhanced horse data with KM time
+interface EnhancedHorseDataWithKmTime extends EnhancedHorseData {
+  rawKmTime?: KmTime;
+}
 
 export const useRaceAnalysis = () => {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTask, setCurrentTask] = useState("");
   const [error, setError] = useState("");
-  const [enhancedHorses, setEnhancedHorses] = useState<EnhancedHorseData[]>([]);
-  const [modernResults, setModernResults] = useState<ModernNormalizedResult[]>([]);
+  const [enhancedHorses, setEnhancedHorses] = useState<EnhancedHorseDataWithKmTime[]>([]);
+  const [modernResults, setModernResults] = useState<ModernKmNormalizedResult[]>([]);
   const [raceInfo, setRaceInfo] = useState<any>(null);
   const { toast } = useToast();
 
-  const applyModernNormalizationToHorses = (horses: EnhancedHorseData[], raceData: any, weights: NormalizationWeights) => {
-    const results: ModernNormalizedResult[] = [];
+  const applyModernNormalizationToHorses = (horses: EnhancedHorseDataWithKmTime[], raceData: any, weights: NormalizationWeights) => {
+    const results: ModernKmNormalizedResult[] = [];
     
-    console.log('\n=== Applying Enhanced Modern Normalization ===');
+    console.log('\n=== Applying Enhanced Modern KM Normalization ===');
     console.log(`Race Distance: ${raceData.distance}m`);
     console.log(`Race Type: ${raceData.raceType || 'Not specified'}`);
     console.log(`Start Time: ${raceData.startTime || 'Not specified'}`);
     
     for (const horse of horses) {
-      if (!horse.rawTime) continue;
+      if (!horse.rawKmTime) continue;
       
       const factors: ModernNormalizationFactors = {
         postPosition: horse.postPosition,
-        distance: horse.distance, // Individual horse distance (important for volte)
-        raceDistance: raceData.distance, // Race-level distance
+        distance: horse.distance,
+        raceDistance: raceData.distance,
         startMethod: horse.startMethod,
         shoesFront: horse.shoes.front ? "1" : "0",
         shoesBack: horse.shoes.back ? "1" : "0",
@@ -44,8 +51,8 @@ export const useRaceAnalysis = () => {
         driverWinPercentage: horse.driver.winPercentage,
         driverWinPercentage2025: horse.driver.winPercentage2025,
         horseForm: horse.statistics.winPercentage,
-        raceType: raceData.raceType, // Enhanced: Race type/classification
-        timeOfDay: raceData.startTime // Enhanced: Time of day
+        raceType: raceData.raceType,
+        timeOfDay: raceData.startTime
       };
       
       console.log(`\nProcessing ${horse.name}:`);
@@ -54,7 +61,7 @@ export const useRaceAnalysis = () => {
       console.log(`  Race type: ${factors.raceType || 'N/A'}`);
       console.log(`  Start time: ${factors.timeOfDay || 'N/A'}`);
       
-      const result = applyModernNormalization(horse.rawTime, factors, weights);
+      const result = applyModernKmNormalization(horse.rawKmTime, factors, weights);
       results.push(result);
     }
     
@@ -70,10 +77,8 @@ export const useRaceAnalysis = () => {
       setCurrentTask("Fetching enhanced race data...");
       setProgress(20);
       
-      // Fetch enhanced race data with validation - ALL DATA FROM MAIN RACE ENDPOINT
       let raceData = await fetchEnhancedRaceData(raceId);
       
-      // Validate and fix data quality issues
       const validation = validateRaceData(raceData);
       
       if (!validation.isValid) {
@@ -85,10 +90,8 @@ export const useRaceAnalysis = () => {
           variant: "destructive",
         });
         
-        // Attempt to fix the issues
         raceData = fixRaceDataIssues(raceData);
         
-        // Validate again
         const finalValidation = validateRaceData(raceData);
         if (!finalValidation.isValid) {
           throw new Error(`Unable to fix race data issues: ${finalValidation.errors.join(', ')}`);
@@ -102,14 +105,13 @@ export const useRaceAnalysis = () => {
       
       setRaceInfo(raceData);
       
-      setCurrentTask("Calculating RAW times with historical data...");
+      setCurrentTask("Calculating RAW KM times with historical data...");
       setProgress(50);
       
-      // Create proper mapping using POST POSITIONS (not start numbers)
       const atgStarts = raceData.horses.map(horse => ({
         horse: { id: horse.horseId, name: horse.name },
-        number: horse.postPosition, // This is for compatibility but we use postPosition for historical fetch
-        postPosition: horse.postPosition, // THIS IS WHAT WE USE FOR HISTORICAL DATA FETCH
+        number: horse.postPosition,
+        postPosition: horse.postPosition,
         distance: horse.distance,
         driver: {
           firstName: horse.driver.firstName,
@@ -123,46 +125,45 @@ export const useRaceAnalysis = () => {
         console.log(`Post Position ${start.postPosition}: ${start.horse.name} - WILL FETCH HISTORICAL DATA FROM /start/${start.postPosition}`);
       });
       
-      // Use the enhanced function with POST POSITION mapping for historical data
-      const rawTimes = await calculateRawTimesForRaceWithId(raceId, atgStarts, (current, total) => {
+      const rawKmTimes = await calculateRawKmTimesForRaceWithId(raceId, atgStarts, (current, total) => {
         const progressValue = 50 + (current / total) * 30;
         setProgress(progressValue);
-        setCurrentTask(`Fetching historical data for RAW time calculation: horse ${current} of ${total}...`);
+        setCurrentTask(`Fetching historical data for RAW KM time calculation: horse ${current} of ${total}...`);
       });
       
-      // Add RAW times to enhanced horse data
-      const horsesWithRawTimes = raceData.horses.map(horse => {
-        const rawTimeData = rawTimes.find(rt => rt.horseId === horse.horseId);
+      const horsesWithRawKmTimes = raceData.horses.map(horse => {
+        const rawTimeData = rawKmTimes.find(rt => rt.horseId === horse.horseId);
         return {
           ...horse,
-          rawTime: rawTimeData?.best3Average || 0
+          rawKmTime: rawTimeData?.best3Average || { minutes: 0, seconds: 0, tenths: 0 }
         };
       });
       
-      setEnhancedHorses(horsesWithRawTimes);
+      setEnhancedHorses(horsesWithRawKmTimes);
       
-      setCurrentTask("Applying enhanced modern normalization...");
+      setCurrentTask("Applying enhanced modern KM normalization...");
       setProgress(80);
       
-      // Apply enhanced modern normalization to each horse
-      applyModernNormalizationToHorses(horsesWithRawTimes, raceData, weights);
+      applyModernNormalizationToHorses(horsesWithRawKmTimes, raceData, weights);
       
       setProgress(100);
-      setCurrentTask("Enhanced analysis complete!");
+      setCurrentTask("Enhanced KM analysis complete!");
       
-      const horsesWithValidTimes = horsesWithRawTimes.filter(h => h.rawTime && h.rawTime > 0).length;
+      const horsesWithValidTimes = horsesWithRawKmTimes.filter(h => 
+        h.rawKmTime && (h.rawKmTime.minutes > 0 || h.rawKmTime.seconds > 0 || h.rawKmTime.tenths > 0)
+      ).length;
       
       toast({
-        title: "Enhanced Analysis Complete",
-        description: `RAW times calculated for ${horsesWithValidTimes} of ${horsesWithRawTimes.length} horses with distance, race type, and time-of-day adjustments.`,
+        title: "Enhanced KM Analysis Complete",
+        description: `RAW KM times calculated for ${horsesWithValidTimes} of ${horsesWithRawKmTimes.length} horses with enhanced distance, race type, and time-of-day adjustments.`,
       });
       
     } catch (err) {
-      console.error("Error during enhanced analysis:", err);
-      setError(`Enhanced analysis failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      console.error("Error during enhanced KM analysis:", err);
+      setError(`Enhanced KM analysis failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
       toast({
-        title: "Enhanced Analysis Error",
-        description: "Failed to complete enhanced modern normalization analysis. Check console for details.",
+        title: "Enhanced KM Analysis Error",
+        description: "Failed to complete enhanced modern KM normalization analysis. Check console for details.",
         variant: "destructive",
       });
     } finally {

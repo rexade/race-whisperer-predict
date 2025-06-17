@@ -2,14 +2,14 @@
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { EnhancedHorseData } from '../services/enhancedAtgApi';
-import { ModernNormalizedResult } from '../services/modernNormalization';
+import { ModernKmNormalizedResult } from '../services/types/kmTimeTypes';
 import TableHeader from './modernTable/TableHeader';
 import TableContainer from './modernTable/TableContainer';
 import TableFooter from './modernTable/TableFooter';
 
 interface ModernNormalizationTableProps {
   horses: EnhancedHorseData[];
-  results: ModernNormalizedResult[];
+  results: ModernKmNormalizedResult[];
   raceInfo: {
     raceId: string;
     raceNumber: number;
