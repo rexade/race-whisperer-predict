@@ -29,10 +29,15 @@ export const normalizeKmTimeSimplified = (
   console.log(`Distance adjustment: ${distance}m to 2140m = ${distanceDifferenceKm.toFixed(3)}km × 2.7 = ${distanceAdjustment.toFixed(2)}s`);
   console.log(`After distance adjustment: ${normalizedTime.minutes}:${normalizedTime.seconds.toString().padStart(2, '0')}.${normalizedTime.tenths}`);
   
-  // Step 2: If volte start, subtract 1 second (normalize to auto)
-  if (startMethod.toLowerCase() === "volte") {
+  // Step 2: Check for volte start method (case-insensitive and check for volte variations)
+  const startMethodLower = startMethod.toLowerCase();
+  const isVolteStart = startMethodLower.includes("volte") || startMethodLower === "v";
+  
+  if (isVolteStart) {
     normalizedTime = subtractSecondsFromKmTime(normalizedTime, 1.0);
-    console.log(`Volte start adjustment: -1.0s → ${normalizedTime.minutes}:${normalizedTime.seconds.toString().padStart(2, '0')}.${normalizedTime.tenths}`);
+    console.log(`🔥 VOLTE START DETECTED (${startMethod}) - Applied 1.0s penalty → ${normalizedTime.minutes}:${normalizedTime.seconds.toString().padStart(2, '0')}.${normalizedTime.tenths}`);
+  } else {
+    console.log(`Auto start detected (${startMethod}) - No volte penalty applied`);
   }
   
   console.log(`Final normalized time (2140m reference): ${normalizedTime.minutes}:${normalizedTime.seconds.toString().padStart(2, '0')}.${normalizedTime.tenths}`);

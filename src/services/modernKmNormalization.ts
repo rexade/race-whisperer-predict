@@ -129,6 +129,7 @@ export const applyModernKmNormalization = (
 ): ModernKmNormalizedResult => {
   console.log(`\n=== Enhanced Modern KM Normalization ===`);
   console.log(`RAW Time: ${rawKmTime.minutes}:${rawKmTime.seconds.toString().padStart(2, '0')}.${rawKmTime.tenths}`);
+  console.log(`Start Method: ${factors.startMethod}`);
   
   let adjustments = {
     postPosition: 0,
@@ -142,6 +143,18 @@ export const applyModernKmNormalization = (
     timeOfDay: 0,
     total: 0
   };
+
+  // FIRST: Apply volte start penalty if applicable (this is baseline normalization)
+  let baseNormalizedTime = cloneKmTime(rawKmTime);
+  const startMethodLower = factors.startMethod.toLowerCase();
+  const isVolteStart = startMethodLower.includes("volte") || startMethodLower === "v";
+  
+  if (isVolteStart) {
+    baseNormalizedTime = subtractSecondsFromKmTime(baseNormalizedTime, 1.0);
+    console.log(`🔥 VOLTE START DETECTED (${factors.startMethod}) - Applied 1.0s baseline penalty → ${baseNormalizedTime.minutes}:${baseNormalizedTime.seconds.toString().padStart(2, '0')}.${baseNormalizedTime.tenths}`);
+  } else {
+    console.log(`Auto start detected (${factors.startMethod}) - No volte penalty applied`);
+  }
 
   // Post Position Adjustment
   const postPosAdjustment = calculatePostPositionAdjustment(
@@ -199,15 +212,15 @@ export const applyModernKmNormalization = (
   ) * weights.timeOfDay;
   adjustments.timeOfDay = timeOfDayAdjustment;
 
-  // Calculate total adjustment
+  // Calculate total adjustment (applied to the baseline normalized time)
   adjustments.total = postPosAdjustment + equipmentAdjustment + driverAdjustment + 
                     driver2025Adjustment + trackAdjustment + formAdjustment +
                     distanceAdjustment + raceTypeAdjustment + timeOfDayAdjustment;
 
-  // Apply total adjustment to the KM time
-  const modernNormalizedKmTime = addSecondsToKmTime(rawKmTime, adjustments.total);
+  // Apply total adjustment to the baseline normalized KM time
+  const modernNormalizedKmTime = addSecondsToKmTime(baseNormalizedTime, adjustments.total);
 
-  console.log(`Enhanced KM Adjustments:`);
+  console.log(`Enhanced KM Adjustments (applied to ${isVolteStart ? 'volte-normalized' : 'raw'} time):`);
   console.log(`  Post Position (${factors.postPosition}): ${postPosAdjustment.toFixed(3)}s`);
   console.log(`  Equipment: ${equipmentAdjustment.toFixed(3)}s`);
   console.log(`  Driver: ${driverAdjustment.toFixed(3)}s`);
@@ -226,7 +239,10 @@ export const applyModernKmNormalization = (
 };
 
 const calculatePostPositionAdjustment = (postPosition: number, startMethod: string): number => {
-  if (startMethod.toLowerCase() === "auto") {
+  const startMethodLower = startMethod.toLowerCase();
+  const isAutoStart = startMethodLower === "auto" || startMethodLower === "a" || !startMethodLower.includes("volte");
+  
+  if (isAutoStart) {
     const autoAdjustments: { [key: number]: number } = {
       1: 0.1, 2: 0.05, 3: 0.0, 4: -0.05, 5: -0.2,
       6: -0.05, 7: 0.0, 8: 0.1, 9: 0.15, 10: 0.15,
@@ -234,6 +250,7 @@ const calculatePostPositionAdjustment = (postPosition: number, startMethod: stri
     };
     return autoAdjustments[postPosition] || 0;
   } else {
+    // Volte start adjustments
     if ([1, 2, 3, 4, 5].includes(postPosition)) return -0.2;
     if ([6, 7].includes(postPosition)) return -0.1;
     if (postPosition === 8) return 0.1;
