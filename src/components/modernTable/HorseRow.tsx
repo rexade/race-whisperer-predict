@@ -150,13 +150,13 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
       
       <TableCell className="text-center">
         <div className="font-mono text-sm text-gray-700">
-          {result.rawTime.toFixed(2)}s
+          {result.rawTime}
         </div>
       </TableCell>
       
       <TableCell className="text-center">
         <div className={`font-mono text-sm font-bold ${isTopPerformer ? 'text-green-700' : 'text-gray-900'}`}>
-          {result.modernNormalizedTime.toFixed(2)}s
+          {result.modernNormalizedTime}
         </div>
       </TableCell>
       

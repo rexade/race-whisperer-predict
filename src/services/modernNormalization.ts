@@ -1,4 +1,3 @@
-
 export interface ModernNormalizationFactors {
   postPosition: number;
   distance: number;
@@ -24,8 +23,8 @@ export interface NormalizationWeights {
 }
 
 export interface ModernNormalizedResult {
-  rawTime: number;
-  modernNormalizedTime: number;
+  rawTime: string; // KM format
+  modernNormalizedTime: string; // KM format
   adjustments: {
     postPosition: number;
     equipment: number;
@@ -49,15 +48,34 @@ const DEFAULT_WEIGHTS: NormalizationWeights = {
 };
 
 /**
+ * Converts KM time object to seconds for calculations
+ */
+const kmTimeToSeconds = (kmTime: { minutes: number; seconds: number; tenths: number }): number => {
+  return kmTime.minutes * 60 + kmTime.seconds + kmTime.tenths / 10;
+};
+
+/**
+ * Converts seconds back to KM time format
+ */
+const secondsToKmTime = (seconds: number): string => {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  const secs = Math.floor(remainingSeconds);
+  const tenths = Math.round((remainingSeconds - secs) * 10);
+  
+  return `${minutes}:${secs.toString().padStart(2, '0')}.${tenths}`;
+};
+
+/**
  * Applies modern normalization to a RAW time using race-specific factors
  */
 export const applyModernNormalization = (
-  rawTime: number,
+  rawTimeSeconds: number,
   factors: ModernNormalizationFactors,
   weights: NormalizationWeights = DEFAULT_WEIGHTS
 ): ModernNormalizedResult => {
   console.log(`\n=== Modern Normalization ===`);
-  console.log(`RAW Time: ${rawTime.toFixed(2)}s`);
+  console.log(`RAW Time: ${rawTimeSeconds.toFixed(2)}s`);
   
   let adjustments = {
     postPosition: 0,
@@ -109,8 +127,11 @@ export const applyModernNormalization = (
   // Calculate total adjustment
   adjustments.total = postPosAdjustment + equipmentAdjustment + driverAdjustment + driver2025Adjustment + trackAdjustment + formAdjustment;
 
-  const modernNormalizedTime = rawTime + adjustments.total;
-  const kmTime = convertSecondsToKmTime(modernNormalizedTime);
+  const modernNormalizedTimeSeconds = rawTimeSeconds + adjustments.total;
+  
+  // Convert both times to KM format for display
+  const rawTimeKm = secondsToKmTime(rawTimeSeconds);
+  const modernNormalizedTimeKm = secondsToKmTime(modernNormalizedTimeSeconds);
 
   console.log(`Adjustments:`);
   console.log(`  Post Position (${factors.postPosition}): ${postPosAdjustment.toFixed(3)}s`);
@@ -118,13 +139,13 @@ export const applyModernNormalization = (
   console.log(`  Driver: ${driverAdjustment.toFixed(3)}s`);
   console.log(`  Driver 2025: ${driver2025Adjustment.toFixed(3)}s`);
   console.log(`  Total: ${adjustments.total.toFixed(3)}s`);
-  console.log(`Modern Normalized Time: ${modernNormalizedTime.toFixed(2)}s (${kmTime})`);
+  console.log(`Modern Normalized Time: ${modernNormalizedTimeSeconds.toFixed(2)}s (${modernNormalizedTimeKm})`);
 
   return {
-    rawTime,
-    modernNormalizedTime,
+    rawTime: rawTimeKm,
+    modernNormalizedTime: modernNormalizedTimeKm,
     adjustments,
-    kmTime
+    kmTime: modernNormalizedTimeKm
   };
 };
 
@@ -211,15 +232,6 @@ const calculateDriver2025Adjustment = (
   }
   
   return adjustment;
-};
-
-const convertSecondsToKmTime = (seconds: number): string => {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  const secs = Math.floor(remainingSeconds);
-  const tenths = Math.round((remainingSeconds - secs) * 10);
-  
-  return `${minutes}:${secs.toString().padStart(2, '0')}.${tenths}`;
 };
 
 export const getDefaultWeights = (): NormalizationWeights => ({ ...DEFAULT_WEIGHTS });
