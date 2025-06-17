@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -183,26 +182,18 @@ const SingleHorseTest: React.FC = () => {
         });
       }
     } else {
-      console.log("No real historical data found in ATG response, using fallback simulated data");
-      historicalRaces = generateFallbackSimulatedHistory(atgData.horse.id, atgData.horse.name);
+      console.log("No historical data found in ATG response");
+      setError("No historical race data available for this horse");
+      return;
+    }
+    
+    if (historicalRaces.length === 0) {
+      console.log("No valid historical races found after filtering");
+      setError("No valid historical races found for RAW time calculation");
+      return;
     }
     
     calculateRawTimeFromHistory(historicalRaces);
-  };
-
-  const generateFallbackSimulatedHistory = (horseId: number, horseName: string): HistoricalRace[] => {
-    console.log(`Generating fallback simulated history for ${horseName} (ID: ${horseId})`);
-    
-    // Generate realistic harness racing records within the last 8 months
-    const races: HistoricalRace[] = [
-      { date: "2025-06-10", distance: 2140, startMethod: "auto", track: "Solvalla", kmTime: { minutes: 1, seconds: 15, tenths: 2 }, finishOrder: 2, postPosition: 5, galloped: false, disqualified: false },
-      { date: "2025-05-28", distance: 1640, startMethod: "auto", track: "Åby", kmTime: { minutes: 1, seconds: 12, tenths: 8 }, finishOrder: 1, postPosition: 3, galloped: false, disqualified: false },
-      { date: "2025-05-15", distance: 2140, startMethod: "volte", track: "Solvalla", kmTime: { minutes: 1, seconds: 14, tenths: 5 }, finishOrder: 3, postPosition: 7, galloped: false, disqualified: false },
-      { date: "2025-05-01", distance: 1640, startMethod: "auto", track: "Jägersro", kmTime: { minutes: 1, seconds: 11, tenths: 9 }, finishOrder: 4, postPosition: 8, galloped: false, disqualified: false },
-      { date: "2025-04-18", distance: 2140, startMethod: "volte", track: "Solvalla", kmTime: { minutes: 1, seconds: 16, tenths: 1 }, finishOrder: 6, postPosition: 11, galloped: false, disqualified: false }
-    ];
-    
-    return races;
   };
 
   const calculateRawTimeFromHistory = (historicalRaces: HistoricalRace[]) => {
