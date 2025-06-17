@@ -9,6 +9,24 @@ interface V75RaceOverviewProps {
   races: V75RaceResult[];
 }
 
+// Safety function to ensure we never render an object as React child
+const ensureStringForDisplay = (value: any): string => {
+  if (typeof value === 'string') {
+    return value;
+  }
+  
+  if (value && typeof value === 'object') {
+    if ('name' in value && typeof value.name === 'string') {
+      return value.name;
+    }
+    if ('id' in value && 'name' in value) {
+      return String(value.name || 'Unknown Horse');
+    }
+  }
+  
+  return String(value || 'Unknown Horse');
+};
+
 const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
   const getTotalPrize = () => {
     return races.reduce((total, race) => total + race.prize, 0);
@@ -89,7 +107,7 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
               <div>
                 <p className="text-sm text-gray-600">Total Prize</p>
                 <p className="text-lg font-bold">
-                  {(getTotalPrize() / 1000000).toFixed(1)}M SEK
+                  {(races.reduce((total, race) => total + race.prize, 0) / 1000000).toFixed(1)}M SEK
                 </p>
               </div>
             </div>
@@ -152,35 +170,41 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
           
           <CardContent>
             <div className="space-y-3">
-              {topTimes.map((horse, index) => (
-                <div key={`${horse.raceId}-${horse.horseId}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
-                      index === 0 ? 'bg-yellow-500' : 
-                      index === 1 ? 'bg-gray-400' : 
-                      index === 2 ? 'bg-orange-400' : 'bg-gray-300'
-                    }`}>
-                      {index + 1}
+              {topTimes.map((horse, index) => {
+                // Ensure horse name is always a string before rendering
+                const safeHorseName = ensureStringForDisplay(horse.horseName);
+                console.log('V75RaceOverview - Horse name:', safeHorseName, 'Original:', horse.horseName, 'Type:', typeof horse.horseName);
+                
+                return (
+                  <div key={`${horse.raceId}-${horse.horseId}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
+                        index === 0 ? 'bg-yellow-500' : 
+                        index === 1 ? 'bg-gray-400' : 
+                        index === 2 ? 'bg-orange-400' : 'bg-gray-300'
+                      }`}>
+                        {index + 1}
+                      </div>
+                      
+                      <div>
+                        <p className="font-semibold">{safeHorseName}</p>
+                        <p className="text-sm text-gray-600">
+                          Race {horse.raceNumber} • {horse.driverName} • Post {horse.postPosition}
+                        </p>
+                      </div>
                     </div>
                     
-                    <div>
-                      <p className="font-semibold">{horse.horseName}</p>
-                      <p className="text-sm text-gray-600">
-                        Race {horse.raceNumber} • {horse.driverName} • Post {horse.postPosition}
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-purple-600">
+                        {formatKmTime(horse.modernNormalizedResult!.modernNormalizedTime)}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Raw: {formatKmTime(horse.modernNormalizedResult!.rawTime)}
                       </p>
                     </div>
                   </div>
-                  
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-purple-600">
-                      {formatKmTime(horse.modernNormalizedResult!.modernNormalizedTime)}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Raw: {formatKmTime(horse.modernNormalizedResult!.rawTime)}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
