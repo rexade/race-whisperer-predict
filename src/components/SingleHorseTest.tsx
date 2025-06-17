@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -126,13 +127,14 @@ const SingleHorseTest: React.FC = () => {
       eightMonthsAgo.setMonth(eightMonthsAgo.getMonth() - 8);
       console.log(`Filtering races newer than: ${eightMonthsAgo.toISOString().split('T')[0]}`);
       
+      // Process all records and apply filtering
       historicalRaces = atgData.results.records
-        .filter(record => {
+        .map(record => {
           // Check if race is within 8 months
           const raceDate = new Date(record.date);
           const isWithin8Months = raceDate >= eightMonthsAgo;
           
-          // Skip records without proper time data or with gallop/disqualification codes
+          // Check if we have valid time data (not a code like "kubu")
           const hasValidTime = record.kmTime && 
             typeof record.kmTime === 'object' && 
             'minutes' in record.kmTime && 
@@ -140,69 +142,67 @@ const SingleHorseTest: React.FC = () => {
             'tenths' in record.kmTime;
           
           const isNotDisqualified = !record.disqualified && !record.galloped;
+          const hasValidPlace = record.place && record.place !== "0" && !isNaN(parseInt(record.place));
+          
+          console.log(`Record ${record.date}: within8Months=${isWithin8Months}, hasValidTime=${hasValidTime}, isNotDisqualified=${isNotDisqualified}, hasValidPlace=${hasValidPlace}, place=${record.place}, kmTime=`, record.kmTime);
+          
+          // Only return races that meet ALL criteria
+          if (isWithin8Months && hasValidTime && isNotDisqualified && hasValidPlace) {
+            return {
+              date: record.date,
+              distance: record.start.distance,
+              startMethod: record.race.startMethod,
+              track: record.track.name,
+              kmTime: record.kmTime as { minutes: number; seconds: number; tenths: number },
+              finishOrder: parseInt(record.place),
+              postPosition: record.start.postPosition,
+              galloped: record.galloped || false,
+              disqualified: record.disqualified || false
+            };
+          }
+          return null;
+        })
+        .filter(race => race !== null) as HistoricalRace[];
+      
+      console.log(`Filtered to ${historicalRaces.length} valid historical races (within 8 months, not DQ/galloped, valid times)`);
+      
+      // If we have very few races within 8 months, let's also show what we filtered out for debugging
+      if (historicalRaces.length < 3) {
+        console.log("\n=== DEBUG: Showing what was filtered out ===");
+        atgData.results.records.forEach(record => {
+          const raceDate = new Date(record.date);
+          const eightMonthsAgo = new Date();
+          eightMonthsAgo.setMonth(eightMonthsAgo.getMonth() - 8);
+          
+          const isWithin8Months = raceDate >= eightMonthsAgo;
+          const hasValidTime = record.kmTime && typeof record.kmTime === 'object' && 'minutes' in record.kmTime;
+          const isNotDisqualified = !record.disqualified && !record.galloped;
           const hasValidPlace = record.place && record.place !== "0";
           
-          console.log(`Record ${record.date}: within8Months=${isWithin8Months}, hasValidTime=${hasValidTime}, isNotDisqualified=${isNotDisqualified}, hasValidPlace=${hasValidPlace}, place=${record.place}`);
-          
-          return isWithin8Months && hasValidTime && isNotDisqualified && hasValidPlace;
-        })
-        .map(record => ({
-          date: record.date,
-          distance: record.start.distance,
-          startMethod: record.race.startMethod,
-          track: record.track.name,
-          kmTime: record.kmTime as { minutes: number; seconds: number; tenths: number },
-          finishOrder: parseInt(record.place || "0"),
-          postPosition: record.start.postPosition,
-          galloped: record.galloped || false,
-          disqualified: record.disqualified || false
-        }));
-      
-      console.log(`Filtered to ${historicalRaces.length} valid historical races (within 8 months, not DQ/galloped)`);
+          console.log(`${record.date}: 8mo=${isWithin8Months}, time=${hasValidTime}, notDQ=${isNotDisqualified}, place=${hasValidPlace} - kmTime:`, record.kmTime);
+        });
+      }
     } else {
-      console.log("No real historical data found in ATG response, using enhanced simulated data");
-      historicalRaces = generateEnhancedSimulatedHistory(atgData.horse.id, atgData.horse.name);
+      console.log("No real historical data found in ATG response, using fallback simulated data");
+      historicalRaces = generateFallbackSimulatedHistory(atgData.horse.id, atgData.horse.name);
     }
     
     calculateRawTimeFromHistory(historicalRaces);
   };
 
-  const generateEnhancedSimulatedHistory = (horseId: number, horseName: string): HistoricalRace[] => {
-    console.log(`Generating enhanced simulated history with recent records for ${horseName} (ID: ${horseId})`);
-    
-    // Calculate date 8 months ago for simulated data too
-    const eightMonthsAgo = new Date();
-    eightMonthsAgo.setMonth(eightMonthsAgo.getMonth() - 8);
+  const generateFallbackSimulatedHistory = (horseId: number, horseName: string): HistoricalRace[] => {
+    console.log(`Generating fallback simulated history for ${horseName} (ID: ${horseId})`);
     
     // Generate realistic harness racing records within the last 8 months
     const races: HistoricalRace[] = [
-      // Recent races (better times) - all within 8 months
-      { date: "2024-06-10", distance: 2140, startMethod: "auto", track: "Solvalla", kmTime: { minutes: 1, seconds: 15, tenths: 2 }, finishOrder: 2, postPosition: 5, galloped: false, disqualified: false },
-      { date: "2024-05-28", distance: 1640, startMethod: "auto", track: "Åby", kmTime: { minutes: 1, seconds: 12, tenths: 8 }, finishOrder: 1, postPosition: 3, galloped: false, disqualified: false },
-      { date: "2024-05-15", distance: 2140, startMethod: "volte", track: "Solvalla", kmTime: { minutes: 1, seconds: 14, tenths: 5 }, finishOrder: 3, postPosition: 7, galloped: false, disqualified: false },
-      { date: "2024-05-01", distance: 1640, startMethod: "auto", track: "Jägersro", kmTime: { minutes: 1, seconds: 11, tenths: 9 }, finishOrder: 4, postPosition: 8, galloped: false, disqualified: false },
-      { date: "2024-04-18", distance: 2140, startMethod: "volte", track: "Solvalla", kmTime: { minutes: 1, seconds: 16, tenths: 1 }, finishOrder: 6, postPosition: 11, galloped: false, disqualified: false },
-      { date: "2024-04-05", distance: 1640, startMethod: "volte", track: "Mantorp", kmTime: { minutes: 1, seconds: 13, tenths: 5 }, finishOrder: 2, postPosition: 4, galloped: false, disqualified: false },
-      { date: "2024-03-22", distance: 2640, startMethod: "auto", track: "Bergsåker", kmTime: { minutes: 1, seconds: 18, tenths: 3 }, finishOrder: 5, postPosition: 6, galloped: false, disqualified: false },
-      { date: "2024-03-08", distance: 1640, startMethod: "auto", track: "Bollnäs", kmTime: { minutes: 1, seconds: 13, tenths: 1 }, finishOrder: 3, postPosition: 9, galloped: false, disqualified: false },
-      { date: "2024-02-24", distance: 2140, startMethod: "volte", track: "Axevalla", kmTime: { minutes: 1, seconds: 15, tenths: 8 }, finishOrder: 7, postPosition: 12, galloped: false, disqualified: false },
-      { date: "2024-02-10", distance: 1640, startMethod: "auto", track: "Gävle", kmTime: { minutes: 1, seconds: 12, tenths: 4 }, finishOrder: 1, postPosition: 2, galloped: false, disqualified: false },
-      { date: "2024-01-27", distance: 2140, startMethod: "auto", track: "Solvalla", kmTime: { minutes: 1, seconds: 16, tenths: 7 }, finishOrder: 8, postPosition: 10, galloped: false, disqualified: false },
-      { date: "2024-01-13", distance: 1640, startMethod: "volte", track: "Mantorp", kmTime: { minutes: 1, seconds: 14, tenths: 2 }, finishOrder: 4, postPosition: 7, galloped: false, disqualified: false },
-      { date: "2023-12-30", distance: 2640, startMethod: "volte", track: "Åby", kmTime: { minutes: 1, seconds: 19, tenths: 5 }, finishOrder: 9, postPosition: 13, galloped: false, disqualified: false },
-      { date: "2023-12-16", distance: 1640, startMethod: "auto", track: "Jägersro", kmTime: { minutes: 1, seconds: 11, tenths: 6 }, finishOrder: 2, postPosition: 4, galloped: false, disqualified: false },
-      { date: "2023-12-02", distance: 2140, startMethod: "auto", track: "Bergsåker", kmTime: { minutes: 1, seconds: 17, tenths: 1 }, finishOrder: 6, postPosition: 8, galloped: false, disqualified: false },
-      { date: "2023-11-18", distance: 1640, startMethod: "volte", track: "Bollnäs", kmTime: { minutes: 1, seconds: 13, tenths: 9 }, finishOrder: 3, postPosition: 5, galloped: false, disqualified: false },
-      { date: "2023-11-04", distance: 2140, startMethod: "volte", track: "Axevalla", kmTime: { minutes: 1, seconds: 15, tenths: 4 }, finishOrder: 5, postPosition: 9, galloped: false, disqualified: false },
-      { date: "2023-10-21", distance: 1640, startMethod: "auto", track: "Gävle", kmTime: { minutes: 1, seconds: 12, tenths: 1 }, finishOrder: 1, postPosition: 3, galloped: false, disqualified: false }
-      // Removed older races that would be beyond 8 months
+      { date: "2025-06-10", distance: 2140, startMethod: "auto", track: "Solvalla", kmTime: { minutes: 1, seconds: 15, tenths: 2 }, finishOrder: 2, postPosition: 5, galloped: false, disqualified: false },
+      { date: "2025-05-28", distance: 1640, startMethod: "auto", track: "Åby", kmTime: { minutes: 1, seconds: 12, tenths: 8 }, finishOrder: 1, postPosition: 3, galloped: false, disqualified: false },
+      { date: "2025-05-15", distance: 2140, startMethod: "volte", track: "Solvalla", kmTime: { minutes: 1, seconds: 14, tenths: 5 }, finishOrder: 3, postPosition: 7, galloped: false, disqualified: false },
+      { date: "2025-05-01", distance: 1640, startMethod: "auto", track: "Jägersro", kmTime: { minutes: 1, seconds: 11, tenths: 9 }, finishOrder: 4, postPosition: 8, galloped: false, disqualified: false },
+      { date: "2025-04-18", distance: 2140, startMethod: "volte", track: "Solvalla", kmTime: { minutes: 1, seconds: 16, tenths: 1 }, finishOrder: 6, postPosition: 11, galloped: false, disqualified: false }
     ];
     
-    // Filter simulated races to only include those within 8 months
-    return races.filter(race => {
-      const raceDate = new Date(race.date);
-      return raceDate >= eightMonthsAgo;
-    });
+    return races;
   };
 
   const calculateRawTimeFromHistory = (historicalRaces: HistoricalRace[]) => {
