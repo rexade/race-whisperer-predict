@@ -33,6 +33,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
     { key: 'shoeType' as keyof NormalizationWeights, label: 'Shoe Type', description: 'Barefoot vs shod advantages' },
     { key: 'sulkyType' as keyof NormalizationWeights, label: 'Sulky Type', description: 'American vs Volvo sulky impact' },
     { key: 'driverExperience' as keyof NormalizationWeights, label: 'Driver Experience', description: 'Driver skill and experience' },
+    { key: 'driver2025Performance' as keyof NormalizationWeights, label: 'Driver 2025 Performance', description: 'Current year win percentage' },
     { key: 'trackFamiliarity' as keyof NormalizationWeights, label: 'Track Familiarity', description: 'Home track advantage' },
     { key: 'form' as keyof NormalizationWeights, label: 'Recent Form', description: 'Current performance trend' }
   ];

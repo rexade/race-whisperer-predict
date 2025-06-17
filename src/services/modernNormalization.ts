@@ -9,6 +9,7 @@ export interface ModernNormalizationFactors {
   homeTrack: string;
   driverExperience: number;
   driverWinPercentage: number;
+  driverWinPercentage2025: number;
   horseForm: number;
 }
 
@@ -17,6 +18,7 @@ export interface NormalizationWeights {
   shoeType: number;
   sulkyType: number;
   driverExperience: number;
+  driver2025Performance: number;
   trackFamiliarity: number;
   form: number;
 }
@@ -28,6 +30,7 @@ export interface ModernNormalizedResult {
     postPosition: number;
     equipment: number;
     driver: number;
+    driver2025: number;
     track: number;
     form: number;
     total: number;
@@ -40,6 +43,7 @@ const DEFAULT_WEIGHTS: NormalizationWeights = {
   shoeType: 0.8,
   sulkyType: 0.6,
   driverExperience: 0.9,
+  driver2025Performance: 1.1,
   trackFamiliarity: 0.7,
   form: 1.2
 };
@@ -59,6 +63,7 @@ export const applyModernNormalization = (
     postPosition: 0,
     equipment: 0,
     driver: 0,
+    driver2025: 0,
     track: 0,
     form: 0,
     total: 0
@@ -86,6 +91,13 @@ export const applyModernNormalization = (
   ) * weights.driverExperience;
   adjustments.driver = driverAdjustment;
 
+  // Driver 2025 Performance Adjustment
+  const driver2025Adjustment = calculateDriver2025Adjustment(
+    factors.driverWinPercentage2025,
+    factors.postPosition
+  ) * weights.driver2025Performance;
+  adjustments.driver2025 = driver2025Adjustment;
+
   // Track Familiarity (placeholder for now)
   const trackAdjustment = 0 * weights.trackFamiliarity;
   adjustments.track = trackAdjustment;
@@ -95,7 +107,7 @@ export const applyModernNormalization = (
   adjustments.form = formAdjustment;
 
   // Calculate total adjustment
-  adjustments.total = postPosAdjustment + equipmentAdjustment + driverAdjustment + trackAdjustment + formAdjustment;
+  adjustments.total = postPosAdjustment + equipmentAdjustment + driverAdjustment + driver2025Adjustment + trackAdjustment + formAdjustment;
 
   const modernNormalizedTime = rawTime + adjustments.total;
   const kmTime = convertSecondsToKmTime(modernNormalizedTime);
@@ -104,6 +116,7 @@ export const applyModernNormalization = (
   console.log(`  Post Position (${factors.postPosition}): ${postPosAdjustment.toFixed(3)}s`);
   console.log(`  Equipment: ${equipmentAdjustment.toFixed(3)}s`);
   console.log(`  Driver: ${driverAdjustment.toFixed(3)}s`);
+  console.log(`  Driver 2025: ${driver2025Adjustment.toFixed(3)}s`);
   console.log(`  Total: ${adjustments.total.toFixed(3)}s`);
   console.log(`Modern Normalized Time: ${modernNormalizedTime.toFixed(2)}s (${kmTime})`);
 
@@ -172,6 +185,29 @@ const calculateDriverAdjustment = (
     adjustment -= 0.05;
   } else if (winPercentage > 15 && postPosition >= 11) {
     adjustment -= 0.03;
+  }
+  
+  return adjustment;
+};
+
+const calculateDriver2025Adjustment = (
+  winPercentage2025: number,
+  postPosition: number
+): number => {
+  let adjustment = 0;
+  
+  // 2025 current form adjustments (more aggressive than career stats)
+  if (winPercentage2025 > 25) adjustment -= 0.3;
+  else if (winPercentage2025 > 20) adjustment -= 0.2;
+  else if (winPercentage2025 > 15) adjustment -= 0.1;
+  else if (winPercentage2025 > 10) adjustment -= 0.05;
+  else if (winPercentage2025 <= 5) adjustment += 0.05;
+  
+  // Current form and difficult post position interaction
+  if (winPercentage2025 > 25 && postPosition >= 9) {
+    adjustment -= 0.08;
+  } else if (winPercentage2025 > 20 && postPosition >= 11) {
+    adjustment -= 0.05;
   }
   
   return adjustment;

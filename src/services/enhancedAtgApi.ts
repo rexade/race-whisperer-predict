@@ -23,6 +23,7 @@ export interface EnhancedHorseData {
     firstName: string;
     lastName: string;
     winPercentage: number;
+    winPercentage2025: number;
     experience: number;
   };
   rawTime?: number;
@@ -90,6 +91,7 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
             firstName: start.driver.firstName,
             lastName: start.driver.lastName,
             winPercentage: start.driver.statistics?.winPercentage || 0,
+            winPercentage2025: start.driver.statistics?.year2025?.winPercentage || start.driver.statistics?.thisYear?.winPercentage || 0,
             experience: start.driver.statistics?.starts || 0
           }
         };
@@ -156,6 +158,7 @@ export const fetchEnhancedStartData = async (raceId: string, startNumber: number
         firstName: data.driver.firstName,
         lastName: data.driver.lastName,
         winPercentage: data.driver.statistics?.winPercentage || 0,
+        winPercentage2025: data.driver.statistics?.year2025?.winPercentage || data.driver.statistics?.thisYear?.winPercentage || 0,
         experience: data.driver.statistics?.starts || 0
       }
     };

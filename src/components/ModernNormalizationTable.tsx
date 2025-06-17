@@ -68,13 +68,15 @@ const ModernNormalizationTable: React.FC<ModernNormalizationTableProps> = ({
                 <TableHead className="w-12">Rank</TableHead>
                 <TableHead className="w-12">Start</TableHead>
                 <TableHead className="min-w-[150px]">Horse</TableHead>
+                <TableHead className="min-w-[120px]">Driver</TableHead>
                 <TableHead className="w-20">Post</TableHead>
                 <TableHead className="w-24">RAW Time</TableHead>
                 <TableHead className="w-24">Modern Time</TableHead>
                 <TableHead className="w-20">Km Time</TableHead>
                 <TableHead className="w-20">Position</TableHead>
                 <TableHead className="w-20">Equipment</TableHead>
-                <TableHead className="w-20">Driver</TableHead>
+                <TableHead className="w-20">Driver Exp</TableHead>
+                <TableHead className="w-20">Driver 2025</TableHead>
                 <TableHead className="w-20">Total Adj</TableHead>
               </TableRow>
             </TableHeader>
@@ -99,10 +101,16 @@ const ModernNormalizationTable: React.FC<ModernNormalizationTableProps> = ({
                     </TableCell>
                     
                     <TableCell>
+                      <div className="font-medium">{horse.name}</div>
+                    </TableCell>
+                    
+                    <TableCell>
                       <div>
-                        <div className="font-medium">{horse.name}</div>
-                        <div className="text-xs text-gray-500">
+                        <div className="font-medium text-sm">
                           {horse.driver.firstName} {horse.driver.lastName}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          2025: {horse.driver.winPercentage2025.toFixed(1)}%
                         </div>
                       </div>
                     </TableCell>
@@ -144,6 +152,12 @@ const ModernNormalizationTable: React.FC<ModernNormalizationTableProps> = ({
                     </TableCell>
                     
                     <TableCell>
+                      <span className={`text-xs font-mono ${getAdjustmentColor(result.adjustments.driver2025)}`}>
+                        {formatAdjustment(result.adjustments.driver2025)}
+                      </span>
+                    </TableCell>
+                    
+                    <TableCell>
                       <span className={`text-sm font-mono font-medium ${getAdjustmentColor(result.adjustments.total)}`}>
                         {formatAdjustment(result.adjustments.total)}
                       </span>
@@ -167,7 +181,7 @@ const ModernNormalizationTable: React.FC<ModernNormalizationTableProps> = ({
             </div>
             <div className="flex items-center gap-1">
               <Settings className="h-4 w-4" />
-              <span>Adjustable weights applied</span>
+              <span>Includes 2025 driver performance</span>
             </div>
           </div>
         </div>

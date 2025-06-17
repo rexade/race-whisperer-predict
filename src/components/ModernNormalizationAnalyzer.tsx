@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -121,6 +120,7 @@ const ModernNormalizationAnalyzer: React.FC = () => {
         homeTrack: horse.homeTrack,
         driverExperience: horse.driver.experience,
         driverWinPercentage: horse.driver.winPercentage,
+        driverWinPercentage2025: horse.driver.winPercentage2025,
         horseForm: horse.statistics.winPercentage
       };
       
