@@ -6,7 +6,7 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Settings, RotateCcw } from "lucide-react";
-import { NormalizationWeights, getDefaultWeights } from '../services/modernNormalization';
+import { NormalizationWeights, getDefaultWeights } from '../services/modernKmNormalization';
 
 interface WeightManagerProps {
   weights: NormalizationWeights;
