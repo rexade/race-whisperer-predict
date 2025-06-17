@@ -12,7 +12,7 @@ import { useRaceAnalysis } from "./modernAnalyzer/hooks/useRaceAnalysis";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernNormalization';
 
 const ModernNormalizationAnalyzer: React.FC = () => {
-  const [raceId, setRaceId] = useState("2025-06-22_19_5");
+  const [raceId, setRaceId] = useState("2025-01-15_19_7");
   const [weights, setWeights] = useState<NormalizationWeights>(getDefaultWeights());
   
   const {
@@ -39,45 +39,47 @@ const ModernNormalizationAnalyzer: React.FC = () => {
   }, [weights, enhancedHorses, raceInfo, applyModernNormalizationToHorses]);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 p-6">
-      <Card className="border-purple-200">
-        <AnalyzerHeader />
-        
-        <CardContent className="space-y-6">
-          <RaceInput 
-            raceId={raceId}
-            setRaceId={setRaceId}
-            onAnalyze={handleAnalyzeRace}
-            loading={loading}
-          />
-
-          {loading && (
-            <ProgressIndicator progress={progress} currentTask={currentTask} />
-          )}
-
-          {error && (
-            <ErrorDisplay error={error} />
-          )}
-
-          {raceInfo && enhancedHorses.length > 0 && (
-            <RaceInfoDisplay raceInfo={raceInfo} horseCount={enhancedHorses.length} />
-          )}
-        </CardContent>
-      </Card>
-
-      {enhancedHorses.length > 0 && (
-        <>
-          <WeightManager weights={weights} onWeightsChange={setWeights} />
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
+      <div className="max-w-7xl mx-auto space-y-6 p-6">
+        <Card className="border-purple-200 shadow-lg">
+          <AnalyzerHeader />
           
-          {modernResults.length > 0 && (
-            <ModernNormalizationTable 
-              horses={enhancedHorses}
-              results={modernResults}
-              raceInfo={raceInfo}
+          <CardContent className="space-y-6">
+            <RaceInput 
+              raceId={raceId}
+              setRaceId={setRaceId}
+              onAnalyze={handleAnalyzeRace}
+              loading={loading}
             />
-          )}
-        </>
-      )}
+
+            {loading && (
+              <ProgressIndicator progress={progress} currentTask={currentTask} />
+            )}
+
+            {error && (
+              <ErrorDisplay error={error} />
+            )}
+
+            {raceInfo && enhancedHorses.length > 0 && (
+              <RaceInfoDisplay raceInfo={raceInfo} horseCount={enhancedHorses.length} />
+            )}
+          </CardContent>
+        </Card>
+
+        {enhancedHorses.length > 0 && (
+          <>
+            <WeightManager weights={weights} onWeightsChange={setWeights} />
+            
+            {modernResults.length > 0 && (
+              <ModernNormalizationTable 
+                horses={enhancedHorses}
+                results={modernResults}
+                raceInfo={raceInfo}
+              />
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 };

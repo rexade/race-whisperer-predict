@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import SingleHorseTest from "./components/SingleHorseTest";
 import ModernNormalizationAnalyzer from "./components/ModernNormalizationAnalyzer";
 import Index from "./pages/Index";
+import Navigation from "./components/Navigation";
 
 const queryClient = new QueryClient();
 
@@ -14,10 +15,11 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <BrowserRouter>
+        <Navigation />
         <Routes>
-          <Route path="/" element={<SingleHorseTest />} />
-          <Route path="/index" element={<Index />} />
-          <Route path="/modern" element={<ModernNormalizationAnalyzer />} />
+          <Route path="/" element={<ModernNormalizationAnalyzer />} />
+          <Route path="/race-analyzer" element={<Index />} />
+          <Route path="/single-horse" element={<SingleHorseTest />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
