@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -6,7 +5,7 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Settings, RotateCcw } from "lucide-react";
-import { NormalizationWeights, getDefaultWeights } from '../services/modernKmNormalization';
+import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
 
 interface WeightManagerProps {
   weights: NormalizationWeights;

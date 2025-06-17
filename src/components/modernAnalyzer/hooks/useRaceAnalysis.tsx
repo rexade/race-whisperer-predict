@@ -8,7 +8,7 @@ import {
   applyModernKmNormalization,
   NormalizationWeights,
   ModernNormalizationFactors
-} from '../../../services/modernKmNormalization';
+} from '../../../services/modernKm/index';
 import { ModernKmNormalizedResult, KmTime } from '../../../services/types/kmTimeTypes';
 
 // Enhanced horse data with KM time

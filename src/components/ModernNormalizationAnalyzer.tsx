@@ -8,7 +8,7 @@ import ProgressIndicator from "./modernAnalyzer/ProgressIndicator";
 import ErrorDisplay from "./modernAnalyzer/ErrorDisplay";
 import RaceInfoDisplay from "./modernAnalyzer/RaceInfoDisplay";
 import { useRaceAnalysis } from "./modernAnalyzer/hooks/useRaceAnalysis";
-import { NormalizationWeights, getDefaultWeights } from '../services/modernKmNormalization';
+import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
 
 const ModernNormalizationAnalyzer: React.FC = () => {
   const [raceId, setRaceId] = useState("2025-01-15_19_7");
