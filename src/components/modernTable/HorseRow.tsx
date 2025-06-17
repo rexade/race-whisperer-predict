@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Badge } from "@/components/ui/badge";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -157,12 +156,6 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
       <TableCell className="text-center">
         <div className={`font-mono text-sm font-bold ${isTopPerformer ? 'text-green-700' : 'text-gray-900'}`}>
           {result.modernNormalizedTime}
-        </div>
-      </TableCell>
-      
-      <TableCell className="text-center">
-        <div className="font-mono text-sm text-blue-600 font-medium">
-          {result.kmTime}
         </div>
       </TableCell>
       

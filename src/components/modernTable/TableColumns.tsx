@@ -19,7 +19,6 @@ const TableColumns: React.FC = () => {
         <TableHead className="w-20 text-center">Home Track</TableHead>
         <TableHead className="w-24 text-center">RAW Time (KM)</TableHead>
         <TableHead className="w-24 text-center font-bold">Modern Time (KM)</TableHead>
-        <TableHead className="w-20 text-center">Km Time</TableHead>
         <TableHead className="w-24 text-center font-bold">Total Adj</TableHead>
       </TableRow>
     </TableHeader>
