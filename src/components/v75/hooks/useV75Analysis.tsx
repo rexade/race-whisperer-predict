@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { fetchV75RaceData, V75RaceData } from '../../../services/v75CalendarApi';
+import { fetchV75RaceData, fetchV75GameInfo } from '../../../services/v75CalendarApi';
 import { calculateRawKmTimesForRaceWithId } from '../../../services/kmTimeProcessor';
 import { 
   applyModernKmNormalization,
@@ -52,36 +52,57 @@ export const useV75Analysis = () => {
     setAnalysisDate(date);
     
     try {
-      setCurrentTask("Checking for V75 races...");
+      setCurrentTask("Checking for V75 games...");
       setProgress(5);
       
-      console.log(`🔍 Checking for V75 races on ${date}...`);
+      console.log(`\n🎯 === V75 ANALYSIS START for ${date} ===`);
       
-      const v75Races = await fetchV75RaceData(date);
+      // First, get the V75 game info to validate and get race IDs
+      const gameInfo = await fetchV75GameInfo(date);
       
-      if (v75Races.length === 0) {
-        setError(`No V75 races found for ${date}. Please select a different date with V75 races.`);
+      if (!gameInfo) {
+        const errorMsg = `No V75 games found for ${date}. Please select a different date with V75 races.`;
+        setError(errorMsg);
         toast({
-          title: "No V75 Races Found",
-          description: `No V75 races were found for ${date}. Try selecting a different date.`,
+          title: "No V75 Games Found",
+          description: errorMsg,
           variant: "destructive",
         });
         return;
       }
       
-      console.log(`✅ Found ${v75Races.length} V75 races for ${date}`);
+      console.log(`✅ V75 Game confirmed: ${gameInfo.gameId}`);
+      console.log(`📋 Race IDs: ${gameInfo.raceIds.join(', ')}`);
       
-      setCurrentTask(`Found ${v75Races.length} V75 races. Starting analysis...`);
+      setCurrentTask(`Found V75 game with ${gameInfo.raceIds.length} races. Fetching race data...`);
       setProgress(10);
+      
+      // Fetch detailed race data using the identified race IDs
+      const v75Races = await fetchV75RaceData(date);
+      
+      if (v75Races.length === 0) {
+        const errorMsg = `Failed to fetch detailed race data for V75 game ${gameInfo.gameId}`;
+        setError(errorMsg);
+        toast({
+          title: "Race Data Error",
+          description: errorMsg,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log(`📊 Successfully fetched ${v75Races.length}/7 V75 races`);
+      setCurrentTask(`Successfully fetched ${v75Races.length} V75 races. Starting analysis...`);
+      setProgress(20);
       
       const results: V75RaceResult[] = [];
       
       for (let i = 0; i < v75Races.length; i++) {
         const race = v75Races[i];
-        const raceProgress = (i / v75Races.length) * 80;
+        const raceProgress = (i / v75Races.length) * 70;
         
-        setCurrentTask(`Analyzing race ${race.raceNumber} of ${v75Races.length}...`);
-        setProgress(10 + raceProgress);
+        setCurrentTask(`Analyzing race ${race.raceNumber} (${i + 1} of ${v75Races.length})...`);
+        setProgress(20 + raceProgress);
         
         try {
           // Convert horses to ATG starts format for KM time calculation
@@ -100,18 +121,21 @@ export const useV75Analysis = () => {
           console.log(`\n=== 🔥 V75 Race ${race.raceNumber} Analysis ===`);
           console.log(`Race ID: ${race.raceId}`);
           console.log(`Track: ${race.track}, Distance: ${race.distance}m`);
+          console.log(`Horses to analyze: ${atgStarts.length}`);
           
           // Calculate RAW KM times
-          setCurrentTask(`Calculating RAW KM times for race ${race.raceNumber}...`);
+          setCurrentTask(`Race ${race.raceNumber}: Calculating RAW KM times...`);
           const rawKmTimes = await calculateRawKmTimesForRaceWithId(
             race.raceId, 
             atgStarts, 
             (current, total) => {
-              const horseProgress = (current / total) * (80 / v75Races.length);
-              setProgress(10 + raceProgress + horseProgress);
-              setCurrentTask(`Race ${race.raceNumber}: Fetching historical data for horse ${current} of ${total}...`);
+              const horseProgress = (current / total) * (70 / v75Races.length);
+              setProgress(20 + raceProgress + horseProgress);
+              setCurrentTask(`Race ${race.raceNumber}: Processing horse ${current} of ${total}...`);
             }
           );
+          
+          console.log(`📈 RAW KM times calculated for ${rawKmTimes.length} horses`);
           
           // Apply modern normalization
           const horseResults: V75HorseResult[] = [];
@@ -174,8 +198,10 @@ export const useV75Analysis = () => {
             analysisComplete: true
           });
           
+          console.log(`✅ Race ${race.raceNumber} analysis complete: ${horseResults.length} horses processed`);
+          
         } catch (raceError) {
-          console.error(`Error analyzing race ${race.raceNumber}:`, raceError);
+          console.error(`❌ Error analyzing race ${race.raceNumber}:`, raceError);
           
           // Add race with error state
           results.push({
@@ -197,21 +223,23 @@ export const useV75Analysis = () => {
       setCurrentTask("V75 analysis complete!");
       
       const successfulRaces = results.filter(r => r.analysisComplete).length;
+      const totalHorses = results.reduce((sum, race) => sum + race.horses.length, 0);
+      
+      console.log(`\n🏁 === V75 ANALYSIS COMPLETE ===`);
+      console.log(`📊 Successfully analyzed: ${successfulRaces}/${results.length} races`);
+      console.log(`🐎 Total horses analyzed: ${totalHorses}`);
+      console.log(`🎯 Game ID: ${gameInfo.gameId}`);
       
       toast({
         title: "V75 Analysis Complete",
-        description: `Successfully analyzed ${successfulRaces} of ${v75Races.length} races for ${date}`,
+        description: `Successfully analyzed ${successfulRaces} of ${results.length} races with ${totalHorses} horses for ${date}`,
       });
       
     } catch (err) {
-      console.error("Error during V75 analysis:", err);
+      console.error("❌ Error during V75 analysis:", err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       
-      if (errorMessage.includes('Failed to fetch V75 race data')) {
-        setError(`No V75 races found for ${date}. This date may not have V75 races or the data may not be available yet.`);
-      } else {
-        setError(`V75 analysis failed: ${errorMessage}`);
-      }
+      setError(`V75 analysis failed: ${errorMessage}`);
       
       toast({
         title: "V75 Analysis Error",
@@ -226,7 +254,7 @@ export const useV75Analysis = () => {
   const reanalyzeWithNewWeights = (weights: NormalizationWeights) => {
     if (v75Results.length === 0 || !analysisDate) return;
     
-    console.log('Re-applying modern normalization with updated weights...');
+    console.log('🔄 Re-applying modern normalization with updated weights...');
     
     const updatedResults = v75Results.map(race => {
       if (!race.analysisComplete || race.horses.length === 0) return race;
