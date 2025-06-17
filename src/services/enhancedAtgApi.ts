@@ -1,3 +1,4 @@
+
 export interface EnhancedHorseData {
   horseId: number;
   name: string;
@@ -26,7 +27,6 @@ export interface EnhancedHorseData {
     experience: number;
   };
   rawTime?: number;
-  startNumber?: number; // Add actual start number for API calls
 }
 
 export interface EnhancedRaceData {
@@ -80,25 +80,23 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
     const postPositionMap = new Map<number, number>(); // position -> count
     const postPositions: number[] = [];
     
-    console.log("\n=== Processing horse starts ===");
+    console.log("\n=== Processing horse starts from MAIN RACE ENDPOINT ONLY ===");
     
-    // Process each horse start with enhanced validation
+    // Process each horse start - get ALL data from main race endpoint
     for (let index = 0; index < (data.starts || []).length; index++) {
       const start = data.starts[index];
-      const startNumber = index + 1; // Sequential start number for API calls
       
       try {
         const postPos = start.postPosition;
         postPositions.push(postPos);
         postPositionMap.set(postPos, (postPositionMap.get(postPos) || 0) + 1);
         
-        console.log(`Start ${startNumber}: Horse "${start.horse.name}" (ID: ${start.horse.id}) - Post Position: ${postPos}`);
+        console.log(`Processing horse "${start.horse.name}" (ID: ${start.horse.id}) - Post Position: ${postPos}`);
         
         const enhancedHorse: EnhancedHorseData = {
           horseId: start.horse.id,
           name: start.horse.name,
           postPosition: postPos,
-          startNumber: startNumber, // Add sequential start number
           distance: start.distance || data.distance,
           startMethod: data.startMethod,
           shoes: {
@@ -131,7 +129,7 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
         
       } catch (error) {
         console.error(`Error processing horse ${start.horse?.name || 'Unknown'} at index ${index}:`, error);
-        raceInfo.dataQuality.missingData.push(`Horse at start ${startNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        raceInfo.dataQuality.missingData.push(`Horse at position ${start.postPosition}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
     
@@ -183,56 +181,4 @@ const calculateEarningsPerStart = (totalEarnings: number, totalStarts: number): 
   return Math.round(totalEarnings / totalStarts);
 };
 
-export const fetchEnhancedStartData = async (raceId: string, startNumber: number): Promise<EnhancedHorseData> => {
-  console.log(`Fetching enhanced start data for race ${raceId}, start ${startNumber}`);
-  
-  try {
-    const response = await fetch(`https://www.atg.se/services/racinginfo/v1/api/races/${raceId}/start/${startNumber}`);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch start data: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    console.log("ATG Start Data:", data);
-    
-    const enhancedHorse: EnhancedHorseData = {
-      horseId: data.horse.id,
-      name: data.horse.name,
-      postPosition: data.postPosition,
-      startNumber: startNumber, // Add sequential start number
-      distance: data.start?.distance || 2140,
-      startMethod: data.race?.startMethod || "auto",
-      shoes: {
-        front: data.horse.shoes?.front || "1",
-        back: data.horse.shoes?.back || "1"
-      },
-      sulky: {
-        type: data.horse.sulky?.type?.code || "VA"
-      },
-      homeTrack: data.horse.homeTrack?.name || "Unknown",
-      statistics: {
-        startPoints: data.horse.statistics?.life?.startPoints || 0,
-        earningsPerStart: calculateEarningsPerStart(
-          data.horse.statistics?.life?.earnings || 0,
-          data.horse.statistics?.life?.starts || 1
-        ),
-        placePercentage: data.horse.statistics?.life?.placePercentage || 0,
-        winPercentage: data.horse.statistics?.life?.winPercentage || 0
-      },
-      driver: {
-        firstName: data.driver.firstName,
-        lastName: data.driver.lastName,
-        winPercentage: data.driver.statistics?.winPercentage || 0,
-        winPercentage2025: data.driver.statistics?.year2025?.winPercentage || data.driver.statistics?.thisYear?.winPercentage || 0,
-        experience: data.driver.statistics?.starts || 0
-      }
-    };
-    
-    return enhancedHorse;
-    
-  } catch (error) {
-    console.error("Error fetching enhanced start data:", error);
-    throw error;
-  }
-};
+// Remove fetchEnhancedStartData function - we only use main race endpoint for horse data

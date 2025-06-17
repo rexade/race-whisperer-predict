@@ -1,3 +1,4 @@
+
 import { ATGStartInfo } from './atgApi';
 import { HorseRawTime } from './types/timeProcessorTypes';
 import { processHorseTimes } from './horseProcessing';
@@ -29,8 +30,8 @@ export const calculateRawTimesForRace = async (
       // This would typically come from the race context
       const raceId = "2025-01-15_19_7"; // This should be passed as a parameter
       
-      // Fetch historical data for this horse
-      const historicalData = await fetchHorseHistoricalData(raceId, start.number);
+      // Fetch historical data for this horse using POST POSITION
+      const historicalData = await fetchHorseHistoricalData(raceId, start.postPosition);
       
       if (!historicalData.horse.results?.records) {
         console.warn(`No historical records found for horse ${start.horse.name}`);
@@ -44,7 +45,7 @@ export const calculateRawTimesForRace = async (
         continue;
       }
       
-      // Process and filter historical records
+      // Process and filter historical records - ONLY FOR RAW TIME CALCULATION
       const validRecords = processHistoricalRecords(historicalData.horse.results.records);
       console.log(`Found ${validRecords.length} valid historical races for ${start.horse.name}`);
       
@@ -62,7 +63,7 @@ export const calculateRawTimesForRace = async (
         disqualified: record.disqualified || false
       }));
       
-      // Process the times using existing logic
+      // Process the times using existing logic - CALCULATE RAW TIME ONLY
       const horseRawTime = await processHorseTimes(
         start.horse.id,
         start.horse.name,
@@ -70,6 +71,9 @@ export const calculateRawTimesForRace = async (
       );
       
       rawTimes.push(horseRawTime);
+      
+      // THROW AWAY HISTORICAL DATA - IT'S ONLY FOR RAW TIME CALCULATION
+      console.log(`✅ RAW time calculated for ${start.horse.name}: ${horseRawTime.best3Average.toFixed(2)}s - HISTORICAL DATA DISCARDED`);
       
     } catch (error) {
       console.error(`Error processing times for horse ${start.horse.name}:`, error);
@@ -113,19 +117,19 @@ export const calculateRawTimesForRaceWithId = async (
   const rawTimes: HorseRawTime[] = [];
 
   console.log(`\n=== Calculating RAW times for race ${raceId} with ${starts.length} horses ===`);
-  console.log('Start mapping:', starts.map(s => `${s.number}: ${s.horse.name} (ID: ${s.horse.id})`));
+  console.log('🔥 STRICT MODE: Using POST POSITIONS for historical data fetch ONLY for RAW time calculation');
 
   for (let i = 0; i < starts.length; i++) {
     const start = starts[i];
-    const startNumber = start.number; // Use the start number from the mapping
+    const postPosition = start.postPosition; // USE POST POSITION, NOT START NUMBER
     progressCallback?.(i + 1, starts.length);
 
     try {
       console.log(`\n--- Processing horse ${i + 1}/${starts.length}: ${start.horse.name} (ID: ${start.horse.id}) ---`);
-      console.log(`Using start number: ${startNumber} (post position: ${start.postPosition})`);
+      console.log(`🎯 Using POST POSITION: ${postPosition} for historical data fetch`);
       
-      // Fetch historical data using the start number (not post position)
-      const historicalData = await fetchHorseHistoricalData(raceId, startNumber);
+      // Fetch historical data using POST POSITION - ONLY FOR RAW TIME CALCULATION
+      const historicalData = await fetchHorseHistoricalData(raceId, postPosition);
       
       if (!historicalData.horse.results?.records) {
         console.warn(`No historical records found for horse ${start.horse.name}`);
@@ -139,7 +143,7 @@ export const calculateRawTimesForRaceWithId = async (
         continue;
       }
       
-      // Process and filter historical records
+      // Process and filter historical records - ONLY FOR RAW TIME CALCULATION
       const validRecords = processHistoricalRecords(historicalData.horse.results.records);
       console.log(`Found ${validRecords.length} valid historical races for ${start.horse.name}`);
       
@@ -157,7 +161,7 @@ export const calculateRawTimesForRaceWithId = async (
         disqualified: record.disqualified || false
       }));
       
-      // Process the times using existing logic
+      // Process the times using existing logic - CALCULATE RAW TIME ONLY
       const horseRawTime = await processHorseTimes(
         start.horse.id,
         start.horse.name,
@@ -166,8 +170,12 @@ export const calculateRawTimesForRaceWithId = async (
       
       rawTimes.push(horseRawTime);
       
+      // THROW AWAY HISTORICAL DATA - NEVER TOUCH AGAIN
+      console.log(`✅ RAW time calculated for ${start.horse.name}: ${horseRawTime.best3Average.toFixed(2)}s`);
+      console.log(`🗑️  HISTORICAL DATA DISCARDED - NEVER TO BE USED AGAIN`);
+      
     } catch (error) {
-      console.error(`❌ Error processing times for horse ${start.horse.name} (start ${startNumber}):`, error);
+      console.error(`❌ Error processing times for horse ${start.horse.name} (post position ${postPosition}):`, error);
       
       // Create fallback data
       rawTimes.push({

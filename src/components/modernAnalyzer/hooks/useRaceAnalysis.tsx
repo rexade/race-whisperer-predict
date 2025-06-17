@@ -57,7 +57,7 @@ export const useRaceAnalysis = () => {
       setCurrentTask("Fetching enhanced race data...");
       setProgress(20);
       
-      // Fetch enhanced race data with validation
+      // Fetch enhanced race data with validation - ALL DATA FROM MAIN RACE ENDPOINT
       let raceData = await fetchEnhancedRaceData(raceId);
       
       // Validate and fix data quality issues
@@ -92,11 +92,11 @@ export const useRaceAnalysis = () => {
       setCurrentTask("Calculating RAW times with historical data...");
       setProgress(50);
       
-      // Create proper mapping using sequential start numbers
-      const atgStarts = raceData.horses.map((horse, index) => ({
+      // Create proper mapping using POST POSITIONS (not start numbers)
+      const atgStarts = raceData.horses.map(horse => ({
         horse: { id: horse.horseId, name: horse.name },
-        number: horse.startNumber || (index + 1), // Use startNumber if available, otherwise sequential
-        postPosition: horse.postPosition,
+        number: horse.postPosition, // This is for compatibility but we use postPosition for historical fetch
+        postPosition: horse.postPosition, // THIS IS WHAT WE USE FOR HISTORICAL DATA FETCH
         distance: horse.distance,
         driver: {
           firstName: horse.driver.firstName,
@@ -105,16 +105,16 @@ export const useRaceAnalysis = () => {
         }
       }));
       
-      console.log('\n=== Start number mapping for historical data fetch ===');
+      console.log('\n=== 🔥 STRICT MAPPING: Using POST POSITIONS for historical data fetch ===');
       atgStarts.forEach(start => {
-        console.log(`Start ${start.number}: ${start.horse.name} (Post: ${start.postPosition})`);
+        console.log(`Post Position ${start.postPosition}: ${start.horse.name} - WILL FETCH HISTORICAL DATA FROM /start/${start.postPosition}`);
       });
       
-      // Use the enhanced function with proper start number mapping
+      // Use the enhanced function with POST POSITION mapping for historical data
       const rawTimes = await calculateRawTimesForRaceWithId(raceId, atgStarts, (current, total) => {
         const progressValue = 50 + (current / total) * 30;
         setProgress(progressValue);
-        setCurrentTask(`Processing historical data for horse ${current} of ${total}...`);
+        setCurrentTask(`Fetching historical data for RAW time calculation: horse ${current} of ${total}...`);
       });
       
       // Add RAW times to enhanced horse data
@@ -141,7 +141,7 @@ export const useRaceAnalysis = () => {
       
       toast({
         title: "Analysis Complete",
-        description: `RAW times calculated for ${horsesWithValidTimes} of ${horsesWithRawTimes.length} horses using real historical data.`,
+        description: `RAW times calculated for ${horsesWithValidTimes} of ${horsesWithRawTimes.length} horses using historical data (now discarded).`,
       });
       
     } catch (err) {
