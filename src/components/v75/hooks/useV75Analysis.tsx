@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { fetchV75RaceData, fetchV75GameInfo } from '../../../services/v75CalendarApi';
@@ -118,17 +117,26 @@ export const useV75Analysis = () => {
         
         try {
           // Convert horses to ATG starts format for KM time calculation
-          const atgStarts = race.horses.map(horse => ({
-            horse: { id: horse.horseId, name: horse.name },
-            number: horse.postPosition,
-            postPosition: horse.postPosition,
-            distance: horse.distance,
-            driver: {
-              firstName: horse.driver.firstName,
-              lastName: horse.driver.lastName,
-              statistics: { winPercentage: horse.driver.winPercentage }
-            }
-          }));
+          const atgStarts = race.horses.map(horse => {
+            // Ensure we get the horse name as a string - handle both string and object cases
+            const horseName = typeof horse.name === 'string' ? horse.name : 
+                             (horse.name && typeof horse.name === 'object' && 'name' in horse.name) ? 
+                             (horse.name as any).name : `Horse ${horse.horseId}`;
+
+            console.log(`Processing horse: ${horseName} (ID: ${horse.horseId})`);
+            
+            return {
+              horse: { id: horse.horseId, name: horseName },
+              number: horse.postPosition,
+              postPosition: horse.postPosition,
+              distance: horse.distance,
+              driver: {
+                firstName: horse.driver.firstName,
+                lastName: horse.driver.lastName,
+                statistics: { winPercentage: horse.driver.winPercentage }
+              }
+            };
+          });
           
           console.log(`\n=== 🔥 V75 Race ${race.raceNumber} Analysis ===`);
           console.log(`Race ID: ${race.raceId}`);
@@ -155,6 +163,11 @@ export const useV75Analysis = () => {
           for (const horse of race.horses) {
             const rawTimeData = rawKmTimes.find(rt => rt.horseId === horse.horseId);
             const rawKmTime = rawTimeData?.best3Average;
+            
+            // Ensure we get the horse name as a string - handle both string and object cases
+            const horseName = typeof horse.name === 'string' ? horse.name : 
+                             (horse.name && typeof horse.name === 'object' && 'name' in horse.name) ? 
+                             (horse.name as any).name : `Horse ${horse.horseId}`;
             
             let modernNormalizedResult: ModernKmNormalizedResult | undefined;
             
@@ -187,7 +200,7 @@ export const useV75Analysis = () => {
               raceNumber: race.raceNumber,
               raceId: race.raceId,
               horseId: horse.horseId,
-              horseName: horse.name,
+              horseName, // Use the extracted string name
               postPosition: horse.postPosition,
               rawKmTime,
               modernNormalizedResult,
