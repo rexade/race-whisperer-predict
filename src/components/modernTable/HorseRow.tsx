@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Badge } from "@/components/ui/badge";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -12,6 +11,29 @@ interface HorseRowProps {
   result: ModernKmNormalizedResult;
   rank: number;
 }
+
+// Safety function to ensure we never render an object as React child
+const ensureStringForDisplay = (value: any): string => {
+  console.log('🔍 HorseRow - Ensuring string for display:', JSON.stringify(value), 'Type:', typeof value);
+  
+  if (typeof value === 'string') {
+    return value;
+  }
+  
+  if (value && typeof value === 'object') {
+    if ('name' in value && typeof value.name === 'string') {
+      console.log('✅ HorseRow - Extracted name from object.name:', value.name);
+      return value.name;
+    }
+    if ('id' in value && 'name' in value) {
+      console.log('✅ HorseRow - Extracted name from id/name object:', value.name);
+      return String(value.name || 'Unknown Horse');
+    }
+    console.error('❌ HorseRow - Horse name is an object but no valid name found:', JSON.stringify(value));
+  }
+  
+  return String(value || 'Unknown Horse');
+};
 
 const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
   const formatAdjustment = (value: number) => {
@@ -69,6 +91,10 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
 
   const isTopPerformer = rank <= 3;
 
+  // Ensure horse name is safely extracted as string
+  const safeHorseName = ensureStringForDisplay(horse.name);
+  console.log('🛡️ HorseRow - Final safety check, horse name:', safeHorseName, 'Original:', horse.name);
+
   return (
     <TableRow 
       className={`${isTopPerformer ? 'bg-green-50/50 border-l-4 border-l-green-500' : ''} hover:bg-gray-50/50 transition-colors`}
@@ -88,7 +114,7 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
       
       <TableCell>
         <div className="space-y-1">
-          <div className="font-medium text-gray-900">{horse.name}</div>
+          <div className="font-medium text-gray-900">{safeHorseName}</div>
           <div className="text-sm text-gray-600">
             {horse.driver.firstName} {horse.driver.lastName}
           </div>
