@@ -48,7 +48,7 @@ export interface V75RaceResult {
   analysisComplete: boolean;
 }
 
-// Enhanced safety function to ensure we never render an object as React child
+// CRITICAL: Enhanced safety function to ensure we never render an object as React child
 const extractHorseNameAsString = (horseName: any): string => {
   console.log('🔍 EXTRACTING HORSE NAME - Input:', JSON.stringify(horseName), 'Type:', typeof horseName);
   
@@ -89,6 +89,49 @@ const extractHorseNameAsString = (horseName: any): string => {
   // Fallback for any other type
   console.warn('⚠️ Horse name is unexpected type:', typeof horseName, horseName);
   return String(horseName) || 'Unknown Horse';
+};
+
+// CRITICAL: Enhanced safety function for driver names
+const extractDriverNameAsString = (driver: any): string => {
+  console.log('🔍 EXTRACTING DRIVER NAME - Input:', JSON.stringify(driver), 'Type:', typeof driver);
+  
+  // If it's already a string, return it
+  if (typeof driver === 'string') {
+    console.log('✅ Driver name is already a string:', driver);
+    return driver;
+  }
+  
+  // If it's null or undefined
+  if (!driver) {
+    console.warn('⚠️ Driver is null/undefined, using fallback');
+    return 'Unknown Driver';
+  }
+  
+  // If it's an object with firstName and lastName
+  if (typeof driver === 'object' && driver !== null) {
+    console.log('🔧 Driver is an object, attempting to extract name:', JSON.stringify(driver));
+    
+    if ('firstName' in driver && 'lastName' in driver) {
+      const firstName = typeof driver.firstName === 'string' ? driver.firstName : String(driver.firstName || '');
+      const lastName = typeof driver.lastName === 'string' ? driver.lastName : String(driver.lastName || '');
+      const fullName = `${firstName} ${lastName}`.trim();
+      console.log('✅ Extracted driver name from firstName/lastName:', fullName);
+      return fullName || 'Unknown Driver';
+    }
+    
+    // If it's an object with name property
+    if ('name' in driver && typeof driver.name === 'string') {
+      console.log('✅ Extracted driver name from object.name:', driver.name);
+      return driver.name;
+    }
+    
+    console.error('❌ Driver is an object but no valid name found:', JSON.stringify(driver));
+    return 'Unknown Driver';
+  }
+  
+  // Fallback for any other type
+  console.warn('⚠️ Driver is unexpected type:', typeof driver, driver);
+  return String(driver) || 'Unknown Driver';
 };
 
 export const useV75Analysis = () => {
@@ -208,7 +251,7 @@ export const useV75Analysis = () => {
             const rawTimeData = rawKmTimes.find(rt => rt.horseId === horse.horseId);
             const rawKmTime = rawTimeData?.best3Average;
             
-            // CRITICAL: Extract horse name as string to prevent object rendering - DOUBLE CHECK
+            // CRITICAL: Extract horse name as string to prevent object rendering - TRIPLE CHECK
             const safeHorseName = extractHorseNameAsString(horse.name);
             console.log(`🛡️ FINAL SAFETY CHECK - Horse ${horse.horseId}: Setting name to "${safeHorseName}" (type: ${typeof safeHorseName})`);
             
@@ -219,8 +262,14 @@ export const useV75Analysis = () => {
             }
             
             // CRITICAL: Extract driver names as strings too
-            const safeDriverFirstName = extractHorseNameAsString(horse.driver.firstName);
-            const safeDriverLastName = extractHorseNameAsString(horse.driver.lastName);
+            const safeDriverName = extractDriverNameAsString(horse.driver);
+            console.log(`🛡️ DRIVER SAFETY CHECK - Horse ${horse.horseId}: Setting driver to "${safeDriverName}" (type: ${typeof safeDriverName})`);
+            
+            // Validate that safeDriverName is actually a string
+            if (typeof safeDriverName !== 'string') {
+              console.error(`🚨 CRITICAL ERROR - Driver name is not a string after extraction! Type: ${typeof safeDriverName}, Value:`, safeDriverName);
+              throw new Error(`Driver name extraction failed for horse ${horse.horseId}`);
+            }
             
             let modernNormalizedResult: ModernKmNormalizedResult | undefined;
             
@@ -249,7 +298,8 @@ export const useV75Analysis = () => {
               modernNormalizedResult = applyModernKmNormalization(rawKmTime, factors, weights);
             }
             
-            horseResults.push({
+            // CRITICAL: Create the result object with GUARANTEED string values
+            const horseResult: V75HorseResult = {
               raceNumber: race.raceNumber,
               raceId: race.raceId,
               horseId: horse.horseId,
@@ -257,7 +307,7 @@ export const useV75Analysis = () => {
               postPosition: horse.postPosition,
               rawKmTime,
               modernNormalizedResult,
-              driverName: `${safeDriverFirstName} ${safeDriverLastName}`, // Both names are strings
+              driverName: safeDriverName, // GUARANTEED to be a string now
               track: race.track,
               distance: horse.distance,
               startMethod: race.startMethod,
@@ -273,7 +323,17 @@ export const useV75Analysis = () => {
               shoesFront: horse.shoes.front,
               shoesBack: horse.shoes.back,
               homeTrack: horse.homeTrack
+            };
+            
+            // FINAL VALIDATION: Double check that critical fields are strings
+            console.log(`🔒 FINAL VALIDATION - Horse ${horse.horseId}:`, {
+              horseName: horseResult.horseName,
+              horseNameType: typeof horseResult.horseName,
+              driverName: horseResult.driverName,
+              driverNameType: typeof horseResult.driverName
             });
+            
+            horseResults.push(horseResult);
           }
           
           results.push({
@@ -354,6 +414,12 @@ export const useV75Analysis = () => {
         
         // ENSURE horse name is still a string during reanalysis
         console.log(`🔄 Reanalysis - Horse ${horse.horseId} name: "${horse.horseName}" (type: ${typeof horse.horseName})`);
+        
+        // Additional safety check during reanalysis
+        if (typeof horse.horseName !== 'string') {
+          console.error('🚨 CRITICAL ERROR during reanalysis - Horse name is not a string!', horse.horseName);
+          throw new Error(`Horse name type error during reanalysis for horse ${horse.horseId}`);
+        }
         
         const factors: ModernNormalizationFactors = {
           postPosition: horse.postPosition,
