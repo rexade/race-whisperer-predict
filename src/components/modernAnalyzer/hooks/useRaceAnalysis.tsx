@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { fetchEnhancedRaceData, EnhancedHorseData } from '../../../services/enhancedAtgApi';
-import { calculateRawTimesForRace } from '../../../services/timeProcessor';
+import { calculateRawTimesForRaceWithId } from '../../../services/timeProcessor';
 import { 
   applyModernNormalization, 
   ModernNormalizedResult, 
@@ -60,10 +60,10 @@ export const useRaceAnalysis = () => {
       const raceData = await fetchEnhancedRaceData(raceId);
       setRaceInfo(raceData);
       
-      setCurrentTask("Calculating RAW times...");
+      setCurrentTask("Calculating RAW times with historical data...");
       setProgress(50);
       
-      // Calculate RAW times for all horses
+      // Calculate RAW times for all horses using real historical data
       const atgStarts = raceData.horses.map(horse => ({
         horse: { id: horse.horseId, name: horse.name },
         number: horse.postPosition,
@@ -76,10 +76,11 @@ export const useRaceAnalysis = () => {
         }
       }));
       
-      const rawTimes = await calculateRawTimesForRace(atgStarts, (current, total) => {
+      // Use the enhanced function that accepts race ID
+      const rawTimes = await calculateRawTimesForRaceWithId(raceId, atgStarts, (current, total) => {
         const progressValue = 50 + (current / total) * 30;
         setProgress(progressValue);
-        setCurrentTask(`Calculating RAW time for horse ${current} of ${total}...`);
+        setCurrentTask(`Processing historical data for horse ${current} of ${total}...`);
       });
       
       // Add RAW times to enhanced horse data
@@ -102,9 +103,11 @@ export const useRaceAnalysis = () => {
       setProgress(100);
       setCurrentTask("Analysis complete!");
       
+      const horsesWithValidTimes = horsesWithRawTimes.filter(h => h.rawTime && h.rawTime > 0).length;
+      
       toast({
         title: "Analysis Complete",
-        description: `Modern normalization applied to ${horsesWithRawTimes.length} horses.`,
+        description: `RAW times calculated for ${horsesWithValidTimes} of ${horsesWithRawTimes.length} horses using real historical data.`,
       });
       
     } catch (err) {
@@ -112,7 +115,7 @@ export const useRaceAnalysis = () => {
       setError(`Analysis failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
       toast({
         title: "Analysis Error",
-        description: "Failed to complete modern normalization analysis.",
+        description: "Failed to complete modern normalization analysis. Check console for details.",
         variant: "destructive",
       });
     } finally {
