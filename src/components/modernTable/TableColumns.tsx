@@ -13,7 +13,6 @@ const TableColumns: React.FC = () => {
         <TableHead className="w-20 text-center">Place %</TableHead>
         <TableHead className="w-20 text-center">Horse Win%</TableHead>
         <TableHead className="w-20 text-center">Earnings/Start</TableHead>
-        <TableHead className="w-20 text-center">Driver Win%</TableHead>
         <TableHead className="w-20 text-center">Driver 2025%</TableHead>
         <TableHead className="w-20 text-center">Sulky</TableHead>
         <TableHead className="w-24 text-center">Shoes</TableHead>

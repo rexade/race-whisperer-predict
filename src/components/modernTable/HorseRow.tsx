@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Badge } from "@/components/ui/badge";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -117,15 +116,6 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
           <Banknote className="h-3 w-3 text-amber-500" />
           <span className="text-sm font-medium text-amber-700">
             {formatEarnings(horse.statistics.earningsPerStart)}
-          </span>
-        </div>
-      </TableCell>
-      
-      <TableCell className="text-center">
-        <div className="flex items-center justify-center gap-1">
-          <Award className="h-3 w-3 text-blue-500" />
-          <span className="text-sm font-medium text-blue-700">
-            {(horse.driver.winPercentage / 10).toFixed(1)}%
           </span>
         </div>
       </TableCell>
