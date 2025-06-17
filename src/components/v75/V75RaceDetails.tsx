@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,25 +10,40 @@ interface V75RaceDetailsProps {
   race: V75RaceResult;
 }
 
-// Final safety function to ensure we never render an object as React child
+// Enhanced safety function to ensure we never render an object as React child
 const ensureStringForDisplay = (value: any): string => {
+  console.log('🔍 V75RaceDetails - ensureStringForDisplay input:', JSON.stringify(value), 'Type:', typeof value);
+  
   if (typeof value === 'string') {
+    console.log('✅ V75RaceDetails - Value is already a string:', value);
     return value;
   }
   
   if (value && typeof value === 'object') {
+    console.log('🔧 V75RaceDetails - Value is object, extracting name...');
     if ('name' in value && typeof value.name === 'string') {
+      console.log('✅ V75RaceDetails - Extracted name from object.name:', value.name);
       return value.name;
     }
     if ('id' in value && 'name' in value) {
+      console.log('✅ V75RaceDetails - Extracted name from id/name object:', value.name);
       return String(value.name || 'Unknown Horse');
     }
+    console.error('❌ V75RaceDetails - Object has no valid name property:', JSON.stringify(value));
   }
   
+  console.warn('⚠️ V75RaceDetails - Fallback conversion:', value, 'to string');
   return String(value || 'Unknown Horse');
 };
 
 const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
+  console.log('🎯 V75RaceDetails - Rendering race:', race.raceNumber, 'with', race.horses.length, 'horses');
+  
+  // Debug all horse names before rendering
+  race.horses.forEach((horse, index) => {
+    console.log(`🐎 V75RaceDetails - Horse ${index}: ID=${horse.horseId}, Name=`, JSON.stringify(horse.horseName), 'Type:', typeof horse.horseName);
+  });
+
   const formatKmTime = (time: { minutes: number; seconds: number; tenths: number }) => {
     return `${time.minutes}:${time.seconds.toString().padStart(2, '0')}.${time.tenths}`;
   };
@@ -184,9 +200,26 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                   const rank = index + 1;
                   const isTopPerformer = rank <= 3;
                   
-                  // Ensure horse name is always a string before rendering
+                  // CRITICAL: Ensure horse name is always a string before rendering - TRIPLE CHECK
                   const safeHorseName = ensureStringForDisplay(horse.horseName);
-                  console.log('Final render check - Horse name:', safeHorseName, 'Original:', horse.horseName, 'Type:', typeof horse.horseName);
+                  const safeDriverName = ensureStringForDisplay(horse.driverName);
+                  
+                  console.log(`🛡️ V75RaceDetails - FINAL RENDER CHECK - Horse ${horse.horseId}: 
+                    Original horseName: ${JSON.stringify(horse.horseName)} (${typeof horse.horseName})
+                    Safe horseName: "${safeHorseName}" (${typeof safeHorseName})
+                    Original driverName: ${JSON.stringify(horse.driverName)} (${typeof horse.driverName})
+                    Safe driverName: "${safeDriverName}" (${typeof safeDriverName})`);
+                  
+                  // Additional validation
+                  if (typeof safeHorseName !== 'string') {
+                    console.error('🚨 CRITICAL ERROR - safeHorseName is not a string!', safeHorseName);
+                    throw new Error(`Horse name safety check failed for horse ${horse.horseId}`);
+                  }
+                  
+                  if (typeof safeDriverName !== 'string') {
+                    console.error('🚨 CRITICAL ERROR - safeDriverName is not a string!', safeDriverName);
+                    throw new Error(`Driver name safety check failed for horse ${horse.horseId}`);
+                  }
                   
                   return (
                     <TableRow 
@@ -209,7 +242,7 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                       <TableCell>
                         <div className="space-y-1">
                           <div className="font-medium text-gray-900">{safeHorseName}</div>
-                          <div className="text-sm text-gray-600">{horse.driverName}</div>
+                          <div className="text-sm text-gray-600">{safeDriverName}</div>
                         </div>
                       </TableCell>
                       
@@ -300,6 +333,9 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                 {horsesWithoutTimes.map(horse => {
                   // Ensure horse name is always a string for horses without times too
                   const safeHorseName = ensureStringForDisplay(horse.horseName);
+                  const safeDriverName = ensureStringForDisplay(horse.driverName);
+                  
+                  console.log(`🛡️ V75RaceDetails - No-time horse ${horse.horseId}: "${safeHorseName}" (${typeof safeHorseName})`);
                   
                   return (
                     <TableRow key={horse.horseId} className="opacity-50">
@@ -308,7 +344,7 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                       <TableCell>
                         <div className="space-y-1">
                           <div className="font-medium text-gray-900">{safeHorseName}</div>
-                          <div className="text-sm text-gray-600">{horse.driverName}</div>
+                          <div className="text-sm text-gray-600">{safeDriverName}</div>
                         </div>
                       </TableCell>
                       <TableCell className="text-center text-gray-400">No data</TableCell>
@@ -344,3 +380,4 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
 };
 
 export default V75RaceDetails;
+
