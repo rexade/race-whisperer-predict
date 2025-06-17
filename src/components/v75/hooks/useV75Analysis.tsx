@@ -52,16 +52,27 @@ export const useV75Analysis = () => {
     setAnalysisDate(date);
     
     try {
-      setCurrentTask("Fetching V75 race data...");
-      setProgress(10);
+      setCurrentTask("Checking for V75 races...");
+      setProgress(5);
+      
+      console.log(`🔍 Checking for V75 races on ${date}...`);
       
       const v75Races = await fetchV75RaceData(date);
       
       if (v75Races.length === 0) {
-        throw new Error("No V75 races found for this date");
+        setError(`No V75 races found for ${date}. Please select a different date with V75 races.`);
+        toast({
+          title: "No V75 Races Found",
+          description: `No V75 races were found for ${date}. Try selecting a different date.`,
+          variant: "destructive",
+        });
+        return;
       }
       
-      console.log(`Found ${v75Races.length} V75 races for ${date}`);
+      console.log(`✅ Found ${v75Races.length} V75 races for ${date}`);
+      
+      setCurrentTask(`Found ${v75Races.length} V75 races. Starting analysis...`);
+      setProgress(10);
       
       const results: V75RaceResult[] = [];
       
@@ -125,8 +136,8 @@ export const useV75Analysis = () => {
                 driverWinPercentage: horse.driver.winPercentage,
                 driverWinPercentage2025: horse.driver.winPercentage2025,
                 horseForm: horse.statistics.winPercentage,
-                raceType: 'trot', // Default for V75
-                timeOfDay: '', // Would need start time from race data
+                raceType: 'trot',
+                timeOfDay: '',
                 startPoints: horse.statistics.startPoints,
                 placePercentage: horse.statistics.placePercentage,
                 horseWinPercentage: horse.statistics.winPercentage,
@@ -194,7 +205,14 @@ export const useV75Analysis = () => {
       
     } catch (err) {
       console.error("Error during V75 analysis:", err);
-      setError(`V75 analysis failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      
+      if (errorMessage.includes('Failed to fetch V75 race data')) {
+        setError(`No V75 races found for ${date}. This date may not have V75 races or the data may not be available yet.`);
+      } else {
+        setError(`V75 analysis failed: ${errorMessage}`);
+      }
+      
       toast({
         title: "V75 Analysis Error",
         description: "Failed to complete V75 analysis. Check console for details.",
@@ -221,7 +239,7 @@ export const useV75Analysis = () => {
           distance: horse.distance,
           raceDistance: race.distance,
           startMethod: race.startMethod,
-          shoesFront: "0", // Would need actual data
+          shoesFront: "0",
           shoesBack: "0",
           sulkyType: "VA",
           homeTrack: "Unknown",

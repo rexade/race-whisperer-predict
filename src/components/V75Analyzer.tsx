@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trophy, Calendar, TrendingUp } from "lucide-react";
+import { Trophy, Calendar, TrendingUp, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import WeightManager from "./WeightManager";
 import V75DatePicker from "./v75/V75DatePicker";
@@ -12,12 +12,10 @@ import V75RaceDetails from "./v75/V75RaceDetails";
 import ProgressIndicator from "./modernAnalyzer/ProgressIndicator";
 import ErrorDisplay from "./modernAnalyzer/ErrorDisplay";
 import { useV75Analysis } from "./v75/hooks/useV75Analysis";
-import { V75CalendarDate } from '../services/v75CalendarApi';
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
 
 const V75Analyzer: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  const [selectedV75Data, setSelectedV75Data] = useState<V75CalendarDate | undefined>();
   const [weights, setWeights] = useState<NormalizationWeights>(getDefaultWeights());
   const [activeRaceTab, setActiveRaceTab] = useState("overview");
   
@@ -33,7 +31,7 @@ const V75Analyzer: React.FC = () => {
   } = useV75Analysis();
 
   const handleAnalyzeV75 = () => {
-    if (!selectedDate || !selectedV75Data) return;
+    if (!selectedDate) return;
     
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     analyzeV75Date(dateStr, weights);
@@ -73,48 +71,57 @@ const V75Analyzer: React.FC = () => {
               <div className="lg:col-span-1">
                 <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
                   <Calendar className="h-5 w-5" />
-                  Select V75 Date
+                  Select Date
                 </h3>
                 <V75DatePicker
                   selectedDate={selectedDate}
                   onDateSelect={setSelectedDate}
-                  onV75DataSelect={setSelectedV75Data}
                 />
+                
+                {selectedDate && (
+                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm text-blue-700">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>Selected: {format(selectedDate, 'PPP')}</span>
+                    </div>
+                    <div className="text-xs text-blue-600 mt-1">
+                      Click "Analyze V75" to check for V75 races on this date
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* Analysis Action */}
               <div className="lg:col-span-2 flex flex-col justify-end">
-                {selectedV75Data && (
-                  <div className="space-y-4">
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                      <h4 className="font-semibold text-purple-800 mb-2">Ready to Analyze</h4>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="space-y-4">
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-purple-800 mb-2">Ready to Analyze</h4>
+                    <div className="text-sm text-purple-700">
+                      {selectedDate ? (
                         <div>
-                          <strong>Event:</strong> {selectedV75Data.eventName}
+                          <strong>Selected Date:</strong> {format(selectedDate, 'PPP')}
+                          <div className="text-xs text-purple-600 mt-1">
+                            The system will automatically detect V75 races for this date during analysis
+                          </div>
                         </div>
-                        <div>
-                          <strong>Races:</strong> {selectedV75Data.races.length}
+                      ) : (
+                        <div className="text-purple-600">
+                          Please select a date to begin analysis
                         </div>
-                        <div>
-                          <strong>Date:</strong> {selectedDate && format(selectedDate, 'PPP')}
-                        </div>
-                        <div>
-                          <strong>Tracks:</strong> {Array.from(new Set(selectedV75Data.races.map(r => r.track))).join(', ')}
-                        </div>
-                      </div>
+                      )}
                     </div>
-                    
-                    <Button 
-                      onClick={handleAnalyzeV75}
-                      disabled={loading || !selectedDate || !selectedV75Data}
-                      className="w-full bg-purple-600 hover:bg-purple-700"
-                      size="lg"
-                    >
-                      <TrendingUp className="h-4 w-4 mr-2" />
-                      {loading ? "Analyzing V75..." : "Analyze V75 Races"}
-                    </Button>
                   </div>
-                )}
+                  
+                  <Button 
+                    onClick={handleAnalyzeV75}
+                    disabled={loading || !selectedDate}
+                    className="w-full bg-purple-600 hover:bg-purple-700"
+                    size="lg"
+                  >
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    {loading ? "Analyzing V75..." : "Analyze V75 Races"}
+                  </Button>
+                </div>
               </div>
             </div>
 
