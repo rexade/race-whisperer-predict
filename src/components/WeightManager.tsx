@@ -38,7 +38,11 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
     { key: 'form' as keyof NormalizationWeights, label: 'Recent Form', description: 'Current performance trend' },
     { key: 'distanceAdjustment' as keyof NormalizationWeights, label: 'Distance Adjustment', description: 'Individual vs race distance differences' },
     { key: 'raceType' as keyof NormalizationWeights, label: 'Race Type', description: 'Stakes, maiden, claiming race adjustments' },
-    { key: 'timeOfDay' as keyof NormalizationWeights, label: 'Time of Day', description: 'Morning, afternoon, evening race adjustments' }
+    { key: 'timeOfDay' as keyof NormalizationWeights, label: 'Time of Day', description: 'Morning, afternoon, evening race adjustments' },
+    { key: 'startPoints' as keyof NormalizationWeights, label: 'Start Points', description: 'Horse form based on start points' },
+    { key: 'placePercentage' as keyof NormalizationWeights, label: 'Place Percentage', description: 'Horse consistency in placing' },
+    { key: 'horseWinPercentage' as keyof NormalizationWeights, label: 'Horse Win Percentage', description: 'Horse quality and ability' },
+    { key: 'earningsPerStart' as keyof NormalizationWeights, label: 'Earnings Per Start', description: 'Horse earning power and class' }
   ];
 
   return (
@@ -63,7 +67,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
           <div className="flex justify-between items-center">
             <p className="text-sm text-gray-600">
               Adjust the weights to control how much each factor affects the final normalized time. 
-              <span className="font-medium text-blue-600">New: Distance, Race Type, and Time-of-Day adjustments!</span>
+              <span className="font-medium text-blue-600">New: Performance metrics baseline adjustments!</span>
             </p>
             <Button 
               variant="outline" 
@@ -83,7 +87,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
                   <div>
                     <Label className="font-medium flex items-center gap-2">
                       {factor.label}
-                      {['distanceAdjustment', 'raceType', 'timeOfDay'].includes(factor.key) && (
+                      {['startPoints', 'placePercentage', 'horseWinPercentage', 'earningsPerStart'].includes(factor.key) && (
                         <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">NEW</Badge>
                       )}
                     </Label>

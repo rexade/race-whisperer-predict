@@ -13,6 +13,10 @@ export interface ModernKmNormalizedResult {
     distance: number;
     raceType: number;
     timeOfDay: number;
+    startPoints: number;
+    placePercentage: number;
+    horseWinPercentage: number;
+    earningsPerStart: number;
     total: number;
   };
 }
@@ -32,6 +36,10 @@ export interface ModernNormalizationFactors {
   horseForm: number;
   raceType?: string;
   timeOfDay?: string;
+  startPoints: number;
+  placePercentage: number;
+  horseWinPercentage: number;
+  earningsPerStart: number;
 }
 
 export interface NormalizationWeights {
@@ -45,6 +53,10 @@ export interface NormalizationWeights {
   distanceAdjustment: number;
   raceType: number;
   timeOfDay: number;
+  startPoints: number;
+  placePercentage: number;
+  horseWinPercentage: number;
+  earningsPerStart: number;
 }
 
 const DEFAULT_WEIGHTS: NormalizationWeights = {
@@ -57,7 +69,69 @@ const DEFAULT_WEIGHTS: NormalizationWeights = {
   form: 1.2,
   distanceAdjustment: 1.0,
   raceType: 0.9,
-  timeOfDay: 0.5
+  timeOfDay: 0.5,
+  startPoints: 0.8,
+  placePercentage: 0.9,
+  horseWinPercentage: 1.0,
+  earningsPerStart: 0.7
+};
+
+/**
+ * Calculate start points baseline adjustment
+ * Higher start points = better form = faster times
+ */
+const calculateStartPointsAdjustment = (startPoints: number): number => {
+  // Baseline: 50 start points = 0 adjustment
+  // Every 10 points above/below = -/+ 0.05s
+  const baseline = 50;
+  const adjustment = (baseline - startPoints) * 0.005;
+  
+  console.log(`Start Points adjustment: ${startPoints} points → ${adjustment.toFixed(3)}s`);
+  return adjustment;
+};
+
+/**
+ * Calculate place percentage baseline adjustment
+ * Higher place % = better consistency = faster times
+ */
+const calculatePlacePercentageAdjustment = (placePercentage: number): number => {
+  // Baseline: 50% place rate = 0 adjustment
+  // Every 10% above/below = -/+ 0.1s
+  const baseline = 50;
+  const adjustment = (baseline - placePercentage) * 0.01;
+  
+  console.log(`Place % adjustment: ${placePercentage.toFixed(1)}% → ${adjustment.toFixed(3)}s`);
+  return adjustment;
+};
+
+/**
+ * Calculate horse win percentage baseline adjustment
+ * Higher win % = better quality = faster times
+ */
+const calculateHorseWinPercentageAdjustment = (winPercentage: number): number => {
+  // Baseline: 15% win rate = 0 adjustment
+  // Every 5% above/below = -/+ 0.15s
+  const baseline = 15;
+  const adjustment = (baseline - winPercentage) * 0.03;
+  
+  console.log(`Horse Win % adjustment: ${winPercentage.toFixed(1)}% → ${adjustment.toFixed(3)}s`);
+  return adjustment;
+};
+
+/**
+ * Calculate earnings per start baseline adjustment
+ * Higher earnings = better quality = faster times
+ */
+const calculateEarningsPerStartAdjustment = (earningsPerStart: number): number => {
+  // Convert from cents to SEK (divide by 100)
+  const earningsInSek = earningsPerStart / 100;
+  // Baseline: 3000 SEK per start = 0 adjustment
+  // Every 1000 SEK above/below = -/+ 0.05s
+  const baseline = 3000;
+  const adjustment = (baseline - earningsInSek) * 0.00005;
+  
+  console.log(`Earnings/Start adjustment: ${earningsInSek.toFixed(0)} SEK → ${adjustment.toFixed(3)}s`);
+  return adjustment;
 };
 
 /**
@@ -141,6 +215,10 @@ export const applyModernKmNormalization = (
     distance: 0,
     raceType: 0,
     timeOfDay: 0,
+    startPoints: 0,
+    placePercentage: 0,
+    horseWinPercentage: 0,
+    earningsPerStart: 0,
     total: 0
   };
 
@@ -212,10 +290,36 @@ export const applyModernKmNormalization = (
   ) * weights.timeOfDay;
   adjustments.timeOfDay = timeOfDayAdjustment;
 
+  // NEW: Start Points Adjustment
+  const startPointsAdjustment = calculateStartPointsAdjustment(
+    factors.startPoints
+  ) * weights.startPoints;
+  adjustments.startPoints = startPointsAdjustment;
+
+  // NEW: Place Percentage Adjustment
+  const placePercentageAdjustment = calculatePlacePercentageAdjustment(
+    factors.placePercentage
+  ) * weights.placePercentage;
+  adjustments.placePercentage = placePercentageAdjustment;
+
+  // NEW: Horse Win Percentage Adjustment
+  const horseWinPercentageAdjustment = calculateHorseWinPercentageAdjustment(
+    factors.horseWinPercentage
+  ) * weights.horseWinPercentage;
+  adjustments.horseWinPercentage = horseWinPercentageAdjustment;
+
+  // NEW: Earnings Per Start Adjustment
+  const earningsPerStartAdjustment = calculateEarningsPerStartAdjustment(
+    factors.earningsPerStart
+  ) * weights.earningsPerStart;
+  adjustments.earningsPerStart = earningsPerStartAdjustment;
+
   // Calculate total adjustment (applied to the baseline normalized time)
   adjustments.total = postPosAdjustment + equipmentAdjustment + driverAdjustment + 
                     driver2025Adjustment + trackAdjustment + formAdjustment +
-                    distanceAdjustment + raceTypeAdjustment + timeOfDayAdjustment;
+                    distanceAdjustment + raceTypeAdjustment + timeOfDayAdjustment +
+                    startPointsAdjustment + placePercentageAdjustment + 
+                    horseWinPercentageAdjustment + earningsPerStartAdjustment;
 
   // Apply total adjustment to the baseline normalized KM time
   const modernNormalizedKmTime = addSecondsToKmTime(baseNormalizedTime, adjustments.total);
@@ -228,6 +332,10 @@ export const applyModernKmNormalization = (
   console.log(`  Distance: ${distanceAdjustment.toFixed(3)}s`);
   console.log(`  Race Type: ${raceTypeAdjustment.toFixed(3)}s`);
   console.log(`  Time of Day: ${timeOfDayAdjustment.toFixed(3)}s`);
+  console.log(`  Start Points: ${startPointsAdjustment.toFixed(3)}s`);
+  console.log(`  Place %: ${placePercentageAdjustment.toFixed(3)}s`);
+  console.log(`  Horse Win %: ${horseWinPercentageAdjustment.toFixed(3)}s`);
+  console.log(`  Earnings/Start: ${earningsPerStartAdjustment.toFixed(3)}s`);
   console.log(`  Total: ${adjustments.total.toFixed(3)}s`);
   console.log(`Enhanced Modern Normalized KM Time: ${modernNormalizedKmTime.minutes}:${modernNormalizedKmTime.seconds.toString().padStart(2, '0')}.${modernNormalizedKmTime.tenths}`);
 

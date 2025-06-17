@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { fetchEnhancedRaceData, EnhancedHorseData } from '../../../services/enhancedAtgApi';
@@ -50,7 +51,11 @@ export const useRaceAnalysis = () => {
         driverWinPercentage2025: horse.driver.winPercentage2025,
         horseForm: horse.statistics.winPercentage,
         raceType: raceData.raceType,
-        timeOfDay: raceData.startTime
+        timeOfDay: raceData.startTime,
+        startPoints: horse.statistics.startPoints,
+        placePercentage: horse.statistics.placePercentage,
+        horseWinPercentage: horse.statistics.winPercentage,
+        earningsPerStart: horse.statistics.earningsPerStart
       };
       
       console.log(`\nProcessing ${horse.name}:`);
@@ -58,6 +63,10 @@ export const useRaceAnalysis = () => {
       console.log(`  Race distance: ${factors.raceDistance}m`);
       console.log(`  Race type: ${factors.raceType || 'N/A'}`);
       console.log(`  Start time: ${factors.timeOfDay || 'N/A'}`);
+      console.log(`  Start Points: ${factors.startPoints}`);
+      console.log(`  Place %: ${factors.placePercentage}%`);
+      console.log(`  Win %: ${factors.horseWinPercentage}%`);
+      console.log(`  Earnings/Start: ${factors.earningsPerStart} öre`);
       
       const result = applyModernKmNormalization(horse.rawKmTime, factors, weights);
       results.push(result);
