@@ -1,4 +1,3 @@
-
 export interface HorseData {
   name: string;
   startNumber: number;
@@ -6,10 +5,13 @@ export interface HorseData {
   driverWinPercentage: number;
   postPosition: number;
   normalizedTime: number;
+  rawTime: number; // New: The calculated RAW time (top 3 average)
   bestTime?: number;
   recentStarts?: number;
   totalEarnings?: string;
   equipment?: string[];
+  horseId: number; // New: ATG horse ID
+  validHistoricalRaces: number; // New: Number of valid historical races used
 }
 
 export interface RaceData {
@@ -119,79 +121,82 @@ export const fetchRaceData = async (
   date: string,
   progressCallback?: (task: string, progress: number) => void
 ): Promise<RaceData[]> => {
+  // Import here to avoid circular dependencies
+  const { searchRacesByDate, fetchRaceData: fetchATGRace, fetchStartData } = await import('../services/atgApi');
+  const { calculateRawTimesForRace } = await import('../services/timeProcessor');
+  
   const races: RaceData[] = [];
   
-  progressCallback?.("Checking available races...", 20);
+  progressCallback?.("Searching for races...", 10);
   
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // Mock race data generation (in real app, this would be API calls)
-  const mockRaceCount = Math.floor(Math.random() * 5) + 3; // 3-7 races
-  
-  for (let raceNum = 1; raceNum <= mockRaceCount; raceNum++) {
-    progressCallback?.(`Fetching race ${raceNum} data...`, 20 + (raceNum / mockRaceCount) * 60);
+  try {
+    // Search for races on the given date
+    const raceInfos = await searchRacesByDate(date);
     
-    const race: RaceData = {
-      raceId: `${date}_78_${raceNum}`,
-      raceNumber: raceNum,
-      distance: [1640, 2140, 2640, 3140][Math.floor(Math.random() * 4)],
-      startMethod: Math.random() > 0.3 ? "auto" : "volte",
-      track: "Solvalla",
-      horses: []
-    };
-    
-    // Generate mock horses for each race
-    const horseCount = Math.floor(Math.random() * 4) + 8; // 8-11 horses
-    
-    for (let startNum = 1; startNum <= horseCount; startNum++) {
-      await new Promise(resolve => setTimeout(resolve, 100)); // Simulate individual horse API calls
-      
-      const baseTime = 75 + Math.random() * 10; // Base time around 75-85 seconds for 1600m
-      const scaledTime = (baseTime * race.distance) / 1640; // Scale for distance
-      
-      const driverWinPct = Math.random() * 25;
-      const postPos = startNum;
-      
-      // Apply normalization
-      const normalizedTime = normalizeKmTime(
-        scaledTime,
-        Math.random() > 0.8, // barefoot
-        Math.random() > 0.9, // shoe change
-        Math.random() > 0.9 ? "AM" : "VA", // sulky type
-        driverWinPct,
-        undefined,
-        postPos,
-        race.startMethod,
-        race.distance
-      );
-      
-      const equipment = [];
-      if (Math.random() > 0.8) equipment.push("Barefoot");
-      if (Math.random() > 0.9) equipment.push("Shoe Change");
-      if (Math.random() > 0.85) equipment.push("Blinkers");
-      
-      race.horses.push({
-        name: `Horse ${raceNum}-${startNum}`,
-        startNumber: startNum,
-        driver: `Driver ${String.fromCharCode(65 + (startNum % 26))}`,
-        driverWinPercentage: Math.round(driverWinPct * 10) / 10,
-        postPosition: postPos,
-        normalizedTime: normalizedTime,
-        bestTime: normalizedTime - Math.random() * 2,
-        recentStarts: Math.floor(Math.random() * 15) + 5,
-        totalEarnings: `${Math.floor(Math.random() * 500000 + 100000).toLocaleString()} kr`,
-        equipment: equipment.length > 0 ? equipment : undefined
-      });
+    if (raceInfos.length === 0) {
+      progressCallback?.("No races found for this date", 100);
+      return races;
     }
+
+    for (let i = 0; i < raceInfos.length; i++) {
+      const raceInfo = raceInfos[i];
+      progressCallback?.(`Fetching race ${i + 1} of ${raceInfos.length}...`, 20 + (i / raceInfos.length) * 30);
+      
+      try {
+        const raceData = await fetchATGRace(raceInfo.id);
+        
+        progressCallback?.(`Calculating RAW times for race ${i + 1}...`, 50 + (i / raceInfos.length) * 30);
+        
+        // Calculate RAW times for all horses in this race
+        const rawTimes = await calculateRawTimesForRace(raceData.starts, (current, total) => {
+          const raceProgress = 50 + (i / raceInfos.length) * 30;
+          const horseProgress = (current / total) * (30 / raceInfos.length);
+          progressCallback?.(`Processing horse ${current} of ${total} in race ${i + 1}...`, raceProgress + horseProgress);
+        });
+
+        // Convert to our HorseData format
+        const horses: HorseData[] = raceData.starts.map(start => {
+          const rawTimeData = rawTimes.find(rt => rt.horseId === start.horse.id);
+          const driverName = `${start.driver.firstName} ${start.driver.lastName}`;
+          
+          return {
+            name: start.horse.name,
+            startNumber: start.number,
+            driver: driverName,
+            driverWinPercentage: start.driver.statistics?.winPercentage || 0,
+            postPosition: start.postPosition,
+            normalizedTime: rawTimeData?.top3Average || 0,
+            rawTime: rawTimeData?.top3Average || 0,
+            horseId: start.horse.id,
+            validHistoricalRaces: rawTimeData?.validTimesCount || 0,
+            bestTime: rawTimeData?.allTimes[0]?.normalizedTime,
+            recentStarts: rawTimeData?.validTimesCount || 0,
+            equipment: [] // Would need to parse equipment from ATG data
+          };
+        });
+
+        races.push({
+          raceId: raceData.race.id,
+          raceNumber: raceData.race.number,
+          distance: raceData.race.distance,
+          startMethod: raceData.race.startMethod,
+          track: raceData.race.track,
+          horses
+        });
+
+      } catch (error) {
+        console.error(`Error fetching race ${raceInfo.id}:`, error);
+        // Continue with other races
+      }
+    }
+
+    progressCallback?.("Analysis complete!", 100);
     
-    races.push(race);
+  } catch (error) {
+    console.error("Error fetching races:", error);
+    progressCallback?.("Error occurred during analysis", 100);
+    throw error;
   }
-  
-  progressCallback?.("Finalizing analysis...", 90);
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  progressCallback?.("Complete!", 100);
   
   return races;
 };

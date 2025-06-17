@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, Clock, TrendingUp, User, Zap, Star } from "lucide-react";
+import { Trophy, Clock, TrendingUp, User, Zap, Star, History } from "lucide-react";
 
 interface HorseCardProps {
   horse: any;
@@ -28,14 +28,17 @@ const HorseCard: React.FC<HorseCardProps> = ({ horse, rank, raceInfo }) => {
   };
 
   const formatTime = (seconds: number) => {
+    if (!seconds) return "N/A";
     const minutes = Math.floor(seconds / 60);
     const secs = (seconds % 60).toFixed(1);
     return `${minutes}:${secs.padStart(4, '0')}`;
   };
 
   const getFormPercentage = () => {
-    // Mock form calculation - in real app this would be calculated from recent races
-    return Math.max(0, 100 - (rank - 1) * 15 + Math.random() * 10);
+    // Calculate form based on historical races and ranking
+    const baseForm = Math.max(0, 100 - (rank - 1) * 12);
+    const historyBonus = Math.min(20, (horse.validHistoricalRaces || 0) * 2);
+    return Math.min(100, baseForm + historyBonus);
   };
 
   return (
@@ -52,15 +55,21 @@ const HorseCard: React.FC<HorseCardProps> = ({ horse, rank, raceInfo }) => {
             </Badge>
             <div>
               <h3 className="font-bold text-lg text-gray-900">{horse.name}</h3>
-              <p className="text-sm text-gray-600">Start #{horse.startNumber}</p>
+              <div className="text-sm text-gray-600">Start #{horse.startNumber}</div>
             </div>
           </div>
           <div className="text-right">
             <div className="flex items-center gap-1 text-lg font-semibold text-green-700">
               <Clock className="h-4 w-4" />
-              {formatTime(horse.normalizedTime)}
+              {formatTime(horse.rawTime)}
             </div>
-            <p className="text-xs text-gray-500">Predicted Time</p>
+            <div className="text-xs text-gray-500">RAW Time (Top 3 Avg)</div>
+            {horse.validHistoricalRaces > 0 && (
+              <div className="flex items-center gap-1 text-xs text-blue-600 mt-1">
+                <History className="h-3 w-3" />
+                {horse.validHistoricalRaces} races
+              </div>
+            )}
           </div>
         </div>
 
@@ -68,17 +77,17 @@ const HorseCard: React.FC<HorseCardProps> = ({ horse, rank, raceInfo }) => {
           <div className="text-center">
             <div className="flex items-center justify-center gap-1 text-sm font-medium">
               <User className="h-3 w-3" />
-              {horse.driver}
+              <span className="truncate">{horse.driver}</span>
             </div>
-            <p className="text-xs text-gray-500">Driver</p>
+            <div className="text-xs text-gray-500">Driver</div>
           </div>
           
           <div className="text-center">
             <div className="flex items-center justify-center gap-1 text-sm font-medium">
               <Star className="h-3 w-3" />
-              {horse.driverWinPercentage}%
+              {horse.driverWinPercentage?.toFixed(1) || 0}%
             </div>
-            <p className="text-xs text-gray-500">Driver Win%</p>
+            <div className="text-xs text-gray-500">Driver Win%</div>
           </div>
 
           <div className="text-center">
@@ -86,15 +95,15 @@ const HorseCard: React.FC<HorseCardProps> = ({ horse, rank, raceInfo }) => {
               <Zap className="h-3 w-3" />
               {horse.postPosition}
             </div>
-            <p className="text-xs text-gray-500">Post Position</p>
+            <div className="text-xs text-gray-500">Post Position</div>
           </div>
 
           <div className="text-center">
             <div className="flex items-center justify-center gap-1 text-sm font-medium">
               <TrendingUp className="h-3 w-3" />
-              {horse.recentStarts || 0}
+              {horse.validHistoricalRaces || 0}
             </div>
-            <p className="text-xs text-gray-500">Recent Starts</p>
+            <div className="text-xs text-gray-500">Valid Races</div>
           </div>
         </div>
 
@@ -116,11 +125,21 @@ const HorseCard: React.FC<HorseCardProps> = ({ horse, rank, raceInfo }) => {
           </div>
         )}
 
-        {horse.bestTime && (
-          <div className="mt-2 text-xs text-gray-600">
-            Best Time: {formatTime(horse.bestTime)} • Earnings: {horse.totalEarnings || "N/A"}
-          </div>
-        )}
+        <div className="mt-2 text-xs text-gray-600 space-y-1">
+          {horse.bestTime && (
+            <div>Best Time: {formatTime(horse.bestTime)}</div>
+          )}
+          {horse.rawTime > 0 && (
+            <div className="font-medium text-blue-600">
+              RAW Time based on {horse.validHistoricalRaces} historical races
+            </div>
+          )}
+          {horse.validHistoricalRaces === 0 && (
+            <div className="text-amber-600 font-medium">
+              No historical data available
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
