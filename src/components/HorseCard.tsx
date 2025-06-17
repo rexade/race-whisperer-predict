@@ -14,7 +14,63 @@ interface HorseCardProps {
   };
 }
 
+// Safety function to ensure we never render an object as React child
+const ensureStringForDisplay = (value: any): string => {
+  console.log('🔍 HorseCard - ensureStringForDisplay - Input:', JSON.stringify(value), 'Type:', typeof value);
+  
+  // If it's already a string, return it
+  if (typeof value === 'string') {
+    console.log('✅ HorseCard - Value is already a string:', value);
+    return value;
+  }
+  
+  // If it's null or undefined
+  if (!value) {
+    console.warn('⚠️ HorseCard - Value is null/undefined, using fallback');
+    return 'Unknown';
+  }
+  
+  // If it's an object with name property
+  if (typeof value === 'object' && value !== null) {
+    console.log('🔧 HorseCard - Value is an object, attempting to extract name:', JSON.stringify(value));
+    
+    if ('name' in value && typeof value.name === 'string') {
+      console.log('✅ HorseCard - Extracted name from object.name:', value.name);
+      return value.name;
+    }
+    
+    // If it's an object with id and name
+    if ('id' in value && 'name' in value) {
+      const nameValue = (value as any).name;
+      if (typeof nameValue === 'string') {
+        console.log('✅ HorseCard - Extracted name from id/name object:', nameValue);
+        return nameValue;
+      }
+    }
+    
+    console.error('❌ HorseCard - Value is an object but no valid name found:', JSON.stringify(value));
+    return 'Unknown';
+  }
+  
+  // Fallback for any other type
+  console.warn('⚠️ HorseCard - Value is unexpected type:', typeof value, value);
+  return String(value) || 'Unknown';
+};
+
 const HorseCard: React.FC<HorseCardProps> = ({ horse, rank, raceInfo }) => {
+  // CRITICAL: Ensure horse name is always a string before rendering
+  const safeHorseName = ensureStringForDisplay(horse.name);
+  const safeDriverName = ensureStringForDisplay(horse.driver);
+  
+  console.log('🛡️ HorseCard - SAFETY CHECK:', {
+    originalHorseName: horse.name,
+    safeHorseName,
+    originalDriver: horse.driver,
+    safeDriverName,
+    horseNameType: typeof horse.name,
+    driverType: typeof horse.driver
+  });
+
   const getRankColor = (rank: number) => {
     if (rank === 1) return "bg-amber-500 text-white";
     if (rank === 2) return "bg-gray-400 text-white";
@@ -54,7 +110,7 @@ const HorseCard: React.FC<HorseCardProps> = ({ horse, rank, raceInfo }) => {
               {getRankIcon(rank)}
             </Badge>
             <div>
-              <h3 className="font-bold text-lg text-gray-900">{horse.name}</h3>
+              <h3 className="font-bold text-lg text-gray-900">{safeHorseName}</h3>
               <div className="text-sm text-gray-600">Start #{horse.startNumber}</div>
             </div>
           </div>
@@ -77,7 +133,7 @@ const HorseCard: React.FC<HorseCardProps> = ({ horse, rank, raceInfo }) => {
           <div className="text-center">
             <div className="flex items-center justify-center gap-1 text-sm font-medium">
               <User className="h-3 w-3" />
-              <span className="truncate">{horse.driver}</span>
+              <span className="truncate">{safeDriverName}</span>
             </div>
             <div className="text-xs text-gray-500">Driver</div>
           </div>
@@ -119,7 +175,7 @@ const HorseCard: React.FC<HorseCardProps> = ({ horse, rank, raceInfo }) => {
           <div className="mt-3 flex flex-wrap gap-1">
             {horse.equipment.map((item, index) => (
               <Badge key={index} variant="outline" className="text-xs">
-                {item}
+                {ensureStringForDisplay(item)}
               </Badge>
             ))}
           </div>
