@@ -66,6 +66,17 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
     return "text-gray-600";
   };
 
+  // Helper function to safely extract horse name as string
+  const getHorseNameAsString = (horseName: any): string => {
+    if (typeof horseName === 'string') {
+      return horseName;
+    }
+    if (horseName && typeof horseName === 'object' && 'name' in horseName) {
+      return (horseName as any).name || 'Unknown Horse';
+    }
+    return 'Unknown Horse';
+  };
+
   // Sort horses by normalized time (fastest first)
   const sortedHorses = race.horses
     .filter(horse => horse.modernNormalizedResult)
@@ -166,6 +177,7 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                   const result = horse.modernNormalizedResult!;
                   const rank = index + 1;
                   const isTopPerformer = rank <= 3;
+                  const safeHorseName = getHorseNameAsString(horse.horseName);
                   
                   return (
                     <TableRow 
@@ -187,7 +199,7 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                       
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="font-medium text-gray-900">{horse.horseName}</div>
+                          <div className="font-medium text-gray-900">{safeHorseName}</div>
                           <div className="text-sm text-gray-600">{horse.driverName}</div>
                         </div>
                       </TableCell>
@@ -276,30 +288,34 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                   );
                 })}
                 
-                {horsesWithoutTimes.map(horse => (
-                  <TableRow key={horse.horseId} className="opacity-50">
-                    <TableCell>-</TableCell>
-                    <TableCell className="text-center">{horse.postPosition}</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="font-medium text-gray-900">{horse.horseName}</div>
-                        <div className="text-sm text-gray-600">{horse.driverName}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center text-gray-400">No data</TableCell>
-                    <TableCell className="text-center text-gray-400">No data</TableCell>
-                    <TableCell className="text-center text-gray-400">-</TableCell>
-                    <TableCell className="text-center text-gray-400">-</TableCell>
-                    <TableCell className="text-center text-gray-400">-</TableCell>
-                    <TableCell className="text-center text-gray-400">-</TableCell>
-                    <TableCell className="text-center text-gray-400">-</TableCell>
-                    <TableCell className="text-center text-gray-400">-</TableCell>
-                    <TableCell className="text-center text-gray-400">-</TableCell>
-                    <TableCell className="text-center text-gray-400">-</TableCell>
-                    <TableCell className="text-center text-gray-400">-</TableCell>
-                    <TableCell className="text-center text-gray-400">-</TableCell>
-                  </TableRow>
-                ))}
+                {horsesWithoutTimes.map(horse => {
+                  const safeHorseName = getHorseNameAsString(horse.horseName);
+                  
+                  return (
+                    <TableRow key={horse.horseId} className="opacity-50">
+                      <TableCell>-</TableCell>
+                      <TableCell className="text-center">{horse.postPosition}</TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="font-medium text-gray-900">{safeHorseName}</div>
+                          <div className="text-sm text-gray-600">{horse.driverName}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center text-gray-400">No data</TableCell>
+                      <TableCell className="text-center text-gray-400">No data</TableCell>
+                      <TableCell className="text-center text-gray-400">-</TableCell>
+                      <TableCell className="text-center text-gray-400">-</TableCell>
+                      <TableCell className="text-center text-gray-400">-</TableCell>
+                      <TableCell className="text-center text-gray-400">-</TableCell>
+                      <TableCell className="text-center text-gray-400">-</TableCell>
+                      <TableCell className="text-center text-gray-400">-</TableCell>
+                      <TableCell className="text-center text-gray-400">-</TableCell>
+                      <TableCell className="text-center text-gray-400">-</TableCell>
+                      <TableCell className="text-center text-gray-400">-</TableCell>
+                      <TableCell className="text-center text-gray-400">-</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
