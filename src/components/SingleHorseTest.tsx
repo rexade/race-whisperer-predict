@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -122,8 +121,17 @@ const SingleHorseTest: React.FC = () => {
     if (atgData.results && atgData.results.records && Array.isArray(atgData.results.records)) {
       console.log(`Found ${atgData.results.records.length} real historical records from ATG API`);
       
+      // Calculate date 8 months ago
+      const eightMonthsAgo = new Date();
+      eightMonthsAgo.setMonth(eightMonthsAgo.getMonth() - 8);
+      console.log(`Filtering races newer than: ${eightMonthsAgo.toISOString().split('T')[0]}`);
+      
       historicalRaces = atgData.results.records
         .filter(record => {
+          // Check if race is within 8 months
+          const raceDate = new Date(record.date);
+          const isWithin8Months = raceDate >= eightMonthsAgo;
+          
           // Skip records without proper time data or with gallop/disqualification codes
           const hasValidTime = record.kmTime && 
             typeof record.kmTime === 'object' && 
@@ -134,9 +142,9 @@ const SingleHorseTest: React.FC = () => {
           const isNotDisqualified = !record.disqualified && !record.galloped;
           const hasValidPlace = record.place && record.place !== "0";
           
-          console.log(`Record ${record.date}: hasValidTime=${hasValidTime}, isNotDisqualified=${isNotDisqualified}, hasValidPlace=${hasValidPlace}, place=${record.place}`);
+          console.log(`Record ${record.date}: within8Months=${isWithin8Months}, hasValidTime=${hasValidTime}, isNotDisqualified=${isNotDisqualified}, hasValidPlace=${hasValidPlace}, place=${record.place}`);
           
-          return hasValidTime && isNotDisqualified && hasValidPlace;
+          return isWithin8Months && hasValidTime && isNotDisqualified && hasValidPlace;
         })
         .map(record => ({
           date: record.date,
@@ -150,7 +158,7 @@ const SingleHorseTest: React.FC = () => {
           disqualified: record.disqualified || false
         }));
       
-      console.log(`Filtered to ${historicalRaces.length} valid historical races`);
+      console.log(`Filtered to ${historicalRaces.length} valid historical races (within 8 months, not DQ/galloped)`);
     } else {
       console.log("No real historical data found in ATG response, using enhanced simulated data");
       historicalRaces = generateEnhancedSimulatedHistory(atgData.horse.id, atgData.horse.name);
@@ -160,19 +168,21 @@ const SingleHorseTest: React.FC = () => {
   };
 
   const generateEnhancedSimulatedHistory = (horseId: number, horseName: string): HistoricalRace[] => {
-    console.log(`Generating enhanced simulated history with 22 records for ${horseName} (ID: ${horseId})`);
+    console.log(`Generating enhanced simulated history with recent records for ${horseName} (ID: ${horseId})`);
     
-    // Generate 22 realistic harness racing records with varied distances and start methods
+    // Calculate date 8 months ago for simulated data too
+    const eightMonthsAgo = new Date();
+    eightMonthsAgo.setMonth(eightMonthsAgo.getMonth() - 8);
+    
+    // Generate realistic harness racing records within the last 8 months
     const races: HistoricalRace[] = [
-      // Recent races (better times)
+      // Recent races (better times) - all within 8 months
       { date: "2024-06-10", distance: 2140, startMethod: "auto", track: "Solvalla", kmTime: { minutes: 1, seconds: 15, tenths: 2 }, finishOrder: 2, postPosition: 5, galloped: false, disqualified: false },
       { date: "2024-05-28", distance: 1640, startMethod: "auto", track: "Åby", kmTime: { minutes: 1, seconds: 12, tenths: 8 }, finishOrder: 1, postPosition: 3, galloped: false, disqualified: false },
       { date: "2024-05-15", distance: 2140, startMethod: "volte", track: "Solvalla", kmTime: { minutes: 1, seconds: 14, tenths: 5 }, finishOrder: 3, postPosition: 7, galloped: false, disqualified: false },
       { date: "2024-05-01", distance: 1640, startMethod: "auto", track: "Jägersro", kmTime: { minutes: 1, seconds: 11, tenths: 9 }, finishOrder: 4, postPosition: 8, galloped: false, disqualified: false },
       { date: "2024-04-18", distance: 2140, startMethod: "volte", track: "Solvalla", kmTime: { minutes: 1, seconds: 16, tenths: 1 }, finishOrder: 6, postPosition: 11, galloped: false, disqualified: false },
       { date: "2024-04-05", distance: 1640, startMethod: "volte", track: "Mantorp", kmTime: { minutes: 1, seconds: 13, tenths: 5 }, finishOrder: 2, postPosition: 4, galloped: false, disqualified: false },
-      
-      // Additional races to reach 22 total
       { date: "2024-03-22", distance: 2640, startMethod: "auto", track: "Bergsåker", kmTime: { minutes: 1, seconds: 18, tenths: 3 }, finishOrder: 5, postPosition: 6, galloped: false, disqualified: false },
       { date: "2024-03-08", distance: 1640, startMethod: "auto", track: "Bollnäs", kmTime: { minutes: 1, seconds: 13, tenths: 1 }, finishOrder: 3, postPosition: 9, galloped: false, disqualified: false },
       { date: "2024-02-24", distance: 2140, startMethod: "volte", track: "Axevalla", kmTime: { minutes: 1, seconds: 15, tenths: 8 }, finishOrder: 7, postPosition: 12, galloped: false, disqualified: false },
@@ -184,24 +194,25 @@ const SingleHorseTest: React.FC = () => {
       { date: "2023-12-02", distance: 2140, startMethod: "auto", track: "Bergsåker", kmTime: { minutes: 1, seconds: 17, tenths: 1 }, finishOrder: 6, postPosition: 8, galloped: false, disqualified: false },
       { date: "2023-11-18", distance: 1640, startMethod: "volte", track: "Bollnäs", kmTime: { minutes: 1, seconds: 13, tenths: 9 }, finishOrder: 3, postPosition: 5, galloped: false, disqualified: false },
       { date: "2023-11-04", distance: 2140, startMethod: "volte", track: "Axevalla", kmTime: { minutes: 1, seconds: 15, tenths: 4 }, finishOrder: 5, postPosition: 9, galloped: false, disqualified: false },
-      { date: "2023-10-21", distance: 1640, startMethod: "auto", track: "Gävle", kmTime: { minutes: 1, seconds: 12, tenths: 1 }, finishOrder: 1, postPosition: 3, galloped: false, disqualified: false },
-      { date: "2023-10-07", distance: 2640, startMethod: "auto", track: "Solvalla", kmTime: { minutes: 1, seconds: 20, tenths: 2 }, finishOrder: 10, postPosition: 14, galloped: false, disqualified: false },
-      { date: "2023-09-23", distance: 1640, startMethod: "auto", track: "Åby", kmTime: { minutes: 1, seconds: 13, tenths: 3 }, finishOrder: 4, postPosition: 6, galloped: false, disqualified: false },
-      { date: "2023-09-09", distance: 2140, startMethod: "volte", track: "Mantorp", kmTime: { minutes: 1, seconds: 16, tenths: 8 }, finishOrder: 7, postPosition: 11, galloped: false, disqualified: false },
-      { date: "2023-08-26", distance: 1640, startMethod: "volte", track: "Jägersro", kmTime: { minutes: 1, seconds: 14, tenths: 6 }, finishOrder: 5, postPosition: 8, galloped: false, disqualified: false }
+      { date: "2023-10-21", distance: 1640, startMethod: "auto", track: "Gävle", kmTime: { minutes: 1, seconds: 12, tenths: 1 }, finishOrder: 1, postPosition: 3, galloped: false, disqualified: false }
+      // Removed older races that would be beyond 8 months
     ];
     
-    return races;
+    // Filter simulated races to only include those within 8 months
+    return races.filter(race => {
+      const raceDate = new Date(race.date);
+      return raceDate >= eightMonthsAgo;
+    });
   };
 
   const calculateRawTimeFromHistory = (historicalRaces: HistoricalRace[]) => {
-    console.log("\n=== Starting Simplified RAW Time Calculation ===");
+    console.log("\n=== Starting Simplified RAW Time Calculation (8-month filter + DQ/Gallop exclusion) ===");
     console.log(`Processing ${historicalRaces.length} total races`);
     
     const processed: ProcessedTime[] = [];
     
     for (const race of historicalRaces) {
-      // Skip disqualified or galloped races
+      // Skip disqualified, galloped races, or races without time
       if (race.disqualified || race.galloped || !race.kmTime) {
         console.log(`Skipping race ${race.date} - disqualified: ${race.disqualified}, galloped: ${race.galloped}, no time: ${!race.kmTime}`);
         continue;
@@ -228,7 +239,7 @@ const SingleHorseTest: React.FC = () => {
     // Sort by normalized time (best/fastest first)
     processed.sort((a, b) => a.normalizedTime - b.normalizedTime);
     
-    console.log(`\n=== All ${processed.length} Valid Times (sorted by normalized time) ===`);
+    console.log(`\n=== All ${processed.length} Valid Times (within 8 months, no DQ/gallop, sorted by normalized time) ===`);
     processed.forEach((time, index) => {
       console.log(`${index + 1}. ${time.raceDate}: ${time.originalTimeSeconds}s → ${time.normalizedTime}s (${time.distance}m ${time.startMethod})`);
     });
@@ -239,7 +250,7 @@ const SingleHorseTest: React.FC = () => {
       ? best3Times.reduce((sum, time) => sum + time.normalizedTime, 0) / best3Times.length
       : 0;
     
-    console.log(`\n=== RAW Time Calculation (Simplified Formula) ===`);
+    console.log(`\n=== RAW Time Calculation (Simplified Formula, 8-month filter) ===`);
     console.log(`Best 3 normalized times: ${best3Times.map(t => t.normalizedTime + 's').join(', ')}`);
     console.log(`RAW Time (Best 3 Average): ${rawTimeResult.toFixed(2)}s`);
     
