@@ -2,7 +2,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Sparkles, Calendar, Horse } from "lucide-react";
+import { Sparkles, Calendar, Activity } from "lucide-react";
 
 const Navigation: React.FC = () => {
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -37,7 +37,7 @@ const Navigation: React.FC = () => {
             
             <NavLink to="/single-horse" className={navLinkClass}>
               <Button variant="ghost" className="flex items-center gap-2 p-0">
-                <Horse className="h-4 w-4" />
+                <Activity className="h-4 w-4" />
                 Single Horse
               </Button>
             </NavLink>
