@@ -36,6 +36,30 @@ interface ATGHorseData {
   horse: {
     name: string;
     id: number;
+    results?: {
+      records: Array<{
+        date: string;
+        kmTime?: {
+          minutes: number;
+          seconds: number;
+          tenths: number;
+        } | { code: string };
+        place?: string;
+        race: {
+          id: string;
+          startMethod: string;
+        };
+        track: {
+          name: string;
+        };
+        start: {
+          distance: number;
+          postPosition: number;
+        };
+        galloped?: boolean;
+        disqualified?: boolean;
+      }>;
+    };
   };
   driver: {
     firstName: string;
@@ -51,30 +75,6 @@ interface ATGHorseData {
     };
     galloped?: boolean;
     disqualified?: boolean;
-  };
-  results?: {
-    records: Array<{
-      date: string;
-      kmTime?: {
-        minutes: number;
-        seconds: number;
-        tenths: number;
-      } | { code: string };
-      place?: string;
-      race: {
-        id: string;
-        startMethod: string;
-      };
-      track: {
-        name: string;
-      };
-      start: {
-        distance: number;
-        postPosition: number;
-      };
-      galloped?: boolean;
-      disqualified?: boolean;
-    }>;
   };
 }
 
@@ -128,8 +128,9 @@ const SingleHorseTest: React.FC = () => {
     
     let historicalRaces: HistoricalRace[] = [];
     
-    if (!atgData.results) {
-      const errorMsg = "No 'results' property found in ATG data";
+    // Fix: Access results through horse.results instead of directly
+    if (!atgData.horse) {
+      const errorMsg = "No 'horse' property found in ATG data";
       console.error(errorMsg);
       debugMessages.push(errorMsg);
       setError(errorMsg);
@@ -137,8 +138,8 @@ const SingleHorseTest: React.FC = () => {
       return;
     }
     
-    if (!atgData.results.records) {
-      const errorMsg = "No 'records' property found in results";
+    if (!atgData.horse.results) {
+      const errorMsg = "No 'results' property found in horse data";
       console.error(errorMsg);
       debugMessages.push(errorMsg);
       setError(errorMsg);
@@ -146,7 +147,16 @@ const SingleHorseTest: React.FC = () => {
       return;
     }
     
-    if (!Array.isArray(atgData.results.records)) {
+    if (!atgData.horse.results.records) {
+      const errorMsg = "No 'records' property found in horse results";
+      console.error(errorMsg);
+      debugMessages.push(errorMsg);
+      setError(errorMsg);
+      setDebugInfo(debugMessages.join('\n'));
+      return;
+    }
+    
+    if (!Array.isArray(atgData.horse.results.records)) {
       const errorMsg = "Records is not an array";
       console.error(errorMsg);
       debugMessages.push(errorMsg);
@@ -155,8 +165,8 @@ const SingleHorseTest: React.FC = () => {
       return;
     }
     
-    console.log(`Found ${atgData.results.records.length} total records from ATG API`);
-    debugMessages.push(`Found ${atgData.results.records.length} total records`);
+    console.log(`Found ${atgData.horse.results.records.length} total records from ATG API`);
+    debugMessages.push(`Found ${atgData.horse.results.records.length} total records`);
     
     // Calculate date 8 months ago
     const eightMonthsAgo = new Date();
@@ -165,9 +175,9 @@ const SingleHorseTest: React.FC = () => {
     console.log(`Filtering races newer than: ${cutoffDate}`);
     debugMessages.push(`Filtering races newer than: ${cutoffDate}`);
     
-    // Debug each record
-    atgData.results.records.forEach((record, index) => {
-      console.log(`\n--- Processing Record ${index + 1}/${atgData.results!.records.length} ---`);
+    // Debug each record - now accessing through atgData.horse.results.records
+    atgData.horse.results.records.forEach((record, index) => {
+      console.log(`\n--- Processing Record ${index + 1}/${atgData.horse.results!.records.length} ---`);
       console.log(`Date: ${record.date}`);
       console.log(`Distance: ${record.start?.distance}m`);
       console.log(`Start method: ${record.race?.startMethod}`);
