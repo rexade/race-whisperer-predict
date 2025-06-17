@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Badge } from "@/components/ui/badge";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -38,10 +37,11 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
   };
 
   const formatEarnings = (earnings: number) => {
-    if (earnings >= 1000) {
-      return `${(earnings / 1000).toFixed(0)}k`;
+    const adjustedEarnings = earnings / 100; // Divide by 100 as requested
+    if (adjustedEarnings >= 1000) {
+      return `${(adjustedEarnings / 1000).toFixed(0)}k`;
     }
-    return earnings.toString();
+    return adjustedEarnings.toFixed(0);
   };
 
   const isBarefootFront = (shoes: string) => shoes === "0";
@@ -107,7 +107,7 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
       
       <TableCell className="text-center">
         <span className="text-sm font-medium text-purple-700">
-          {horse.statistics.winPercentage.toFixed(1)}%
+          {(horse.statistics.winPercentage / 10).toFixed(1)}%
         </span>
       </TableCell>
       
@@ -124,7 +124,7 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
         <div className="flex items-center justify-center gap-1">
           <Award className="h-3 w-3 text-blue-500" />
           <span className="text-sm font-medium text-blue-700">
-            {horse.driver.winPercentage.toFixed(1)}%
+            {(horse.driver.winPercentage / 10).toFixed(1)}%
           </span>
         </div>
       </TableCell>
