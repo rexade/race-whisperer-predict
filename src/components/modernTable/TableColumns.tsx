@@ -9,6 +9,8 @@ const TableColumns: React.FC = () => {
         <TableHead className="w-16 text-center">Rank</TableHead>
         <TableHead className="w-12 text-center">Start</TableHead>
         <TableHead className="min-w-[150px]">Horse & Driver</TableHead>
+        <TableHead className="w-24 text-center">RAW Time (KM)</TableHead>
+        <TableHead className="w-24 text-center font-bold">Modern Time (KM)</TableHead>
         <TableHead className="w-20 text-center">Start Points</TableHead>
         <TableHead className="w-20 text-center">Place %</TableHead>
         <TableHead className="w-20 text-center">Horse Win%</TableHead>
@@ -17,8 +19,6 @@ const TableColumns: React.FC = () => {
         <TableHead className="w-20 text-center">Sulky</TableHead>
         <TableHead className="w-24 text-center">Shoes</TableHead>
         <TableHead className="w-20 text-center">Home Track</TableHead>
-        <TableHead className="w-24 text-center">RAW Time (KM)</TableHead>
-        <TableHead className="w-24 text-center font-bold">Modern Time (KM)</TableHead>
         <TableHead className="w-24 text-center font-bold">Total Adj</TableHead>
       </TableRow>
     </TableHeader>

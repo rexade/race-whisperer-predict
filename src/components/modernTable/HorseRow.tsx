@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Badge } from "@/components/ui/badge";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -94,6 +95,18 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
       </TableCell>
       
       <TableCell className="text-center">
+        <div className="font-mono text-sm text-gray-700">
+          {result.rawTime}
+        </div>
+      </TableCell>
+      
+      <TableCell className="text-center">
+        <div className={`font-mono text-sm font-bold ${isTopPerformer ? 'text-green-700' : 'text-gray-900'}`}>
+          {result.modernNormalizedTime}
+        </div>
+      </TableCell>
+      
+      <TableCell className="text-center">
         <span className="text-sm font-medium text-blue-700">
           {horse.statistics.startPoints}
         </span>
@@ -145,18 +158,6 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
         <span className="text-xs text-gray-600">
           {horse.homeTrack}
         </span>
-      </TableCell>
-      
-      <TableCell className="text-center">
-        <div className="font-mono text-sm text-gray-700">
-          {result.rawTime}
-        </div>
-      </TableCell>
-      
-      <TableCell className="text-center">
-        <div className={`font-mono text-sm font-bold ${isTopPerformer ? 'text-green-700' : 'text-gray-900'}`}>
-          {result.modernNormalizedTime}
-        </div>
       </TableCell>
       
       <TableCell className="text-center">
