@@ -107,7 +107,7 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
       
       <TableCell className="text-center">
         <span className="text-sm font-medium text-purple-700">
-          {(horse.statistics.winPercentage / 10000).toFixed(1)}%
+          {(horse.statistics.winPercentage / 100).toFixed(1)}%
         </span>
       </TableCell>
       
@@ -124,7 +124,7 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
         <div className="flex items-center justify-center gap-1">
           <Zap className="h-3 w-3 text-green-500" />
           <span className="text-sm font-bold text-green-700">
-            {horse.driver.winPercentage2025.toFixed(1)}%
+            {(horse.driver.winPercentage / 100).toFixed(1)}%
           </span>
         </div>
       </TableCell>
