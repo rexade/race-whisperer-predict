@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { fetchEnhancedRaceData, EnhancedHorseData } from '../../../services/enhancedAtgApi';
@@ -24,12 +23,18 @@ export const useRaceAnalysis = () => {
   const applyModernNormalizationToHorses = (horses: EnhancedHorseData[], raceData: any, weights: NormalizationWeights) => {
     const results: ModernNormalizedResult[] = [];
     
+    console.log('\n=== Applying Enhanced Modern Normalization ===');
+    console.log(`Race Distance: ${raceData.distance}m`);
+    console.log(`Race Type: ${raceData.raceType || 'Not specified'}`);
+    console.log(`Start Time: ${raceData.startTime || 'Not specified'}`);
+    
     for (const horse of horses) {
       if (!horse.rawTime) continue;
       
       const factors: ModernNormalizationFactors = {
         postPosition: horse.postPosition,
-        distance: horse.distance,
+        distance: horse.distance, // Individual horse distance (important for volte)
+        raceDistance: raceData.distance, // Race-level distance
         startMethod: horse.startMethod,
         shoesFront: horse.shoes.front ? "1" : "0",
         shoesBack: horse.shoes.back ? "1" : "0",
@@ -38,8 +43,16 @@ export const useRaceAnalysis = () => {
         driverExperience: horse.driver.experience,
         driverWinPercentage: horse.driver.winPercentage,
         driverWinPercentage2025: horse.driver.winPercentage2025,
-        horseForm: horse.statistics.winPercentage
+        horseForm: horse.statistics.winPercentage,
+        raceType: raceData.raceType, // Enhanced: Race type/classification
+        timeOfDay: raceData.startTime // Enhanced: Time of day
       };
+      
+      console.log(`\nProcessing ${horse.name}:`);
+      console.log(`  Individual distance: ${factors.distance}m`);
+      console.log(`  Race distance: ${factors.raceDistance}m`);
+      console.log(`  Race type: ${factors.raceType || 'N/A'}`);
+      console.log(`  Start time: ${factors.timeOfDay || 'N/A'}`);
       
       const result = applyModernNormalization(horse.rawTime, factors, weights);
       results.push(result);
@@ -128,28 +141,28 @@ export const useRaceAnalysis = () => {
       
       setEnhancedHorses(horsesWithRawTimes);
       
-      setCurrentTask("Applying modern normalization...");
+      setCurrentTask("Applying enhanced modern normalization...");
       setProgress(80);
       
-      // Apply modern normalization to each horse
+      // Apply enhanced modern normalization to each horse
       applyModernNormalizationToHorses(horsesWithRawTimes, raceData, weights);
       
       setProgress(100);
-      setCurrentTask("Analysis complete!");
+      setCurrentTask("Enhanced analysis complete!");
       
       const horsesWithValidTimes = horsesWithRawTimes.filter(h => h.rawTime && h.rawTime > 0).length;
       
       toast({
-        title: "Analysis Complete",
-        description: `RAW times calculated for ${horsesWithValidTimes} of ${horsesWithRawTimes.length} horses using historical data (now discarded).`,
+        title: "Enhanced Analysis Complete",
+        description: `RAW times calculated for ${horsesWithValidTimes} of ${horsesWithRawTimes.length} horses with distance, race type, and time-of-day adjustments.`,
       });
       
     } catch (err) {
-      console.error("Error during analysis:", err);
-      setError(`Analysis failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      console.error("Error during enhanced analysis:", err);
+      setError(`Enhanced analysis failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
       toast({
-        title: "Analysis Error",
-        description: "Failed to complete modern normalization analysis. Check console for details.",
+        title: "Enhanced Analysis Error",
+        description: "Failed to complete enhanced modern normalization analysis. Check console for details.",
         variant: "destructive",
       });
     } finally {

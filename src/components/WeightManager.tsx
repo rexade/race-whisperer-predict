@@ -35,7 +35,10 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
     { key: 'driverExperience' as keyof NormalizationWeights, label: 'Driver Experience', description: 'Driver skill and experience' },
     { key: 'driver2025Performance' as keyof NormalizationWeights, label: 'Driver 2025 Performance', description: 'Current year win percentage' },
     { key: 'trackFamiliarity' as keyof NormalizationWeights, label: 'Track Familiarity', description: 'Home track advantage' },
-    { key: 'form' as keyof NormalizationWeights, label: 'Recent Form', description: 'Current performance trend' }
+    { key: 'form' as keyof NormalizationWeights, label: 'Recent Form', description: 'Current performance trend' },
+    { key: 'distanceAdjustment' as keyof NormalizationWeights, label: 'Distance Adjustment', description: 'Individual vs race distance differences' },
+    { key: 'raceType' as keyof NormalizationWeights, label: 'Race Type', description: 'Stakes, maiden, claiming race adjustments' },
+    { key: 'timeOfDay' as keyof NormalizationWeights, label: 'Time of Day', description: 'Morning, afternoon, evening race adjustments' }
   ];
 
   return (
@@ -47,7 +50,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
         <CardTitle className="flex items-center justify-between text-blue-800">
           <div className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
-            Normalization Weights
+            Enhanced Normalization Weights
           </div>
           <Badge variant="outline" className="border-blue-300">
             {isExpanded ? 'Collapse' : 'Expand'}
@@ -59,7 +62,8 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
         <CardContent className="space-y-6 pt-6">
           <div className="flex justify-between items-center">
             <p className="text-sm text-gray-600">
-              Adjust the weights to control how much each factor affects the final normalized time.
+              Adjust the weights to control how much each factor affects the final normalized time. 
+              <span className="font-medium text-blue-600">New: Distance, Race Type, and Time-of-Day adjustments!</span>
             </p>
             <Button 
               variant="outline" 
@@ -77,7 +81,12 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
               <div key={factor.key} className="space-y-2">
                 <div className="flex justify-between items-center">
                   <div>
-                    <Label className="font-medium">{factor.label}</Label>
+                    <Label className="font-medium flex items-center gap-2">
+                      {factor.label}
+                      {['distanceAdjustment', 'raceType', 'timeOfDay'].includes(factor.key) && (
+                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">NEW</Badge>
+                      )}
+                    </Label>
                     <p className="text-xs text-gray-500">{factor.description}</p>
                   </div>
                   <Badge variant="secondary" className="font-mono">
@@ -101,7 +110,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
           </div>
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-medium text-blue-800 mb-2">Weight Summary</h4>
+            <h4 className="font-medium text-blue-800 mb-2">Enhanced Weight Summary</h4>
             <div className="grid grid-cols-2 gap-2 text-sm">
               {weightFactors.map((factor) => (
                 <div key={factor.key} className="flex justify-between">

@@ -1,4 +1,3 @@
-
 export interface EnhancedHorseData {
   horseId: number;
   name: string;
@@ -35,10 +34,12 @@ export interface EnhancedRaceData {
   distance: number;
   startMethod: string;
   track: string;
-  // New root-level race data fields
+  // Enhanced race-level data fields
   name: string;
   date: string;
   prize: number;
+  raceType?: string; // New field for race type/classification
+  startTime?: string; // New field for race start time
   horses: EnhancedHorseData[];
   dataQuality: {
     hasValidPostPositions: boolean;
@@ -65,20 +66,24 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
       startMethod: data.startMethod,
       name: data.name,
       date: data.date,
-      prize: data.prize
+      prize: data.prize,
+      raceType: data.raceType,
+      startTime: data.startTime
     });
     
-    // Extract race information including new root-level fields
+    // Extract race information including enhanced fields
     const raceInfo = {
       raceId: data.id,
       raceNumber: data.number,
       distance: data.distance,
       startMethod: data.startMethod,
       track: data.track.name,
-      // Extract new root-level race data
+      // Extract enhanced race data
       name: data.name || "Unknown Race",
       date: data.date || "Unknown Date", 
       prize: data.prize || 0,
+      raceType: data.raceType || data.sport || "", // Try race type or sport classification
+      startTime: data.startTime || data.scheduledStartTime || "", // Try multiple time fields
       horses: [] as EnhancedHorseData[],
       dataQuality: {
         hasValidPostPositions: true,
@@ -91,7 +96,9 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
     const postPositionMap = new Map<number, number>(); // position -> count
     const postPositions: number[] = [];
     
-    console.log("\n=== Processing horse starts from MAIN RACE ENDPOINT ONLY ===");
+    console.log("\n=== Processing horse starts with enhanced data extraction ===");
+    console.log(`Race type identified as: ${raceInfo.raceType}`);
+    console.log(`Start time identified as: ${raceInfo.startTime}`);
     
     // Process each horse start - get ALL data from main race endpoint
     for (let index = 0; index < (data.starts || []).length; index++) {
@@ -103,6 +110,7 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
         postPositionMap.set(postPos, (postPositionMap.get(postPos) || 0) + 1);
         
         console.log(`Processing horse "${start.horse.name}" (ID: ${start.horse.id}) - Post Position: ${postPos}`);
+        console.log(`  Horse distance: ${start.distance || data.distance}m vs Race distance: ${data.distance}m`);
         
         // Debug driver statistics structure
         console.log(`Driver statistics for ${start.driver.firstName} ${start.driver.lastName}:`, {
@@ -130,7 +138,7 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
           horseId: start.horse.id,
           name: start.horse.name,
           postPosition: postPos,
-          distance: start.distance || data.distance,
+          distance: start.distance || data.distance, // Individual horse distance (important for volte starts)
           startMethod: data.startMethod,
           shoes: {
             front: start.horse.shoes?.front?.hasShoe || false,
@@ -199,7 +207,10 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
       console.warn(`⚠️  Horse count mismatch: Expected ${expectedHorses}, got ${actualHorses}`);
     }
     
-    console.log(`\n✅ Enhanced race data processed: ${raceInfo.horses.length} horses with data quality score: ${raceInfo.dataQuality.hasValidPostPositions ? 'GOOD' : 'ISSUES'}`);
+    console.log(`\n✅ Enhanced race data processed: ${raceInfo.horses.length} horses with enhanced factors`);
+    console.log(`   Race Type: ${raceInfo.raceType || 'Not specified'}`);
+    console.log(`   Start Time: ${raceInfo.startTime || 'Not specified'}`);
+    console.log(`   Data Quality: ${raceInfo.dataQuality.hasValidPostPositions ? 'GOOD' : 'ISSUES'}`);
     
     return raceInfo;
     

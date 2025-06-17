@@ -2,7 +2,7 @@
 import React from 'react';
 import { Badge } from "@/components/ui/badge";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { Medal, Banknote, Award, Zap } from "lucide-react";
+import { Medal, Banknote, Award, Zap, Ruler } from "lucide-react";
 import { EnhancedHorseData } from '../../services/enhancedAtgApi';
 import { ModernNormalizedResult } from '../../services/modernNormalization';
 
@@ -158,6 +158,15 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
         <span className="text-xs text-gray-600">
           {horse.homeTrack}
         </span>
+      </TableCell>
+      
+      <TableCell className="text-center">
+        <div className="flex items-center justify-center gap-1">
+          <Ruler className="h-3 w-3 text-blue-500" />
+          <span className="text-xs font-medium text-blue-700">
+            {horse.distance}m
+          </span>
+        </div>
       </TableCell>
       
       <TableCell className="text-center">
