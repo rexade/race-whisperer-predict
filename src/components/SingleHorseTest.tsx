@@ -52,23 +52,30 @@ interface ATGHorseData {
     galloped?: boolean;
     disqualified?: boolean;
   };
-}
-
-interface ATGHistoricalRace {
-  raceId: string;
-  date: string;
-  distance: number;
-  startMethod: string;
-  track: string;
-  kmTime?: {
-    minutes: number;
-    seconds: number;
-    tenths: number;
+  results?: {
+    records: Array<{
+      date: string;
+      kmTime?: {
+        minutes: number;
+        seconds: number;
+        tenths: number;
+      } | { code: string };
+      place?: string;
+      race: {
+        id: string;
+        startMethod: string;
+      };
+      track: {
+        name: string;
+      };
+      start: {
+        distance: number;
+        postPosition: number;
+      };
+      galloped?: boolean;
+      disqualified?: boolean;
+    }>;
   };
-  finishOrder?: number;
-  postPosition: number;
-  galloped?: boolean;
-  disqualified?: boolean;
 }
 
 const SingleHorseTest: React.FC = () => {
@@ -96,8 +103,8 @@ const SingleHorseTest: React.FC = () => {
       
       setHorseData(data);
       
-      // Fetch real historical data for this horse
-      await fetchAndCalculateRealHistoricalData(data.horse.id, data.horse.name);
+      // Process real historical data from the ATG response
+      processRealATGHistoricalData(data);
       
     } catch (err) {
       console.error("Error fetching horse data:", err);
@@ -107,86 +114,87 @@ const SingleHorseTest: React.FC = () => {
     }
   };
 
-  const fetchAndCalculateRealHistoricalData = async (horseId: number, horseName: string) => {
-    console.log(`\n=== Fetching real historical data for ${horseName} (ID: ${horseId}) ===`);
+  const processRealATGHistoricalData = (atgData: ATGHorseData) => {
+    console.log(`\n=== Processing REAL ATG historical data for ${atgData.horse.name} (ID: ${atgData.horse.id}) ===`);
     
-    try {
-      // Try to fetch real historical data from ATG API
-      const historyResponse = await fetch(`https://www.atg.se/services/racinginfo/v1/api/horses/${horseId}/races`);
+    let historicalRaces: HistoricalRace[] = [];
+    
+    if (atgData.results && atgData.results.records && Array.isArray(atgData.results.records)) {
+      console.log(`Found ${atgData.results.records.length} real historical records from ATG API`);
       
-      let historicalRaces: ATGHistoricalRace[] = [];
+      historicalRaces = atgData.results.records
+        .filter(record => {
+          // Skip records without proper time data or with gallop/disqualification codes
+          const hasValidTime = record.kmTime && 
+            typeof record.kmTime === 'object' && 
+            'minutes' in record.kmTime && 
+            'seconds' in record.kmTime && 
+            'tenths' in record.kmTime;
+          
+          const isNotDisqualified = !record.disqualified && !record.galloped;
+          const hasValidPlace = record.place && record.place !== "0";
+          
+          console.log(`Record ${record.date}: hasValidTime=${hasValidTime}, isNotDisqualified=${isNotDisqualified}, hasValidPlace=${hasValidPlace}, place=${record.place}`);
+          
+          return hasValidTime && isNotDisqualified && hasValidPlace;
+        })
+        .map(record => ({
+          date: record.date,
+          distance: record.start.distance,
+          startMethod: record.race.startMethod,
+          track: record.track.name,
+          kmTime: record.kmTime as { minutes: number; seconds: number; tenths: number },
+          finishOrder: parseInt(record.place || "0"),
+          postPosition: record.start.postPosition,
+          galloped: record.galloped || false,
+          disqualified: record.disqualified || false
+        }));
       
-      if (historyResponse.ok) {
-        const historyData = await historyResponse.json();
-        console.log("Real ATG Historical Data:", historyData);
-        
-        // Convert ATG historical data to our format
-        if (historyData.races && Array.isArray(historyData.races)) {
-          historicalRaces = historyData.races.map((race: any) => ({
-            raceId: race.id || `race_${Date.now()}_${Math.random()}`,
-            date: race.date || new Date().toISOString().split('T')[0],
-            distance: race.distance || 2140,
-            startMethod: race.startMethod || "auto",
-            track: race.track || "Unknown",
-            kmTime: race.result?.kmTime,
-            finishOrder: race.result?.finishOrder,
-            postPosition: race.postPosition || 1,
-            galloped: race.result?.galloped || false,
-            disqualified: race.result?.disqualified || false
-          }));
-        }
-      } else {
-        console.log("Real historical data not available, using enhanced simulated data with 22 records");
-        historicalRaces = generateEnhancedSimulatedHistory(horseId, horseName);
-      }
-      
-      console.log(`Processing ${historicalRaces.length} historical races`);
-      calculateRawTimeFromHistory(historicalRaces);
-      
-    } catch (error) {
-      console.error("Error fetching historical data:", error);
-      console.log("Falling back to enhanced simulated data");
-      const simulatedHistory = generateEnhancedSimulatedHistory(horseId, horseName);
-      calculateRawTimeFromHistory(simulatedHistory);
+      console.log(`Filtered to ${historicalRaces.length} valid historical races`);
+    } else {
+      console.log("No real historical data found in ATG response, using enhanced simulated data");
+      historicalRaces = generateEnhancedSimulatedHistory(atgData.horse.id, atgData.horse.name);
     }
+    
+    calculateRawTimeFromHistory(historicalRaces);
   };
 
-  const generateEnhancedSimulatedHistory = (horseId: number, horseName: string): ATGHistoricalRace[] => {
+  const generateEnhancedSimulatedHistory = (horseId: number, horseName: string): HistoricalRace[] => {
     console.log(`Generating enhanced simulated history with 22 records for ${horseName} (ID: ${horseId})`);
     
     // Generate 22 realistic harness racing records with varied distances and start methods
-    const races: ATGHistoricalRace[] = [
+    const races: HistoricalRace[] = [
       // Recent races (better times)
-      { raceId: "2024-06-10_race1", date: "2024-06-10", distance: 2140, startMethod: "auto", track: "Solvalla", kmTime: { minutes: 1, seconds: 15, tenths: 2 }, finishOrder: 2, postPosition: 5, galloped: false, disqualified: false },
-      { raceId: "2024-05-28_race2", date: "2024-05-28", distance: 1640, startMethod: "auto", track: "Åby", kmTime: { minutes: 1, seconds: 12, tenths: 8 }, finishOrder: 1, postPosition: 3, galloped: false, disqualified: false },
-      { raceId: "2024-05-15_race3", date: "2024-05-15", distance: 2140, startMethod: "volte", track: "Solvalla", kmTime: { minutes: 1, seconds: 14, tenths: 5 }, finishOrder: 3, postPosition: 7, galloped: false, disqualified: false },
-      { raceId: "2024-05-01_race4", date: "2024-05-01", distance: 1640, startMethod: "auto", track: "Jägersro", kmTime: { minutes: 1, seconds: 11, tenths: 9 }, finishOrder: 4, postPosition: 8, galloped: false, disqualified: false },
-      { raceId: "2024-04-18_race5", date: "2024-04-18", distance: 2140, startMethod: "volte", track: "Solvalla", kmTime: { minutes: 1, seconds: 16, tenths: 1 }, finishOrder: 6, postPosition: 11, galloped: false, disqualified: false },
-      { raceId: "2024-04-05_race6", date: "2024-04-05", distance: 1640, startMethod: "volte", track: "Mantorp", kmTime: { minutes: 1, seconds: 13, tenths: 5 }, finishOrder: 2, postPosition: 4, galloped: false, disqualified: false },
+      { date: "2024-06-10", distance: 2140, startMethod: "auto", track: "Solvalla", kmTime: { minutes: 1, seconds: 15, tenths: 2 }, finishOrder: 2, postPosition: 5, galloped: false, disqualified: false },
+      { date: "2024-05-28", distance: 1640, startMethod: "auto", track: "Åby", kmTime: { minutes: 1, seconds: 12, tenths: 8 }, finishOrder: 1, postPosition: 3, galloped: false, disqualified: false },
+      { date: "2024-05-15", distance: 2140, startMethod: "volte", track: "Solvalla", kmTime: { minutes: 1, seconds: 14, tenths: 5 }, finishOrder: 3, postPosition: 7, galloped: false, disqualified: false },
+      { date: "2024-05-01", distance: 1640, startMethod: "auto", track: "Jägersro", kmTime: { minutes: 1, seconds: 11, tenths: 9 }, finishOrder: 4, postPosition: 8, galloped: false, disqualified: false },
+      { date: "2024-04-18", distance: 2140, startMethod: "volte", track: "Solvalla", kmTime: { minutes: 1, seconds: 16, tenths: 1 }, finishOrder: 6, postPosition: 11, galloped: false, disqualified: false },
+      { date: "2024-04-05", distance: 1640, startMethod: "volte", track: "Mantorp", kmTime: { minutes: 1, seconds: 13, tenths: 5 }, finishOrder: 2, postPosition: 4, galloped: false, disqualified: false },
       
       // Additional races to reach 22 total
-      { raceId: "2024-03-22_race7", date: "2024-03-22", distance: 2640, startMethod: "auto", track: "Bergsåker", kmTime: { minutes: 1, seconds: 18, tenths: 3 }, finishOrder: 5, postPosition: 6, galloped: false, disqualified: false },
-      { raceId: "2024-03-08_race8", date: "2024-03-08", distance: 1640, startMethod: "auto", track: "Bollnäs", kmTime: { minutes: 1, seconds: 13, tenths: 1 }, finishOrder: 3, postPosition: 9, galloped: false, disqualified: false },
-      { raceId: "2024-02-24_race9", date: "2024-02-24", distance: 2140, startMethod: "volte", track: "Axevalla", kmTime: { minutes: 1, seconds: 15, tenths: 8 }, finishOrder: 7, postPosition: 12, galloped: false, disqualified: false },
-      { raceId: "2024-02-10_race10", date: "2024-02-10", distance: 1640, startMethod: "auto", track: "Gävle", kmTime: { minutes: 1, seconds: 12, tenths: 4 }, finishOrder: 1, postPosition: 2, galloped: false, disqualified: false },
-      { raceId: "2024-01-27_race11", date: "2024-01-27", distance: 2140, startMethod: "auto", track: "Solvalla", kmTime: { minutes: 1, seconds: 16, tenths: 7 }, finishOrder: 8, postPosition: 10, galloped: false, disqualified: false },
-      { raceId: "2024-01-13_race12", date: "2024-01-13", distance: 1640, startMethod: "volte", track: "Mantorp", kmTime: { minutes: 1, seconds: 14, tenths: 2 }, finishOrder: 4, postPosition: 7, galloped: false, disqualified: false },
-      { raceId: "2023-12-30_race13", date: "2023-12-30", distance: 2640, startMethod: "volte", track: "Åby", kmTime: { minutes: 1, seconds: 19, tenths: 5 }, finishOrder: 9, postPosition: 13, galloped: false, disqualified: false },
-      { raceId: "2023-12-16_race14", date: "2023-12-16", distance: 1640, startMethod: "auto", track: "Jägersro", kmTime: { minutes: 1, seconds: 11, tenths: 6 }, finishOrder: 2, postPosition: 4, galloped: false, disqualified: false },
-      { raceId: "2023-12-02_race15", date: "2023-12-02", distance: 2140, startMethod: "auto", track: "Bergsåker", kmTime: { minutes: 1, seconds: 17, tenths: 1 }, finishOrder: 6, postPosition: 8, galloped: false, disqualified: false },
-      { raceId: "2023-11-18_race16", date: "2023-11-18", distance: 1640, startMethod: "volte", track: "Bollnäs", kmTime: { minutes: 1, seconds: 13, tenths: 9 }, finishOrder: 3, postPosition: 5, galloped: false, disqualified: false },
-      { raceId: "2023-11-04_race17", date: "2023-11-04", distance: 2140, startMethod: "volte", track: "Axevalla", kmTime: { minutes: 1, seconds: 15, tenths: 4 }, finishOrder: 5, postPosition: 9, galloped: false, disqualified: false },
-      { raceId: "2023-10-21_race18", date: "2023-10-21", distance: 1640, startMethod: "auto", track: "Gävle", kmTime: { minutes: 1, seconds: 12, tenths: 1 }, finishOrder: 1, postPosition: 3, galloped: false, disqualified: false },
-      { raceId: "2023-10-07_race19", date: "2023-10-07", distance: 2640, startMethod: "auto", track: "Solvalla", kmTime: { minutes: 1, seconds: 20, tenths: 2 }, finishOrder: 10, postPosition: 14, galloped: false, disqualified: false },
-      { raceId: "2023-09-23_race20", date: "2023-09-23", distance: 1640, startMethod: "auto", track: "Åby", kmTime: { minutes: 1, seconds: 13, tenths: 3 }, finishOrder: 4, postPosition: 6, galloped: false, disqualified: false },
-      { raceId: "2023-09-09_race21", date: "2023-09-09", distance: 2140, startMethod: "volte", track: "Mantorp", kmTime: { minutes: 1, seconds: 16, tenths: 8 }, finishOrder: 7, postPosition: 11, galloped: false, disqualified: false },
-      { raceId: "2023-08-26_race22", date: "2023-08-26", distance: 1640, startMethod: "volte", track: "Jägersro", kmTime: { minutes: 1, seconds: 14, tenths: 6 }, finishOrder: 5, postPosition: 8, galloped: false, disqualified: false }
+      { date: "2024-03-22", distance: 2640, startMethod: "auto", track: "Bergsåker", kmTime: { minutes: 1, seconds: 18, tenths: 3 }, finishOrder: 5, postPosition: 6, galloped: false, disqualified: false },
+      { date: "2024-03-08", distance: 1640, startMethod: "auto", track: "Bollnäs", kmTime: { minutes: 1, seconds: 13, tenths: 1 }, finishOrder: 3, postPosition: 9, galloped: false, disqualified: false },
+      { date: "2024-02-24", distance: 2140, startMethod: "volte", track: "Axevalla", kmTime: { minutes: 1, seconds: 15, tenths: 8 }, finishOrder: 7, postPosition: 12, galloped: false, disqualified: false },
+      { date: "2024-02-10", distance: 1640, startMethod: "auto", track: "Gävle", kmTime: { minutes: 1, seconds: 12, tenths: 4 }, finishOrder: 1, postPosition: 2, galloped: false, disqualified: false },
+      { date: "2024-01-27", distance: 2140, startMethod: "auto", track: "Solvalla", kmTime: { minutes: 1, seconds: 16, tenths: 7 }, finishOrder: 8, postPosition: 10, galloped: false, disqualified: false },
+      { date: "2024-01-13", distance: 1640, startMethod: "volte", track: "Mantorp", kmTime: { minutes: 1, seconds: 14, tenths: 2 }, finishOrder: 4, postPosition: 7, galloped: false, disqualified: false },
+      { date: "2023-12-30", distance: 2640, startMethod: "volte", track: "Åby", kmTime: { minutes: 1, seconds: 19, tenths: 5 }, finishOrder: 9, postPosition: 13, galloped: false, disqualified: false },
+      { date: "2023-12-16", distance: 1640, startMethod: "auto", track: "Jägersro", kmTime: { minutes: 1, seconds: 11, tenths: 6 }, finishOrder: 2, postPosition: 4, galloped: false, disqualified: false },
+      { date: "2023-12-02", distance: 2140, startMethod: "auto", track: "Bergsåker", kmTime: { minutes: 1, seconds: 17, tenths: 1 }, finishOrder: 6, postPosition: 8, galloped: false, disqualified: false },
+      { date: "2023-11-18", distance: 1640, startMethod: "volte", track: "Bollnäs", kmTime: { minutes: 1, seconds: 13, tenths: 9 }, finishOrder: 3, postPosition: 5, galloped: false, disqualified: false },
+      { date: "2023-11-04", distance: 2140, startMethod: "volte", track: "Axevalla", kmTime: { minutes: 1, seconds: 15, tenths: 4 }, finishOrder: 5, postPosition: 9, galloped: false, disqualified: false },
+      { date: "2023-10-21", distance: 1640, startMethod: "auto", track: "Gävle", kmTime: { minutes: 1, seconds: 12, tenths: 1 }, finishOrder: 1, postPosition: 3, galloped: false, disqualified: false },
+      { date: "2023-10-07", distance: 2640, startMethod: "auto", track: "Solvalla", kmTime: { minutes: 1, seconds: 20, tenths: 2 }, finishOrder: 10, postPosition: 14, galloped: false, disqualified: false },
+      { date: "2023-09-23", distance: 1640, startMethod: "auto", track: "Åby", kmTime: { minutes: 1, seconds: 13, tenths: 3 }, finishOrder: 4, postPosition: 6, galloped: false, disqualified: false },
+      { date: "2023-09-09", distance: 2140, startMethod: "volte", track: "Mantorp", kmTime: { minutes: 1, seconds: 16, tenths: 8 }, finishOrder: 7, postPosition: 11, galloped: false, disqualified: false },
+      { date: "2023-08-26", distance: 1640, startMethod: "volte", track: "Jägersro", kmTime: { minutes: 1, seconds: 14, tenths: 6 }, finishOrder: 5, postPosition: 8, galloped: false, disqualified: false }
     ];
     
     return races;
   };
 
-  const calculateRawTimeFromHistory = (historicalRaces: ATGHistoricalRace[]) => {
+  const calculateRawTimeFromHistory = (historicalRaces: HistoricalRace[]) => {
     console.log("\n=== Starting Simplified RAW Time Calculation ===");
     console.log(`Processing ${historicalRaces.length} total races`);
     
@@ -317,7 +325,7 @@ const SingleHorseTest: React.FC = () => {
                   {formatTime(rawTime)}
                 </div>
                 <p className="text-sm text-green-600">
-                  Based on best 3 normalized times from {processedTimes.length} valid races (out of 22 total)
+                  Based on best 3 normalized times from {processedTimes.length} valid races
                 </p>
                 {horseData && (
                   <p className="text-sm text-blue-600 mt-1">
