@@ -104,6 +104,26 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
         
         console.log(`Processing horse "${start.horse.name}" (ID: ${start.horse.id}) - Post Position: ${postPos}`);
         
+        // Debug driver statistics structure
+        console.log(`Driver statistics for ${start.driver.firstName} ${start.driver.lastName}:`, {
+          statistics: start.driver.statistics,
+          year2025: start.driver.statistics?.year2025,
+          thisYear: start.driver.statistics?.thisYear,
+          winPercentage: start.driver.statistics?.winPercentage
+        });
+        
+        // Try multiple paths to get 2025 win percentage
+        let winPercentage2025 = 0;
+        if (start.driver.statistics?.year2025?.winPercentage) {
+          winPercentage2025 = start.driver.statistics.year2025.winPercentage;
+        } else if (start.driver.statistics?.thisYear?.winPercentage) {
+          winPercentage2025 = start.driver.statistics.thisYear.winPercentage;
+        } else if (start.driver.statistics?.winPercentage) {
+          winPercentage2025 = start.driver.statistics.winPercentage;
+        }
+        
+        console.log(`Driver 2025 win percentage resolved to: ${winPercentage2025}%`);
+        
         const enhancedHorse: EnhancedHorseData = {
           horseId: start.horse.id,
           name: start.horse.name,
@@ -131,7 +151,7 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
             firstName: start.driver.firstName,
             lastName: start.driver.lastName,
             winPercentage: start.driver.statistics?.winPercentage || 0,
-            winPercentage2025: start.driver.statistics?.year2025?.winPercentage || start.driver.statistics?.thisYear?.winPercentage || 0,
+            winPercentage2025: winPercentage2025,
             experience: start.driver.statistics?.starts || 0
           }
         };
