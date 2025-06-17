@@ -77,14 +77,19 @@ export const fetchStartData = async (raceId: string, startNumber: number): Promi
 
 export const fetchHorseHistory = async (horseId: number): Promise<ATGHistoricalRace[]> => {
   // This would be the actual ATG API endpoint for horse history
-  // For now, we'll simulate it since I don't have the exact endpoint
-  const response = await fetch(`https://www.atg.se/services/racinginfo/v1/api/horses/${horseId}/races`);
-  if (!response.ok) {
-    // If the endpoint doesn't exist, return empty array for now
-    console.warn(`Horse history endpoint not available for horse ${horseId}`);
+  // For now, we'll simulate it since the exact endpoint structure is unknown
+  try {
+    const response = await fetch(`https://www.atg.se/services/racinginfo/v1/api/horses/${horseId}/races`);
+    if (!response.ok) {
+      // If the endpoint doesn't exist, return empty array for now
+      console.warn(`Horse history endpoint not available for horse ${horseId}`);
+      return [];
+    }
+    return response.json();
+  } catch (error) {
+    console.warn(`Error fetching horse history for ${horseId}:`, error);
     return [];
   }
-  return response.json();
 };
 
 export const searchRacesByDate = async (date: string): Promise<ATGRaceInfo[]> => {
