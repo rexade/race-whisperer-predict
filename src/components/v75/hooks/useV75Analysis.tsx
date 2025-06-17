@@ -48,26 +48,28 @@ export interface V75RaceResult {
   analysisComplete: boolean;
 }
 
-// Helper function to safely extract horse name as string
+// Enhanced safety function to ensure we never render an object as React child
 const extractHorseNameAsString = (horseName: any): string => {
-  console.log('Extracting horse name:', horseName, 'Type:', typeof horseName);
+  console.log('🔍 EXTRACTING HORSE NAME - Input:', JSON.stringify(horseName), 'Type:', typeof horseName);
   
   // If it's already a string, return it
   if (typeof horseName === 'string') {
-    console.log('Horse name is already a string:', horseName);
+    console.log('✅ Horse name is already a string:', horseName);
     return horseName;
   }
   
   // If it's null or undefined
   if (!horseName) {
-    console.warn('Horse name is null/undefined, using fallback');
+    console.warn('⚠️ Horse name is null/undefined, using fallback');
     return 'Unknown Horse';
   }
   
   // If it's an object with name property
   if (typeof horseName === 'object' && horseName !== null) {
+    console.log('🔧 Horse name is an object, attempting to extract name:', JSON.stringify(horseName));
+    
     if ('name' in horseName && typeof horseName.name === 'string') {
-      console.log('Extracted name from object:', horseName.name);
+      console.log('✅ Extracted name from object.name:', horseName.name);
       return horseName.name;
     }
     
@@ -75,17 +77,17 @@ const extractHorseNameAsString = (horseName: any): string => {
     if ('id' in horseName && 'name' in horseName) {
       const nameValue = (horseName as any).name;
       if (typeof nameValue === 'string') {
-        console.log('Extracted name from id/name object:', nameValue);
+        console.log('✅ Extracted name from id/name object:', nameValue);
         return nameValue;
       }
     }
     
-    console.warn('Horse name is an object but no valid name found:', horseName);
+    console.error('❌ Horse name is an object but no valid name found:', JSON.stringify(horseName));
     return 'Unknown Horse';
   }
   
   // Fallback for any other type
-  console.warn('Horse name is unexpected type:', typeof horseName, horseName);
+  console.warn('⚠️ Horse name is unexpected type:', typeof horseName, horseName);
   return String(horseName) || 'Unknown Horse';
 };
 
@@ -160,13 +162,12 @@ export const useV75Analysis = () => {
         try {
           // Convert horses to ATG starts format for KM time calculation
           const atgStarts = race.horses.map(horse => {
-            // Ensure we get the horse name as a string - handle both string and object cases
+            // CRITICAL: Ensure we get the horse name as a string - handle both string and object cases
             const horseName = extractHorseNameAsString(horse.name);
-
-            console.log(`Processing horse: ${horseName} (ID: ${horse.horseId})`);
+            console.log(`🐎 Processing horse: ${horseName} (ID: ${horse.horseId}) - Original name:`, JSON.stringify(horse.name));
             
             return {
-              horse: { id: horse.horseId, name: horseName },
+              horse: { id: horse.horseId, name: horseName }, // This stays as object for internal processing
               number: horse.postPosition,
               postPosition: horse.postPosition,
               distance: horse.distance,
@@ -204,9 +205,15 @@ export const useV75Analysis = () => {
             const rawTimeData = rawKmTimes.find(rt => rt.horseId === horse.horseId);
             const rawKmTime = rawTimeData?.best3Average;
             
-            // CRUCIAL: Extract horse name as string to prevent object rendering
+            // CRITICAL: Extract horse name as string to prevent object rendering - DOUBLE CHECK
             const safeHorseName = extractHorseNameAsString(horse.name);
-            console.log(`Setting horse name for ${horse.horseId}: "${safeHorseName}" (type: ${typeof safeHorseName})`);
+            console.log(`🛡️ FINAL SAFETY CHECK - Horse ${horse.horseId}: Setting name to "${safeHorseName}" (type: ${typeof safeHorseName})`);
+            
+            // Validate that safeHorseName is actually a string
+            if (typeof safeHorseName !== 'string') {
+              console.error(`🚨 CRITICAL ERROR - Horse name is not a string after extraction! Type: ${typeof safeHorseName}, Value:`, safeHorseName);
+              throw new Error(`Horse name extraction failed for horse ${horse.horseId}`);
+            }
             
             let modernNormalizedResult: ModernKmNormalizedResult | undefined;
             
@@ -239,7 +246,7 @@ export const useV75Analysis = () => {
               raceNumber: race.raceNumber,
               raceId: race.raceId,
               horseId: horse.horseId,
-              horseName: safeHorseName, // This is now guaranteed to be a string
+              horseName: safeHorseName, // GUARANTEED to be a string now
               postPosition: horse.postPosition,
               rawKmTime,
               modernNormalizedResult,
@@ -337,6 +344,9 @@ export const useV75Analysis = () => {
       
       const updatedHorses = race.horses.map(horse => {
         if (!horse.rawKmTime) return horse;
+        
+        // ENSURE horse name is still a string during reanalysis
+        console.log(`🔄 Reanalysis - Horse ${horse.horseId} name: "${horse.horseName}" (type: ${typeof horse.horseName})`);
         
         const factors: ModernNormalizationFactors = {
           postPosition: horse.postPosition,
