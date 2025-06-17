@@ -50,121 +50,80 @@ export const applyModernKmNormalization = (
     total: 0
   };
 
-  // FIRST: Apply volte start penalty if applicable (this is baseline normalization)
+  // STEP 1: Apply volte start normalization (baseline correction)
   let baseNormalizedTime = cloneKmTime(rawKmTime);
   const startMethodLower = factors.startMethod.toLowerCase();
   const isVolteStart = startMethodLower.includes("volte") || startMethodLower === "v";
   
   if (isVolteStart) {
     baseNormalizedTime = addSecondsToKmTime(baseNormalizedTime, 1.0);
-    console.log(`🔥 VOLTE START DETECTED (${factors.startMethod}) - Added 1.0s penalty (raw time assumes auto) → ${baseNormalizedTime.minutes}:${baseNormalizedTime.seconds.toString().padStart(2, '0')}.${baseNormalizedTime.tenths}`);
+    console.log(`🔥 VOLTE START DETECTED (${factors.startMethod}) - Added 1.0s penalty → ${baseNormalizedTime.minutes}:${baseNormalizedTime.seconds.toString().padStart(2, '0')}.${baseNormalizedTime.tenths}`);
   } else {
     console.log(`Auto start detected (${factors.startMethod}) - No volte penalty applied`);
   }
 
-  // Post Position Adjustment using baseline data
-  const postPosAdjustment = calculatePostPositionAdjustment(
-    factors.postPosition, 
-    factors.startMethod
-  ) * weights.postPosition;
-  adjustments.postPosition = postPosAdjustment;
-
-  // Equipment Adjustments
-  const equipmentAdjustment = (
+  // STEP 2: Calculate all adjustment factors
+  adjustments.postPosition = calculatePostPositionAdjustment(factors.postPosition, factors.startMethod) * weights.postPosition;
+  
+  adjustments.equipment = (
     calculateShoeAdjustment(factors.shoesFront, factors.shoesBack) +
     calculateSulkyAdjustment(factors.sulkyType)
   ) * weights.shoeType;
-  adjustments.equipment = equipmentAdjustment;
-
-  // Driver Experience Adjustment
-  const driverAdjustment = calculateDriverAdjustment(
+  
+  adjustments.driver = calculateDriverAdjustment(
     factors.driverExperience,
     factors.driverWinPercentage,
     factors.postPosition
   ) * weights.driverExperience;
-  adjustments.driver = driverAdjustment;
-
-  // Driver 2025 Performance Adjustment
-  const driver2025Adjustment = calculateDriver2025Adjustment(
+  
+  adjustments.driver2025 = calculateDriver2025Adjustment(
     factors.driverWinPercentage2025,
     factors.postPosition
   ) * weights.driver2025Performance;
-  adjustments.driver2025 = driver2025Adjustment;
-
-  // Track Familiarity (placeholder)
-  const trackAdjustment = 0 * weights.trackFamiliarity;
-  adjustments.track = trackAdjustment;
-
-  // Form Adjustment (placeholder)
-  const formAdjustment = 0 * weights.form;
-  adjustments.form = formAdjustment;
-
-  // Distance Adjustment
-  const distanceAdjustment = calculateDistanceAdjustment(
+  
+  adjustments.track = 0 * weights.trackFamiliarity; // Placeholder
+  adjustments.form = 0 * weights.form; // Placeholder
+  
+  adjustments.distance = calculateDistanceAdjustment(
     factors.distance,
     factors.raceDistance
   ) * weights.distanceAdjustment;
-  adjustments.distance = distanceAdjustment;
-
-  // Race Type Adjustment
-  const raceTypeAdjustment = calculateRaceTypeAdjustment(
+  
+  adjustments.raceType = calculateRaceTypeAdjustment(
     factors.raceType || ""
   ) * weights.raceType;
-  adjustments.raceType = raceTypeAdjustment;
-
-  // Time of Day Adjustment
-  const timeOfDayAdjustment = calculateTimeOfDayAdjustment(
+  
+  adjustments.timeOfDay = calculateTimeOfDayAdjustment(
     factors.timeOfDay || ""
   ) * weights.timeOfDay;
-  adjustments.timeOfDay = timeOfDayAdjustment;
+  
+  // STEP 3: New baseline performance adjustments
+  adjustments.startPoints = calculateStartPointsAdjustment(factors.startPoints) * weights.startPoints;
+  adjustments.placePercentage = calculatePlacePercentageAdjustment(factors.placePercentage) * weights.placePercentage;
+  adjustments.horseWinPercentage = calculateHorseWinPercentageAdjustment(factors.horseWinPercentage) * weights.horseWinPercentage;
+  adjustments.earningsPerStart = calculateEarningsPerStartAdjustment(factors.earningsPerStart) * weights.earningsPerStart;
 
-  // NEW: Start Points Adjustment
-  const startPointsAdjustment = calculateStartPointsAdjustment(
-    factors.startPoints
-  ) * weights.startPoints;
-  adjustments.startPoints = startPointsAdjustment;
+  // STEP 4: Calculate total adjustment
+  adjustments.total = Object.entries(adjustments)
+    .filter(([key]) => key !== 'total')
+    .reduce((sum, [, value]) => sum + value, 0);
 
-  // NEW: Place Percentage Adjustment
-  const placePercentageAdjustment = calculatePlacePercentageAdjustment(
-    factors.placePercentage
-  ) * weights.placePercentage;
-  adjustments.placePercentage = placePercentageAdjustment;
-
-  // NEW: Horse Win Percentage Adjustment
-  const horseWinPercentageAdjustment = calculateHorseWinPercentageAdjustment(
-    factors.horseWinPercentage
-  ) * weights.horseWinPercentage;
-  adjustments.horseWinPercentage = horseWinPercentageAdjustment;
-
-  // NEW: Earnings Per Start Adjustment
-  const earningsPerStartAdjustment = calculateEarningsPerStartAdjustment(
-    factors.earningsPerStart
-  ) * weights.earningsPerStart;
-  adjustments.earningsPerStart = earningsPerStartAdjustment;
-
-  // Calculate total adjustment (applied to the baseline normalized time)
-  adjustments.total = postPosAdjustment + equipmentAdjustment + driverAdjustment + 
-                    driver2025Adjustment + trackAdjustment + formAdjustment +
-                    distanceAdjustment + raceTypeAdjustment + timeOfDayAdjustment +
-                    startPointsAdjustment + placePercentageAdjustment + 
-                    horseWinPercentageAdjustment + earningsPerStartAdjustment;
-
-  // Apply total adjustment to the baseline normalized KM time
+  // STEP 5: Apply total adjustment to baseline normalized time
   const modernNormalizedKmTime = addSecondsToKmTime(baseNormalizedTime, adjustments.total);
 
   console.log(`Enhanced KM Adjustments (applied to ${isVolteStart ? 'volte-normalized' : 'raw'} time):`);
-  console.log(`  Post Position (${factors.postPosition}): ${postPosAdjustment.toFixed(3)}s`);
-  console.log(`  Equipment: ${equipmentAdjustment.toFixed(3)}s`);
-  console.log(`  Driver: ${driverAdjustment.toFixed(3)}s`);
-  console.log(`  Driver 2025: ${driver2025Adjustment.toFixed(3)}s`);
-  console.log(`  Distance: ${distanceAdjustment.toFixed(3)}s`);
-  console.log(`  Race Type: ${raceTypeAdjustment.toFixed(3)}s`);
-  console.log(`  Time of Day: ${timeOfDayAdjustment.toFixed(3)}s`);
-  console.log(`  Start Points: ${startPointsAdjustment.toFixed(3)}s`);
-  console.log(`  Place %: ${placePercentageAdjustment.toFixed(3)}s`);
-  console.log(`  Horse Win %: ${horseWinPercentageAdjustment.toFixed(3)}s`);
-  console.log(`  Earnings/Start: ${earningsPerStartAdjustment.toFixed(3)}s`);
-  console.log(`  Total: ${adjustments.total.toFixed(3)}s`);
+  console.log(`  Post Position (${factors.postPosition}): ${adjustments.postPosition.toFixed(3)}s`);
+  console.log(`  Equipment: ${adjustments.equipment.toFixed(3)}s`);
+  console.log(`  Driver: ${adjustments.driver.toFixed(3)}s`);
+  console.log(`  Driver 2025: ${adjustments.driver2025.toFixed(3)}s`);
+  console.log(`  Distance: ${adjustments.distance.toFixed(3)}s`);
+  console.log(`  Race Type: ${adjustments.raceType.toFixed(3)}s`);
+  console.log(`  Time of Day: ${adjustments.timeOfDay.toFixed(3)}s`);
+  console.log(`  Start Points: ${adjustments.startPoints.toFixed(3)}s`);
+  console.log(`  Place %: ${adjustments.placePercentage.toFixed(3)}s`);
+  console.log(`  Horse Win %: ${adjustments.horseWinPercentage.toFixed(3)}s`);
+  console.log(`  Earnings/Start: ${adjustments.earningsPerStart.toFixed(3)}s`);
+  console.log(`  TOTAL: ${adjustments.total.toFixed(3)}s`);
   console.log(`Enhanced Modern Normalized KM Time: ${modernNormalizedKmTime.minutes}:${modernNormalizedKmTime.seconds.toString().padStart(2, '0')}.${modernNormalizedKmTime.tenths}`);
 
   return {
