@@ -124,7 +124,7 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
         <div className="flex items-center justify-center gap-1">
           <Zap className="h-3 w-3 text-green-500" />
           <span className="text-sm font-bold text-green-700">
-            {(horse.driver.winPercentage / 100).toFixed(1)}%
+            {(horse.driver.winPercentage2025 / 100).toFixed(1)}%
           </span>
         </div>
       </TableCell>
