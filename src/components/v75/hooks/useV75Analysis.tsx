@@ -134,6 +134,49 @@ const extractDriverNameAsString = (driver: any): string => {
   return String(driver) || 'Unknown Driver';
 };
 
+// CRITICAL: Enhanced safety function for track names
+const extractTrackNameAsString = (track: any): string => {
+  console.log('🔍 EXTRACTING TRACK NAME - Input:', JSON.stringify(track), 'Type:', typeof track);
+  
+  // If it's already a string, return it
+  if (typeof track === 'string') {
+    console.log('✅ Track name is already a string:', track);
+    return track;
+  }
+  
+  // If it's null or undefined
+  if (!track) {
+    console.warn('⚠️ Track is null/undefined, using fallback');
+    return 'Unknown Track';
+  }
+  
+  // If it's an object with name property
+  if (typeof track === 'object' && track !== null) {
+    console.log('🔧 Track is an object, attempting to extract name:', JSON.stringify(track));
+    
+    if ('name' in track && typeof track.name === 'string') {
+      console.log('✅ Extracted track name from object.name:', track.name);
+      return track.name;
+    }
+    
+    // If it's an object with id and name
+    if ('id' in track && 'name' in track) {
+      const nameValue = (track as any).name;
+      if (typeof nameValue === 'string') {
+        console.log('✅ Extracted track name from id/name object:', nameValue);
+        return nameValue;
+      }
+    }
+    
+    console.error('❌ Track is an object but no valid name found:', JSON.stringify(track));
+    return 'Unknown Track';
+  }
+  
+  // Fallback for any other type
+  console.warn('⚠️ Track is unexpected type:', typeof track, track);
+  return String(track) || 'Unknown Track';
+};
+
 export const useV75Analysis = () => {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -203,6 +246,12 @@ export const useV75Analysis = () => {
         setProgress(20 + raceProgress);
         
         try {
+          // CRITICAL FIX: Ensure race.track and race.name are strings
+          const safeRaceTrack = extractTrackNameAsString(race.track);
+          const safeRaceName = extractTrackNameAsString(race.name);
+          
+          console.log(`🏁 RACE ${race.raceNumber} - Track: "${safeRaceTrack}" (${typeof safeRaceTrack}), Name: "${safeRaceName}" (${typeof safeRaceName})`);
+          
           // Convert horses to ATG starts format for KM time calculation
           // CRITICAL FIX: We only pass the horse name as a string, not an object
           const atgStarts = race.horses.map(horse => {
@@ -227,7 +276,7 @@ export const useV75Analysis = () => {
           
           console.log(`\n=== 🔥 V75 Race ${race.raceNumber} Analysis ===`);
           console.log(`Race ID: ${race.raceId}`);
-          console.log(`Track: ${race.track}, Distance: ${race.distance}m`);
+          console.log(`Track: ${safeRaceTrack}, Distance: ${race.distance}m`);
           console.log(`Horses to analyze: ${atgStarts.length}`);
           
           // Calculate RAW KM times
@@ -251,24 +300,30 @@ export const useV75Analysis = () => {
             const rawTimeData = rawKmTimes.find(rt => rt.horseId === horse.horseId);
             const rawKmTime = rawTimeData?.best3Average;
             
-            // CRITICAL: Extract horse name as string to prevent object rendering - TRIPLE CHECK
+            // CRITICAL: Extract ALL string fields as strings to prevent object rendering - TRIPLE CHECK
             const safeHorseName = extractHorseNameAsString(horse.name);
-            console.log(`🛡️ FINAL SAFETY CHECK - Horse ${horse.horseId}: Setting name to "${safeHorseName}" (type: ${typeof safeHorseName})`);
+            const safeDriverName = extractDriverNameAsString(horse.driver);
+            const safeHorseTrack = extractTrackNameAsString(horse.homeTrack);
             
-            // Validate that safeHorseName is actually a string
+            console.log(`🛡️ FINAL SAFETY CHECK - Horse ${horse.horseId}:`);
+            console.log(`  - Horse name: "${safeHorseName}" (type: ${typeof safeHorseName})`);
+            console.log(`  - Driver name: "${safeDriverName}" (type: ${typeof safeDriverName})`);
+            console.log(`  - Home track: "${safeHorseTrack}" (type: ${typeof safeHorseTrack})`);
+            
+            // Validate that ALL critical string fields are actually strings
             if (typeof safeHorseName !== 'string') {
               console.error(`🚨 CRITICAL ERROR - Horse name is not a string after extraction! Type: ${typeof safeHorseName}, Value:`, safeHorseName);
               throw new Error(`Horse name extraction failed for horse ${horse.horseId}`);
             }
             
-            // CRITICAL: Extract driver names as strings too
-            const safeDriverName = extractDriverNameAsString(horse.driver);
-            console.log(`🛡️ DRIVER SAFETY CHECK - Horse ${horse.horseId}: Setting driver to "${safeDriverName}" (type: ${typeof safeDriverName})`);
-            
-            // Validate that safeDriverName is actually a string
             if (typeof safeDriverName !== 'string') {
               console.error(`🚨 CRITICAL ERROR - Driver name is not a string after extraction! Type: ${typeof safeDriverName}, Value:`, safeDriverName);
               throw new Error(`Driver name extraction failed for horse ${horse.horseId}`);
+            }
+            
+            if (typeof safeHorseTrack !== 'string') {
+              console.error(`🚨 CRITICAL ERROR - Home track is not a string after extraction! Type: ${typeof safeHorseTrack}, Value:`, safeHorseTrack);
+              throw new Error(`Home track extraction failed for horse ${horse.horseId}`);
             }
             
             let modernNormalizedResult: ModernKmNormalizedResult | undefined;
@@ -282,7 +337,7 @@ export const useV75Analysis = () => {
                 shoesFront: horse.shoes.front ? "1" : "0",
                 shoesBack: horse.shoes.back ? "1" : "0",
                 sulkyType: horse.sulky.type,
-                homeTrack: horse.homeTrack,
+                homeTrack: safeHorseTrack, // Use the safe string version
                 driverExperience: horse.driver.experience,
                 driverWinPercentage: horse.driver.winPercentage,
                 driverWinPercentage2025: horse.driver.winPercentage2025,
@@ -308,7 +363,7 @@ export const useV75Analysis = () => {
               rawKmTime,
               modernNormalizedResult,
               driverName: safeDriverName, // GUARANTEED to be a string now
-              track: race.track,
+              track: safeRaceTrack, // GUARANTEED to be a string now
               distance: horse.distance,
               startMethod: race.startMethod,
               // Enhanced statistics
@@ -322,7 +377,7 @@ export const useV75Analysis = () => {
               sulkyType: horse.sulky.type,
               shoesFront: horse.shoes.front,
               shoesBack: horse.shoes.back,
-              homeTrack: horse.homeTrack
+              homeTrack: safeHorseTrack
             };
             
             // FINAL VALIDATION: Double check that critical fields are strings
@@ -330,7 +385,11 @@ export const useV75Analysis = () => {
               horseName: horseResult.horseName,
               horseNameType: typeof horseResult.horseName,
               driverName: horseResult.driverName,
-              driverNameType: typeof horseResult.driverName
+              driverNameType: typeof horseResult.driverName,
+              track: horseResult.track,
+              trackType: typeof horseResult.track,
+              homeTrack: horseResult.homeTrack,
+              homeTrackType: typeof horseResult.homeTrack
             });
             
             horseResults.push(horseResult);
@@ -339,10 +398,10 @@ export const useV75Analysis = () => {
           results.push({
             raceNumber: race.raceNumber,
             raceId: race.raceId,
-            track: race.track,
+            track: safeRaceTrack, // Use safe string version
             distance: race.distance,
             startMethod: race.startMethod,
-            name: race.name,
+            name: safeRaceName, // Use safe string version
             prize: race.prize,
             horses: horseResults,
             analysisComplete: true
@@ -353,14 +412,17 @@ export const useV75Analysis = () => {
         } catch (raceError) {
           console.error(`❌ Error analyzing race ${race.raceNumber}:`, raceError);
           
-          // Add race with error state
+          // Add race with error state - ensure even error states use safe strings
+          const safeRaceTrack = extractTrackNameAsString(race.track);
+          const safeRaceName = extractTrackNameAsString(race.name);
+          
           results.push({
             raceNumber: race.raceNumber,
             raceId: race.raceId,
-            track: race.track,
+            track: safeRaceTrack,
             distance: race.distance,
             startMethod: race.startMethod,
-            name: race.name,
+            name: safeRaceName,
             prize: race.prize,
             horses: [],
             analysisComplete: false
