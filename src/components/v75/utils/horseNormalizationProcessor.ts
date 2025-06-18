@@ -9,6 +9,7 @@ import { ExtractedHorseData } from './horseDataExtractor';
 
 /**
  * Create a fallback KM time based on horse statistics and race characteristics
+ * ONLY used when absolutely necessary for UI display
  */
 const createFallbackKmTime = (
   horse: any,
@@ -16,9 +17,9 @@ const createFallbackKmTime = (
   extractedData: ExtractedHorseData
 ): KmTime => {
   console.log(`🎯 Creating fallback KM time for horse ${horse.horseId} (${extractedData.safeHorseName})`);
+  console.log(`⚠️ WARNING: This is estimated data and will NOT be used for post-race comparisons`);
   
   // Base time calculation using race distance and typical trotting speed
-  // Average trotting speed is approximately 1.65 minutes per km
   const baseKmSpeed = 1.65; // minutes per km
   const baseTimeMinutes = baseKmSpeed;
   
@@ -27,19 +28,19 @@ const createFallbackKmTime = (
   
   // Adjust based on horse performance statistics
   if (horse.statistics?.winPercentage > 0) {
-    const winPercentageAdjustment = (20 - horse.statistics.winPercentage) * 0.001; // Max ±0.02 minutes
+    const winPercentageAdjustment = (20 - horse.statistics.winPercentage) * 0.001;
     adjustedTimeMinutes += winPercentageAdjustment;
     console.log(`  - Win % adjustment (${horse.statistics.winPercentage}%): ${winPercentageAdjustment.toFixed(4)} minutes`);
   }
   
   if (horse.statistics?.startPoints > 0) {
-    const startPointsAdjustment = (70 - horse.statistics.startPoints) * 0.0002; // Max ±0.014 minutes
+    const startPointsAdjustment = (70 - horse.statistics.startPoints) * 0.0002;
     adjustedTimeMinutes += startPointsAdjustment;
     console.log(`  - Start points adjustment (${horse.statistics.startPoints}): ${startPointsAdjustment.toFixed(4)} minutes`);
   }
   
-  // Post position penalty (later positions generally slower)
-  const postPositionPenalty = (horse.postPosition - 1) * 0.002; // 0.002 minutes per position
+  // Post position penalty
+  const postPositionPenalty = (horse.postPosition - 1) * 0.002;
   adjustedTimeMinutes += postPositionPenalty;
   console.log(`  - Post position penalty (${horse.postPosition}): ${postPositionPenalty.toFixed(4)} minutes`);
   
@@ -56,8 +57,7 @@ const createFallbackKmTime = (
     tenths
   };
   
-  console.log(`✅ Generated fallback KM time: ${minutes}:${seconds.toString().padStart(2, '0')}.${tenths}`);
-  console.log(`  - Based on: win% ${horse.statistics?.winPercentage || 0}%, start points ${horse.statistics?.startPoints || 0}, post ${horse.postPosition}`);
+  console.log(`✅ Generated fallback KM time: ${minutes}:${seconds.toString().padStart(2, '0')}.${tenths} (ESTIMATED - NOT FOR PREDICTIONS)`);
   
   return fallbackTime;
 };
@@ -69,21 +69,47 @@ export const applyHorseNormalization = (
   extractedData: ExtractedHorseData,
   weights: NormalizationWeights
 ) => {
-  console.log(`🔍 NORMALIZATION DEBUG - Horse ${horse.horseId} (${extractedData.safeHorseName}):`);
+  console.log(`🔍 STRICT NORMALIZATION - Horse ${horse.horseId} (${extractedData.safeHorseName}):`);
   console.log(`  - Has raw KM time: ${!!rawKmTime}`);
   
-  // Use raw KM time if available, otherwise create a fallback
-  let effectiveKmTime: KmTime;
-  let isEstimated = false;
-  
-  if (rawKmTime) {
-    effectiveKmTime = rawKmTime;
-    console.log(`  - Using raw KM time: ${rawKmTime.minutes}:${rawKmTime.seconds.toString().padStart(2, '0')}.${rawKmTime.tenths}`);
-  } else {
-    effectiveKmTime = createFallbackKmTime(horse, race, extractedData);
-    isEstimated = true;
-    console.log(`  - Using estimated KM time: ${effectiveKmTime.minutes}:${effectiveKmTime.seconds.toString().padStart(2, '0')}.${effectiveKmTime.tenths}`);
+  // STRICT: Only process horses with actual raw KM times for predictions
+  if (!rawKmTime) {
+    console.log(`  🚫 NO RAW KM TIME - Creating fallback for UI display only`);
+    const fallbackTime = createFallbackKmTime(horse, race, extractedData);
+    
+    const factors: ModernNormalizationFactors = {
+      postPosition: horse.postPosition,
+      distance: horse.distance,
+      raceDistance: race.distance,
+      startMethod: race.startMethod,
+      shoesFront: extractedData.frontShoesStr,
+      shoesBack: extractedData.backShoesStr,
+      sulkyType: extractedData.sulkyTypeString,
+      homeTrack: extractedData.safeHorseTrack,
+      driverExperience: horse.driver.experience,
+      driverWinPercentage: horse.driver.winPercentage,
+      driverWinPercentage2025: horse.driver.winPercentage2025,
+      horseForm: horse.statistics.winPercentage,
+      raceType: 'trot',
+      timeOfDay: '',
+      startPoints: horse.statistics.startPoints,
+      placePercentage: horse.statistics.placePercentage,
+      horseWinPercentage: horse.statistics.winPercentage,
+      earningsPerStart: horse.statistics.earningsPerStart
+    };
+
+    const result = applyModernKmNormalization(fallbackTime, factors, weights);
+    
+    // Mark as estimated - this will prevent storage for post-race comparison
+    (result as any).isEstimated = true;
+    
+    console.log(`  - Fallback normalized time: ${result.modernNormalizedTime.minutes}:${result.modernNormalizedTime.seconds.toString().padStart(2, '0')}.${result.modernNormalizedTime.tenths} (ESTIMATED - UI ONLY)`);
+    
+    return result;
   }
+
+  // Process horses with actual raw KM times
+  console.log(`  ✅ Processing with raw KM time: ${rawKmTime.minutes}:${rawKmTime.seconds.toString().padStart(2, '0')}.${rawKmTime.tenths}`);
 
   const factors: ModernNormalizationFactors = {
     postPosition: horse.postPosition,
@@ -106,12 +132,12 @@ export const applyHorseNormalization = (
     earningsPerStart: horse.statistics.earningsPerStart
   };
 
-  const result = applyModernKmNormalization(effectiveKmTime, factors, weights);
+  const result = applyModernKmNormalization(rawKmTime, factors, weights);
   
-  // Add a flag to indicate if this was estimated
-  (result as any).isEstimated = isEstimated;
+  // Mark as from raw data - this will be stored for post-race comparison
+  (result as any).isEstimated = false;
   
-  console.log(`  - Final normalized time: ${result.modernNormalizedTime.minutes}:${result.modernNormalizedTime.seconds.toString().padStart(2, '0')}.${result.modernNormalizedTime.tenths} ${isEstimated ? '(ESTIMATED)' : '(FROM RAW DATA)'}`);
+  console.log(`  - Final normalized time: ${result.modernNormalizedTime.minutes}:${result.modernNormalizedTime.seconds.toString().padStart(2, '0')}.${result.modernNormalizedTime.tenths} (FROM RAW DATA - WILL BE CACHED)`);
   
   return result;
 };
