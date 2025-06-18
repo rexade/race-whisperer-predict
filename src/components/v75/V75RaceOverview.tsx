@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, MapPin, Clock, DollarSign } from "lucide-react";
+import { Trophy, MapPin, Clock, DollarSign, AlertTriangle } from "lucide-react";
 import { V75RaceResult } from './hooks/useV75Analysis';
 
 interface V75RaceOverviewProps {
@@ -37,28 +38,30 @@ const ensureStringForDisplay = (value: any): string => {
 const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
   console.log('🎯 V75RaceOverview - Rendering with races:', races.length);
   
-  // CRITICAL DEBUG: Check ALL data that will be rendered
+  // ENHANCED DATA VALIDATION: Check ALL data that will be rendered
   races.forEach((race, raceIndex) => {
-    console.log(`🏁 RACE ${raceIndex} DEBUG:`, {
+    console.log(`🏁 RACE ${raceIndex} ENHANCED DEBUG:`, {
       raceNumber: race.raceNumber,
       raceId: race.raceId,
       track: race.track,
       name: race.name,
       trackType: typeof race.track,
-      nameType: typeof race.name
+      nameType: typeof race.name,
+      horsesWithEarnings: race.horses.filter(h => h.statistics?.earningsPerStart > 0).length,
+      totalHorses: race.horses.length
     });
     
     race.horses.forEach((horse, horseIndex) => {
-      console.log(`🐎 HORSE ${horseIndex} FULL DEBUG:`, {
+      console.log(`🐎 HORSE ${horseIndex} ENHANCED VALIDATION:`, {
         horseId: horse.horseId,
         horseName: horse.horseName,
         horseNameType: typeof horse.horseName,
-        horseNameStringified: JSON.stringify(horse.horseName),
         driverName: horse.driverName,
         driverNameType: typeof horse.driverName,
-        driverNameStringified: JSON.stringify(horse.driverName),
-        track: horse.track,
-        trackType: typeof horse.track
+        statistics: horse.statistics,
+        earningsPerStart: horse.statistics?.earningsPerStart,
+        startPoints: horse.statistics?.startPoints,
+        dataValid: (horse.statistics?.earningsPerStart > 0) || (horse.statistics?.startPoints > 0)
       });
       
       // CRITICAL: If any of these are objects, log an error
@@ -107,11 +110,17 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
   };
 
   const topTimes = getTopNormalizedTimes();
+  
+  // ENHANCED STATISTICS: Calculate data quality metrics
+  const totalHorses = races.reduce((total, race) => total + race.horses.length, 0);
+  const horsesWithEarnings = races.flatMap(r => r.horses).filter(h => h.statistics?.earningsPerStart > 0).length;
+  const horsesWithStartPoints = races.flatMap(r => r.horses).filter(h => h.statistics?.startPoints > 0).length;
+  const dataQuality = totalHorses > 0 ? Math.round((horsesWithEarnings / totalHorses) * 100) : 0;
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Enhanced Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -152,9 +161,7 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
               <Clock className="h-5 w-5 text-green-600" />
               <div>
                 <p className="text-sm text-gray-600">Total Horses</p>
-                <p className="text-2xl font-bold">
-                  {races.reduce((total, race) => total + race.horses.length, 0)}
-                </p>
+                <p className="text-2xl font-bold">{totalHorses}</p>
               </div>
             </div>
           </CardContent>
@@ -173,7 +180,38 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
             </div>
           </CardContent>
         </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+              <div>
+                <p className="text-sm text-gray-600">Data Quality</p>
+                <p className="text-2xl font-bold">{dataQuality}%</p>
+                <p className="text-xs text-gray-500">{horsesWithEarnings}/{totalHorses} with earnings</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Data Quality Alert */}
+      {dataQuality < 80 && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+              <div>
+                <p className="font-medium text-orange-800">Data Quality Notice</p>
+                <p className="text-sm text-orange-700">
+                  {horsesWithStartPoints} horses have start points, {horsesWithEarnings} have earnings data. 
+                  Some statistics may be incomplete.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Race Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -188,13 +226,17 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
             distance: race.distance,
             distanceType: typeof race.distance,
             startMethod: race.startMethod,
-            startMethodType: typeof race.startMethod
+            startMethodType: typeof race.startMethod,
+            horsesWithData: race.horses.filter(h => h.statistics?.earningsPerStart > 0 || h.statistics?.startPoints > 0).length
           });
           
           // Safety check for all string fields
           const safeName = ensureStringForDisplay(race.name);
           const safeTrack = ensureStringForDisplay(race.track);
           const safeStartMethod = ensureStringForDisplay(race.startMethod);
+          
+          const raceDataQuality = race.horses.length > 0 ? 
+            Math.round((race.horses.filter(h => h.statistics?.earningsPerStart > 0 || h.statistics?.startPoints > 0).length / race.horses.length) * 100) : 0;
           
           return (
             <Card key={race.raceNumber} className={`border-l-4 ${race.analysisComplete ? 'border-l-green-500' : 'border-l-red-500'}`}>
@@ -229,6 +271,9 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
                     <p className="text-xs text-gray-500 mb-1">Analyzed Horses:</p>
                     <p className="text-sm font-medium">
                       {race.horses.filter(h => h.rawKmTime).length}/{race.horses.length}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Data Quality: {raceDataQuality}%
                     </p>
                   </div>
                 )}

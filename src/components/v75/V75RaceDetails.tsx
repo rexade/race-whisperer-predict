@@ -1,8 +1,9 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Trophy, Clock, MapPin, Users, Medal, Banknote, Zap, Ruler } from "lucide-react";
+import { Trophy, Clock, MapPin, Users, Medal, Banknote, Zap, Ruler, AlertTriangle } from "lucide-react";
 import { V75RaceResult } from './hooks/useV75Analysis';
 
 interface V75RaceDetailsProps {
@@ -38,10 +39,10 @@ const ensureStringForDisplay = (value: any): string => {
 const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
   console.log('🎯 V75RaceDetails - Rendering race:', race.raceNumber, 'with', race.horses.length, 'horses');
   
-  // Debug all horse names and statistics before rendering
+  // ENHANCED DEBUG: Check all horse names and statistics before rendering
   race.horses.forEach((horse, index) => {
     console.log(`🐎 V75RaceDetails - Horse ${index}: ID=${horse.horseId}, Name=`, JSON.stringify(horse.horseName), 'Type:', typeof horse.horseName);
-    console.log(`💰 V75RaceDetails - Horse ${index} statistics FULL DEBUG:`, {
+    console.log(`💰 V75RaceDetails - Horse ${index} ENHANCED statistics DEBUG:`, {
       statistics: horse.statistics,
       statisticsType: typeof horse.statistics,
       startPoints: horse.statistics?.startPoints,
@@ -53,7 +54,8 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
       earningsPerStart: horse.statistics?.earningsPerStart,
       earningsPerStartType: typeof horse.statistics?.earningsPerStart,
       driver2025WinPercentage: horse.driver2025WinPercentage,
-      driver2025WinPercentageType: typeof horse.driver2025WinPercentage
+      driver2025WinPercentageType: typeof horse.driver2025WinPercentage,
+      hasValidData: (horse.statistics?.earningsPerStart > 0) || (horse.statistics?.startPoints > 0)
     });
   });
 
@@ -126,6 +128,11 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
     });
 
   const horsesWithoutTimes = race.horses.filter(horse => !horse.modernNormalizedResult);
+  
+  // ENHANCED STATISTICS: Calculate data quality for this race
+  const horsesWithEarnings = race.horses.filter(h => h.statistics?.earningsPerStart > 0).length;
+  const horsesWithStartPoints = race.horses.filter(h => h.statistics?.startPoints > 0).length;
+  const dataQuality = race.horses.length > 0 ? Math.round((horsesWithEarnings / race.horses.length) * 100) : 0;
 
   if (!race.analysisComplete) {
     return (
@@ -147,7 +154,7 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
 
   return (
     <div className="space-y-6">
-      {/* Race Info */}
+      {/* Enhanced Race Info */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -156,7 +163,7 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
           </CardTitle>
         </CardHeader>
         
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-gray-500" />
@@ -173,6 +180,17 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
             <div className="flex items-center gap-2">
               <Trophy className="h-4 w-4 text-gray-500" />
               <span>{(race.prize / 1000000).toFixed(1)}M SEK</span>
+            </div>
+          </div>
+          
+          {/* Data Quality Information */}
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-orange-500" />
+              <span className="text-sm font-medium">Data Quality: {dataQuality}%</span>
+            </div>
+            <div className="text-sm text-gray-600">
+              {horsesWithStartPoints} with start points • {horsesWithEarnings} with earnings
             </div>
           </div>
         </CardContent>
@@ -234,13 +252,15 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                     throw new Error(`Driver name safety check failed for horse ${horse.horseId}`);
                   }
                   
-                  // Debug statistics before rendering
-                  console.log(`🔍 V75RaceDetails - Rendering statistics for ${safeHorseName}:`, {
+                  // Enhanced statistics debugging
+                  console.log(`🔍 V75RaceDetails - ENHANCED rendering statistics for ${safeHorseName}:`, {
                     startPoints: horse.statistics?.startPoints,
                     placePercentage: horse.statistics?.placePercentage,
                     winPercentage: horse.statistics?.winPercentage,
                     earningsPerStart: horse.statistics?.earningsPerStart,
-                    driver2025WinPercentage: horse.driver2025WinPercentage
+                    driver2025WinPercentage: horse.driver2025WinPercentage,
+                    hasValidEarnings: horse.statistics?.earningsPerStart > 0,
+                    hasValidStartPoints: horse.statistics?.startPoints > 0
                   });
                   
                   return (
@@ -281,36 +301,36 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                       </TableCell>
                       
                       <TableCell className="text-center">
-                        <span className="text-sm font-medium text-blue-700">
+                        <span className={`text-sm font-medium ${horse.statistics?.startPoints > 0 ? 'text-blue-700' : 'text-gray-400'}`}>
                           {horse.statistics?.startPoints ? horse.statistics.startPoints.toString() : '-'}
                         </span>
                       </TableCell>
                       
                       <TableCell className="text-center">
-                        <span className="text-sm font-medium text-indigo-700">
+                        <span className={`text-sm font-medium ${horse.statistics?.placePercentage > 0 ? 'text-indigo-700' : 'text-gray-400'}`}>
                           {horse.statistics?.placePercentage ? (horse.statistics.placePercentage / 100).toFixed(1) + '%' : '-'}
                         </span>
                       </TableCell>
                       
                       <TableCell className="text-center">
-                        <span className="text-sm font-medium text-purple-700">
+                        <span className={`text-sm font-medium ${horse.statistics?.winPercentage > 0 ? 'text-purple-700' : 'text-gray-400'}`}>
                           {horse.statistics?.winPercentage ? (horse.statistics.winPercentage / 100).toFixed(1) + '%' : '-'}
                         </span>
                       </TableCell>
                       
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <Banknote className="h-3 w-3 text-amber-500" />
-                          <span className="text-sm font-medium text-amber-700">
-                            {horse.statistics?.earningsPerStart ? formatEarnings(horse.statistics.earningsPerStart) : '-'}
+                          <Banknote className={`h-3 w-3 ${horse.statistics?.earningsPerStart > 0 ? 'text-amber-500' : 'text-gray-400'}`} />
+                          <span className={`text-sm font-medium ${horse.statistics?.earningsPerStart > 0 ? 'text-amber-700' : 'text-gray-400'}`}>
+                            {horse.statistics?.earningsPerStart > 0 ? formatEarnings(horse.statistics.earningsPerStart) : '-'}
                           </span>
                         </div>
                       </TableCell>
                       
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <Zap className="h-3 w-3 text-green-500" />
-                          <span className="text-sm font-bold text-green-700">
+                          <Zap className={`h-3 w-3 ${horse.driver2025WinPercentage > 0 ? 'text-green-500' : 'text-gray-400'}`} />
+                          <span className={`text-sm font-bold ${horse.driver2025WinPercentage > 0 ? 'text-green-700' : 'text-gray-400'}`}>
                             {horse.driver2025WinPercentage ? (horse.driver2025WinPercentage / 100).toFixed(1) + '%' : '-'}
                           </span>
                         </div>

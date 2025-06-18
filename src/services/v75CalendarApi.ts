@@ -1,3 +1,4 @@
+
 export interface V75CalendarDate {
   date: string; // YYYY-MM-DD format
   eventName: string;
@@ -120,14 +121,29 @@ export const fetchV75GameInfo = async (date: string): Promise<V75GameInfo | null
 
 /**
  * Calculate earnings per start from total earnings and number of starts
+ * FIXED: Proper calculation with better error handling
  */
 const calculateEarningsPerStart = (totalEarnings: number, totalStarts: number): number => {
-  if (!totalStarts || totalStarts === 0) return 0;
-  return totalEarnings / totalStarts;
+  console.log(`💰 calculateEarningsPerStart - Input: totalEarnings=${totalEarnings}, totalStarts=${totalStarts}`);
+  
+  if (!totalStarts || totalStarts === 0) {
+    console.log('⚠️ calculateEarningsPerStart - No starts, returning 0');
+    return 0;
+  }
+  
+  if (!totalEarnings || totalEarnings === 0) {
+    console.log('⚠️ calculateEarningsPerStart - No earnings, returning 0');
+    return 0;
+  }
+  
+  const result = totalEarnings / totalStarts;
+  console.log(`✅ calculateEarningsPerStart - Result: ${result}`);
+  return result;
 };
 
 /**
  * Fetch V75 race data using the game info and individual race endpoints
+ * ENHANCED: Better data extraction and earnings calculation
  */
 export const fetchV75RaceData = async (date: string): Promise<V75RaceData[]> => {
   try {
@@ -168,55 +184,63 @@ export const fetchV75RaceData = async (date: string): Promise<V75RaceData[]> => 
           horseCount: raceData.starts?.length || 0
         });
         
-        // Debug: Log the structure of the first horse to understand the API response
+        // Enhanced debugging for horse data extraction
         if (raceData.starts && raceData.starts.length > 0) {
           const firstStart = raceData.starts[0];
-          console.log(`🐎 DEBUG: First horse structure for race ${raceId}:`, {
+          console.log(`🐎 ENHANCED DEBUG: First horse full structure for race ${raceId}:`, {
             horseId: firstStart.horse?.id,
             horseName: firstStart.horse?.name,
             horseStatistics: firstStart.horse?.statistics,
             horseStatisticsLife: firstStart.horse?.statistics?.life,
+            totalEarnings: firstStart.horse?.statistics?.life?.totalEarnings,
+            totalStarts: firstStart.horse?.statistics?.life?.totalStarts,
             driverFirstName: firstStart.driver?.firstName,
             driverLastName: firstStart.driver?.lastName,
-            driverStatistics: firstStart.driver?.statistics
+            driverStatistics: firstStart.driver?.statistics,
+            driverExperience: firstStart.driver?.statistics?.experience,
+            driverWinPercentage: firstStart.driver?.statistics?.winPercentage,
+            driver2025Stats: firstStart.driver?.statistics?.years?.['2025']
           });
         }
         
-        const horses = raceData.starts?.map((start: any) => {
-          console.log(`🔍 Processing horse ${start.horse?.name} (ID: ${start.horse?.id})`);
+        const horses = raceData.starts?.map((start: any, startIndex: number) => {
+          console.log(`🔍 Processing horse ${startIndex + 1}: ${start.horse?.name} (ID: ${start.horse?.id})`);
           
           // Extract horse statistics from the correct path: start.horse.statistics.life.*
           const horseLifeStats = start.horse?.statistics?.life || {};
           const driverStats = start.driver?.statistics || {};
           const driver2025Stats = start.driver?.statistics?.years?.['2025'] || {};
           
-          console.log(`📊 Horse ${start.horse?.name} statistics extraction:`, {
+          console.log(`📊 Horse ${start.horse?.name} ENHANCED statistics extraction:`, {
             horseLifeStats,
-            driverStats,
-            driver2025Stats,
-            extractedStartPoints: horseLifeStats.startPoints,
-            extractedPlacePercentage: horseLifeStats.placePercentage,
-            extractedWinPercentage: horseLifeStats.winPercentage,
-            extractedTotalEarnings: horseLifeStats.totalEarnings,
-            extractedTotalStarts: horseLifeStats.totalStarts
+            totalEarnings: horseLifeStats.totalEarnings,
+            totalStarts: horseLifeStats.totalStarts,
+            startPoints: horseLifeStats.startPoints,
+            placePercentage: horseLifeStats.placePercentage,
+            winPercentage: horseLifeStats.winPercentage,
+            driverExperience: driverStats.experience,
+            driverWinPercentage: driverStats.winPercentage,
+            driver2025WinPercentage: driver2025Stats.winPercentage
           });
           
-          // Calculate earnings per start from total earnings and starts
+          // Calculate earnings per start with enhanced validation
           const totalEarnings = horseLifeStats.totalEarnings || 0;
           const totalStarts = horseLifeStats.totalStarts || 0;
           const earningsPerStart = calculateEarningsPerStart(totalEarnings, totalStarts);
           
-          console.log(`💰 Horse ${start.horse?.name} earnings calculation:`, {
+          console.log(`💰 Horse ${start.horse?.name} FINAL earnings calculation:`, {
             totalEarnings,
             totalStarts,
-            calculatedEarningsPerStart: earningsPerStart
+            calculatedEarningsPerStart: earningsPerStart,
+            earningsValid: earningsPerStart > 0
           });
           
+          // Enhanced data validation and extraction
           const horseData = {
             horseId: start.horse?.id || 0,
             name: start.horse?.name || 'Unknown Horse',
             postPosition: start.postPosition || 0,
-            distance: start.distance || 0,
+            distance: start.distance || raceData.distance || 0,
             driver: {
               firstName: start.driver?.firstName || '',
               lastName: start.driver?.lastName || '',
@@ -240,16 +264,19 @@ export const fetchV75RaceData = async (date: string): Promise<V75RaceData[]> => 
             homeTrack: start.horse?.homeTrack || 'Unknown'
           };
           
-          console.log(`✅ Final horse data for ${start.horse?.name}:`, {
+          console.log(`✅ Final processed horse data for ${start.horse?.name}:`, {
             horseId: horseData.horseId,
             name: horseData.name,
-            statistics: horseData.statistics
+            statistics: horseData.statistics,
+            driver: horseData.driver,
+            dataValid: horseData.statistics.earningsPerStart > 0 || horseData.statistics.startPoints > 0
           });
           
           return horseData;
         }) || [];
         
         console.log(`📈 Successfully processed ${horses.length} horses for race ${raceId}`);
+        console.log(`💰 Earnings validation: ${horses.filter(h => h.statistics.earningsPerStart > 0).length}/${horses.length} horses have valid earnings`);
         
         v75Races.push({
           raceId: raceData.id,
@@ -270,6 +297,8 @@ export const fetchV75RaceData = async (date: string): Promise<V75RaceData[]> => 
     }
     
     console.log(`\n🏁 V75 Race Data Fetch Complete: ${v75Races.length}/7 races successfully fetched`);
+    console.log(`💰 Overall earnings validation: ${v75Races.flatMap(r => r.horses).filter(h => h.statistics.earningsPerStart > 0).length} horses with valid earnings`);
+    
     return v75Races.sort((a, b) => a.raceNumber - b.raceNumber);
     
   } catch (error) {
