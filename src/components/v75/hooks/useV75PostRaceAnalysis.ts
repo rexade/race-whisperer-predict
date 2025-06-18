@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { V75CacheService } from '../../../services/v75CacheService';
@@ -67,6 +66,21 @@ export const useV75PostRaceAnalysis = () => {
   const [analysis, setAnalysis] = useState<V75PostRaceAnalysis | null>(null);
   const [error, setError] = useState<string>("");
   const { toast } = useToast();
+
+  const formatKmTime = (kmTime: any): string => {
+    if (!kmTime) return 'N/A';
+    
+    if (typeof kmTime === 'string') return kmTime;
+    
+    if (kmTime && typeof kmTime === 'object' && kmTime.minutes !== undefined && kmTime.seconds !== undefined) {
+      const minutes = kmTime.minutes || 0;
+      const seconds = kmTime.seconds || 0;
+      const tenths = kmTime.tenths || 0;
+      return `${minutes}:${seconds.toString().padStart(2, '0')}.${tenths}`;
+    }
+    
+    return String(kmTime);
+  };
 
   const fetchActualResults = async (date: string): Promise<V75ActualResult[]> => {
     console.log(`🏁 Fetching actual V75 results for ${date}`);
@@ -180,7 +194,7 @@ export const useV75PostRaceAnalysis = () => {
               horseId: result.horse?.id || result.horseId || 0,
               horseName: result.horse?.name || result.horseName || 'Unknown',
               postPosition: result.postPosition || result.number || 0,
-              time: result.kmTime ? this.formatKmTime(result.kmTime) : (result.time || 'N/A'),
+              time: result.kmTime ? formatKmTime(result.kmTime) : (result.time || 'N/A'),
               driver: result.driver ? 
                 `${result.driver.firstName || ''} ${result.driver.lastName || ''}`.trim() : 
                 'Unknown Driver'
@@ -216,21 +230,6 @@ export const useV75PostRaceAnalysis = () => {
       console.error('❌ Error fetching actual results:', error);
       throw error;
     }
-  };
-
-  const formatKmTime = (kmTime: any): string => {
-    if (!kmTime) return 'N/A';
-    
-    if (typeof kmTime === 'string') return kmTime;
-    
-    if (kmTime && typeof kmTime === 'object' && kmTime.minutes !== undefined && kmTime.seconds !== undefined) {
-      const minutes = kmTime.minutes || 0;
-      const seconds = kmTime.seconds || 0;
-      const tenths = kmTime.tenths || 0;
-      return `${minutes}:${seconds.toString().padStart(2, '0')}.${tenths}`;
-    }
-    
-    return String(kmTime);
   };
 
   const compareWithPredictions = async (
