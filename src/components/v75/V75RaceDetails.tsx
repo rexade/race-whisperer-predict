@@ -38,11 +38,22 @@ const ensureStringForDisplay = (value: any): string => {
 const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
   console.log('🎯 V75RaceDetails - Rendering race:', race.raceNumber, 'with', race.horses.length, 'horses');
   
-  // Debug all horse names before rendering
+  // Debug all horse names and statistics before rendering
   race.horses.forEach((horse, index) => {
     console.log(`🐎 V75RaceDetails - Horse ${index}: ID=${horse.horseId}, Name=`, JSON.stringify(horse.horseName), 'Type:', typeof horse.horseName);
-    console.log(`💰 V75RaceDetails - Horse ${index} stats:`, {
-      statistics: horse.statistics
+    console.log(`💰 V75RaceDetails - Horse ${index} statistics FULL DEBUG:`, {
+      statistics: horse.statistics,
+      statisticsType: typeof horse.statistics,
+      startPoints: horse.statistics?.startPoints,
+      startPointsType: typeof horse.statistics?.startPoints,
+      placePercentage: horse.statistics?.placePercentage,
+      placePercentageType: typeof horse.statistics?.placePercentage,
+      winPercentage: horse.statistics?.winPercentage,
+      winPercentageType: typeof horse.statistics?.winPercentage,
+      earningsPerStart: horse.statistics?.earningsPerStart,
+      earningsPerStartType: typeof horse.statistics?.earningsPerStart,
+      driver2025WinPercentage: horse.driver2025WinPercentage,
+      driver2025WinPercentageType: typeof horse.driver2025WinPercentage
     });
   });
 
@@ -223,6 +234,15 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                     throw new Error(`Driver name safety check failed for horse ${horse.horseId}`);
                   }
                   
+                  // Debug statistics before rendering
+                  console.log(`🔍 V75RaceDetails - Rendering statistics for ${safeHorseName}:`, {
+                    startPoints: horse.statistics?.startPoints,
+                    placePercentage: horse.statistics?.placePercentage,
+                    winPercentage: horse.statistics?.winPercentage,
+                    earningsPerStart: horse.statistics?.earningsPerStart,
+                    driver2025WinPercentage: horse.driver2025WinPercentage
+                  });
+                  
                   return (
                     <TableRow 
                       key={horse.horseId}
@@ -262,7 +282,7 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                       
                       <TableCell className="text-center">
                         <span className="text-sm font-medium text-blue-700">
-                          {horse.statistics?.startPoints || '-'}
+                          {horse.statistics?.startPoints ? horse.statistics.startPoints.toString() : '-'}
                         </span>
                       </TableCell>
                       
