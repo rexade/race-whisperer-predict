@@ -1,8 +1,8 @@
-
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { NormalizationWeights, applyModernKmNormalization, ModernNormalizationFactors } from '../../../services/modernKm/index';
 import { processHorseResults } from '../utils/horseResultProcessor';
 import { extractTrackNameAsString } from '../utils/dataExtraction';
+import { V75CacheService } from '../../../services/v75CacheService';
 
 export interface V75HorseResult {
   raceNumber: number;
@@ -39,45 +39,85 @@ export interface V75RaceResult {
   prize: number;
   horses: V75HorseResult[];
   analysisComplete: boolean;
+  dataQuality?: {
+    hasValidPostPositions: boolean;
+    duplicatePositions: number[];
+    missingData: number[];
+  };
 }
 
 export const useV75ResultsProcessor = () => {
   const [v75Results, setV75Results] = useState<V75RaceResult[]>([]);
 
-  const processRaceResult = (race: any, rawKmTimes: any[], weights: NormalizationWeights): V75RaceResult => {
+  const processRaceResult = useCallback((
+    race: any,
+    rawKmTimes: Array<{ horseId: number; best3Average: any }>,
+    weights: NormalizationWeights
+  ): V75RaceResult => {
     const safeRaceTrack = extractTrackNameAsString(race.track);
     const safeRaceName = extractTrackNameAsString(race.name);
     
     try {
       const horseResults = processHorseResults(race, rawKmTimes, weights);
       
+      // Store analysis results for post-race comparison
+      const analysisHorses = horseResults.map(horse => ({
+        horseId: horse.horseId,
+        horseName: horse.horseName,
+        postPosition: horse.postPosition,
+        finalScore: horse.finalScore,
+        rank: horse.rank
+      }));
+
+      // Store the analysis asynchronously (don't block the UI)
+      V75CacheService.storeRaceAnalysis(
+        race.raceId,
+        race.raceNumber,
+        new Date().toISOString().split('T')[0], // Today's date
+        analysisHorses
+      ).catch(error => {
+        console.warn('Failed to store race analysis:', error);
+      });
+
       return {
-        raceNumber: race.raceNumber,
         raceId: race.raceId,
-        track: safeRaceTrack,
+        raceNumber: race.raceNumber,
         distance: race.distance,
         startMethod: race.startMethod,
+        track: safeRaceTrack,
         name: safeRaceName,
+        date: race.date,
         prize: race.prize,
         horses: horseResults,
-        analysisComplete: true
+        analysisComplete: true,
+        dataQuality: race.dataQuality || {
+          hasValidPostPositions: true,
+          duplicatePositions: [],
+          missingData: []
+        }
       };
     } catch (error) {
       console.error(`❌ Error processing race ${race.raceNumber}:`, error);
       
       return {
-        raceNumber: race.raceNumber,
         raceId: race.raceId,
-        track: safeRaceTrack,
+        raceNumber: race.raceNumber,
         distance: race.distance,
         startMethod: race.startMethod,
+        track: safeRaceTrack,
         name: safeRaceName,
+        date: race.date,
         prize: race.prize,
         horses: [],
-        analysisComplete: false
+        analysisComplete: false,
+        dataQuality: {
+          hasValidPostPositions: true,
+          duplicatePositions: [],
+          missingData: []
+        }
       };
     }
-  };
+  }, []);
 
   const reanalyzeWithNewWeights = (weights: NormalizationWeights) => {
     if (v75Results.length === 0) return;

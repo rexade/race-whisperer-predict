@@ -1,4 +1,3 @@
-
 export interface CachedRawTime {
   horseId: number;
   postPosition: number;
@@ -159,5 +158,139 @@ export class V75CacheService {
 
   static clearAnalysis(date: string): void {
     console.warn('⚠️ clearAnalysis is deprecated - use clearRawTimes instead');
+  }
+
+  /**
+   * Store race analysis results for post-race comparison
+   */
+  static async storeRaceAnalysis(
+    raceId: string,
+    raceNumber: number,
+    analysisDate: string,
+    horses: Array<{
+      horseId: number;
+      horseName: string;
+      postPosition: number;
+      finalScore: number;
+      rank: number;
+    }>
+  ): Promise<void> {
+    try {
+      const key = `v75_race_analysis_${raceId}`;
+      
+      const analysisData = {
+        raceId,
+        raceNumber,
+        analysisDate,
+        timestamp: new Date().toISOString(),
+        horses
+      };
+      
+      localStorage.setItem(key, JSON.stringify(analysisData));
+      
+      console.log(`💾 Stored race analysis for race ${raceNumber} (${raceId})`);
+      
+    } catch (error) {
+      console.error('❌ Error storing race analysis:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get stored race analysis results
+   */
+  static async getRaceAnalysis(raceId: string): Promise<{
+    raceId: string;
+    raceNumber: number;
+    analysisDate: string;
+    timestamp: string;
+    horses: Array<{
+      horseId: number;
+      horseName: string;
+      postPosition: number;
+      finalScore: number;
+      rank: number;
+    }>;
+  } | null> {
+    try {
+      const key = `v75_race_analysis_${raceId}`;
+      const stored = localStorage.getItem(key);
+      
+      if (!stored) {
+        console.log(`🔍 No race analysis found for race ${raceId}`);
+        return null;
+      }
+      
+      const analysisData = JSON.parse(stored);
+      console.log(`📊 Retrieved race analysis for race ${analysisData.raceNumber}`);
+      
+      return analysisData;
+      
+    } catch (error) {
+      console.error('❌ Error retrieving race analysis:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Clear race analysis data for a specific race
+   */
+  static async clearRaceAnalysis(raceId: string): Promise<void> {
+    try {
+      const key = `v75_race_analysis_${raceId}`;
+      localStorage.removeItem(key);
+      console.log(`🗑️ Cleared race analysis for race ${raceId}`);
+    } catch (error) {
+      console.error('❌ Error clearing race analysis:', error);
+    }
+  }
+
+  /**
+   * Get all available race analyses (for listing purposes)
+   */
+  static async getAllRaceAnalyses(): Promise<Array<{
+    raceId: string;
+    raceNumber: number;
+    analysisDate: string;
+    timestamp: string;
+  }>> {
+    try {
+      const analyses: Array<{
+        raceId: string;
+        raceNumber: number;
+        analysisDate: string;
+        timestamp: string;
+      }> = [];
+      
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        
+        if (key?.startsWith('v75_race_analysis_')) {
+          const stored = localStorage.getItem(key);
+          if (stored) {
+            const analysisData = JSON.parse(stored);
+            analyses.push({
+              raceId: analysisData.raceId,
+              raceNumber: analysisData.raceNumber,
+              analysisDate: analysisData.analysisDate,
+              timestamp: analysisData.timestamp
+            });
+          }
+        }
+      }
+      
+      // Sort by date and race number
+      analyses.sort((a, b) => {
+        const dateCompare = b.analysisDate.localeCompare(a.analysisDate);
+        if (dateCompare !== 0) return dateCompare;
+        return a.raceNumber - b.raceNumber;
+      });
+      
+      return analyses;
+      
+    } catch (error) {
+      console.error('❌ Error getting all race analyses:', error);
+      return [];
+    }
   }
 }

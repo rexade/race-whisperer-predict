@@ -1,46 +1,79 @@
-
 import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { Button } from "@/components/ui/button";
-import { Sparkles, Calendar, Trophy } from "lucide-react";
+import { Link, useLocation } from 'react-router-dom';
 
 const Navigation: React.FC = () => {
-  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `${isActive 
-      ? 'bg-purple-100 text-purple-700 border-purple-300' 
-      : 'text-gray-600 border-gray-200 hover:bg-gray-50'
-    } border rounded-lg px-4 py-2 transition-colors`;
+  const location = useLocation();
+
+  const isActive = (path: string) => location.pathname === path;
 
   return (
-    <nav className="bg-white border-b border-gray-200 shadow-sm">
-      <div className="max-w-7xl mx-auto px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-8 w-8 text-purple-600" />
-            <h1 className="text-xl font-bold text-gray-800">Race Whisperer</h1>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <NavLink to="/" className={navLinkClass}>
-              <Button variant="ghost" className="flex items-center gap-2 p-0">
-                <Sparkles className="h-4 w-4" />
-                Modern Analyzer
-              </Button>
-            </NavLink>
+    <nav className="bg-white shadow-sm border-b">
+      <div className="container mx-auto px-4">
+        <div className="flex justify-between items-center h-16">
+          <div className="flex items-center space-x-8">
+            <Link 
+              to="/" 
+              className="text-xl font-bold text-gray-900 hover:text-gray-700 transition-colors"
+            >
+              🏇 TrotAnalyzer
+            </Link>
             
-            <NavLink to="/v75-analyzer" className={navLinkClass}>
-              <Button variant="ghost" className="flex items-center gap-2 p-0">
-                <Trophy className="h-4 w-4" />
-                V75 Analyzer
-              </Button>
-            </NavLink>
-            
-            <NavLink to="/race-analyzer" className={navLinkClass}>
-              <Button variant="ghost" className="flex items-center gap-2 p-0">
-                <Calendar className="h-4 w-4" />
+            <div className="hidden md:flex space-x-6">
+              <Link
+                to="/"
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive('/') 
+                    ? 'bg-blue-100 text-blue-700' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                Home
+              </Link>
+              
+              <Link
+                to="/race-analyzer"
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive('/race-analyzer') 
+                    ? 'bg-blue-100 text-blue-700' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
                 Race Analyzer
-              </Button>
-            </NavLink>
+              </Link>
+              
+              <Link
+                to="/modern-analyzer"
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive('/modern-analyzer') 
+                    ? 'bg-blue-100 text-blue-700' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                Modern Analyzer
+              </Link>
+              
+              <Link
+                to="/v75-analyzer"
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive('/v75-analyzer') 
+                    ? 'bg-purple-100 text-purple-700' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                V75 Analyzer
+              </Link>
+
+              <Link
+                to="/v75-post-analysis"
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive('/v75-post-analysis') 
+                    ? 'bg-purple-100 text-purple-700' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                V75 Post-Analysis
+              </Link>
+            </div>
           </div>
         </div>
       </div>
