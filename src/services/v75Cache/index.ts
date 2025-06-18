@@ -47,6 +47,11 @@ export class V75CacheService {
       postPosition: number;
       finalScore: number;
       rank: number;
+      predictedTime?: {
+        minutes: number;
+        seconds: number;
+        tenths: number;
+      };
     }>
   ): Promise<void> {
     return RaceAnalysisCache.storeRaceAnalysis(raceId, raceNumber, analysisDate, horses);

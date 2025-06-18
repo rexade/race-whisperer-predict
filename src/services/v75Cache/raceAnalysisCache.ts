@@ -36,6 +36,15 @@ export class RaceAnalysisCache {
       localStorage.setItem(key, JSON.stringify(analysisData));
       
       console.log(`💾 Stored race analysis for race ${raceNumber} (${raceId}) with ${horses.length} horses`);
+      console.log(`📅 Analysis date stored: ${analysisDate}`);
+      console.log(`🔑 Storage key: ${key}`);
+      console.log(`🐎 Horse data sample:`, horses.slice(0, 2).map(h => ({
+        horseId: h.horseId,
+        horseName: h.horseName,
+        finalScore: h.finalScore,
+        rank: h.rank,
+        hasPredictedTime: !!h.predictedTime
+      })));
       
     } catch (error) {
       console.error('❌ Error storing race analysis:', error);
@@ -53,11 +62,25 @@ export class RaceAnalysisCache {
       
       if (!stored) {
         console.log(`🔍 No race analysis found for race ${raceId}`);
+        console.log(`📋 Checking all localStorage keys for race analyses...`);
+        
+        // Debug: List all available race analysis keys
+        const allKeys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key?.startsWith('v75_race_analysis_')) {
+            allKeys.push(key);
+          }
+        }
+        console.log(`🗂️ Found ${allKeys.length} race analysis entries:`, allKeys);
+        
         return null;
       }
       
       const analysisData = JSON.parse(stored);
       console.log(`📊 Retrieved race analysis for race ${analysisData.raceNumber}`);
+      console.log(`📅 Analysis date: ${analysisData.analysisDate}`);
+      console.log(`🐎 Horse count: ${analysisData.horses.length}`);
       
       return analysisData;
       
@@ -87,6 +110,8 @@ export class RaceAnalysisCache {
     try {
       const analyses: RaceAnalysisSummary[] = [];
       
+      console.log(`🔍 Scanning localStorage for race analyses...`);
+      
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         
@@ -103,6 +128,11 @@ export class RaceAnalysisCache {
           }
         }
       }
+      
+      console.log(`📋 Found ${analyses.length} race analyses in cache`);
+      analyses.forEach(analysis => {
+        console.log(`  - Race ${analysis.raceNumber} (${analysis.raceId}): ${analysis.analysisDate}`);
+      });
       
       // Sort by date and race number
       analyses.sort((a, b) => {
@@ -155,10 +185,19 @@ export class RaceAnalysisCache {
    */
   static async hasPredictionsForDate(date: string): Promise<boolean> {
     try {
-      const raceAnalyses = await this.getAllRaceAnalyses();
-      const hasAnalyses = raceAnalyses.some(analysis => analysis.analysisDate === date);
+      console.log(`🔍 Checking predictions for date: ${date}`);
       
-      console.log(`🔍 Checking predictions for ${date}: ${hasAnalyses ? 'Found' : 'Not found'}`);
+      const raceAnalyses = await this.getAllRaceAnalyses();
+      const matchingAnalyses = raceAnalyses.filter(analysis => analysis.analysisDate === date);
+      
+      console.log(`📊 Found ${matchingAnalyses.length} analyses for ${date}:`);
+      matchingAnalyses.forEach(analysis => {
+        console.log(`  - Race ${analysis.raceNumber} (${analysis.raceId}): stored on ${analysis.timestamp}`);
+      });
+      
+      const hasAnalyses = matchingAnalyses.length > 0;
+      console.log(`🎯 Predictions for ${date}: ${hasAnalyses ? 'FOUND' : 'NOT FOUND'}`);
+      
       return hasAnalyses;
       
     } catch (error) {

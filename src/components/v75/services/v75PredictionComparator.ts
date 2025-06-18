@@ -1,202 +1,212 @@
 
+import { V75PostRaceAnalysis, V75RaceAnalysis, V75PredictionAccuracy } from '../types/postRaceAnalysisTypes';
 import { V75CacheService } from '../../../services/v75CacheService';
-import { V75ActualResult, V75RaceAnalysis, V75PredictionAccuracy, V75PostRaceAnalysis } from '../types/postRaceAnalysisTypes';
-import { calculateOverallPerformance } from '../utils/postRaceUtils';
-import { 
-  calculatePositionMAE, 
-  calculateTimeMAE, 
-  calculateTimeDifference,
-  findBestTime 
-} from '../utils/timeAnalysisUtils';
+import { RaceAnalysisData } from '../../../services/v75Cache/types';
 
 export class V75PredictionComparator {
+  /**
+   * Compare cached predictions with actual race results
+   */
   static async compareWithPredictions(
-    date: string,
-    actualResults: V75ActualResult[]
+    analysisDate: string,
+    actualResults: any[]
   ): Promise<V75PostRaceAnalysis> {
-    console.log(`🔍 Comparing predictions with actual results for ${date}`);
+    console.log(`🎯 Starting prediction comparison for ${analysisDate}`);
+    console.log(`📊 Actual results received: ${actualResults.length} races`);
+
+    const races: V75RaceAnalysis[] = [];
     
-    const raceAnalyses: V75RaceAnalysis[] = [];
+    // Get all cached race analyses for this date
+    console.log(`🔍 Fetching all cached race analyses...`);
+    const allRaceAnalyses = await V75CacheService.getAllRaceAnalyses();
     
-    for (const actualResult of actualResults) {
-      try {
-        // Get cached predictions for this race
-        const cachedPredictions = await V75CacheService.getRaceAnalysis(actualResult.raceId);
-        
-        if (!cachedPredictions) {
-          console.warn(`No cached predictions found for race ${actualResult.raceNumber} (${actualResult.raceId})`);
-          continue;
-        }
-        
-        console.log(`📊 Analyzing race ${actualResult.raceNumber}:`, {
-          predictedHorses: cachedPredictions.horses.length,
-          actualHorses: actualResult.finishOrder.length,
-          hasBestTime: !!actualResult.bestTime
-        });
-        
-        // Calculate prediction accuracy for each horse
-        const predictionAccuracy: V75PredictionAccuracy[] = [];
-        const positionPredictions: Array<{ predicted: number; actual: number }> = [];
-        const timePredictions: Array<{ predicted: any; actual: any }> = [];
-        
-        cachedPredictions.horses.forEach(prediction => {
-          const actualFinish = actualResult.finishOrder.find(
-            result => result.horseId === prediction.horseId
-          );
-          
-          if (!actualFinish) {
-            console.warn(`Horse ${prediction.horseId} (${prediction.horseName}) not found in actual results`);
-            return;
-          }
-          
-          const rankDifference = prediction.rank - actualFinish.position;
-          const wasTopPick = prediction.rank <= 3;
-          const actuallyPlaced = actualFinish.position <= 3;
-          
-          // Calculate time difference if both predicted and actual times are available
-          let timeDifference;
-          if (prediction.predictedTime && actualFinish.kmTime) {
-            timeDifference = calculateTimeDifference(prediction.predictedTime, actualFinish.kmTime);
-            timePredictions.push({
-              predicted: prediction.predictedTime,
-              actual: actualFinish.kmTime
-            });
-          }
-          
-          predictionAccuracy.push({
-            horseId: prediction.horseId,
-            horseName: prediction.horseName,
-            postPosition: prediction.postPosition,
-            predictedScore: prediction.finalScore,
-            predictedRank: prediction.rank,
-            predictedTime: prediction.predictedTime,
-            actualFinishPosition: actualFinish.position,
-            actualTime: actualFinish.kmTime,
-            timeDifference,
-            rankDifference,
-            wasTopPick,
-            actuallyPlaced,
-            correctPrediction: wasTopPick && actuallyPlaced
-          });
-          
-          // Collect position predictions for MAE calculation
-          positionPredictions.push({
-            predicted: prediction.rank,
-            actual: actualFinish.position
-          });
-        });
-        
-        // Calculate MAE scores
-        const meanAbsoluteError = calculatePositionMAE(positionPredictions);
-        const timeMAE = timePredictions.length > 0 ? calculateTimeMAE(timePredictions) : undefined;
-        
-        // Calculate best time prediction accuracy
-        let bestTimeAccuracy;
-        if (actualResult.bestTime) {
-          const predictedBestHorse = cachedPredictions.horses
-            .filter(h => h.predictedTime)
-            .reduce((best, current) => {
-              if (!best.predictedTime || !current.predictedTime) return best;
-              const bestSeconds = best.predictedTime.minutes * 60 + best.predictedTime.seconds + best.predictedTime.tenths / 10;
-              const currentSeconds = current.predictedTime.minutes * 60 + current.predictedTime.seconds + current.predictedTime.tenths / 10;
-              return currentSeconds < bestSeconds ? current : best;
-            });
-          
-          const actualBestHorse = actualResult.finishOrder.find(h => 
-            h.kmTime && 
-            h.kmTime.minutes === actualResult.bestTime?.minutes &&
-            h.kmTime.seconds === actualResult.bestTime?.seconds &&
-            h.kmTime.tenths === actualResult.bestTime?.tenths
-          );
-          
-          if (predictedBestHorse && actualBestHorse) {
-            bestTimeAccuracy = {
-              predictedBest: predictedBestHorse.horseName,
-              actualBest: actualBestHorse.horseName,
-              correctBestPrediction: predictedBestHorse.horseId === actualBestHorse.horseId
-            };
-          }
-        }
-        
-        // Calculate overall accuracy for this race
-        const topPicks = predictionAccuracy.filter(p => p.wasTopPick);
-        const topPicksCorrect = topPicks.filter(p => p.actuallyPlaced).length;
-        const averageRankDifference = predictionAccuracy.length > 0 ? 
-          predictionAccuracy.reduce((sum, p) => sum + Math.abs(p.rankDifference), 0) / predictionAccuracy.length : 0;
-        const perfectPredictions = predictionAccuracy.filter(p => p.rankDifference === 0).length;
-        
-        raceAnalyses.push({
-          raceId: actualResult.raceId,
-          raceNumber: actualResult.raceNumber,
-          raceDate: date,
-          distance: actualResult.distance,
-          actualResults: actualResult,
-          predictionAccuracy,
-          overallAccuracy: {
-            topPicksCorrect,
-            topPicksTotal: topPicks.length,
-            averageRankDifference,
-            perfectPredictions,
-            meanAbsoluteError,
-            timeMAE,
-            bestTimeAccuracy
-          }
-        });
-        
-        console.log(`✅ Race ${actualResult.raceNumber} analysis complete:`, {
-          topPicksCorrect: `${topPicksCorrect}/${topPicks.length}`,
-          avgRankDiff: Math.round(averageRankDifference * 10) / 10,
-          perfectPredictions,
-          mae: Math.round(meanAbsoluteError * 100) / 100,
-          timeMAE: timeMAE ? Math.round(timeMAE * 100) / 100 : 'N/A',
-          bestTimePredicted: bestTimeAccuracy?.correctBestPrediction || false
-        });
-        
-      } catch (error) {
-        console.error(`Error analyzing race ${actualResult.raceNumber}:`, error);
-      }
+    const relevantAnalyses = allRaceAnalyses.filter(analysis => analysis.analysisDate === analysisDate);
+    console.log(`📋 Found ${relevantAnalyses.length} relevant analyses for ${analysisDate}`);
+    
+    if (relevantAnalyses.length === 0) {
+      console.log(`❌ No cached predictions found for ${analysisDate}`);
+      console.log(`🗂️ Available analysis dates:`, [...new Set(allRaceAnalyses.map(a => a.analysisDate))]);
+      throw new Error(`No races could be analyzed - no matching predictions found for ${analysisDate}`);
     }
-    
-    if (raceAnalyses.length === 0) {
+
+    for (const actualRace of actualResults) {
+      console.log(`\n🏁 Processing race ${actualRace.raceNumber} (${actualRace.raceId})`);
+      
+      // Find matching cached prediction
+      const cachedAnalysis = await V75CacheService.getRaceAnalysis(actualRace.raceId);
+      
+      if (!cachedAnalysis) {
+        console.log(`⚠️ No cached prediction found for race ${actualRace.raceNumber} (${actualRace.raceId})`);
+        continue;
+      }
+      
+      console.log(`✅ Found cached prediction for race ${actualRace.raceNumber}`);
+      console.log(`🐎 Cached horses: ${cachedAnalysis.horses.length}`);
+      console.log(`📅 Cached analysis date: ${cachedAnalysis.analysisDate}`);
+      
+      // Compare predictions with actual results
+      const raceAnalysis = this.compareRaceResults(actualRace, cachedAnalysis);
+      races.push(raceAnalysis);
+    }
+
+    if (races.length === 0) {
+      console.log(`❌ No races could be compared successfully`);
       throw new Error('No races could be analyzed - no matching predictions found');
     }
-    
-    // Calculate enhanced overall performance metrics
-    const overallPerformance = this.calculateEnhancedOverallPerformance(raceAnalyses);
-    
+
+    console.log(`✅ Successfully compared ${races.length} races`);
+
+    // Calculate overall performance metrics
+    const overallPerformance = this.calculateOverallPerformance(races);
+
     return {
-      gameId: `v75-${date}`,
-      analysisDate: date,
-      races: raceAnalyses,
+      gameId: `v75-${analysisDate}`,
+      analysisDate,
+      races,
       overallPerformance
     };
   }
 
-  private static calculateEnhancedOverallPerformance(races: V75RaceAnalysis[]) {
+  private static compareRaceResults(
+    actualRace: any,
+    cachedAnalysis: RaceAnalysisData
+  ): V75RaceAnalysis {
+    console.log(`🔍 Comparing race ${actualRace.raceNumber}:`);
+    console.log(`  Actual finishers: ${actualRace.finishOrder.length}`);
+    console.log(`  Cached predictions: ${cachedAnalysis.horses.length}`);
+
+    const predictionAccuracy: V75PredictionAccuracy[] = [];
+
+    // Compare each horse's prediction vs actual result
+    for (const cachedHorse of cachedAnalysis.horses) {
+      const actualFinish = actualRace.finishOrder.find(
+        (finish: any) => finish.horseId === cachedHorse.horseId
+      );
+
+      if (!actualFinish) {
+        console.log(`⚠️ Horse ${cachedHorse.horseName} (${cachedHorse.horseId}) not found in actual results`);
+        continue;
+      }
+
+      const accuracy: V75PredictionAccuracy = {
+        horseId: cachedHorse.horseId,
+        horseName: cachedHorse.horseName,
+        postPosition: cachedHorse.postPosition,
+        predictedScore: cachedHorse.finalScore,
+        predictedRank: cachedHorse.rank,
+        predictedTime: cachedHorse.predictedTime,
+        actualFinishPosition: actualFinish.position,
+        actualTime: actualFinish.kmTime,
+        timeDifference: this.calculateTimeDifference(cachedHorse.predictedTime, actualFinish.kmTime),
+        rankDifference: cachedHorse.rank - actualFinish.position,
+        wasTopPick: cachedHorse.rank <= 3,
+        actuallyPlaced: actualFinish.position <= 3,
+        correctPrediction: cachedHorse.rank <= 3 && actualFinish.position <= 3
+      };
+
+      predictionAccuracy.push(accuracy);
+    }
+
+    console.log(`📊 Prediction accuracy calculated for ${predictionAccuracy.length} horses`);
+
+    // Calculate race-level accuracy metrics
+    const overallAccuracy = this.calculateRaceAccuracy(predictionAccuracy);
+
+    return {
+      raceId: actualRace.raceId,
+      raceNumber: actualRace.raceNumber,
+      raceDate: actualRace.date || cachedAnalysis.analysisDate,
+      distance: actualRace.distance,
+      actualResults: actualRace,
+      predictionAccuracy,
+      overallAccuracy
+    };
+  }
+
+  private static calculateTimeDifference(
+    predictedTime?: { minutes: number; seconds: number; tenths: number },
+    actualTime?: { minutes: number; seconds: number; tenths: number }
+  ): number | undefined {
+    if (!predictedTime || !actualTime) return undefined;
+
+    const predictedSeconds = predictedTime.minutes * 60 + predictedTime.seconds + predictedTime.tenths * 0.1;
+    const actualSeconds = actualTime.minutes * 60 + actualTime.seconds + actualTime.tenths * 0.1;
+
+    return Math.abs(predictedSeconds - actualSeconds);
+  }
+
+  private static calculateRaceAccuracy(predictionAccuracy: V75PredictionAccuracy[]) {
+    const topPicksCorrect = predictionAccuracy.filter(p => p.correctPrediction).length;
+    const topPicksTotal = predictionAccuracy.filter(p => p.wasTopPick).length;
+    const perfectPredictions = predictionAccuracy.filter(p => p.rankDifference === 0).length;
+    
+    const rankDifferences = predictionAccuracy.map(p => Math.abs(p.rankDifference));
+    const averageRankDifference = rankDifferences.length > 0 
+      ? rankDifferences.reduce((sum, diff) => sum + diff, 0) / rankDifferences.length 
+      : 0;
+    
+    const meanAbsoluteError = averageRankDifference;
+
+    // Calculate time MAE if we have predicted times
+    const timeDifferences = predictionAccuracy
+      .map(p => p.timeDifference)
+      .filter(diff => diff !== undefined) as number[];
+    
+    const timeMAE = timeDifferences.length > 0
+      ? timeDifferences.reduce((sum, diff) => sum + diff, 0) / timeDifferences.length
+      : undefined;
+
+    // Find best time predictions
+    const bestActualHorse = predictionAccuracy.reduce((best, current) => 
+      !best || (current.actualFinishPosition < best.actualFinishPosition) ? current : best
+    );
+    
+    const bestPredictedHorse = predictionAccuracy.reduce((best, current) => 
+      !best || (current.predictedRank < best.predictedRank) ? current : best
+    );
+
+    return {
+      topPicksCorrect,
+      topPicksTotal,
+      averageRankDifference,
+      perfectPredictions,
+      meanAbsoluteError,
+      timeMAE,
+      bestTimeAccuracy: {
+        predictedBest: bestPredictedHorse.horseName,
+        actualBest: bestActualHorse.horseName,
+        correctBestPrediction: bestPredictedHorse.horseId === bestActualHorse.horseId
+      }
+    };
+  }
+
+  private static calculateOverallPerformance(races: V75RaceAnalysis[]) {
     const totalRaces = races.length;
     
-    // Calculate average accuracy
-    const accuracies = races.map(race => race.overallAccuracy.topPicksCorrect / race.overallAccuracy.topPicksTotal);
-    const averageAccuracy = accuracies.reduce((sum, acc) => sum + acc, 0) / totalRaces;
-    const bestRaceAccuracy = Math.max(...accuracies);
-    const worstRaceAccuracy = Math.min(...accuracies);
-    
-    // Calculate overall MAE
-    const allMAEs = races.map(race => race.overallAccuracy.meanAbsoluteError);
-    const overallMAE = allMAEs.reduce((sum, mae) => sum + mae, 0) / totalRaces;
-    
-    // Calculate overall time MAE
-    const timeMAEs = races
+    const accuracySum = races.reduce((sum, race) => 
+      sum + (race.overallAccuracy.topPicksCorrect / race.overallAccuracy.topPicksTotal), 0
+    );
+    const averageAccuracy = accuracySum / totalRaces;
+
+    const raceAccuracies = races.map(race => 
+      race.overallAccuracy.topPicksCorrect / race.overallAccuracy.topPicksTotal
+    );
+    const bestRaceAccuracy = Math.max(...raceAccuracies);
+    const worstRaceAccuracy = Math.min(...raceAccuracies);
+
+    const overallMAE = races.reduce((sum, race) => 
+      sum + race.overallAccuracy.meanAbsoluteError, 0
+    ) / totalRaces;
+
+    const overallTimeMAE = races
       .map(race => race.overallAccuracy.timeMAE)
-      .filter(mae => mae !== undefined) as number[];
-    const overallTimeMAE = timeMAEs.length > 0 ? 
-      timeMAEs.reduce((sum, mae) => sum + mae, 0) / timeMAEs.length : undefined;
-    
-    // Count correct best time predictions
+      .filter(mae => mae !== undefined)
+      .reduce((sum, mae, _, arr) => sum + mae! / arr.length, 0) || undefined;
+
     const bestTimesPredicted = races.filter(race => 
       race.overallAccuracy.bestTimeAccuracy?.correctBestPrediction
     ).length;
-    
+
     return {
       totalRaces,
       averageAccuracy,
