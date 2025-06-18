@@ -1,14 +1,15 @@
-
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
-import { fetchV75RaceData, fetchV75GameInfo } from '../../../services/v75CalendarApi';
+import { fetchV75RaceData, fetchV75GameInfo, V75RaceData } from '../../../services/v75CalendarApi';
 import { calculateRawKmTimesForRaceWithId } from '../../../services/kmTimeProcessor';
+import { validateRaceData, fixRaceDataIssues } from '../../../services/raceDataValidator';
 import { 
   applyModernKmNormalization,
   NormalizationWeights,
   ModernNormalizationFactors
 } from '../../../services/modernKm/index';
 import { ModernKmNormalizedResult, KmTime } from '../../../services/types/kmTimeTypes';
+import { EnhancedRaceData, EnhancedHorseData } from '../../../services/enhancedAtgApi';
 
 export interface V75HorseResult {
   raceNumber: number;
@@ -177,6 +178,100 @@ const extractTrackNameAsString = (track: any): string => {
   return String(track) || 'Unknown Track';
 };
 
+// Convert V75RaceData to EnhancedRaceData format for validation
+const convertV75ToEnhancedRaceData = (v75Race: V75RaceData): EnhancedRaceData => {
+  console.log(`🔄 Converting V75 race ${v75Race.raceNumber} to EnhancedRaceData format for validation`);
+  
+  const enhancedHorses: EnhancedHorseData[] = v75Race.horses.map(horse => ({
+    horseId: horse.horseId,
+    name: extractHorseNameAsString(horse.name),
+    postPosition: horse.postPosition,
+    distance: horse.distance,
+    driver: {
+      firstName: horse.driver.firstName,
+      lastName: horse.driver.lastName,
+      experience: horse.driver.experience,
+      winPercentage: horse.driver.winPercentage,
+      winPercentage2025: horse.driver.winPercentage2025
+    },
+    statistics: {
+      startPoints: horse.statistics.startPoints,
+      placePercentage: horse.statistics.placePercentage,
+      winPercentage: horse.statistics.winPercentage,
+      earningsPerStart: horse.statistics.earningsPerStart
+    },
+    shoes: {
+      front: horse.shoes.front,
+      back: horse.shoes.back
+    },
+    sulky: {
+      type: horse.sulky.type
+    },
+    homeTrack: horse.homeTrack
+  }));
+
+  return {
+    raceId: v75Race.raceId,
+    raceNumber: v75Race.raceNumber,
+    distance: v75Race.distance,
+    startMethod: v75Race.startMethod,
+    track: { name: extractTrackNameAsString(v75Race.track) },
+    name: v75Race.name,
+    date: v75Race.date,
+    prize: v75Race.prize,
+    horses: enhancedHorses,
+    dataQuality: {
+      hasValidPostPositions: true,
+      duplicatePositions: [],
+      missingData: [],
+      validationApplied: false
+    }
+  };
+};
+
+// Convert EnhancedRaceData back to V75RaceData format after validation
+const convertEnhancedToV75RaceData = (enhancedRace: EnhancedRaceData): V75RaceData => {
+  console.log(`🔄 Converting enhanced race ${enhancedRace.raceNumber} back to V75RaceData format`);
+  
+  return {
+    raceId: enhancedRace.raceId,
+    raceNumber: enhancedRace.raceNumber,
+    distance: enhancedRace.distance,
+    startMethod: enhancedRace.startMethod,
+    track: enhancedRace.track.name,
+    name: enhancedRace.name,
+    date: enhancedRace.date,
+    prize: enhancedRace.prize,
+    horses: enhancedRace.horses.map(horse => ({
+      horseId: horse.horseId,
+      name: horse.name,
+      postPosition: horse.postPosition,
+      distance: horse.distance,
+      driver: {
+        firstName: horse.driver.firstName,
+        lastName: horse.driver.lastName,
+        experience: horse.driver.experience,
+        winPercentage: horse.driver.winPercentage,
+        winPercentage2025: horse.driver.winPercentage2025
+      },
+      statistics: {
+        startPoints: horse.statistics.startPoints,
+        placePercentage: horse.statistics.placePercentage,
+        winPercentage: horse.statistics.winPercentage,
+        earningsPerStart: horse.statistics.earningsPerStart
+      },
+      shoes: {
+        front: horse.shoes.front,
+        back: horse.shoes.back
+      },
+      sulky: {
+        type: horse.sulky.type
+      },
+      homeTrack: horse.homeTrack
+    }))
+  };
+};
+
 export const useV75Analysis = () => {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -219,7 +314,7 @@ export const useV75Analysis = () => {
       setProgress(10);
       
       // Fetch detailed race data using the identified race IDs
-      const v75Races = await fetchV75RaceData(date);
+      let v75Races = await fetchV75RaceData(date);
       
       if (v75Races.length === 0) {
         const errorMsg = `Failed to fetch detailed race data for V75 game ${gameInfo.gameId}`;
@@ -233,7 +328,53 @@ export const useV75Analysis = () => {
       }
       
       console.log(`📊 Successfully fetched ${v75Races.length}/7 V75 races`);
-      setCurrentTask(`Successfully fetched ${v75Races.length} V75 races. Starting analysis...`);
+      setCurrentTask(`Successfully fetched ${v75Races.length} V75 races. Validating and fixing data...`);
+      setProgress(15);
+      
+      // NEW: Apply validation and fixing to each race
+      console.log(`\n🔧 === APPLYING DATA VALIDATION AND FIXES ===`);
+      const fixedV75Races: V75RaceData[] = [];
+      
+      for (let i = 0; i < v75Races.length; i++) {
+        const race = v75Races[i];
+        console.log(`\n--- 🔍 Validating race ${race.raceNumber} ---`);
+        
+        // Convert to EnhancedRaceData format for validation
+        const enhancedRace = convertV75ToEnhancedRaceData(race);
+        
+        // Validate the race data
+        const validation = validateRaceData(enhancedRace);
+        
+        if (!validation.isValid) {
+          console.log(`⚠️ Race ${race.raceNumber} has validation issues:`, validation.errors);
+          console.log(`🔧 Applying fixes for race ${race.raceNumber}...`);
+          
+          // Apply fixes
+          const fixedEnhancedRace = fixRaceDataIssues(enhancedRace);
+          
+          // Convert back to V75RaceData format
+          const fixedRace = convertEnhancedToV75RaceData(fixedEnhancedRace);
+          
+          console.log(`✅ Race ${race.raceNumber} fixed successfully`);
+          fixedV75Races.push(fixedRace);
+          
+          // Show toast notification about the fix
+          toast({
+            title: `Race ${race.raceNumber} Fixed`,
+            description: `Applied fixes for duplicate post positions`,
+            variant: "default",
+          });
+        } else {
+          console.log(`✅ Race ${race.raceNumber} validation passed - no fixes needed`);
+          fixedV75Races.push(race);
+        }
+      }
+      
+      // Use the fixed races for analysis
+      v75Races = fixedV75Races;
+      console.log(`🏁 Data validation complete: ${v75Races.length} races ready for analysis`);
+      
+      setCurrentTask(`Data validation complete. Starting analysis...`);
       setProgress(20);
       
       const results: V75RaceResult[] = [];
@@ -256,7 +397,7 @@ export const useV75Analysis = () => {
           // CRITICAL FIX: We only pass the horse name as a string, not an object
           const atgStarts = race.horses.map(horse => {
             const horseName = extractHorseNameAsString(horse.name);
-            console.log(`🐎 Processing horse: ${horseName} (ID: ${horse.horseId}) - Original name:`, JSON.stringify(horse.name));
+            console.log(`🐎 Processing horse: ${horseName} (ID: ${horse.horseId}) - Post Position: ${horse.postPosition}`);
             
             return {
               horse: { 
@@ -278,6 +419,7 @@ export const useV75Analysis = () => {
           console.log(`Race ID: ${race.raceId}`);
           console.log(`Track: ${safeRaceTrack}, Distance: ${race.distance}m`);
           console.log(`Horses to analyze: ${atgStarts.length}`);
+          console.log(`Post positions: ${atgStarts.map(s => s.postPosition).sort().join(', ')}`);
           
           // Calculate RAW KM times
           setCurrentTask(`Race ${race.raceNumber}: Calculating RAW KM times...`);
@@ -309,6 +451,7 @@ export const useV75Analysis = () => {
             console.log(`  - Horse name: "${safeHorseName}" (type: ${typeof safeHorseName})`);
             console.log(`  - Driver name: "${safeDriverName}" (type: ${typeof safeDriverName})`);
             console.log(`  - Home track: "${safeHorseTrack}" (type: ${typeof safeHorseTrack})`);
+            console.log(`  - Post position: ${horse.postPosition}`);
             
             // Validate that ALL critical string fields are actually strings
             if (typeof safeHorseName !== 'string') {
@@ -389,7 +532,8 @@ export const useV75Analysis = () => {
               track: horseResult.track,
               trackType: typeof horseResult.track,
               homeTrack: horseResult.homeTrack,
-              homeTrackType: typeof horseResult.homeTrack
+              homeTrackType: typeof horseResult.homeTrack,
+              postPosition: horseResult.postPosition
             });
             
             horseResults.push(horseResult);
@@ -441,10 +585,11 @@ export const useV75Analysis = () => {
       console.log(`📊 Successfully analyzed: ${successfulRaces}/${results.length} races`);
       console.log(`🐎 Total horses analyzed: ${totalHorses}`);
       console.log(`🎯 Game ID: ${gameInfo.gameId}`);
+      console.log(`🔧 Data validation and fixes applied to all races`);
       
       toast({
         title: "V75 Analysis Complete",
-        description: `Successfully analyzed ${successfulRaces} of ${results.length} races with ${totalHorses} horses for ${date}`,
+        description: `Successfully analyzed ${successfulRaces} of ${results.length} races with ${totalHorses} horses for ${date}. Data validation applied.`,
       });
       
     } catch (err) {
