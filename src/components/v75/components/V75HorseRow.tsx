@@ -4,7 +4,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Medal, Banknote, Zap, Ruler } from "lucide-react";
 import { V75HorseResult } from '../hooks/useV75Analysis';
-import { ensureStringForDisplay, formatKmTime, formatAdjustment, formatEarnings, getShoesDisplay, getShoesColor } from '../utils/v75DisplayUtils';
+import { ensureStringForDisplay, formatKmTime, formatAdjustment, formatEarnings, getShoesDisplay, getShoesColor, getSulkyDisplay } from '../utils/v75DisplayUtils';
 
 interface V75HorseRowProps {
   horse: V75HorseResult;
@@ -24,6 +24,16 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
     Safe horseName: "${safeHorseName}" (${typeof safeHorseName})
     Original driverName: ${JSON.stringify(horse.driverName)} (${typeof horse.driverName})
     Safe driverName: "${safeDriverName}" (${typeof safeDriverName})`);
+  
+  // Enhanced shoes and sulky debugging
+  console.log(`👟🛷 V75HorseRow - Equipment data for horse ${horse.horseId}:`, {
+    shoesFront: horse.shoesFront,
+    shoesBack: horse.shoesBack,
+    shoesFrontType: typeof horse.shoesFront,
+    shoesBackType: typeof horse.shoesBack,
+    sulkyType: horse.sulkyType,
+    sulkyTypeType: typeof horse.sulkyType
+  });
   
   // Additional validation
   if (typeof safeHorseName !== 'string') {
@@ -123,7 +133,7 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
       
       <TableCell className="text-center">
         <Badge variant="outline" className="text-xs border-gray-300">
-          {horse.sulkyType || 'VA'}
+          {getSulkyDisplay(horse.sulkyType)}
         </Badge>
       </TableCell>
       

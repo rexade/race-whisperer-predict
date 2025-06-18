@@ -1,4 +1,3 @@
-
 export interface V75CalendarDate {
   date: string; // YYYY-MM-DD format
   eventName: string;
@@ -35,7 +34,7 @@ export interface V75RaceData {
   prize: number;
   horses: Array<{
     horseId: number;
-    name: string;
+    name: any; // Keep as any for now due to API inconsistency
     postPosition: number;
     distance: number;
     driver: {
@@ -58,8 +57,36 @@ export interface V75RaceData {
     sulky: {
       type: string;
     };
-    homeTrack: string;
+    homeTrack: any; // Keep as any for now due to API inconsistency
   }>;
+}
+
+export interface V75HorseData {
+  horseId: number;
+  name: any; // Keep as any for now due to API inconsistency
+  postPosition: number;
+  distance: number;
+  driver: {
+    firstName: string;
+    lastName: string;
+    experience: number;
+    winPercentage: number;
+    winPercentage2025: number;
+  };
+  statistics: {
+    startPoints: number;
+    placePercentage: number;
+    winPercentage: number;
+    earningsPerStart: number;
+  };
+  shoes: {
+    front: boolean;
+    back: boolean;
+  };
+  sulky: {
+    type: string;
+  };
+  homeTrack: any; // Keep as any for now due to API inconsistency
 }
 
 /**
@@ -246,33 +273,7 @@ export const fetchV75RaceData = async (date: string): Promise<V75RaceData[]> => 
           });
           
           // Enhanced data validation and extraction
-          const horseData = {
-            horseId: start.horse?.id || 0,
-            name: start.horse?.name || 'Unknown Horse',
-            postPosition: start.postPosition || 0,
-            distance: start.distance || raceData.distance || 0,
-            driver: {
-              firstName: start.driver?.firstName || '',
-              lastName: start.driver?.lastName || '',
-              experience: driverStats.experience || 0,
-              winPercentage: driverStats.winPercentage || 0,
-              winPercentage2025: driver2025Stats.winPercentage || 0,
-            },
-            statistics: {
-              startPoints: horseLifeStats.startPoints || 0,
-              placePercentage: horseLifeStats.placePercentage || 0,
-              winPercentage: horseLifeStats.winPercentage || 0,
-              earningsPerStart: earningsPerStart,
-            },
-            shoes: {
-              front: start.horse?.shoes?.front || false,
-              back: start.horse?.shoes?.back || false,
-            },
-            sulky: {
-              type: start.sulky?.type || 'VA',
-            },
-            homeTrack: start.horse?.homeTrack || 'Unknown'
-          };
+          const horseData = extractHorseData(start);
           
           console.log(`✅ Final processed horse data for ${start.horse?.name}:`, {
             horseId: horseData.horseId,
@@ -372,4 +373,78 @@ export const fetchV75CalendarDates = async (year: number, month: number): Promis
     console.error('Error fetching V75 calendar:', error);
     return [];
   }
+};
+
+const extractHorseData = (horse: any): V75HorseData => {
+  console.log('🐎 V75CalendarApi - Extracting horse data:', JSON.stringify(horse, null, 2));
+  
+  // Enhanced shoes extraction with better debugging
+  const shoesData = horse.shoes || {};
+  console.log('👟 V75CalendarApi - Raw shoes data:', JSON.stringify(shoesData, null, 2));
+  
+  // Extract shoes information - ATG API uses different formats
+  let frontShoes = false;
+  let backShoes = false;
+  
+  if (shoesData.front !== undefined) {
+    frontShoes = Boolean(shoesData.front);
+  } else if (shoesData.frontShoes !== undefined) {
+    frontShoes = Boolean(shoesData.frontShoes);
+  } else if (shoesData.frontShoe !== undefined) {
+    frontShoes = Boolean(shoesData.frontShoe);
+  }
+  
+  if (shoesData.back !== undefined) {
+    backShoes = Boolean(shoesData.back);
+  } else if (shoesData.backShoes !== undefined) {
+    backShoes = Boolean(shoesData.backShoes);
+  } else if (shoesData.backShoe !== undefined) {
+    backShoes = Boolean(shoesData.backShoe);
+  }
+  
+  console.log('👟 V75CalendarApi - Processed shoes:', { frontShoes, backShoes });
+  
+  // Enhanced sulky extraction
+  const sulkyData = horse.sulky || horse.equipment?.sulky || {};
+  console.log('🛷 V75CalendarApi - Raw sulky data:', JSON.stringify(sulkyData, null, 2));
+  
+  let sulkyType = 'VA'; // Default to Vanlig (normal)
+  
+  if (sulkyData.type) {
+    sulkyType = String(sulkyData.type);
+  } else if (sulkyData.sulkyType) {
+    sulkyType = String(sulkyData.sulkyType);
+  } else if (sulkyData.category) {
+    sulkyType = String(sulkyData.category);
+  }
+  
+  console.log('🛷 V75CalendarApi - Processed sulky type:', sulkyType);
+  
+  return {
+    horseId: horse.id || horse.horseId,
+    name: horse.name,
+    postPosition: horse.number || horse.postPosition,
+    distance: horse.distance || 0,
+    driver: {
+      firstName: horse.driver?.firstName || '',
+      lastName: horse.driver?.lastName || '',
+      experience: horse.driver?.experience || 0,
+      winPercentage: horse.driver?.statistics?.winPercentage || 0,
+      winPercentage2025: horse.driver?.statistics?.winPercentage2025 || 0,
+    },
+    statistics: {
+      startPoints: horse.statistics?.startPoints || 500,
+      placePercentage: horse.statistics?.placePercentage || 5000,
+      winPercentage: horse.statistics?.winPercentage || 1500,
+      earningsPerStart: horse.statistics?.earningsPerStart || 300000,
+    },
+    shoes: {
+      front: frontShoes,
+      back: backShoes,
+    },
+    sulky: {
+      type: sulkyType,
+    },
+    homeTrack: horse.homeTrack || horse.track
+  };
 };

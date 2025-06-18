@@ -45,20 +45,26 @@ export const formatEarnings = (earnings: number) => {
 };
 
 export const getShoesDisplay = (frontHasShoe: boolean, backHasShoe: boolean) => {
-  console.log('👟 getShoesDisplay - Input:', { frontHasShoe, backHasShoe });
+  console.log('👟 getShoesDisplay - Input:', { frontHasShoe, backHasShoe, frontType: typeof frontHasShoe, backType: typeof backHasShoe });
+  
+  // Convert to boolean to handle any edge cases
+  const frontShoe = Boolean(frontHasShoe);
+  const backShoe = Boolean(backHasShoe);
+  
+  console.log('👟 getShoesDisplay - Converted:', { frontShoe, backShoe });
   
   // If both front and back have no shoes (are barefoot)
-  if (!frontHasShoe && !backHasShoe) {
+  if (!frontShoe && !backShoe) {
     console.log('👟 All Barefoot');
     return "All Barefoot";
   }
   // If only front has no shoes
-  if (!frontHasShoe && backHasShoe) {
+  if (!frontShoe && backShoe) {
     console.log('👟 Front Barefoot');
     return "Front Barefoot";
   }
   // If only back has no shoes  
-  if (frontHasShoe && !backHasShoe) {
+  if (frontShoe && !backShoe) {
     console.log('👟 Back Barefoot');
     return "Back Barefoot";
   }
@@ -68,7 +74,36 @@ export const getShoesDisplay = (frontHasShoe: boolean, backHasShoe: boolean) => 
 };
 
 export const getShoesColor = (frontHasShoe: boolean, backHasShoe: boolean) => {
+  // Convert to boolean to handle any edge cases
+  const frontShoe = Boolean(frontHasShoe);
+  const backShoe = Boolean(backHasShoe);
+  
   // If any barefoot, show orange
-  if (!frontHasShoe || !backHasShoe) return "text-orange-600 font-medium";
+  if (!frontShoe || !backShoe) return "text-orange-600 font-medium";
   return "text-gray-600";
+};
+
+export const getSulkyDisplay = (sulkyType: string | undefined) => {
+  console.log('🛷 getSulkyDisplay - Input:', { sulkyType, type: typeof sulkyType });
+  
+  if (!sulkyType || typeof sulkyType !== 'string') {
+    console.log('🛷 Defaulting to VA');
+    return 'VA';
+  }
+  
+  const type = sulkyType.toUpperCase();
+  console.log('🛷 Processed sulky type:', type);
+  
+  // Common sulky type mappings
+  switch (type) {
+    case 'AMERICAN':
+    case 'AM':
+      return 'AM';
+    case 'VANLIG':
+    case 'VA':
+    case 'NORMAL':
+      return 'VA';
+    default:
+      return type.substring(0, 2); // Take first 2 characters
+  }
 };
