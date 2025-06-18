@@ -1,6 +1,7 @@
 
 import { V75HorseResult } from '../types/raceResultTypes';
 import { ExtractedHorseData } from './horseDataExtractor';
+import { RaceAnalysisCache } from '../../../services/v75Cache/raceAnalysisCache';
 
 export const buildHorseResult = (
   horse: any,
@@ -54,4 +55,41 @@ export const buildHorseResult = (
   });
 
   return horseResult;
+};
+
+/**
+ * Store race analysis data for post-race comparison
+ */
+export const storeRaceAnalysisData = async (
+  race: any,
+  horses: V75HorseResult[],
+  analysisDate: string
+): Promise<void> => {
+  try {
+    const analysisHorses = horses.map(horse => ({
+      horseId: horse.horseId,
+      horseName: horse.horseName,
+      postPosition: horse.postPosition,
+      finalScore: horse.modernNormalizedResult?.adjustments?.total || 0,
+      rank: 0, // Will be set after sorting
+      predictedTime: horse.modernNormalizedResult?.modernNormalizedTime
+    }));
+
+    // Sort by final score to determine ranks
+    analysisHorses.sort((a, b) => b.finalScore - a.finalScore);
+    analysisHorses.forEach((horse, index) => {
+      horse.rank = index + 1;
+    });
+
+    await RaceAnalysisCache.storeRaceAnalysis(
+      race.raceId,
+      race.raceNumber,
+      analysisDate,
+      analysisHorses
+    );
+
+    console.log(`📊 Stored analysis data for race ${race.raceNumber} with time predictions`);
+  } catch (error) {
+    console.error('❌ Error storing race analysis data:', error);
+  }
 };

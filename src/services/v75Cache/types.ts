@@ -1,4 +1,3 @@
-
 export interface CachedRawTime {
   horseId: number;
   postPosition: number;
@@ -30,6 +29,11 @@ export interface RaceAnalysisData {
     postPosition: number;
     finalScore: number;
     rank: number;
+    predictedTime?: {
+      minutes: number;
+      seconds: number;
+      tenths: number;
+    };
   }>;
 }
 

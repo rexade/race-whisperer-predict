@@ -6,13 +6,14 @@ import { V75HorseResult } from '../types/raceResultTypes';
 import { extractTrackNameAsString } from './dataExtraction';
 import { extractAndValidateHorseData } from './horseDataExtractor';
 import { applyHorseNormalization } from './horseNormalizationProcessor';
-import { buildHorseResult } from './horseResultBuilder';
+import { buildHorseResult, storeRaceAnalysisData } from './horseResultBuilder';
 
-export const processHorseResults = (
+export const processHorseResults = async (
   race: V75RaceData,
   rawKmTimes: Array<{ horseId: number; best3Average?: KmTime }>,
-  weights: NormalizationWeights
-): V75HorseResult[] => {
+  weights: NormalizationWeights,
+  analysisDate?: string
+): Promise<V75HorseResult[]> => {
   const safeRaceTrack = extractTrackNameAsString(race.track);
   const horseResults: V75HorseResult[] = [];
 
@@ -46,6 +47,11 @@ export const processHorseResults = (
     );
 
     horseResults.push(horseResult);
+  }
+
+  // Store race analysis data for post-race comparison if analysis date is provided
+  if (analysisDate) {
+    await storeRaceAnalysisData(race, horseResults, analysisDate);
   }
 
   return horseResults;

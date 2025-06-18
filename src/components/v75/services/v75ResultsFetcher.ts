@@ -1,6 +1,7 @@
 
 import { V75ActualResult } from '../types/postRaceAnalysisTypes';
 import { formatKmTime } from '../utils/postRaceUtils';
+import { parseActualTime, findBestTime } from '../utils/timeAnalysisUtils';
 
 export class V75ResultsFetcher {
   static async fetchActualResults(date: string): Promise<V75ActualResult[]> {
@@ -177,7 +178,7 @@ export class V75ResultsFetcher {
     const finishOrder = resultsArray
       .map((item: any) => {
         // Handle different result formats
-        let position, horseId, horseName, postPosition, time, driver;
+        let position, horseId, horseName, postPosition, time, kmTime, driver;
         
         if (item.result) {
           // Format: starts with embedded result
@@ -186,6 +187,7 @@ export class V75ResultsFetcher {
           horseName = item.horse?.name || 'Unknown';
           postPosition = item.number || item.postPosition || 0;
           time = item.result.kmTime ? formatKmTime(item.result.kmTime) : 'N/A';
+          kmTime = item.result.kmTime || null;
           driver = item.driver ? 
             `${item.driver.firstName || ''} ${item.driver.lastName || ''}`.trim() : 
             'Unknown Driver';
@@ -196,12 +198,13 @@ export class V75ResultsFetcher {
           horseName = item.horse?.name || item.horseName || 'Unknown';
           postPosition = item.postPosition || item.number || 0;
           time = item.kmTime ? formatKmTime(item.kmTime) : (item.time || 'N/A');
+          kmTime = item.kmTime || parseActualTime(item.time || '');
           driver = item.driver ? 
             `${item.driver.firstName || ''} ${item.driver.lastName || ''}`.trim() : 
             'Unknown Driver';
         }
         
-        return { position, horseId, horseName, postPosition, time, driver };
+        return { position, horseId, horseName, postPosition, time, kmTime, driver };
       })
       .filter((result: any) => result.position && result.position > 0)
       .sort((a: any, b: any) => a.position - b.position);
@@ -210,6 +213,13 @@ export class V75ResultsFetcher {
       console.warn(`❌ No valid finish positions found for race ${raceId} from ${resultsSource}`);
       return null;
     }
+
+    // Find the best time in the race
+    const timesWithKmTime = finishOrder
+      .filter((result: any) => result.kmTime)
+      .map((result: any) => ({ horseId: result.horseId, time: result.kmTime }));
+    
+    const bestTimeResult = findBestTime(timesWithKmTime);
     
     const actualResult: V75ActualResult = {
       raceId: raceId,
@@ -218,10 +228,11 @@ export class V75ResultsFetcher {
       raceTime: raceResults.raceTime || raceInfo.startTime || 'N/A',
       weather: raceResults.weather || raceInfo.weather,
       track: raceInfo.track?.name || 'Unknown',
-      distance: raceInfo.distance || 0
+      distance: raceInfo.distance || 0,
+      bestTime: bestTimeResult?.time
     };
     
-    console.log(`✅ Successfully processed race ${raceId} with ${finishOrder.length} horses (source: ${resultsSource})`);
+    console.log(`✅ Successfully processed race ${raceId} with ${finishOrder.length} horses and best time analysis (source: ${resultsSource})`);
     return actualResult;
   }
 }

@@ -15,6 +15,11 @@ export class RaceAnalysisCache {
       postPosition: number;
       finalScore: number;
       rank: number;
+      predictedTime?: {
+        minutes: number;
+        seconds: number;
+        tenths: number;
+      };
     }>
   ): Promise<void> {
     try {
@@ -30,7 +35,7 @@ export class RaceAnalysisCache {
       
       localStorage.setItem(key, JSON.stringify(analysisData));
       
-      console.log(`💾 Stored race analysis for race ${raceNumber} (${raceId})`);
+      console.log(`💾 Stored race analysis for race ${raceNumber} (${raceId}) with ${horses.length} horses`);
       
     } catch (error) {
       console.error('❌ Error storing race analysis:', error);
