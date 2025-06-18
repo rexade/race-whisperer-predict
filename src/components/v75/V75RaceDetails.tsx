@@ -97,20 +97,31 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
   };
 
   const getShoesDisplay = (frontHasShoe: boolean, backHasShoe: boolean) => {
-    const frontBarefoot = !frontHasShoe;
-    const backBarefoot = !backHasShoe;
+    console.log('👟 getShoesDisplay - Input:', { frontHasShoe, backHasShoe });
     
-    if (frontBarefoot && backBarefoot) return "All Barefoot";
-    if (frontBarefoot) return "Front Barefoot";
-    if (backBarefoot) return "Back Barefoot";
+    // If both front and back have no shoes (are barefoot)
+    if (!frontHasShoe && !backHasShoe) {
+      console.log('👟 All Barefoot');
+      return "All Barefoot";
+    }
+    // If only front has no shoes
+    if (!frontHasShoe && backHasShoe) {
+      console.log('👟 Front Barefoot');
+      return "Front Barefoot";
+    }
+    // If only back has no shoes  
+    if (frontHasShoe && !backHasShoe) {
+      console.log('👟 Back Barefoot');
+      return "Back Barefoot";
+    }
+    // If both have shoes
+    console.log('👟 Shod');
     return "Shod";
   };
 
   const getShoesColor = (frontHasShoe: boolean, backHasShoe: boolean) => {
-    const frontBarefoot = !frontHasShoe;
-    const backBarefoot = !backHasShoe;
-    
-    if (frontBarefoot || backBarefoot) return "text-orange-600 font-medium";
+    // If any barefoot, show orange
+    if (!frontHasShoe || !backHasShoe) return "text-orange-600 font-medium";
     return "text-gray-600";
   };
 
@@ -261,6 +272,14 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                     driver2025WinPercentage: horse.driver2025WinPercentage,
                     hasValidEarnings: horse.statistics?.earningsPerStart > 0,
                     hasValidStartPoints: horse.statistics?.startPoints > 0
+                  });
+
+                  // FIXED: Debug and correctly pass shoe data
+                  console.log(`👟 SHOE DEBUG for ${safeHorseName}:`, {
+                    shoesFront: horse.shoesFront,
+                    shoesBack: horse.shoesBack,
+                    actualFrontValue: horse.shoesFront || false,
+                    actualBackValue: horse.shoesBack || false
                   });
                   
                   return (
