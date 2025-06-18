@@ -223,7 +223,7 @@ export const useV75PostRaceAnalysis = () => {
     
     if (typeof kmTime === 'string') return kmTime;
     
-    if (kmTime.minutes !== undefined && kmTime.seconds !== undefined) {
+    if (kmTime && typeof kmTime === 'object' && kmTime.minutes !== undefined && kmTime.seconds !== undefined) {
       const minutes = kmTime.minutes || 0;
       const seconds = kmTime.seconds || 0;
       const tenths = kmTime.tenths || 0;
