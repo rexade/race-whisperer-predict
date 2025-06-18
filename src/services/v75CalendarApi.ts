@@ -375,68 +375,122 @@ export const fetchV75CalendarDates = async (year: number, month: number): Promis
   }
 };
 
-const extractHorseData = (horse: any): V75HorseData => {
-  console.log('🐎 V75CalendarApi - Extracting horse data:', JSON.stringify(horse, null, 2));
+const extractHorseData = (start: any): V75HorseData => {
+  console.log('🐎 V75CalendarApi - Extracting horse data for horse:', start.horse?.name, 'ID:', start.horse?.id);
   
-  // Enhanced shoes extraction with better debugging
-  const shoesData = horse.shoes || {};
-  console.log('👟 V75CalendarApi - Raw shoes data:', JSON.stringify(shoesData, null, 2));
+  // FIXED: Enhanced shoes extraction with comprehensive API response handling
+  const shoesData = start.shoes || start.horse?.shoes || {};
+  console.log('👟 V75CalendarApi - Raw shoes data structure:', JSON.stringify(shoesData, null, 2));
   
-  // Extract shoes information - ATG API uses different formats
+  // Handle multiple possible shoes data formats from ATG API
   let frontShoes = false;
   let backShoes = false;
   
+  // Check various possible property paths for front shoes
   if (shoesData.front !== undefined) {
     frontShoes = Boolean(shoesData.front);
+    console.log('👟 Found front shoes in shoesData.front:', frontShoes);
   } else if (shoesData.frontShoes !== undefined) {
     frontShoes = Boolean(shoesData.frontShoes);
+    console.log('👟 Found front shoes in shoesData.frontShoes:', frontShoes);
   } else if (shoesData.frontShoe !== undefined) {
     frontShoes = Boolean(shoesData.frontShoe);
+    console.log('👟 Found front shoes in shoesData.frontShoe:', frontShoes);
+  } else if (shoesData.f !== undefined) {
+    frontShoes = Boolean(shoesData.f);
+    console.log('👟 Found front shoes in shoesData.f:', frontShoes);
+  } else {
+    console.log('👟 No front shoes data found, defaulting to false');
   }
   
+  // Check various possible property paths for back shoes
   if (shoesData.back !== undefined) {
     backShoes = Boolean(shoesData.back);
+    console.log('👟 Found back shoes in shoesData.back:', backShoes);
   } else if (shoesData.backShoes !== undefined) {
     backShoes = Boolean(shoesData.backShoes);
+    console.log('👟 Found back shoes in shoesData.backShoes:', backShoes);
   } else if (shoesData.backShoe !== undefined) {
     backShoes = Boolean(shoesData.backShoe);
+    console.log('👟 Found back shoes in shoesData.backShoe:', backShoes);
+  } else if (shoesData.b !== undefined) {
+    backShoes = Boolean(shoesData.b);
+    console.log('👟 Found back shoes in shoesData.b:', backShoes);
+  } else {
+    console.log('👟 No back shoes data found, defaulting to false');
   }
   
-  console.log('👟 V75CalendarApi - Processed shoes:', { frontShoes, backShoes });
+  console.log('👟 V75CalendarApi - FINAL shoes processing result:', { frontShoes, backShoes });
   
-  // Enhanced sulky extraction
-  const sulkyData = horse.sulky || horse.equipment?.sulky || {};
-  console.log('🛷 V75CalendarApi - Raw sulky data:', JSON.stringify(sulkyData, null, 2));
+  // FIXED: Enhanced sulky extraction with comprehensive API response handling
+  const sulkyData = start.sulky || start.horse?.sulky || start.equipment?.sulky || {};
+  console.log('🛷 V75CalendarApi - Raw sulky data structure:', JSON.stringify(sulkyData, null, 2));
   
   let sulkyType = 'VA'; // Default to Vanlig (normal)
   
-  if (sulkyData.type) {
+  // Check various possible property paths for sulky type
+  if (sulkyData.type && typeof sulkyData.type === 'string') {
     sulkyType = String(sulkyData.type);
-  } else if (sulkyData.sulkyType) {
+    console.log('🛷 Found sulky type in sulkyData.type:', sulkyType);
+  } else if (sulkyData.sulkyType && typeof sulkyData.sulkyType === 'string') {
     sulkyType = String(sulkyData.sulkyType);
-  } else if (sulkyData.category) {
+    console.log('🛷 Found sulky type in sulkyData.sulkyType:', sulkyType);
+  } else if (sulkyData.category && typeof sulkyData.category === 'string') {
     sulkyType = String(sulkyData.category);
+    console.log('🛷 Found sulky type in sulkyData.category:', sulkyType);
+  } else if (sulkyData.name && typeof sulkyData.name === 'string') {
+    sulkyType = String(sulkyData.name);
+    console.log('🛷 Found sulky type in sulkyData.name:', sulkyType);
+  } else {
+    console.log('🛷 No sulky type found, using default VA');
   }
   
-  console.log('🛷 V75CalendarApi - Processed sulky type:', sulkyType);
+  console.log('🛷 V75CalendarApi - FINAL sulky processing result:', sulkyType);
   
-  return {
-    horseId: horse.id || horse.horseId,
-    name: horse.name,
-    postPosition: horse.number || horse.postPosition,
-    distance: horse.distance || 0,
+  // Enhanced driver statistics extraction
+  const driverStats = start.driver?.statistics || {};
+  const driver2025Stats = start.driver?.statistics?.years?.['2025'] || {};
+  
+  console.log('👨‍💼 Driver stats extraction:', {
+    driverStats,
+    driver2025Stats,
+    winPercentage: driverStats.winPercentage,
+    winPercentage2025: driver2025Stats.winPercentage
+  });
+  
+  // Enhanced horse statistics extraction
+  const horseLifeStats = start.horse?.statistics?.life || {};
+  const totalEarnings = horseLifeStats.earnings || horseLifeStats.totalEarnings || 0;
+  const totalStarts = horseLifeStats.starts || horseLifeStats.totalStarts || 0;
+  const earningsPerStart = calculateEarningsPerStart(totalEarnings, totalStarts);
+  
+  console.log('🐎 Horse stats extraction:', {
+    horseLifeStats,
+    totalEarnings,
+    totalStarts,
+    earningsPerStart,
+    startPoints: horseLifeStats.startPoints,
+    placePercentage: horseLifeStats.placePercentage,
+    winPercentage: horseLifeStats.winPercentage
+  });
+  
+  const extractedData: V75HorseData = {
+    horseId: start.horse?.id || start.horse?.horseId || 0,
+    name: start.horse?.name || 'Unknown Horse',
+    postPosition: start.number || start.postPosition || 0,
+    distance: start.distance || 0,
     driver: {
-      firstName: horse.driver?.firstName || '',
-      lastName: horse.driver?.lastName || '',
-      experience: horse.driver?.experience || 0,
-      winPercentage: horse.driver?.statistics?.winPercentage || 0,
-      winPercentage2025: horse.driver?.statistics?.winPercentage2025 || 0,
+      firstName: start.driver?.firstName || '',
+      lastName: start.driver?.lastName || '',
+      experience: driverStats.experience || 0,
+      winPercentage: driverStats.winPercentage || 0,
+      winPercentage2025: driver2025Stats.winPercentage || 0,
     },
     statistics: {
-      startPoints: horse.statistics?.startPoints || 500,
-      placePercentage: horse.statistics?.placePercentage || 5000,
-      winPercentage: horse.statistics?.winPercentage || 1500,
-      earningsPerStart: horse.statistics?.earningsPerStart || 300000,
+      startPoints: horseLifeStats.startPoints || 500,
+      placePercentage: horseLifeStats.placePercentage || 5000,
+      winPercentage: horseLifeStats.winPercentage || 1500,
+      earningsPerStart: earningsPerStart || 300000,
     },
     shoes: {
       front: frontShoes,
@@ -445,6 +499,17 @@ const extractHorseData = (horse: any): V75HorseData => {
     sulky: {
       type: sulkyType,
     },
-    homeTrack: horse.homeTrack || horse.track
+    homeTrack: start.horse?.homeTrack || start.horse?.track || 'Unknown'
   };
+  
+  console.log('✅ V75CalendarApi - Final extracted horse data:', {
+    horseId: extractedData.horseId,
+    name: extractedData.name,
+    shoesFront: extractedData.shoes.front,
+    shoesBack: extractedData.shoes.back,
+    sulkyType: extractedData.sulky.type,
+    earningsPerStart: extractedData.statistics.earningsPerStart
+  });
+  
+  return extractedData;
 };

@@ -45,38 +45,43 @@ export const formatEarnings = (earnings: number) => {
 };
 
 export const getShoesDisplay = (frontHasShoe: boolean, backHasShoe: boolean) => {
-  console.log('👟 getShoesDisplay - Input:', { frontHasShoe, backHasShoe, frontType: typeof frontHasShoe, backType: typeof backHasShoe });
+  console.log('👟 getShoesDisplay - Input:', { 
+    frontHasShoe, 
+    backHasShoe, 
+    frontType: typeof frontHasShoe, 
+    backType: typeof backHasShoe 
+  });
   
-  // Convert to boolean to handle any edge cases
-  const frontShoe = Boolean(frontHasShoe);
-  const backShoe = Boolean(backHasShoe);
+  // Enhanced validation and conversion to handle edge cases
+  const frontShoe = frontHasShoe === true || frontHasShoe === 1 || frontHasShoe === "1" || frontHasShoe === "true";
+  const backShoe = backHasShoe === true || backHasShoe === 1 || backHasShoe === "1" || backHasShoe === "true";
   
-  console.log('👟 getShoesDisplay - Converted:', { frontShoe, backShoe });
+  console.log('👟 getShoesDisplay - Processed values:', { frontShoe, backShoe });
   
   // If both front and back have no shoes (are barefoot)
   if (!frontShoe && !backShoe) {
-    console.log('👟 All Barefoot');
+    console.log('👟 Result: All Barefoot');
     return "All Barefoot";
   }
   // If only front has no shoes
   if (!frontShoe && backShoe) {
-    console.log('👟 Front Barefoot');
+    console.log('👟 Result: Front Barefoot');
     return "Front Barefoot";
   }
   // If only back has no shoes  
   if (frontShoe && !backShoe) {
-    console.log('👟 Back Barefoot');
+    console.log('👟 Result: Back Barefoot');
     return "Back Barefoot";
   }
   // If both have shoes
-  console.log('👟 Shod');
+  console.log('👟 Result: Shod');
   return "Shod";
 };
 
 export const getShoesColor = (frontHasShoe: boolean, backHasShoe: boolean) => {
-  // Convert to boolean to handle any edge cases
-  const frontShoe = Boolean(frontHasShoe);
-  const backShoe = Boolean(backHasShoe);
+  // Enhanced validation and conversion to handle edge cases
+  const frontShoe = frontHasShoe === true || frontHasShoe === 1 || frontHasShoe === "1" || frontHasShoe === "true";
+  const backShoe = backHasShoe === true || backHasShoe === 1 || backHasShoe === "1" || backHasShoe === "true";
   
   // If any barefoot, show orange
   if (!frontShoe || !backShoe) return "text-orange-600 font-medium";
@@ -87,23 +92,35 @@ export const getSulkyDisplay = (sulkyType: string | undefined) => {
   console.log('🛷 getSulkyDisplay - Input:', { sulkyType, type: typeof sulkyType });
   
   if (!sulkyType || typeof sulkyType !== 'string') {
-    console.log('🛷 Defaulting to VA');
+    console.log('🛷 No valid sulky type, defaulting to VA');
     return 'VA';
   }
   
-  const type = sulkyType.toUpperCase();
+  const type = sulkyType.toUpperCase().trim();
   console.log('🛷 Processed sulky type:', type);
   
-  // Common sulky type mappings
+  // Enhanced sulky type mappings with more comprehensive coverage
   switch (type) {
     case 'AMERICAN':
     case 'AM':
+    case 'A':
+      console.log('🛷 Mapped to: AM');
       return 'AM';
     case 'VANLIG':
     case 'VA':
+    case 'V':
     case 'NORMAL':
+    case 'REGULAR':
+      console.log('🛷 Mapped to: VA');
       return 'VA';
+    case 'BIKE':
+    case 'B':
+      console.log('🛷 Mapped to: B');
+      return 'B';
     default:
-      return type.substring(0, 2); // Take first 2 characters
+      // Take first 2 characters for unknown types
+      const result = type.substring(0, 2);
+      console.log('🛷 Unknown type, using first 2 chars:', result);
+      return result || 'VA';
   }
 };

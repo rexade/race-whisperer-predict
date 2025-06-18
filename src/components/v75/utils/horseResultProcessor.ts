@@ -31,19 +31,22 @@ export const processHorseResults = (
     console.log(`  - Driver name: "${safeDriverName}" (type: ${typeof safeDriverName})`);
     console.log(`  - Home track: "${safeHorseTrack}" (type: ${typeof safeHorseTrack})`);
     
-    // Enhanced shoes and sulky logging
-    console.log(`👟 Horse ${horse.horseId} shoes data:`, {
+    // ENHANCED shoes and sulky logging and validation
+    console.log(`👟 Horse ${horse.horseId} ENHANCED shoes data validation:`, {
       shoesObject: horse.shoes,
       frontShoes: horse.shoes?.front,
       backShoes: horse.shoes?.back,
       frontType: typeof horse.shoes?.front,
-      backType: typeof horse.shoes?.back
+      backType: typeof horse.shoes?.back,
+      frontBoolean: Boolean(horse.shoes?.front),
+      backBoolean: Boolean(horse.shoes?.back)
     });
     
-    console.log(`🛷 Horse ${horse.horseId} sulky data:`, {
+    console.log(`🛷 Horse ${horse.horseId} ENHANCED sulky data validation:`, {
       sulkyObject: horse.sulky,
       sulkyType: horse.sulky?.type,
-      sulkyTypeType: typeof horse.sulky?.type
+      sulkyTypeType: typeof horse.sulky?.type,
+      sulkyTypeString: String(horse.sulky?.type || 'VA')
     });
 
     // Validate that ALL critical string fields are actually strings
@@ -65,13 +68,24 @@ export const processHorseResults = (
     let modernNormalizedResult;
 
     if (rawKmTime) {
-      // Enhanced shoes handling for normalization
-      const frontShoesStr = horse.shoes?.front ? "1" : "0";
-      const backShoesStr = horse.shoes?.back ? "1" : "0";
+      // ENHANCED shoes handling for normalization with proper boolean conversion
+      const frontShoesBoolean = Boolean(horse.shoes?.front);
+      const backShoesBoolean = Boolean(horse.shoes?.back);
+      const frontShoesStr = frontShoesBoolean ? "1" : "0";
+      const backShoesStr = backShoesBoolean ? "1" : "0";
       
       console.log(`🛡️ Normalization shoes input for horse ${horse.horseId}:`, {
+        frontShoesBoolean,
+        backShoesBoolean,
         frontShoesStr,
         backShoesStr
+      });
+
+      // ENHANCED sulky handling with proper string conversion
+      const sulkyTypeString = String(horse.sulky?.type || "VA");
+      console.log(`🛡️ Normalization sulky input for horse ${horse.horseId}:`, {
+        originalSulkyType: horse.sulky?.type,
+        sulkyTypeString
       });
 
       const factors: ModernNormalizationFactors = {
@@ -81,7 +95,7 @@ export const processHorseResults = (
         startMethod: race.startMethod,
         shoesFront: frontShoesStr,
         shoesBack: backShoesStr,
-        sulkyType: horse.sulky?.type || "VA",
+        sulkyType: sulkyTypeString,
         homeTrack: safeHorseTrack,
         driverExperience: horse.driver.experience,
         driverWinPercentage: horse.driver.winPercentage,
@@ -117,9 +131,9 @@ export const processHorseResults = (
         earningsPerStart: horse.statistics.earningsPerStart,
       },
       driver2025WinPercentage: horse.driver.winPercentage2025,
-      sulkyType: horse.sulky?.type || "VA",
-      shoesFront: horse.shoes?.front || false,
-      shoesBack: horse.shoes?.back || false,
+      sulkyType: String(horse.sulky?.type || "VA"),
+      shoesFront: Boolean(horse.shoes?.front),
+      shoesBack: Boolean(horse.shoes?.back),
       homeTrack: safeHorseTrack
     };
 
@@ -134,8 +148,11 @@ export const processHorseResults = (
       homeTrack: horseResult.homeTrack,
       homeTrackType: typeof horseResult.homeTrack,
       shoesFront: horseResult.shoesFront,
+      shoesFrontType: typeof horseResult.shoesFront,
       shoesBack: horseResult.shoesBack,
-      sulkyType: horseResult.sulkyType
+      shoesBackType: typeof horseResult.shoesBack,
+      sulkyType: horseResult.sulkyType,
+      sulkyTypeType: typeof horseResult.sulkyType
     });
 
     horseResults.push(horseResult);
