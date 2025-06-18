@@ -56,13 +56,26 @@ export const useV75Cache = () => {
     
     console.log(`📈 RAW KM times calculated for ${rawKmTimes.length} horses`);
     
+    // Convert HorseRawKmTime[] to the format expected by cache service
+    // We need to match horses with their post positions from the race data
+    const rawTimesForCache = rawKmTimes.map(rawTime => {
+      // Find the corresponding horse in the race to get postPosition
+      const horseInRace = race.horses.find((horse: any) => horse.horseId === rawTime.horseId);
+      
+      return {
+        horseId: rawTime.horseId,
+        postPosition: horseInRace?.postPosition || 1, // fallback to 1 if not found
+        best3Average: rawTime.best3Average
+      };
+    });
+    
     // Cache the raw times for future use
     await V75CacheService.storeRawTimes(
       date,
       gameInfo.gameId,
       race.raceId,
       race.raceNumber,
-      rawKmTimes
+      rawTimesForCache
     );
     
     console.log(`💾 Raw times cached for race ${race.raceNumber}`);

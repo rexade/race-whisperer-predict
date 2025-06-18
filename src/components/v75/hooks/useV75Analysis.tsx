@@ -6,9 +6,11 @@ import { NormalizationWeights } from '../../../services/modernKm/index';
 import { useV75DataValidation } from './useV75DataValidation';
 import { useV75Progress } from './useV75Progress';
 import { useV75Cache } from './useV75Cache';
-import { useV75ResultsProcessor, V75HorseResult, V75RaceResult } from './useV75ResultsProcessor';
+import { useV75ResultsProcessor } from './useV75ResultsProcessor';
+import type { V75HorseResult, V75RaceResult } from './useV75ResultsProcessor';
 
-export { V75HorseResult, V75RaceResult };
+// Re-export types using 'export type'
+export type { V75HorseResult, V75RaceResult };
 
 export const useV75Analysis = () => {
   const [analysisDate, setAnalysisDate] = useState<string>("");
