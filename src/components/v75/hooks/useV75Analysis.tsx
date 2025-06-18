@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { fetchV75RaceData, fetchV75GameInfo, V75RaceData } from '../../../services/v75CalendarApi';
@@ -182,13 +181,14 @@ const extractTrackNameAsString = (track: any): string => {
 // Convert V75RaceData to EnhancedRaceData format for validation
 const convertV75ToEnhancedRaceData = (v75Race: V75RaceData): EnhancedRaceData => {
   console.log(`🔄 Converting V75 race ${v75Race.raceNumber} to EnhancedRaceData format for validation`);
+  console.log(`  Race has ${v75Race.horses.length} horses with positions: ${v75Race.horses.map(h => h.postPosition).sort((a,b) => a-b).join(', ')}`);
   
   const enhancedHorses: EnhancedHorseData[] = v75Race.horses.map(horse => ({
     horseId: horse.horseId,
     name: extractHorseNameAsString(horse.name),
     postPosition: horse.postPosition,
     distance: horse.distance,
-    startMethod: v75Race.startMethod, // Add missing startMethod property
+    startMethod: v75Race.startMethod,
     driver: {
       firstName: horse.driver.firstName,
       lastName: horse.driver.lastName,
@@ -217,7 +217,7 @@ const convertV75ToEnhancedRaceData = (v75Race: V75RaceData): EnhancedRaceData =>
     raceNumber: v75Race.raceNumber,
     distance: v75Race.distance,
     startMethod: v75Race.startMethod,
-    track: extractTrackNameAsString(v75Race.track), // Fix: should be string, not object
+    track: extractTrackNameAsString(v75Race.track),
     name: v75Race.name,
     date: v75Race.date,
     prize: v75Race.prize,
@@ -226,7 +226,6 @@ const convertV75ToEnhancedRaceData = (v75Race: V75RaceData): EnhancedRaceData =>
       hasValidPostPositions: true,
       duplicatePositions: [],
       missingData: []
-      // Remove validationApplied property as it doesn't exist in the type
     }
   };
 };
@@ -234,13 +233,14 @@ const convertV75ToEnhancedRaceData = (v75Race: V75RaceData): EnhancedRaceData =>
 // Convert EnhancedRaceData back to V75RaceData format after validation
 const convertEnhancedToV75RaceData = (enhancedRace: EnhancedRaceData): V75RaceData => {
   console.log(`🔄 Converting enhanced race ${enhancedRace.raceNumber} back to V75RaceData format`);
+  console.log(`  Fixed race has ${enhancedRace.horses.length} horses with positions: ${enhancedRace.horses.map(h => h.postPosition).sort((a,b) => a-b).join(', ')}`);
   
   return {
     raceId: enhancedRace.raceId,
     raceNumber: enhancedRace.raceNumber,
     distance: enhancedRace.distance,
     startMethod: enhancedRace.startMethod,
-    track: enhancedRace.track, // Fix: already a string, no need to access .name
+    track: enhancedRace.track,
     name: enhancedRace.name,
     date: enhancedRace.date,
     prize: enhancedRace.prize,
@@ -334,47 +334,51 @@ export const useV75Analysis = () => {
       setProgress(15);
       
       // NEW: Apply validation and fixing to each race
-      console.log(`\n🔧 === APPLYING DATA VALIDATION AND FIXES ===`);
+      console.log(`\n🔧 === APPLYING ENHANCED DATA VALIDATION (SCRATCH-AWARE) ===`);
       const fixedV75Races: V75RaceData[] = [];
       
       for (let i = 0; i < v75Races.length; i++) {
         const race = v75Races[i];
-        console.log(`\n--- 🔍 Validating race ${race.raceNumber} ---`);
+        console.log(`\n--- 🔍 Validating race ${race.raceNumber} (${race.horses.length} horses) ---`);
         
         // Convert to EnhancedRaceData format for validation
         const enhancedRace = convertV75ToEnhancedRaceData(race);
         
-        // Validate the race data
+        // Validate the race data with scratch-aware logic
         const validation = validateRaceData(enhancedRace);
         
         if (!validation.isValid) {
           console.log(`⚠️ Race ${race.raceNumber} has validation issues:`, validation.errors);
-          console.log(`🔧 Applying fixes for race ${race.raceNumber}...`);
+          console.log(`🔧 Applying fixes for race ${race.raceNumber} (preserving scratches)...`);
           
-          // Apply fixes
+          // Apply fixes that distinguish between scratches and real errors
           const fixedEnhancedRace = fixRaceDataIssues(enhancedRace);
           
           // Convert back to V75RaceData format
           const fixedRace = convertEnhancedToV75RaceData(fixedEnhancedRace);
           
-          console.log(`✅ Race ${race.raceNumber} fixed successfully`);
+          console.log(`✅ Race ${race.raceNumber} fixed successfully - scratches preserved`);
           fixedV75Races.push(fixedRace);
           
           // Show toast notification about the fix
           toast({
-            title: `Race ${race.raceNumber} Fixed`,
-            description: `Applied fixes for duplicate post positions`,
+            title: `Race ${race.raceNumber} Data Fixed`,
+            description: `Applied fixes for duplicate positions while preserving scratched horses`,
             variant: "default",
           });
         } else {
-          console.log(`✅ Race ${race.raceNumber} validation passed - no fixes needed`);
+          console.log(`✅ Race ${race.raceNumber} validation passed - ${validation.warnings.length > 0 ? 'with scratches noted' : 'no issues'}`);
+          if (validation.warnings.length > 0) {
+            console.log(`ℹ️ Race ${race.raceNumber} warnings:`, validation.warnings);
+          }
           fixedV75Races.push(race);
         }
       }
       
       // Use the fixed races for analysis
       v75Races = fixedV75Races;
-      console.log(`🏁 Data validation complete: ${v75Races.length} races ready for analysis`);
+      console.log(`🏁 Enhanced data validation complete: ${v75Races.length} races ready for analysis`);
+      console.log(`📊 Total horses across all races: ${v75Races.reduce((sum, r) => sum + r.horses.length, 0)}`);
       
       setCurrentTask(`Data validation complete. Starting analysis...`);
       setProgress(20);

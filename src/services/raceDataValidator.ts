@@ -1,4 +1,3 @@
-
 import { EnhancedRaceData, EnhancedHorseData } from './enhancedAtgApi';
 
 export interface ValidationResult {
@@ -14,6 +13,81 @@ export interface DataFix {
   horsesAffected: number[];
 }
 
+export interface ScratchAnalysis {
+  likelyScratches: number[]; // Post positions that appear to be scratched
+  actualDuplicates: number[]; // Post positions with genuine duplicates
+  maxPosition: number;
+  expectedHorses: number;
+  actualHorses: number;
+}
+
+const analyzeScratchesAndDuplicates = (horses: EnhancedHorseData[]): ScratchAnalysis => {
+  console.log(`\n🔍 === ANALYZING SCRATCHES AND DUPLICATES ===`);
+  
+  // Group horses by post position
+  const postPositionMap = new Map<number, EnhancedHorseData[]>();
+  horses.forEach(horse => {
+    const pos = horse.postPosition;
+    if (!postPositionMap.has(pos)) {
+      postPositionMap.set(pos, []);
+    }
+    postPositionMap.get(pos)!.push(horse);
+  });
+
+  // Find actual duplicates (multiple horses at same position)
+  const actualDuplicates: number[] = [];
+  postPositionMap.forEach((horsesAtPosition, position) => {
+    if (horsesAtPosition.length > 1) {
+      actualDuplicates.push(position);
+      console.log(`🚨 ACTUAL DUPLICATE at position ${position}: ${horsesAtPosition.map(h => h.name).join(', ')}`);
+    }
+  });
+
+  const positions = horses.map(h => h.postPosition).sort((a, b) => a - b);
+  const maxPosition = Math.max(...positions);
+  const minPosition = Math.min(...positions);
+  const actualHorses = horses.length;
+
+  // Determine likely scratches based on gaps in sequence
+  const likelyScratches: number[] = [];
+  
+  // If we have no actual duplicates but gaps in sequence, those are likely scratches
+  if (actualDuplicates.length === 0) {
+    const allPositionsInRange = Array.from({length: maxPosition - minPosition + 1}, (_, i) => minPosition + i);
+    const missingPositions = allPositionsInRange.filter(pos => !positions.includes(pos));
+    
+    // Only consider positions as scratches if they create a reasonable gap pattern
+    missingPositions.forEach(pos => {
+      // A position is likely scratched if it's between other valid positions
+      const hasLowerPosition = positions.some(p => p < pos);
+      const hasHigherPosition = positions.some(p => p > pos);
+      
+      if (hasLowerPosition && hasHigherPosition) {
+        likelyScratches.push(pos);
+        console.log(`🐎❌ Position ${pos} appears to be SCRATCHED (gap in sequence)`);
+      }
+    });
+  }
+
+  const analysis: ScratchAnalysis = {
+    likelyScratches,
+    actualDuplicates,
+    maxPosition,
+    expectedHorses: maxPosition, // In a perfect world, this would equal the number of horses
+    actualHorses
+  };
+
+  console.log(`📊 SCRATCH ANALYSIS RESULT:`, {
+    actualHorses: analysis.actualHorses,
+    maxPosition: analysis.maxPosition,
+    likelyScratches: analysis.likelyScratches,
+    actualDuplicates: analysis.actualDuplicates,
+    scratchCount: analysis.likelyScratches.length
+  });
+
+  return analysis;
+};
+
 export const validateRaceData = (raceData: EnhancedRaceData): ValidationResult => {
   const result: ValidationResult = {
     isValid: true,
@@ -23,48 +97,47 @@ export const validateRaceData = (raceData: EnhancedRaceData): ValidationResult =
   };
 
   console.log(`\n=== Validating race data for ${raceData.raceId} ===`);
+  console.log(`Race has ${raceData.horses.length} horses`);
 
-  // Check for duplicate post positions
-  const postPositionMap = new Map<number, EnhancedHorseData[]>();
-  
-  raceData.horses.forEach(horse => {
-    const pos = horse.postPosition;
-    if (!postPositionMap.has(pos)) {
-      postPositionMap.set(pos, []);
-    }
-    postPositionMap.get(pos)!.push(horse);
-  });
+  // Analyze scratches and duplicates
+  const scratchAnalysis = analyzeScratchesAndDuplicates(raceData.horses);
 
-  // Detect duplicates
-  const duplicates: number[] = [];
-  postPositionMap.forEach((horses, position) => {
-    if (horses.length > 1) {
-      duplicates.push(position);
-      result.isValid = false;
-      result.errors.push(`Duplicate post position ${position}: ${horses.map(h => h.name).join(', ')}`);
+  // Handle actual duplicate positions (this is a real error)
+  if (scratchAnalysis.actualDuplicates.length > 0) {
+    result.isValid = false;
+    
+    scratchAnalysis.actualDuplicates.forEach(position => {
+      const horsesAtPosition = raceData.horses.filter(h => h.postPosition === position);
+      result.errors.push(`Duplicate post position ${position}: ${horsesAtPosition.map(h => h.name).join(', ')}`);
       
       result.fixes.push({
         type: 'duplicate_position',
-        description: `Reassign post positions for horses at position ${position}`,
-        horsesAffected: horses.map(h => h.horseId)
+        description: `Reassign post positions for horses with duplicate position ${position}`,
+        horsesAffected: horsesAtPosition.map(h => h.horseId)
       });
-    }
-  });
-
-  // Check for missing sequential positions
-  const positions = raceData.horses.map(h => h.postPosition).sort((a, b) => a - b);
-  const expectedSequence = Array.from({length: raceData.horses.length}, (_, i) => i + 1);
-  
-  const missingPositions = expectedSequence.filter(pos => !positions.includes(pos));
-  if (missingPositions.length > 0) {
-    result.warnings.push(`Missing post positions: ${missingPositions.join(', ')}`);
+    });
   }
 
-  // Check for gaps in sequence
-  const maxPosition = Math.max(...positions);
-  if (maxPosition > raceData.horses.length) {
-    result.warnings.push(`Post position sequence has gaps (max: ${maxPosition}, horses: ${raceData.horses.length})`);
+  // Handle likely scratches (this is normal, just informational)
+  if (scratchAnalysis.likelyScratches.length > 0) {
+    result.warnings.push(
+      `Detected ${scratchAnalysis.likelyScratches.length} likely scratched horses at positions: ${scratchAnalysis.likelyScratches.join(', ')}`
+    );
+    console.log(`ℹ️ This is normal - horses can be scratched before race start`);
   }
+
+  // Check for unusual position patterns that might indicate data issues
+  const maxGap = scratchAnalysis.maxPosition - scratchAnalysis.actualHorses;
+  if (maxGap > 5 && scratchAnalysis.actualDuplicates.length === 0) {
+    result.warnings.push(
+      `Large gap in post positions (max: ${scratchAnalysis.maxPosition}, horses: ${scratchAnalysis.actualHorses}). ` +
+      `This might indicate ${maxGap} scratched horses or data issues.`
+    );
+  }
+
+  // Update data quality in the race data
+  raceData.dataQuality.hasValidPostPositions = scratchAnalysis.actualDuplicates.length === 0;
+  raceData.dataQuality.duplicatePositions = scratchAnalysis.actualDuplicates;
 
   console.log(`Validation result: ${result.isValid ? 'VALID' : 'INVALID'}`);
   if (result.errors.length > 0) {
@@ -90,24 +163,39 @@ export const fixRaceDataIssues = (raceData: EnhancedRaceData): EnhancedRaceData 
   // Create a copy to avoid mutating original data
   const fixedData = JSON.parse(JSON.stringify(raceData)) as EnhancedRaceData;
   
-  // Fix duplicate post positions by reassigning based on start number
+  // Only fix actual duplicate positions, NOT scratched horses
   const duplicateFixes = validation.fixes.filter(fix => fix.type === 'duplicate_position');
   
   if (duplicateFixes.length > 0) {
-    console.log('🔧 Fixing duplicate post positions...');
+    console.log('🔧 Fixing ACTUAL duplicate post positions (not scratches)...');
     
-    // Reassign post positions based on start number (index + 1)
-    fixedData.horses.forEach((horse, index) => {
-      const newPostPosition = index + 1;
-      if (horse.postPosition !== newPostPosition) {
-        console.log(`  Reassigning ${horse.name}: ${horse.postPosition} → ${newPostPosition}`);
-        horse.postPosition = newPostPosition;
+    const scratchAnalysis = analyzeScratchesAndDuplicates(fixedData.horses);
+    
+    // For each duplicate position, reassign one of the horses to an available position
+    scratchAnalysis.actualDuplicates.forEach(duplicatePosition => {
+      const horsesAtPosition = fixedData.horses.filter(h => h.postPosition === duplicatePosition);
+      console.log(`🔧 Fixing duplicate at position ${duplicatePosition} with ${horsesAtPosition.length} horses`);
+      
+      // Keep the first horse at the original position, move others
+      for (let i = 1; i < horsesAtPosition.length; i++) {
+        const horseToMove = horsesAtPosition[i];
+        
+        // Find the next available position
+        let newPosition = duplicatePosition + 1;
+        while (fixedData.horses.some(h => h.postPosition === newPosition)) {
+          newPosition++;
+        }
+        
+        console.log(`  Moving ${horseToMove.name}: ${duplicatePosition} → ${newPosition}`);
+        horseToMove.postPosition = newPosition;
       }
     });
     
     // Update data quality
     fixedData.dataQuality.hasValidPostPositions = true;
     fixedData.dataQuality.duplicatePositions = [];
+    
+    console.log('✅ Fixed duplicate positions while preserving scratch gaps');
   }
   
   const finalValidation = validateRaceData(fixedData);
