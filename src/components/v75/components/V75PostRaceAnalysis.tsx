@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarArrowDown, TrendingUp, TrendingDown, CheckCircle, AlertCircle, ArrowLeft } from "lucide-react";
+import { CalendarArrowDown, TrendingUp, TrendingDown, CheckCircle, AlertCircle, ArrowLeft, Target, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -41,6 +42,18 @@ const V75PostRaceAnalysis: React.FC = () => {
     if (accuracy >= 0.7) return "bg-green-100 text-green-800";
     if (accuracy >= 0.5) return "bg-yellow-100 text-yellow-800";
     return "bg-red-100 text-red-800";
+  };
+
+  const getMAEColor = (mae: number) => {
+    if (mae <= 1.5) return "text-green-600";
+    if (mae <= 3) return "text-yellow-600";
+    return "text-red-600";
+  };
+
+  const getTimeMAEColor = (timeMAE: number) => {
+    if (timeMAE <= 2) return "text-green-600";
+    if (timeMAE <= 5) return "text-yellow-600";
+    return "text-red-600";
   };
 
   const isNoPredictionsError = error.includes("No V75 predictions found");
@@ -167,10 +180,10 @@ const V75PostRaceAnalysis: React.FC = () => {
                 <TabsTrigger value="insights">Insights</TabsTrigger>
               </TabsList>
               
-              {/* Overview Tab */}
+              {/* Enhanced Overview Tab */}
               <TabsContent value="overview" className="space-y-6">
-                {/* Overall Performance */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* Overall Performance - Enhanced with MAE metrics */}
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
                   <Card>
                     <CardContent className="pt-6">
                       <div className="text-2xl font-bold">
@@ -191,24 +204,42 @@ const V75PostRaceAnalysis: React.FC = () => {
                   
                   <Card>
                     <CardContent className="pt-6">
-                      <div className="text-2xl font-bold text-green-600">
-                        {Math.round(analysis.overallPerformance.bestRaceAccuracy * 100)}%
+                      <div className={`text-2xl font-bold ${getMAEColor(analysis.overallPerformance.overallMAE)}`}>
+                        {analysis.overallPerformance.overallMAE.toFixed(1)}
                       </div>
-                      <p className="text-xs text-muted-foreground">Best Race</p>
+                      <p className="text-xs text-muted-foreground">Overall MAE</p>
                     </CardContent>
                   </Card>
-                  
+
                   <Card>
                     <CardContent className="pt-6">
-                      <div className="text-2xl font-bold text-red-600">
-                        {Math.round(analysis.overallPerformance.worstRaceAccuracy * 100)}%
+                      <div className={`text-2xl font-bold ${analysis.overallPerformance.overallTimeMAE ? getTimeMAEColor(analysis.overallPerformance.overallTimeMAE) : 'text-gray-400'}`}>
+                        {analysis.overallPerformance.overallTimeMAE ? `${analysis.overallPerformance.overallTimeMAE.toFixed(1)}s` : 'N/A'}
                       </div>
-                      <p className="text-xs text-muted-foreground">Worst Race</p>
+                      <p className="text-xs text-muted-foreground">Overall Time MAE</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-2xl font-bold text-green-600">
+                        {analysis.overallPerformance.bestTimesPredicted}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Best Times Predicted</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="text-2xl font-bold text-purple-600">
+                        {Math.round((analysis.overallPerformance.bestTimesPredicted / analysis.overallPerformance.totalRaces) * 100)}%
+                      </div>
+                      <p className="text-xs text-muted-foreground">Best Time Success</p>
                     </CardContent>
                   </Card>
                 </div>
 
-                {/* Race Summary Grid */}
+                {/* Enhanced Race Summary Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {analysis.races.map(race => {
                     const accuracy = race.overallAccuracy.topPicksCorrect / race.overallAccuracy.topPicksTotal;
@@ -226,8 +257,11 @@ const V75PostRaceAnalysis: React.FC = () => {
                           <div className="space-y-1 text-sm text-muted-foreground">
                             <p>Distance: {race.distance}m</p>
                             <p>Top picks correct: {race.overallAccuracy.topPicksCorrect}/{race.overallAccuracy.topPicksTotal}</p>
-                            <p>Perfect predictions: {race.overallAccuracy.perfectPredictions}</p>
-                            <p>Avg rank diff: {Math.round(race.overallAccuracy.averageRankDifference * 10) / 10}</p>
+                            <p>MAE: <span className={getMAEColor(race.overallAccuracy.meanAbsoluteError)}>{race.overallAccuracy.meanAbsoluteError.toFixed(1)}</span></p>
+                            {race.overallAccuracy.timeMAE && (
+                              <p>Time MAE: <span className={getTimeMAEColor(race.overallAccuracy.timeMAE)}>{race.overallAccuracy.timeMAE.toFixed(1)}s</span></p>
+                            )}
+                            <p>Best time: {race.overallAccuracy.bestTimeAccuracy?.correctBestPrediction ? '✅' : '❌'}</p>
                           </div>
                         </CardContent>
                       </Card>
@@ -236,20 +270,50 @@ const V75PostRaceAnalysis: React.FC = () => {
                 </div>
               </TabsContent>
 
-              {/* Race Details Tab */}
+              {/* Enhanced Race Details Tab */}
               <TabsContent value="races" className="space-y-6">
                 {analysis.races.map(race => (
                   <Card key={race.raceId}>
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
                         <span>Race {race.raceNumber} - {race.distance}m</span>
-                        <Badge className={getAccuracyBadge(race.overallAccuracy.topPicksCorrect / race.overallAccuracy.topPicksTotal)}>
-                          {Math.round((race.overallAccuracy.topPicksCorrect / race.overallAccuracy.topPicksTotal) * 100)}% Accuracy
-                        </Badge>
+                        <div className="flex gap-2">
+                          <Badge className={getAccuracyBadge(race.overallAccuracy.topPicksCorrect / race.overallAccuracy.topPicksTotal)}>
+                            {Math.round((race.overallAccuracy.topPicksCorrect / race.overallAccuracy.topPicksTotal) * 100)}% Accuracy
+                          </Badge>
+                          <Badge variant="outline" className="flex items-center gap-1">
+                            <Target className="h-3 w-3" />
+                            MAE: {race.overallAccuracy.meanAbsoluteError.toFixed(1)}
+                          </Badge>
+                          {race.overallAccuracy.timeMAE && (
+                            <Badge variant="outline" className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Time MAE: {race.overallAccuracy.timeMAE.toFixed(1)}s
+                            </Badge>
+                          )}
+                        </div>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      {/* Race Results Table */}
+                      {/* Best Time Prediction Display */}
+                      {race.overallAccuracy.bestTimeAccuracy && (
+                        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Clock className="h-4 w-4" />
+                            <span className="font-semibold">Best Time Prediction</span>
+                          </div>
+                          <div className="text-sm space-y-1">
+                            <p>Predicted fastest: <span className="font-medium">{race.overallAccuracy.bestTimeAccuracy.predictedBest}</span></p>
+                            <p>Actual fastest: <span className="font-medium">{race.overallAccuracy.bestTimeAccuracy.actualBest}</span></p>
+                            <p>Correct prediction: {race.overallAccuracy.bestTimeAccuracy.correctBestPrediction ? 
+                              <span className="text-green-600 font-medium">✅ Yes</span> : 
+                              <span className="text-red-600 font-medium">❌ No</span>
+                            }</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Enhanced Race Results Table */}
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
@@ -259,8 +323,10 @@ const V75PostRaceAnalysis: React.FC = () => {
                               <th className="text-left p-2">Post</th>
                               <th className="text-left p-2">Predicted</th>
                               <th className="text-left p-2">Difference</th>
+                              <th className="text-left p-2">Predicted Time</th>
+                              <th className="text-left p-2">Actual Time</th>
+                              <th className="text-left p-2">Time Diff</th>
                               <th className="text-left p-2">Status</th>
-                              <th className="text-left p-2">Time</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -276,6 +342,23 @@ const V75PostRaceAnalysis: React.FC = () => {
                                   Math.abs(horse.rankDifference) <= 2 ? 'text-yellow-600' : 'text-red-600'}`}>
                                   {horse.rankDifference > 0 ? '+' : ''}{horse.rankDifference}
                                 </td>
+                                <td className="p-2 text-xs">
+                                  {horse.predictedTime ? 
+                                    `${horse.predictedTime.minutes}:${horse.predictedTime.seconds.toString().padStart(2, '0')}.${horse.predictedTime.tenths}` : 
+                                    'N/A'
+                                  }
+                                </td>
+                                <td className="p-2 text-xs">
+                                  {horse.actualTime ? 
+                                    `${horse.actualTime.minutes}:${horse.actualTime.seconds.toString().padStart(2, '0')}.${horse.actualTime.tenths}` : 
+                                    'N/A'
+                                  }
+                                </td>
+                                <td className={`p-2 text-xs ${horse.timeDifference !== undefined ? 
+                                  (horse.timeDifference <= 2 ? 'text-green-600' : 
+                                   horse.timeDifference <= 5 ? 'text-yellow-600' : 'text-red-600') : ''}`}>
+                                  {horse.timeDifference !== undefined ? `${horse.timeDifference.toFixed(1)}s` : 'N/A'}
+                                </td>
                                 <td className="p-2">
                                   <div className="flex gap-1">
                                     {horse.wasTopPick && (
@@ -289,9 +372,6 @@ const V75PostRaceAnalysis: React.FC = () => {
                                     )}
                                   </div>
                                 </td>
-                                <td className="p-2 text-xs text-muted-foreground">
-                                  {race.actualResults.finishOrder.find(f => f.horseId === horse.horseId)?.time || 'N/A'}
-                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -302,60 +382,158 @@ const V75PostRaceAnalysis: React.FC = () => {
                 ))}
               </TabsContent>
 
-              {/* Insights Tab */}
+              {/* Enhanced Insights Tab */}
               <TabsContent value="insights" className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* MAE Analysis */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Target className="h-5 w-5" />
+                        Position Prediction Analysis (MAE)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        {analysis.races.map(race => (
+                          <div key={race.raceId} className="flex justify-between items-center text-sm">
+                            <span>Race {race.raceNumber}:</span>
+                            <span className={getMAEColor(race.overallAccuracy.meanAbsoluteError)}>
+                              {race.overallAccuracy.meanAbsoluteError.toFixed(1)} positions
+                            </span>
+                          </div>
+                        ))}
+                        <div className="border-t pt-2 mt-2">
+                          <div className="flex justify-between items-center text-sm font-semibold">
+                            <span>Overall MAE:</span>
+                            <span className={getMAEColor(analysis.overallPerformance.overallMAE)}>
+                              {analysis.overallPerformance.overallMAE.toFixed(1)} positions
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Time Prediction Performance */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Clock className="h-5 w-5" />
+                        Time Prediction Performance
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        {analysis.races.map(race => (
+                          <div key={race.raceId} className="flex justify-between items-center text-sm">
+                            <span>Race {race.raceNumber}:</span>
+                            <span className={race.overallAccuracy.timeMAE ? getTimeMAEColor(race.overallAccuracy.timeMAE) : 'text-gray-400'}>
+                              {race.overallAccuracy.timeMAE ? `${race.overallAccuracy.timeMAE.toFixed(1)}s` : 'N/A'}
+                            </span>
+                          </div>
+                        ))}
+                        <div className="border-t pt-2 mt-2">
+                          <div className="flex justify-between items-center text-sm font-semibold">
+                            <span>Overall Time MAE:</span>
+                            <span className={analysis.overallPerformance.overallTimeMAE ? getTimeMAEColor(analysis.overallPerformance.overallTimeMAE) : 'text-gray-400'}>
+                              {analysis.overallPerformance.overallTimeMAE ? `${analysis.overallPerformance.overallTimeMAE.toFixed(1)}s` : 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Best Time Prediction Success Rate */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Best Time Prediction Success</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        {analysis.races.map(race => (
+                          <div key={race.raceId} className="flex justify-between items-center text-sm">
+                            <span>Race {race.raceNumber}:</span>
+                            <span className={race.overallAccuracy.bestTimeAccuracy?.correctBestPrediction ? 'text-green-600' : 'text-red-600'}>
+                              {race.overallAccuracy.bestTimeAccuracy?.correctBestPrediction ? '✅ Correct' : '❌ Incorrect'}
+                            </span>
+                          </div>
+                        ))}
+                        <div className="border-t pt-2 mt-2">
+                          <div className="flex justify-between items-center text-sm font-semibold">
+                            <span>Success Rate:</span>
+                            <span className="text-purple-600">
+                              {analysis.overallPerformance.bestTimesPredicted}/{analysis.overallPerformance.totalRaces} ({Math.round((analysis.overallPerformance.bestTimesPredicted / analysis.overallPerformance.totalRaces) * 100)}%)
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Top Picks Performance */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Top Picks Performance</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        {analysis.races.map(race => (
+                          <div key={race.raceId} className="flex justify-between items-center text-sm">
+                            <span>Race {race.raceNumber}:</span>
+                            <span className={getAccuracyColor(race.overallAccuracy.topPicksCorrect / race.overallAccuracy.topPicksTotal)}>
+                              {race.overallAccuracy.topPicksCorrect}/{race.overallAccuracy.topPicksTotal} correct
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Enhanced Recommendations */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Performance Insights</CardTitle>
+                    <CardTitle>Performance Insights & Recommendations</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Top Picks Performance */}
-                      <div>
-                        <h4 className="font-semibold mb-2">Top Picks Performance</h4>
-                        <div className="space-y-2">
-                          {analysis.races.map(race => (
-                            <div key={race.raceId} className="flex justify-between items-center text-sm">
-                              <span>Race {race.raceNumber}:</span>
-                              <span className={getAccuracyColor(race.overallAccuracy.topPicksCorrect / race.overallAccuracy.topPicksTotal)}>
-                                {race.overallAccuracy.topPicksCorrect}/{race.overallAccuracy.topPicksTotal} correct
-                              </span>
-                            </div>
-                          ))}
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="p-4 bg-blue-50 rounded-lg">
+                        <h4 className="font-semibold mb-2 text-blue-800">Overall Assessment</h4>
+                        <div className="text-sm text-blue-700 space-y-1">
+                          {analysis.overallPerformance.averageAccuracy >= 0.7 ? (
+                            <p>✅ Excellent prediction accuracy ({Math.round(analysis.overallPerformance.averageAccuracy * 100)}%)! Current weights are performing well.</p>
+                          ) : analysis.overallPerformance.averageAccuracy >= 0.5 ? (
+                            <p>⚠️ Moderate accuracy ({Math.round(analysis.overallPerformance.averageAccuracy * 100)}%). Consider adjusting normalization weights based on race patterns.</p>
+                          ) : (
+                            <p>❌ Low accuracy detected ({Math.round(analysis.overallPerformance.averageAccuracy * 100)}%). Review normalization algorithm and weight settings.</p>
+                          )}
+                          
+                          <p>📊 Position MAE: {analysis.overallPerformance.overallMAE.toFixed(1)} positions average error</p>
+                          {analysis.overallPerformance.overallTimeMAE && (
+                            <p>⏱️ Time MAE: {analysis.overallPerformance.overallTimeMAE.toFixed(1)} seconds average error</p>
+                          )}
+                          <p>🏆 Best time predictions: {analysis.overallPerformance.bestTimesPredicted}/{analysis.overallPerformance.totalRaces} races ({Math.round((analysis.overallPerformance.bestTimesPredicted / analysis.overallPerformance.totalRaces) * 100)}%)</p>
                         </div>
                       </div>
 
-                      {/* Rank Difference Analysis */}
-                      <div>
-                        <h4 className="font-semibold mb-2">Prediction Accuracy</h4>
-                        <div className="space-y-2">
-                          {analysis.races.map(race => (
-                            <div key={race.raceId} className="flex justify-between items-center text-sm">
-                              <span>Race {race.raceNumber}:</span>
-                              <span>
-                                Avg diff: {Math.round(race.overallAccuracy.averageRankDifference * 10) / 10}
-                              </span>
-                            </div>
-                          ))}
+                      <div className="p-4 bg-amber-50 rounded-lg">
+                        <h4 className="font-semibold mb-2 text-amber-800">Areas for Improvement</h4>
+                        <div className="text-sm text-amber-700 space-y-1">
+                          {analysis.overallPerformance.overallMAE > 3 && (
+                            <p>🎯 High position MAE suggests rank predictions need calibration</p>
+                          )}
+                          {analysis.overallPerformance.overallTimeMAE && analysis.overallPerformance.overallTimeMAE > 5 && (
+                            <p>⏱️ High time MAE indicates time normalization accuracy can be improved</p>
+                          )}
+                          {(analysis.overallPerformance.bestTimesPredicted / analysis.overallPerformance.totalRaces) < 0.3 && (
+                            <p>🏆 Low best time prediction rate - review speed factors and normalization</p>
+                          )}
+                          {analysis.races.some(r => r.overallAccuracy.averageRankDifference > 3) && (
+                            <p>🔍 High rank differences in some races suggest race-specific recalibration needed</p>
+                          )}
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Recommendations */}
-                    <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                      <h4 className="font-semibold mb-2 text-blue-800">Recommendations</h4>
-                      <div className="text-sm text-blue-700 space-y-1">
-                        {analysis.overallPerformance.averageAccuracy >= 0.7 ? (
-                          <p>✅ Excellent prediction accuracy! Current weights are performing well.</p>
-                        ) : analysis.overallPerformance.averageAccuracy >= 0.5 ? (
-                          <p>⚠️ Moderate accuracy. Consider adjusting normalization weights based on race patterns.</p>
-                        ) : (
-                          <p>❌ Low accuracy detected. Review normalization algorithm and weight settings.</p>
-                        )}
-                        
-                        {analysis.races.some(r => r.overallAccuracy.averageRankDifference > 3) && (
-                          <p>🔍 High rank differences in some races suggest recalibration needed.</p>
-                        )}
                       </div>
                     </div>
                   </CardContent>
