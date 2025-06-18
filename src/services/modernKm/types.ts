@@ -12,7 +12,7 @@ export interface ModernKmNormalizedResult {
     track: number;
     form: number;
     distance: number;
-    raceDistanceNormalization: number;
+    raceDistanceAdjustment: number;
     raceType: number;
     timeOfDay: number;
     startPoints: number;
@@ -53,7 +53,7 @@ export interface NormalizationWeights {
   trackFamiliarity: number;
   form: number;
   distanceAdjustment: number;
-  raceDistanceNormalization: number;
+  raceDistanceAdjustment: number;
   raceType: number;
   timeOfDay: number;
   startPoints: number;
@@ -71,7 +71,7 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   trackFamiliarity: 0.7,
   form: 1.2,
   distanceAdjustment: 1.0,
-  raceDistanceNormalization: 1.0,
+  raceDistanceAdjustment: 1.0,
   raceType: 0.9,
   timeOfDay: 0.5,
   startPoints: 0.8,

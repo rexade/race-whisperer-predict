@@ -13,31 +13,31 @@ export const calculateDistanceAdjustment = (horseDistance: number, raceDistance:
 };
 
 /**
- * Calculate race distance normalization to 2140m reference
- * This normalizes KM times based on the race distance compared to the standard 2140m reference
+ * Calculate race distance adjustment FROM 2140m reference TO actual race distance
+ * This adjusts normalized KM times (which are based on 2140m reference) to the actual race distance
  */
-export const calculateRaceDistanceNormalization = (raceDistance: number): number => {
+export const calculateRaceDistanceAdjustment = (raceDistance: number): number => {
   const referenceDistance = 2140; // Standard reference distance in meters
   
   if (raceDistance === referenceDistance) {
-    console.log(`Race distance normalization: ${raceDistance}m = reference distance → 0.000s`);
+    console.log(`Race distance adjustment: ${raceDistance}m = reference distance → 0.000s`);
     return 0;
   }
   
-  // Calculate the proportional adjustment
-  // Longer races should have proportionally faster KM times
-  // Shorter races should have proportionally slower KM times
+  // Calculate adjustment FROM 2140m reference TO actual race distance
+  // Longer races (>2140m): positive adjustment (slower KM times expected)
+  // Shorter races (<2140m): negative adjustment (faster KM times expected)
   const distanceRatio = raceDistance / referenceDistance;
   
-  // Base KM time adjustment: races longer than 2140m will have negative adjustment (faster KM times)
-  // races shorter than 2140m will have positive adjustment (slower KM times)
-  const baseAdjustment = (1 - distanceRatio) * 2.5; // 2.5 seconds per 100% distance difference
+  // Adjustment logic: races longer than 2140m get positive adjustment (slower expected KM times)
+  // races shorter than 2140m get negative adjustment (faster expected KM times)
+  const adjustment = (distanceRatio - 1) * 2.5; // 2.5 seconds per 100% distance difference
   
-  console.log(`Race distance normalization: ${raceDistance}m vs ${referenceDistance}m reference`);
+  console.log(`Race distance adjustment: FROM ${referenceDistance}m reference TO ${raceDistance}m actual`);
   console.log(`  - Distance ratio: ${distanceRatio.toFixed(3)}`);
-  console.log(`  - Base adjustment: ${baseAdjustment.toFixed(3)}s`);
+  console.log(`  - Adjustment: ${adjustment.toFixed(3)}s`);
   
-  return baseAdjustment;
+  return adjustment;
 };
 
 /**

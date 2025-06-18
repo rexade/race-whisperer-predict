@@ -17,7 +17,7 @@ import {
 } from './performanceCalculators';
 import {
   calculateDistanceAdjustment,
-  calculateRaceDistanceNormalization,
+  calculateRaceDistanceAdjustment,
   calculateRaceTypeAdjustment,
   calculateTimeOfDayAdjustment
 } from './adjustmentCalculators';
@@ -43,7 +43,7 @@ export const applyModernKmNormalization = (
     track: 0,
     form: 0,
     distance: 0,
-    raceDistanceNormalization: 0,
+    raceDistanceAdjustment: 0,
     raceType: 0,
     timeOfDay: 0,
     startPoints: 0,
@@ -53,23 +53,22 @@ export const applyModernKmNormalization = (
     total: 0
   };
 
-  // STEP 1: Apply race distance normalization to the raw KM time (normalize to 2140m reference)
-  const raceDistanceNormalizationAdjustment = calculateRaceDistanceNormalization(factors.raceDistance);
-  adjustments.raceDistanceNormalization = raceDistanceNormalizationAdjustment * weights.raceDistanceNormalization;
-  
-  let baseNormalizedTime = addSecondsToKmTime(cloneKmTime(rawKmTime), adjustments.raceDistanceNormalization);
-  console.log(`🎯 RACE DISTANCE NORMALIZED Time: ${baseNormalizedTime.minutes}:${baseNormalizedTime.seconds.toString().padStart(2, '0')}.${baseNormalizedTime.tenths}`);
-
-  // STEP 2: Apply volte start normalization (baseline correction)
+  // STEP 1: Apply volte start normalization (baseline correction)
   const startMethodLower = factors.startMethod.toLowerCase();
   const isVolteStart = startMethodLower.includes("volte") || startMethodLower === "v";
   
+  let baseTime = cloneKmTime(rawKmTime);
+  
   if (isVolteStart) {
-    baseNormalizedTime = addSecondsToKmTime(baseNormalizedTime, 1.0);
-    console.log(`🔥 VOLTE START DETECTED (${factors.startMethod}) - Added 1.0s penalty → ${baseNormalizedTime.minutes}:${baseNormalizedTime.seconds.toString().padStart(2, '0')}.${baseNormalizedTime.tenths}`);
+    baseTime = addSecondsToKmTime(baseTime, 1.0);
+    console.log(`🔥 VOLTE START DETECTED (${factors.startMethod}) - Added 1.0s penalty → ${baseTime.minutes}:${baseTime.seconds.toString().padStart(2, '0')}.${baseTime.tenths}`);
   } else {
     console.log(`Auto start detected (${factors.startMethod}) - No volte penalty applied`);
   }
+
+  // STEP 2: Calculate race distance adjustment (FROM 2140m reference TO actual race distance)
+  const raceDistanceAdjustmentValue = calculateRaceDistanceAdjustment(factors.raceDistance);
+  adjustments.raceDistanceAdjustment = raceDistanceAdjustmentValue * weights.raceDistanceAdjustment;
 
   // STEP 3: Calculate all other adjustment factors
   adjustments.postPosition = calculatePostPositionAdjustment(factors.postPosition, factors.startMethod) * weights.postPosition;
@@ -112,32 +111,29 @@ export const applyModernKmNormalization = (
   adjustments.horseWinPercentage = calculateHorseWinPercentageAdjustment(factors.horseWinPercentage) * weights.horseWinPercentage;
   adjustments.earningsPerStart = calculateEarningsPerStartAdjustment(factors.earningsPerStart) * weights.earningsPerStart;
 
-  // STEP 5: Calculate total adjustment (excluding race distance normalization which is already applied)
+  // STEP 5: Calculate total adjustment (all adjustments)
   adjustments.total = Object.entries(adjustments)
-    .filter(([key]) => key !== 'total' && key !== 'raceDistanceNormalization')
+    .filter(([key]) => key !== 'total')
     .reduce((sum, [, value]) => sum + value, 0);
 
-  // STEP 6: Apply remaining adjustments to the distance-normalized and volte-normalized time
-  const modernNormalizedKmTime = addSecondsToKmTime(baseNormalizedTime, adjustments.total);
+  // STEP 6: Apply all adjustments to the base time (volte-corrected)
+  const modernNormalizedKmTime = addSecondsToKmTime(baseTime, adjustments.total);
 
   console.log(`Enhanced KM Adjustments:`);
-  console.log(`  Race Distance Normalization (${factors.raceDistance}m): ${adjustments.raceDistanceNormalization.toFixed(3)}s (ALREADY APPLIED)`);
   console.log(`  Post Position (${factors.postPosition}): ${adjustments.postPosition.toFixed(3)}s`);
   console.log(`  Equipment: ${adjustments.equipment.toFixed(3)}s`);
   console.log(`  Driver: ${adjustments.driver.toFixed(3)}s`);
   console.log(`  Driver 2025: ${adjustments.driver2025.toFixed(3)}s`);
   console.log(`  Distance: ${adjustments.distance.toFixed(3)}s`);
+  console.log(`  Race Distance Adjustment (${factors.raceDistance}m): ${adjustments.raceDistanceAdjustment.toFixed(3)}s`);
   console.log(`  Race Type: ${adjustments.raceType.toFixed(3)}s`);
   console.log(`  Time of Day: ${adjustments.timeOfDay.toFixed(3)}s`);
   console.log(`  Start Points: ${adjustments.startPoints.toFixed(3)}s`);
   console.log(`  Place %: ${adjustments.placePercentage.toFixed(3)}s`);
   console.log(`  Horse Win %: ${adjustments.horseWinPercentage.toFixed(3)}s`);
   console.log(`  Earnings/Start: ${adjustments.earningsPerStart.toFixed(3)}s`);
-  console.log(`  REMAINING TOTAL: ${adjustments.total.toFixed(3)}s`);
+  console.log(`  TOTAL: ${adjustments.total.toFixed(3)}s`);
   console.log(`Enhanced Modern Normalized KM Time: ${modernNormalizedKmTime.minutes}:${modernNormalizedKmTime.seconds.toString().padStart(2, '0')}.${modernNormalizedKmTime.tenths}`);
-
-  // Update total to include all adjustments for reporting
-  adjustments.total = adjustments.total + adjustments.raceDistanceNormalization;
 
   return {
     rawTime: cloneKmTime(rawKmTime),
