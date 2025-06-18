@@ -5,6 +5,7 @@ import { V75PostRaceAnalysis } from '../types/postRaceAnalysisTypes';
 import { V75ResultsFetcher } from '../services/v75ResultsFetcher';
 import { V75PredictionComparator } from '../services/v75PredictionComparator';
 import { validateDateFormat, checkDateNotInFuture } from '../utils/postRaceUtils';
+import { V75CacheService } from '../../../services/v75CacheService';
 
 export const useV75PostRaceAnalysis = () => {
   const [loading, setLoading] = useState(false);
@@ -23,7 +24,17 @@ export const useV75PostRaceAnalysis = () => {
       validateDateFormat(date);
       checkDateNotInFuture(date);
       
-      // Step 2: Fetch actual race results
+      // Step 2: Check if predictions exist for this date
+      console.log(`🔍 Checking for cached predictions for ${date}...`);
+      const cachedGameIds = await V75CacheService.getCachedGameIds();
+      const dateGameId = `v75-${date}`;
+      
+      if (!cachedGameIds.includes(dateGameId)) {
+        const errorMsg = `No V75 predictions found for ${date}. You must first analyze this date using the V75 Analyzer to create predictions, then return here to compare them with actual results.`;
+        throw new Error(errorMsg);
+      }
+      
+      // Step 3: Fetch actual race results
       console.log(`📊 Fetching actual results for ${date}...`);
       const actualResults = await V75ResultsFetcher.fetchActualResults(date);
       
@@ -33,7 +44,7 @@ export const useV75PostRaceAnalysis = () => {
       
       console.log(`✅ Found ${actualResults.length} completed races`);
       
-      // Step 3: Compare with predictions
+      // Step 4: Compare with predictions
       console.log(`🔍 Comparing with cached predictions...`);
       const postRaceAnalysis = await V75PredictionComparator.compareWithPredictions(date, actualResults);
       
