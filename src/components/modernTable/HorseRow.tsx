@@ -69,12 +69,9 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
     return adjustedEarnings.toFixed(0);
   };
 
-  const isBarefootFront = (hasShoe: boolean) => !hasShoe;
-  const isBarefootBack = (hasShoe: boolean) => !hasShoe;
-
   const getShoesDisplay = (frontHasShoe: boolean, backHasShoe: boolean) => {
-    const frontBarefoot = isBarefootFront(frontHasShoe);
-    const backBarefoot = isBarefootBack(backHasShoe);
+    const frontBarefoot = !frontHasShoe;
+    const backBarefoot = !backHasShoe;
     
     if (frontBarefoot && backBarefoot) return "All Barefoot";
     if (frontBarefoot) return "Front Barefoot";
@@ -83,8 +80,8 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
   };
 
   const getShoesColor = (frontHasShoe: boolean, backHasShoe: boolean) => {
-    const frontBarefoot = isBarefootFront(frontHasShoe);
-    const backBarefoot = isBarefootBack(backHasShoe);
+    const frontBarefoot = !frontHasShoe;
+    const backBarefoot = !backHasShoe;
     
     if (frontBarefoot || backBarefoot) return "text-orange-600 font-medium";
     return "text-gray-600";
