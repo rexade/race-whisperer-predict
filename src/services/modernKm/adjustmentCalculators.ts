@@ -13,6 +13,34 @@ export const calculateDistanceAdjustment = (horseDistance: number, raceDistance:
 };
 
 /**
+ * Calculate race distance normalization to 2140m reference
+ * This normalizes KM times based on the race distance compared to the standard 2140m reference
+ */
+export const calculateRaceDistanceNormalization = (raceDistance: number): number => {
+  const referenceDistance = 2140; // Standard reference distance in meters
+  
+  if (raceDistance === referenceDistance) {
+    console.log(`Race distance normalization: ${raceDistance}m = reference distance → 0.000s`);
+    return 0;
+  }
+  
+  // Calculate the proportional adjustment
+  // Longer races should have proportionally faster KM times
+  // Shorter races should have proportionally slower KM times
+  const distanceRatio = raceDistance / referenceDistance;
+  
+  // Base KM time adjustment: races longer than 2140m will have negative adjustment (faster KM times)
+  // races shorter than 2140m will have positive adjustment (slower KM times)
+  const baseAdjustment = (1 - distanceRatio) * 2.5; // 2.5 seconds per 100% distance difference
+  
+  console.log(`Race distance normalization: ${raceDistance}m vs ${referenceDistance}m reference`);
+  console.log(`  - Distance ratio: ${distanceRatio.toFixed(3)}`);
+  console.log(`  - Base adjustment: ${baseAdjustment.toFixed(3)}s`);
+  
+  return baseAdjustment;
+};
+
+/**
  * Calculate race type adjustment based on race classification
  */
 export const calculateRaceTypeAdjustment = (raceType: string): number => {
