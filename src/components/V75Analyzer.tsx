@@ -17,11 +17,13 @@ import AnalyzerCard from "./shared/analyzer/AnalyzerCard";
 import V75Input from "./v75/components/V75Input";
 import V75Summary from "./v75/components/V75Summary";
 import V75Results from "./v75/components/V75Results";
+import V75CacheManager from "./v75/components/V75CacheManager";
 
 const V75Analyzer: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [weights, setWeights] = useState<NormalizationWeights>(getDefaultWeights());
   const [activeTab, setActiveTab] = useState("overview");
+  const [showCacheManager, setShowCacheManager] = useState(false);
   
   const {
     loading,
@@ -64,7 +66,7 @@ const V75Analyzer: React.FC = () => {
         {/* Header */}
         <AnalyzerCard
           title="V75 Multi-Race Analyzer"
-          description="Analyze all 7 races in a V75 day with advanced RAW time normalization"
+          description="Analyze all 7 races in a V75 day with advanced RAW time normalization and intelligent caching"
           icon={<Trophy className="h-6 w-6" />}
         >
           {/* Date Selection and Analysis */}
@@ -74,6 +76,16 @@ const V75Analyzer: React.FC = () => {
             onAnalyze={handleAnalyzeV75}
             loading={loading}
           />
+
+          {/* Cache Manager Toggle */}
+          <div className="flex justify-end">
+            <button
+              onClick={() => setShowCacheManager(!showCacheManager)}
+              className="text-sm text-blue-600 hover:text-blue-800 underline"
+            >
+              {showCacheManager ? 'Hide' : 'Show'} Cache Manager
+            </button>
+          </div>
 
           {/* Progress */}
           {loading && (
@@ -90,6 +102,13 @@ const V75Analyzer: React.FC = () => {
             <V75Summary races={v75Results} analysisDate={analysisDate} />
           )}
         </AnalyzerCard>
+
+        {/* Cache Manager */}
+        {showCacheManager && (
+          <DebugErrorBoundary>
+            <V75CacheManager />
+          </DebugErrorBoundary>
+        )}
 
         {/* Weight Manager */}
         {v75Results.length > 0 && (

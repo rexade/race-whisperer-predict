@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { fetchV75RaceData, fetchV75GameInfo } from '../../../services/v75CalendarApi';
@@ -12,6 +11,7 @@ import { ModernKmNormalizedResult, KmTime } from '../../../services/types/kmTime
 import { useV75DataValidation } from './useV75DataValidation';
 import { processHorseResults } from '../utils/horseResultProcessor';
 import { extractTrackNameAsString } from '../utils/dataExtraction';
+import { V75CacheService, CachedV75Race, CachedV75Horse } from '../../../services/v75CacheService';
 
 export interface V75HorseResult {
   raceNumber: number;
@@ -68,10 +68,39 @@ export const useV75Analysis = () => {
     setAnalysisDate(date);
     
     try {
-      setCurrentTask("Checking for V75 games...");
+      setCurrentTask("Checking cache...");
       setProgress(5);
       
       console.log(`\n🎯 === V75 ANALYSIS START for ${date} ===`);
+      
+      // First check if we have cached data
+      const cachedAnalysis = await V75CacheService.getAnalysis(date);
+      
+      if (cachedAnalysis) {
+        console.log(`🚀 CACHE HIT! Loading V75 analysis from cache for ${date}`);
+        setCurrentTask("Loading from cache...");
+        setProgress(20);
+        
+        // Convert cached data back to V75RaceResult format with normalization
+        const cachedResults = await convertCachedToResults(cachedAnalysis.races, weights);
+        
+        setV75Results(cachedResults);
+        setProgress(100);
+        setCurrentTask("V75 analysis loaded from cache!");
+        
+        toast({
+          title: "V75 Analysis Loaded",
+          description: `Instantly loaded ${cachedResults.length} races from cache with pre-calculated raw times.`,
+        });
+        
+        return;
+      }
+      
+      // No cache, proceed with full analysis
+      console.log(`📥 No cache found, performing full V75 analysis for ${date}`);
+      
+      setCurrentTask("Checking for V75 games...");
+      setProgress(10);
       
       // First, get the V75 game info to validate and get race IDs
       const gameInfo = await fetchV75GameInfo(date);
@@ -91,7 +120,7 @@ export const useV75Analysis = () => {
       console.log(`📋 Race IDs: ${gameInfo.raceIds.join(', ')}`);
       
       setCurrentTask(`Found V75 game with ${gameInfo.raceIds.length} races. Fetching race data...`);
-      setProgress(10);
+      setProgress(15);
       
       // Fetch detailed race data using the identified race IDs
       let v75Races = await fetchV75RaceData(date);
@@ -109,22 +138,23 @@ export const useV75Analysis = () => {
       
       console.log(`📊 Successfully fetched ${v75Races.length}/7 V75 races`);
       setCurrentTask(`Successfully fetched ${v75Races.length} V75 races. Validating and fixing data...`);
-      setProgress(15);
+      setProgress(20);
       
       // Apply validation and fixing to each race
       v75Races = await validateAndFixRaces(v75Races);
       
       setCurrentTask(`Data validation complete. Starting analysis...`);
-      setProgress(20);
+      setProgress(25);
       
       const results: V75RaceResult[] = [];
+      const cachedRaces: CachedV75Race[] = [];
       
       for (let i = 0; i < v75Races.length; i++) {
         const race = v75Races[i];
-        const raceProgress = (i / v75Races.length) * 70;
+        const raceProgress = (i / v75Races.length) * 60;
         
         setCurrentTask(`Analyzing race ${race.raceNumber} (${i + 1} of ${v75Races.length})...`);
-        setProgress(20 + raceProgress);
+        setProgress(25 + raceProgress);
         
         try {
           const safeRaceTrack = extractTrackNameAsString(race.track);
@@ -159,8 +189,8 @@ export const useV75Analysis = () => {
             race.raceId, 
             atgStarts, 
             (current, total) => {
-              const horseProgress = (current / total) * (70 / v75Races.length);
-              setProgress(20 + raceProgress + horseProgress);
+              const horseProgress = (current / total) * (60 / v75Races.length);
+              setProgress(25 + raceProgress + horseProgress);
               setCurrentTask(`Race ${race.raceNumber}: Processing horse ${current} of ${total}...`);
             }
           );
@@ -169,6 +199,43 @@ export const useV75Analysis = () => {
           
           // Process horse results
           const horseResults = processHorseResults(race, rawKmTimes, weights);
+          
+          // Prepare cached race data
+          const cachedHorses: CachedV75Horse[] = race.horses.map(horse => {
+            const rawTimeData = rawKmTimes.find(rt => rt.horseId === horse.horseId);
+            return {
+              horseId: horse.horseId,
+              horseName: typeof horse.name === 'string' ? horse.name : String(horse.name),
+              postPosition: horse.postPosition,
+              rawKmTime: rawTimeData?.best3Average,
+              distance: horse.distance,
+              startMethod: race.startMethod,
+              driverName: `${horse.driver.firstName} ${horse.driver.lastName}`,
+              statistics: {
+                startPoints: horse.statistics.startPoints,
+                placePercentage: horse.statistics.placePercentage,
+                winPercentage: horse.statistics.winPercentage,
+                earningsPerStart: horse.statistics.earningsPerStart,
+              },
+              driver2025WinPercentage: horse.driver.winPercentage2025,
+              sulkyType: String(horse.sulky?.type || "VA"),
+              shoesFront: Boolean(horse.shoes?.front),
+              shoesBack: Boolean(horse.shoes?.back),
+              homeTrack: typeof horse.homeTrack === 'string' ? horse.homeTrack : String(horse.homeTrack || 'Unknown')
+            };
+          });
+          
+          cachedRaces.push({
+            raceNumber: race.raceNumber,
+            raceId: race.raceId,
+            track: safeRaceTrack,
+            distance: race.distance,
+            startMethod: race.startMethod,
+            name: safeRaceName,
+            prize: race.prize,
+            horses: cachedHorses,
+            cachedAt: new Date().toISOString()
+          });
           
           results.push({
             raceNumber: race.raceNumber,
@@ -204,6 +271,15 @@ export const useV75Analysis = () => {
         }
       }
       
+      // Store the analysis in cache BEFORE setting results
+      setCurrentTask("Storing analysis in cache...");
+      setProgress(90);
+      
+      if (cachedRaces.length > 0) {
+        await V75CacheService.storeAnalysis(date, gameInfo.gameId, cachedRaces);
+        console.log(`💾 Analysis cached for future instant loading`);
+      }
+      
       setV75Results(results);
       setProgress(100);
       setCurrentTask("V75 analysis complete!");
@@ -215,10 +291,11 @@ export const useV75Analysis = () => {
       console.log(`📊 Successfully analyzed: ${successfulRaces}/${results.length} races`);
       console.log(`🐎 Total horses analyzed: ${totalHorses}`);
       console.log(`🎯 Game ID: ${gameInfo.gameId}`);
+      console.log(`💾 Analysis cached for instant future loading`);
       
       toast({
         title: "V75 Analysis Complete",
-        description: `Successfully analyzed ${successfulRaces} of ${results.length} races with ${totalHorses} horses for ${date}. Data validation applied.`,
+        description: `Successfully analyzed ${successfulRaces} of ${results.length} races with ${totalHorses} horses for ${date}. Analysis cached for instant future loading.`,
       });
       
     } catch (err) {
@@ -235,6 +312,73 @@ export const useV75Analysis = () => {
     } finally {
       setTimeout(() => setLoading(false), 1000);
     }
+  };
+
+  const convertCachedToResults = async (cachedRaces: CachedV75Race[], weights: NormalizationWeights): Promise<V75RaceResult[]> => {
+    console.log(`🔄 Converting ${cachedRaces.length} cached races to results with current weights`);
+    
+    return cachedRaces.map(cachedRace => {
+      const horseResults: V75HorseResult[] = cachedRace.horses.map(cachedHorse => {
+        let modernNormalizedResult;
+
+        if (cachedHorse.rawKmTime) {
+          const factors: ModernNormalizationFactors = {
+            postPosition: cachedHorse.postPosition,
+            distance: cachedHorse.distance,
+            raceDistance: cachedRace.distance,
+            startMethod: cachedHorse.startMethod,
+            shoesFront: cachedHorse.shoesFront ? "1" : "0",
+            shoesBack: cachedHorse.shoesBack ? "1" : "0",
+            sulkyType: cachedHorse.sulkyType || "VA",
+            homeTrack: cachedHorse.homeTrack || "Unknown",
+            driverExperience: 0,
+            driverWinPercentage: 0,
+            driverWinPercentage2025: cachedHorse.driver2025WinPercentage || 0,
+            horseForm: cachedHorse.statistics?.winPercentage || 0,
+            raceType: 'trot',
+            timeOfDay: '',
+            startPoints: cachedHorse.statistics?.startPoints || 500,
+            placePercentage: cachedHorse.statistics?.placePercentage || 5000,
+            horseWinPercentage: cachedHorse.statistics?.winPercentage || 1500,
+            earningsPerStart: cachedHorse.statistics?.earningsPerStart || 300000
+          };
+
+          modernNormalizedResult = applyModernKmNormalization(cachedHorse.rawKmTime, factors, weights);
+        }
+
+        return {
+          raceNumber: cachedRace.raceNumber,
+          raceId: cachedRace.raceId,
+          horseId: cachedHorse.horseId,
+          horseName: cachedHorse.horseName,
+          postPosition: cachedHorse.postPosition,
+          rawKmTime: cachedHorse.rawKmTime,
+          modernNormalizedResult,
+          driverName: cachedHorse.driverName,
+          track: cachedRace.track,
+          distance: cachedHorse.distance,
+          startMethod: cachedHorse.startMethod,
+          statistics: cachedHorse.statistics,
+          driver2025WinPercentage: cachedHorse.driver2025WinPercentage,
+          sulkyType: cachedHorse.sulkyType,
+          shoesFront: cachedHorse.shoesFront,
+          shoesBack: cachedHorse.shoesBack,
+          homeTrack: cachedHorse.homeTrack
+        };
+      });
+
+      return {
+        raceNumber: cachedRace.raceNumber,
+        raceId: cachedRace.raceId,
+        track: cachedRace.track,
+        distance: cachedRace.distance,
+        startMethod: cachedRace.startMethod,
+        name: cachedRace.name,
+        prize: cachedRace.prize,
+        horses: horseResults,
+        analysisComplete: true
+      };
+    });
   };
 
   const reanalyzeWithNewWeights = (weights: NormalizationWeights) => {
