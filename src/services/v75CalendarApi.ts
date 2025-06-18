@@ -121,7 +121,7 @@ export const fetchV75GameInfo = async (date: string): Promise<V75GameInfo | null
 
 /**
  * Calculate earnings per start from total earnings and number of starts
- * FIXED: Proper calculation with better error handling
+ * FIXED: Using correct property paths and better error handling
  */
 const calculateEarningsPerStart = (totalEarnings: number, totalStarts: number): number => {
   console.log(`💰 calculateEarningsPerStart - Input: totalEarnings=${totalEarnings}, totalStarts=${totalStarts}`);
@@ -143,7 +143,7 @@ const calculateEarningsPerStart = (totalEarnings: number, totalStarts: number): 
 
 /**
  * Fetch V75 race data using the game info and individual race endpoints
- * ENHANCED: Better data extraction and earnings calculation
+ * FIXED: Using correct property paths for earnings data
  */
 export const fetchV75RaceData = async (date: string): Promise<V75RaceData[]> => {
   try {
@@ -184,16 +184,19 @@ export const fetchV75RaceData = async (date: string): Promise<V75RaceData[]> => 
           horseCount: raceData.starts?.length || 0
         });
         
-        // Enhanced debugging for horse data extraction
+        // CRITICAL DEBUG: Enhanced logging for horse data structure
         if (raceData.starts && raceData.starts.length > 0) {
           const firstStart = raceData.starts[0];
-          console.log(`🐎 ENHANCED DEBUG: First horse full structure for race ${raceId}:`, {
+          console.log(`🐎 CRITICAL EARNINGS DEBUG: First horse structure for race ${raceId}:`, {
             horseId: firstStart.horse?.id,
             horseName: firstStart.horse?.name,
             horseStatistics: firstStart.horse?.statistics,
             horseStatisticsLife: firstStart.horse?.statistics?.life,
-            totalEarnings: firstStart.horse?.statistics?.life?.totalEarnings,
-            totalStarts: firstStart.horse?.statistics?.life?.totalStarts,
+            // FIXED: Check both possible paths for earnings
+            lifeEarnings: firstStart.horse?.statistics?.life?.earnings,
+            lifeTotalEarnings: firstStart.horse?.statistics?.life?.totalEarnings,
+            lifeStarts: firstStart.horse?.statistics?.life?.starts,
+            lifeTotalStarts: firstStart.horse?.statistics?.life?.totalStarts,
             driverFirstName: firstStart.driver?.firstName,
             driverLastName: firstStart.driver?.lastName,
             driverStatistics: firstStart.driver?.statistics,
@@ -211,10 +214,18 @@ export const fetchV75RaceData = async (date: string): Promise<V75RaceData[]> => 
           const driverStats = start.driver?.statistics || {};
           const driver2025Stats = start.driver?.statistics?.years?.['2025'] || {};
           
-          console.log(`📊 Horse ${start.horse?.name} ENHANCED statistics extraction:`, {
+          // FIXED: Try both possible property paths for earnings
+          const totalEarnings = horseLifeStats.earnings || horseLifeStats.totalEarnings || 0;
+          const totalStarts = horseLifeStats.starts || horseLifeStats.totalStarts || 0;
+          
+          console.log(`📊 Horse ${start.horse?.name} CORRECTED earnings extraction:`, {
             horseLifeStats,
+            earnings: horseLifeStats.earnings,
             totalEarnings: horseLifeStats.totalEarnings,
+            finalEarnings: totalEarnings,
+            starts: horseLifeStats.starts,
             totalStarts: horseLifeStats.totalStarts,
+            finalStarts: totalStarts,
             startPoints: horseLifeStats.startPoints,
             placePercentage: horseLifeStats.placePercentage,
             winPercentage: horseLifeStats.winPercentage,
@@ -223,16 +234,15 @@ export const fetchV75RaceData = async (date: string): Promise<V75RaceData[]> => 
             driver2025WinPercentage: driver2025Stats.winPercentage
           });
           
-          // Calculate earnings per start with enhanced validation
-          const totalEarnings = horseLifeStats.totalEarnings || 0;
-          const totalStarts = horseLifeStats.totalStarts || 0;
+          // Calculate earnings per start with FIXED property paths
           const earningsPerStart = calculateEarningsPerStart(totalEarnings, totalStarts);
           
-          console.log(`💰 Horse ${start.horse?.name} FINAL earnings calculation:`, {
+          console.log(`💰 Horse ${start.horse?.name} CORRECTED earnings calculation:`, {
             totalEarnings,
             totalStarts,
             calculatedEarningsPerStart: earningsPerStart,
-            earningsValid: earningsPerStart > 0
+            earningsValid: earningsPerStart > 0,
+            hasEarningsData: totalEarnings > 0 && totalStarts > 0
           });
           
           // Enhanced data validation and extraction
@@ -269,14 +279,16 @@ export const fetchV75RaceData = async (date: string): Promise<V75RaceData[]> => 
             name: horseData.name,
             statistics: horseData.statistics,
             driver: horseData.driver,
-            dataValid: horseData.statistics.earningsPerStart > 0 || horseData.statistics.startPoints > 0
+            earningsDataValid: horseData.statistics.earningsPerStart > 0,
+            startPointsValid: horseData.statistics.startPoints > 0
           });
           
           return horseData;
         }) || [];
         
         console.log(`📈 Successfully processed ${horses.length} horses for race ${raceId}`);
-        console.log(`💰 Earnings validation: ${horses.filter(h => h.statistics.earningsPerStart > 0).length}/${horses.length} horses have valid earnings`);
+        console.log(`💰 CORRECTED earnings validation: ${horses.filter(h => h.statistics.earningsPerStart > 0).length}/${horses.length} horses have valid earnings`);
+        console.log(`🎯 Start points validation: ${horses.filter(h => h.statistics.startPoints > 0).length}/${horses.length} horses have valid start points`);
         
         v75Races.push({
           raceId: raceData.id,
@@ -297,7 +309,8 @@ export const fetchV75RaceData = async (date: string): Promise<V75RaceData[]> => 
     }
     
     console.log(`\n🏁 V75 Race Data Fetch Complete: ${v75Races.length}/7 races successfully fetched`);
-    console.log(`💰 Overall earnings validation: ${v75Races.flatMap(r => r.horses).filter(h => h.statistics.earningsPerStart > 0).length} horses with valid earnings`);
+    console.log(`💰 FINAL earnings validation: ${v75Races.flatMap(r => r.horses).filter(h => h.statistics.earningsPerStart > 0).length} horses with valid earnings`);
+    console.log(`🎯 FINAL start points validation: ${v75Races.flatMap(r => r.horses).filter(h => h.statistics.startPoints > 0).length} horses with valid start points`);
     
     return v75Races.sort((a, b) => a.raceNumber - b.raceNumber);
     
