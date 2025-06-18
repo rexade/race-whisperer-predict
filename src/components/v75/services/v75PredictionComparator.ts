@@ -1,4 +1,3 @@
-
 import { V75PostRaceAnalysis, V75RaceAnalysis, V75PredictionAccuracy } from '../types/postRaceAnalysisTypes';
 import { V75CacheService } from '../../../services/v75CacheService';
 import { RaceAnalysisData } from '../../../services/v75Cache/types';
@@ -88,6 +87,15 @@ export class V75PredictionComparator {
         continue;
       }
 
+      // Enhanced debug logging for predicted time comparison
+      console.log(`🐎 COMPARING ${cachedHorse.horseName}:`);
+      console.log(`  - Cached predicted time:`, cachedHorse.predictedTime);
+      console.log(`  - Cached predicted time validity:`, cachedHorse.predictedTime && 
+        typeof cachedHorse.predictedTime.minutes === 'number' &&
+        typeof cachedHorse.predictedTime.seconds === 'number' &&
+        typeof cachedHorse.predictedTime.tenths === 'number');
+      console.log(`  - Actual finish time:`, actualFinish.kmTime);
+
       const accuracy: V75PredictionAccuracy = {
         horseId: cachedHorse.horseId,
         horseName: cachedHorse.horseName,
@@ -104,6 +112,7 @@ export class V75PredictionComparator {
         correctPrediction: cachedHorse.rank <= 3 && actualFinish.position <= 3
       };
 
+      console.log(`  - Time difference calculated: ${accuracy.timeDifference}`);
       predictionAccuracy.push(accuracy);
     }
 
@@ -127,12 +136,31 @@ export class V75PredictionComparator {
     predictedTime?: { minutes: number; seconds: number; tenths: number },
     actualTime?: { minutes: number; seconds: number; tenths: number }
   ): number | undefined {
-    if (!predictedTime || !actualTime) return undefined;
+    console.log(`⏱️ CALCULATING TIME DIFFERENCE:`);
+    console.log(`  - Predicted:`, predictedTime);
+    console.log(`  - Actual:`, actualTime);
+    
+    if (!predictedTime || !actualTime) {
+      console.log(`  - Missing time data, returning undefined`);
+      return undefined;
+    }
+
+    // Validate that both times have the required numeric properties
+    if (predictedTime.minutes === undefined || predictedTime.seconds === undefined || predictedTime.tenths === undefined ||
+        actualTime.minutes === undefined || actualTime.seconds === undefined || actualTime.tenths === undefined) {
+      console.log(`  - Invalid time data structure, returning undefined`);
+      return undefined;
+    }
 
     const predictedSeconds = predictedTime.minutes * 60 + predictedTime.seconds + predictedTime.tenths * 0.1;
     const actualSeconds = actualTime.minutes * 60 + actualTime.seconds + actualTime.tenths * 0.1;
+    const difference = Math.abs(predictedSeconds - actualSeconds);
 
-    return Math.abs(predictedSeconds - actualSeconds);
+    console.log(`  - Predicted seconds: ${predictedSeconds.toFixed(1)}`);
+    console.log(`  - Actual seconds: ${actualSeconds.toFixed(1)}`);
+    console.log(`  - Difference: ${difference.toFixed(1)} seconds`);
+
+    return difference;
   }
 
   private static calculateRaceAccuracy(predictionAccuracy: V75PredictionAccuracy[]) {
