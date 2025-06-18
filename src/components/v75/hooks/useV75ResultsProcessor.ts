@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { NormalizationWeights, applyModernKmNormalization, ModernNormalizationFactors } from '../../../services/modernKm/index';
 import { processHorseResults } from '../utils/horseResultProcessor';
@@ -27,6 +28,8 @@ export interface V75HorseResult {
   shoesFront?: boolean;
   shoesBack?: boolean;
   homeTrack?: string;
+  finalScore?: number;
+  rank?: number;
 }
 
 export interface V75RaceResult {
@@ -37,6 +40,7 @@ export interface V75RaceResult {
   startMethod: string;
   name: string;
   prize: number;
+  date?: string;
   horses: V75HorseResult[];
   analysisComplete: boolean;
   dataQuality?: {
@@ -60,13 +64,29 @@ export const useV75ResultsProcessor = () => {
     try {
       const horseResults = processHorseResults(race, rawKmTimes, weights);
       
+      // Calculate final scores and ranks for horses
+      const horsesWithScores = horseResults.map((horse, index) => ({
+        ...horse,
+        finalScore: horse.modernNormalizedResult ? 
+          (horse.modernNormalizedResult.modernNormalizedTime.minutes * 60 + 
+           horse.modernNormalizedResult.modernNormalizedTime.seconds + 
+           horse.modernNormalizedResult.modernNormalizedTime.tenths / 10) : 999,
+        rank: index + 1
+      }));
+
+      // Sort by final score and update ranks
+      horsesWithScores.sort((a, b) => a.finalScore - b.finalScore);
+      horsesWithScores.forEach((horse, index) => {
+        horse.rank = index + 1;
+      });
+
       // Store analysis results for post-race comparison
-      const analysisHorses = horseResults.map(horse => ({
+      const analysisHorses = horsesWithScores.map(horse => ({
         horseId: horse.horseId,
         horseName: horse.horseName,
         postPosition: horse.postPosition,
-        finalScore: horse.finalScore,
-        rank: horse.rank
+        finalScore: horse.finalScore || 999,
+        rank: horse.rank || 999
       }));
 
       // Store the analysis asynchronously (don't block the UI)
@@ -88,7 +108,7 @@ export const useV75ResultsProcessor = () => {
         name: safeRaceName,
         date: race.date,
         prize: race.prize,
-        horses: horseResults,
+        horses: horsesWithScores,
         analysisComplete: true,
         dataQuality: race.dataQuality || {
           hasValidPostPositions: true,
