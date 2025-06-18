@@ -56,7 +56,8 @@ export const useV75ResultsProcessor = () => {
   const processRaceResult = useCallback((
     race: any,
     rawKmTimes: Array<{ horseId: number; best3Average: any }>,
-    weights: NormalizationWeights
+    weights: NormalizationWeights,
+    analysisDate?: string
   ): V75RaceResult => {
     const safeRaceTrack = extractTrackNameAsString(race.track);
     const safeRaceName = extractTrackNameAsString(race.name);
@@ -80,7 +81,7 @@ export const useV75ResultsProcessor = () => {
         horse.rank = index + 1;
       });
 
-      // Store analysis results for post-race comparison
+      // Store analysis results with the correct date (race date, not today's date)
       const analysisHorses = horsesWithScores.map(horse => ({
         horseId: horse.horseId,
         horseName: horse.horseName,
@@ -89,11 +90,16 @@ export const useV75ResultsProcessor = () => {
         rank: horse.rank || 999
       }));
 
+      // Use the race date for analysis storage instead of today's date
+      const cacheDate = analysisDate || race.date || new Date().toISOString().split('T')[0];
+      
+      console.log(`💾 Storing race analysis for race ${race.raceNumber} with date: ${cacheDate}`);
+      
       // Store the analysis asynchronously (don't block the UI)
       V75CacheService.storeRaceAnalysis(
         race.raceId,
         race.raceNumber,
-        new Date().toISOString().split('T')[0], // Today's date
+        cacheDate,
         analysisHorses
       ).catch(error => {
         console.warn('Failed to store race analysis:', error);

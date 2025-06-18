@@ -116,8 +116,9 @@ export const useV75Analysis = () => {
         }
         
         // Process horse results with FRESH race data and cached/calculated raw times
+        // Pass the analysis date (race date) to ensure correct caching
         updateProgress(20 + raceProgress + (70 / v75Races.length), `Race ${race.raceNumber}: Processing results with fresh data...`);
-        const raceResult = processRaceResult(race, rawKmTimes, weights);
+        const raceResult = processRaceResult(race, rawKmTimes, weights, date);
         results.push(raceResult);
         
         console.log(`✅ Race ${race.raceNumber} optimized analysis complete: ${raceResult.horses.length} horses processed`);
@@ -134,6 +135,7 @@ export const useV75Analysis = () => {
       console.log(`🐎 Total horses analyzed: ${totalHorses}`);
       console.log(`🚀 Strategy: Cached raw times + fresh race data`);
       console.log(`💾 Raw times cached for future instant use`);
+      console.log(`📅 Analysis cached with race date: ${date}`);
       
       toast({
         title: "V75 Analysis Complete",
