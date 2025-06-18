@@ -5,9 +5,9 @@
  */
 export const calculateStartPointsAdjustment = (startPoints: number): number => {
   // Baseline: 500 start points = 0 adjustment
-  // Every 100 points above/below baseline = -/+ 0.1s
+  // Every 100 points above/below baseline = -/+ 0.001s (reduced from 0.1s)
   const baseline = 500;
-  const adjustment = (baseline - startPoints) * 0.001;
+  const adjustment = (baseline - startPoints) * 0.00001;
   
   console.log(`Start Points adjustment: ${startPoints} points (baseline: ${baseline}) → ${adjustment.toFixed(3)}s`);
   return adjustment;
