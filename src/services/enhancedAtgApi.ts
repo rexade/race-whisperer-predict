@@ -48,6 +48,9 @@ export interface EnhancedRaceData {
   };
 }
 
+/**
+ * ENHANCED: Fetch enhanced race data with comprehensive sulky debugging
+ */
 export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRaceData> => {
   console.log(`\n=== Fetching enhanced race data for: ${raceId} ===`);
   
@@ -70,6 +73,55 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
       raceType: data.raceType,
       startTime: data.startTime
     });
+    
+    // ENHANCED: Comprehensive sulky analysis for enhanced API
+    if (data.starts && data.starts.length > 0) {
+      console.log(`\n🛷 ENHANCED API COMPREHENSIVE SULKY DEBUG for race ${raceId}:`);
+      
+      // Log the entire structure of the first few horses to understand API format
+      for (let j = 0; j < Math.min(3, data.starts.length); j++) {
+        const start = data.starts[j];
+        console.log(`🛷 Enhanced API - Horse ${j + 1} (${start.horse?.name}) COMPLETE STRUCTURE:`, {
+          fullStart: JSON.stringify(start, null, 2),
+          horse: start.horse,
+          horseSulky: start.horse?.sulky,
+          startSulky: start.sulky,
+          equipment: start.equipment,
+          equipmentSulky: start.equipment?.sulky,
+          driver: start.driver,
+          driverSulky: start.driver?.sulky
+        });
+      }
+      
+      // Check for sulky data across all horses
+      const sulkyAnalysis = data.starts.map((start: any, index: number) => {
+        const possibleSulkyPaths = {
+          horseSulky: start.horse?.sulky,
+          startSulky: start.sulky,
+          equipmentSulky: start.equipment?.sulky,
+          driverSulky: start.driver?.sulky,
+          horseSulkyType: start.horse?.sulky?.type,
+          startSulkyType: start.sulky?.type,
+          equipmentSulkyType: start.equipment?.sulky?.type,
+          horseSulkyTypeCode: start.horse?.sulky?.type?.code,
+          startSulkyTypeCode: start.sulky?.type?.code,
+          equipmentSulkyTypeCode: start.equipment?.sulky?.type?.code
+        };
+        
+        return {
+          horseIndex: index,
+          horseName: start.horse?.name,
+          sulkyPaths: possibleSulkyPaths,
+          foundSulkyData: Object.values(possibleSulkyPaths).some(val => val !== undefined && val !== null)
+        };
+      });
+      
+      console.log(`🛷 Enhanced API SULKY ANALYSIS for race ${raceId}:`, sulkyAnalysis);
+      
+      // Count horses with sulky data
+      const horsesWithSulky = sulkyAnalysis.filter(h => h.foundSulkyData).length;
+      console.log(`🛷 Enhanced API SULKY SUMMARY: ${horsesWithSulky}/${data.starts.length} horses have sulky data`);
+    }
     
     // Extract race information including enhanced fields
     const raceInfo = {
@@ -125,13 +177,78 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
         
         console.log(`Driver 2025 win percentage resolved to: ${winPercentage2025}% from path: statistics.years.2025.winPercentage`);
         
-        // Debug shoes structure
+        // ENHANCED: Debug shoes structure with detailed logging
         console.log(`Shoes data for ${start.horse.name}:`, {
           shoes: start.horse.shoes,
           front: start.horse.shoes?.front,
           back: start.horse.shoes?.back,
           frontHasShoe: start.horse.shoes?.front?.hasShoe,
           backHasShoe: start.horse.shoes?.back?.hasShoe
+        });
+        
+        // ENHANCED: Comprehensive sulky debugging for enhanced API
+        console.log(`🛷 Enhanced API - COMPREHENSIVE SULKY DEBUG for horse: ${start.horse.name}`);
+        console.log(`🛷 Enhanced API - Full start object keys:`, Object.keys(start || {}));
+        console.log(`🛷 Enhanced API - Full horse object:`, start.horse ? Object.keys(start.horse) : 'NO HORSE OBJECT');
+        
+        // Check ALL possible sulky data locations
+        const sulkyDataSources = {
+          startSulky: start.sulky,
+          horseSulky: start.horse?.sulky,
+          equipmentSulky: start.equipment?.sulky,
+          driverSulky: start.driver?.sulky,
+          startEquipment: start.equipment,
+          horseEquipment: start.horse?.equipment,
+          horseSulkyTypeCode: start.horse?.sulky?.type?.code,
+          startSulkyTypeCode: start.sulky?.type?.code,
+          equipmentSulkyTypeCode: start.equipment?.sulky?.type?.code
+        };
+        
+        console.log(`🛷 Enhanced API - ALL POSSIBLE sulky data sources:`, JSON.stringify(sulkyDataSources, null, 2));
+        
+        let sulkyTypeCode = 'VA'; // Default to Vanlig (normal)
+        let sulkySource = 'default';
+        
+        // Enhanced API often uses .type.code structure - check that first
+        if (start.horse?.sulky?.type?.code) {
+          sulkyTypeCode = String(start.horse.sulky.type.code);
+          sulkySource = 'start.horse.sulky.type.code';
+          console.log(`🛷 Enhanced API - Found sulky type in start.horse.sulky.type.code:`, sulkyTypeCode);
+        } else if (start.sulky?.type?.code) {
+          sulkyTypeCode = String(start.sulky.type.code);
+          sulkySource = 'start.sulky.type.code';
+          console.log(`🛷 Enhanced API - Found sulky type in start.sulky.type.code:`, sulkyTypeCode);
+        } else if (start.equipment?.sulky?.type?.code) {
+          sulkyTypeCode = String(start.equipment.sulky.type.code);
+          sulkySource = 'start.equipment.sulky.type.code';
+          console.log(`🛷 Enhanced API - Found sulky type in start.equipment.sulky.type.code:`, sulkyTypeCode);
+        } else if (start.horse?.sulky?.type) {
+          sulkyTypeCode = String(start.horse.sulky.type);
+          sulkySource = 'start.horse.sulky.type';
+          console.log(`🛷 Enhanced API - Found sulky type in start.horse.sulky.type:`, sulkyTypeCode);
+        } else if (start.sulky?.type) {
+          sulkyTypeCode = String(start.sulky.type);
+          sulkySource = 'start.sulky.type';
+          console.log(`🛷 Enhanced API - Found sulky type in start.sulky.type:`, sulkyTypeCode);
+        } else if (start.equipment?.sulky?.type) {
+          sulkyTypeCode = String(start.equipment.sulky.type);
+          sulkySource = 'start.equipment.sulky.type';
+          console.log(`🛷 Enhanced API - Found sulky type in start.equipment.sulky.type:`, sulkyTypeCode);
+        } else {
+          console.log(`🛷 Enhanced API - NO SULKY DATA FOUND! Using default VA. Checked paths:`, {
+            'start.horse?.sulky?.type?.code': start.horse?.sulky?.type?.code,
+            'start.sulky?.type?.code': start.sulky?.type?.code,
+            'start.equipment?.sulky?.type?.code': start.equipment?.sulky?.type?.code,
+            'start.horse?.sulky?.type': start.horse?.sulky?.type,
+            'start.sulky?.type': start.sulky?.type,
+            'start.equipment?.sulky?.type': start.equipment?.sulky?.type
+          });
+        }
+        
+        console.log(`🛷 Enhanced API - FINAL sulky processing result:`, { 
+          sulkyTypeCode, 
+          sulkySource,
+          originalValue: sulkyDataSources[sulkySource as keyof typeof sulkyDataSources] 
         });
         
         const enhancedHorse: EnhancedHorseData = {
@@ -145,7 +262,7 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
             back: start.horse.shoes?.back?.hasShoe || false
           },
           sulky: {
-            type: start.horse.sulky?.type?.code || "VA"
+            type: sulkyTypeCode
           },
           homeTrack: start.horse.homeTrack?.name || "Unknown",
           statistics: {
@@ -165,6 +282,16 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
             experience: start.driver.statistics?.starts || 0
           }
         };
+        
+        console.log(`✅ Enhanced API - Final extracted horse data:`, {
+          horseId: enhancedHorse.horseId,
+          name: enhancedHorse.name,
+          shoesFront: enhancedHorse.shoes.front,
+          shoesBack: enhancedHorse.shoes.back,
+          sulkyType: enhancedHorse.sulky.type,
+          sulkySource: sulkySource,
+          earningsPerStart: enhancedHorse.statistics.earningsPerStart
+        });
         
         raceInfo.horses.push(enhancedHorse);
         

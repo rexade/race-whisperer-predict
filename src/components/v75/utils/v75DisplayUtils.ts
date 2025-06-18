@@ -1,4 +1,3 @@
-
 import { KmTime } from '../../../services/types/kmTimeTypes';
 
 // Enhanced safety function to ensure we never render an object as React child
@@ -99,28 +98,70 @@ export const getSulkyDisplay = (sulkyType: string | undefined) => {
   const type = sulkyType.toUpperCase().trim();
   console.log('🛷 Processed sulky type:', type);
   
-  // Enhanced sulky type mappings with more comprehensive coverage
+  // ENHANCED: More comprehensive sulky type mappings with ATG API codes
   switch (type) {
+    // American sulky variations
     case 'AMERICAN':
     case 'AM':
     case 'A':
+    case 'AMERIKANSK':
       console.log('🛷 Mapped to: AM');
       return 'AM';
+    
+    // Standard/Normal sulky variations
     case 'VANLIG':
     case 'VA':
     case 'V':
     case 'NORMAL':
     case 'REGULAR':
+    case 'STANDARD':
+    case 'STD':
       console.log('🛷 Mapped to: VA');
       return 'VA';
+    
+    // Bike sulky variations
     case 'BIKE':
     case 'B':
+    case 'CYKEL':
       console.log('🛷 Mapped to: B');
       return 'B';
+    
+    // French sulky variations
+    case 'FRANSK':
+    case 'FRENCH':
+    case 'FR':
+    case 'F':
+      console.log('🛷 Mapped to: FR');
+      return 'FR';
+    
+    // Light sulky variations
+    case 'LIGHT':
+    case 'LÄTT':
+    case 'LT':
+    case 'L':
+      console.log('🛷 Mapped to: LT');
+      return 'LT';
+    
+    // Special cases for short codes that might come from API
+    case 'VA1':
+    case 'VA2':
+      console.log('🛷 VA variant mapped to: VA');
+      return 'VA';
+    
+    case 'AM1':
+    case 'AM2':
+      console.log('🛷 AM variant mapped to: AM');
+      return 'AM';
+    
     default:
-      // Take first 2 characters for unknown types
-      const result = type.substring(0, 2);
-      console.log('🛷 Unknown type, using first 2 chars:', result);
-      return result || 'VA';
+      // For unknown types, try to extract meaningful code
+      if (type.length >= 2) {
+        const result = type.substring(0, 2);
+        console.log('🛷 Unknown type, using first 2 chars:', result);
+        return result;
+      } else {
+        console.log('🛷 Very short unknown type, defaulting to VA');
+        return 'VA';
+      }
   }
 };

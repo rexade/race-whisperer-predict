@@ -170,7 +170,7 @@ const calculateEarningsPerStart = (totalEarnings: number, totalStarts: number): 
 
 /**
  * Fetch V75 race data using the game info and individual race endpoints
- * FIXED: Using correct property paths for earnings data
+ * ENHANCED: Added comprehensive sulky debugging and improved data extraction
  */
 export const fetchV75RaceData = async (date: string): Promise<V75RaceData[]> => {
   try {
@@ -211,26 +211,50 @@ export const fetchV75RaceData = async (date: string): Promise<V75RaceData[]> => 
           horseCount: raceData.starts?.length || 0
         });
         
-        // CRITICAL DEBUG: Enhanced logging for horse data structure
+        // ENHANCED DEBUG: Comprehensive sulky structure analysis
         if (raceData.starts && raceData.starts.length > 0) {
-          const firstStart = raceData.starts[0];
-          console.log(`🐎 CRITICAL EARNINGS DEBUG: First horse structure for race ${raceId}:`, {
-            horseId: firstStart.horse?.id,
-            horseName: firstStart.horse?.name,
-            horseStatistics: firstStart.horse?.statistics,
-            horseStatisticsLife: firstStart.horse?.statistics?.life,
-            // FIXED: Check both possible paths for earnings
-            lifeEarnings: firstStart.horse?.statistics?.life?.earnings,
-            lifeTotalEarnings: firstStart.horse?.statistics?.life?.totalEarnings,
-            lifeStarts: firstStart.horse?.statistics?.life?.starts,
-            lifeTotalStarts: firstStart.horse?.statistics?.life?.totalStarts,
-            driverFirstName: firstStart.driver?.firstName,
-            driverLastName: firstStart.driver?.lastName,
-            driverStatistics: firstStart.driver?.statistics,
-            driverExperience: firstStart.driver?.statistics?.experience,
-            driverWinPercentage: firstStart.driver?.statistics?.winPercentage,
-            driver2025Stats: firstStart.driver?.statistics?.years?.['2025']
+          console.log(`\n🛷 COMPREHENSIVE SULKY DEBUG for race ${raceId}:`);
+          
+          // Log the entire structure of the first few horses to understand API format
+          for (let j = 0; j < Math.min(3, raceData.starts.length); j++) {
+            const start = raceData.starts[j];
+            console.log(`🛷 Horse ${j + 1} (${start.horse?.name}) COMPLETE STRUCTURE:`, {
+              fullStart: JSON.stringify(start, null, 2),
+              horse: start.horse,
+              horseSulky: start.horse?.sulky,
+              startSulky: start.sulky,
+              equipment: start.equipment,
+              equipmentSulky: start.equipment?.sulky,
+              driver: start.driver,
+              driverSulky: start.driver?.sulky
+            });
+          }
+          
+          // Check for sulky data across all horses
+          const sulkyAnalysis = raceData.starts.map((start: any, index: number) => {
+            const possibleSulkyPaths = {
+              horseSulky: start.horse?.sulky,
+              startSulky: start.sulky,
+              equipmentSulky: start.equipment?.sulky,
+              driverSulky: start.driver?.sulky,
+              horseSulkyType: start.horse?.sulky?.type,
+              startSulkyType: start.sulky?.type,
+              equipmentSulkyType: start.equipment?.sulky?.type
+            };
+            
+            return {
+              horseIndex: index,
+              horseName: start.horse?.name,
+              sulkyPaths: possibleSulkyPaths,
+              foundSulkyData: Object.values(possibleSulkyPaths).some(val => val !== undefined && val !== null)
+            };
           });
+          
+          console.log(`🛷 SULKY ANALYSIS for race ${raceId}:`, sulkyAnalysis);
+          
+          // Count horses with sulky data
+          const horsesWithSulky = sulkyAnalysis.filter(h => h.foundSulkyData).length;
+          console.log(`🛷 SULKY SUMMARY: ${horsesWithSulky}/${raceData.starts.length} horses have sulky data`);
         }
         
         const horses = raceData.starts?.map((start: any, startIndex: number) => {
@@ -375,10 +399,13 @@ export const fetchV75CalendarDates = async (year: number, month: number): Promis
   }
 };
 
+/**
+ * ENHANCED: Extract horse data with comprehensive sulky debugging and improved property path checking
+ */
 const extractHorseData = (start: any): V75HorseData => {
   console.log('🐎 V75CalendarApi - Extracting horse data for horse:', start.horse?.name, 'ID:', start.horse?.id);
   
-  // FIXED: Enhanced shoes extraction with comprehensive API response handling
+  // ENHANCED: Comprehensive shoes extraction with detailed logging
   const shoesData = start.shoes || start.horse?.shoes || {};
   console.log('👟 V75CalendarApi - Raw shoes data structure:', JSON.stringify(shoesData, null, 2));
   
@@ -422,30 +449,84 @@ const extractHorseData = (start: any): V75HorseData => {
   
   console.log('👟 V75CalendarApi - FINAL shoes processing result:', { frontShoes, backShoes });
   
-  // FIXED: Enhanced sulky extraction with comprehensive API response handling
-  const sulkyData = start.sulky || start.horse?.sulky || start.equipment?.sulky || {};
-  console.log('🛷 V75CalendarApi - Raw sulky data structure:', JSON.stringify(sulkyData, null, 2));
+  // ENHANCED: Comprehensive sulky extraction with extensive property path checking and detailed logging
+  console.log('🛷 V75CalendarApi - COMPREHENSIVE SULKY DEBUG for horse:', start.horse?.name);
+  console.log('🛷 Full start object keys:', Object.keys(start || {}));
+  console.log('🛷 Full horse object:', start.horse ? Object.keys(start.horse) : 'NO HORSE OBJECT');
+  
+  // Check ALL possible sulky data locations
+  const sulkyDataSources = {
+    startSulky: start.sulky,
+    horseSulky: start.horse?.sulky,
+    equipmentSulky: start.equipment?.sulky,
+    driverSulky: start.driver?.sulky,
+    startEquipment: start.equipment,
+    horseEquipment: start.horse?.equipment
+  };
+  
+  console.log('🛷 V75CalendarApi - ALL POSSIBLE sulky data sources:', JSON.stringify(sulkyDataSources, null, 2));
   
   let sulkyType = 'VA'; // Default to Vanlig (normal)
+  let sulkySource = 'default';
   
-  // Check various possible property paths for sulky type
-  if (sulkyData.type && typeof sulkyData.type === 'string') {
-    sulkyType = String(sulkyData.type);
-    console.log('🛷 Found sulky type in sulkyData.type:', sulkyType);
-  } else if (sulkyData.sulkyType && typeof sulkyData.sulkyType === 'string') {
-    sulkyType = String(sulkyData.sulkyType);
-    console.log('🛷 Found sulky type in sulkyData.sulkyType:', sulkyType);
-  } else if (sulkyData.category && typeof sulkyData.category === 'string') {
-    sulkyType = String(sulkyData.category);
-    console.log('🛷 Found sulky type in sulkyData.category:', sulkyType);
-  } else if (sulkyData.name && typeof sulkyData.name === 'string') {
-    sulkyType = String(sulkyData.name);
-    console.log('🛷 Found sulky type in sulkyData.name:', sulkyType);
+  // Try different paths with detailed logging
+  if (start.sulky?.type) {
+    sulkyType = String(start.sulky.type);
+    sulkySource = 'start.sulky.type';
+    console.log('🛷 Found sulky type in start.sulky.type:', sulkyType);
+  } else if (start.horse?.sulky?.type) {
+    sulkyType = String(start.horse.sulky.type);
+    sulkySource = 'start.horse.sulky.type';
+    console.log('🛷 Found sulky type in start.horse.sulky.type:', sulkyType);
+  } else if (start.equipment?.sulky?.type) {
+    sulkyType = String(start.equipment.sulky.type);
+    sulkySource = 'start.equipment.sulky.type';
+    console.log('🛷 Found sulky type in start.equipment.sulky.type:', sulkyType);
+  } else if (start.sulky?.category) {
+    sulkyType = String(start.sulky.category);
+    sulkySource = 'start.sulky.category';
+    console.log('🛷 Found sulky type in start.sulky.category:', sulkyType);
+  } else if (start.horse?.sulky?.category) {
+    sulkyType = String(start.horse.sulky.category);
+    sulkySource = 'start.horse.sulky.category';
+    console.log('🛷 Found sulky type in start.horse.sulky.category:', sulkyType);
+  } else if (start.sulky?.name) {
+    sulkyType = String(start.sulky.name);
+    sulkySource = 'start.sulky.name';
+    console.log('🛷 Found sulky type in start.sulky.name:', sulkyType);
+  } else if (start.horse?.sulky?.name) {
+    sulkyType = String(start.horse.sulky.name);
+    sulkySource = 'start.horse.sulky.name';
+    console.log('🛷 Found sulky type in start.horse.sulky.name:', sulkyType);
+  } else if (start.equipment?.sulky?.name) {
+    sulkyType = String(start.equipment.sulky.name);
+    sulkySource = 'start.equipment.sulky.name';
+    console.log('🛷 Found sulky type in start.equipment.sulky.name:', sulkyType);
+  } else if (start.sulky && typeof start.sulky === 'string') {
+    sulkyType = String(start.sulky);
+    sulkySource = 'start.sulky';
+    console.log('🛷 Found sulky type in start.sulky (string):', sulkyType);
+  } else if (start.horse?.sulky && typeof start.horse.sulky === 'string') {
+    sulkyType = String(start.horse.sulky);
+    sulkySource = 'start.horse.sulky';
+    console.log('🛷 Found sulky type in start.horse.sulky (string):', sulkyType);
   } else {
-    console.log('🛷 No sulky type found, using default VA');
+    console.log('🛷 NO SULKY DATA FOUND! Using default VA. Checked paths:');
+    console.log('  - start.sulky?.type:', start.sulky?.type);
+    console.log('  - start.horse?.sulky?.type:', start.horse?.sulky?.type);
+    console.log('  - start.equipment?.sulky?.type:', start.equipment?.sulky?.type);
+    console.log('  - start.sulky?.category:', start.sulky?.category);
+    console.log('  - start.horse?.sulky?.category:', start.horse?.sulky?.category);
+    console.log('  - start.sulky?.name:', start.sulky?.name);
+    console.log('  - start.horse?.sulky?.name:', start.horse?.sulky?.name);
+    console.log('  - start.equipment?.sulky?.name:', start.equipment?.sulky?.name);
   }
   
-  console.log('🛷 V75CalendarApi - FINAL sulky processing result:', sulkyType);
+  console.log('🛷 V75CalendarApi - FINAL sulky processing result:', { 
+    sulkyType, 
+    sulkySource,
+    originalValue: sulkyDataSources[sulkySource as keyof typeof sulkyDataSources] 
+  });
   
   // Enhanced driver statistics extraction
   const driverStats = start.driver?.statistics || {};
@@ -508,6 +589,7 @@ const extractHorseData = (start: any): V75HorseData => {
     shoesFront: extractedData.shoes.front,
     shoesBack: extractedData.shoes.back,
     sulkyType: extractedData.sulky.type,
+    sulkySource: sulkySource,
     earningsPerStart: extractedData.statistics.earningsPerStart
   });
   
