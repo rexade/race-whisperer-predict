@@ -7,7 +7,7 @@ import { useV75DataValidation } from './useV75DataValidation';
 import { useV75Progress } from './useV75Progress';
 import { useV75Cache } from './useV75Cache';
 import { useV75ResultsProcessor } from './useV75ResultsProcessor';
-import type { V75HorseResult, V75RaceResult } from './useV75ResultsProcessor';
+import type { V75HorseResult, V75RaceResult } from '../types/raceResultTypes';
 
 // Re-export types using 'export type'
 export type { V75HorseResult, V75RaceResult };

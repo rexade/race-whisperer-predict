@@ -6,7 +6,7 @@ import {
   NormalizationWeights,
   ModernNormalizationFactors
 } from '../../../services/modernKm/index';
-import { V75HorseResult } from '../hooks/useV75Analysis';
+import { V75HorseResult } from '../types/raceResultTypes';
 import { extractHorseNameAsString, extractDriverNameAsString, extractTrackNameAsString } from './dataExtraction';
 
 export const processHorseResults = (
