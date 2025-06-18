@@ -28,14 +28,14 @@ export const processHorseResults = async (
     // Extract and validate horse data
     const extractedData = extractAndValidateHorseData(horse);
 
-    // ENHANCED: Always apply normalization, even without raw KM times
+    // ENHANCED: Always apply normalization to ensure predicted times
     console.log(`🎯 Processing horse ${horse.horseId} (${extractedData.safeHorseName})`);
     console.log(`  - Has raw KM time: ${!!rawKmTime}`);
     
     const modernNormalizedResult = applyHorseNormalization(
       horse,
       race,
-      rawKmTime, // Can be undefined, normalization will handle it
+      rawKmTime,
       extractedData,
       weights
     );
@@ -43,7 +43,7 @@ export const processHorseResults = async (
     console.log(`  - Generated normalized result: ${!!modernNormalizedResult}`);
     if (modernNormalizedResult?.modernNormalizedTime) {
       const time = modernNormalizedResult.modernNormalizedTime;
-      console.log(`  - Predicted time: ${time.minutes}:${time.seconds.toString().padStart(2, '0')}.${time.tenths}`);
+      console.log(`  - Predicted time: ${time.minutes}:${time.seconds.toString().padStart(2, '0')}.${time.tenths} ${(modernNormalizedResult as any).isEstimated ? '(EST)' : '(RAW)'}`);
     }
 
     // Build the final horse result

@@ -1,16 +1,19 @@
 import { V75PostRaceAnalysis, V75RaceAnalysis, V75PredictionAccuracy } from '../types/postRaceAnalysisTypes';
 import { V75CacheService } from '../../../services/v75CacheService';
 import { RaceAnalysisData } from '../../../services/v75Cache/types';
+import { applyHorseNormalization } from '../utils/horseNormalizationProcessor';
+import { extractAndValidateHorseData } from '../utils/horseDataExtractor';
+import { getDefaultWeights } from '../../../services/modernKm/index';
 
 export class V75PredictionComparator {
   /**
-   * Compare cached predictions with actual race results
+   * Compare cached predictions with actual race results with ENHANCED predicted time fallback
    */
   static async compareWithPredictions(
     analysisDate: string,
     actualResults: any[]
   ): Promise<V75PostRaceAnalysis> {
-    console.log(`🎯 Starting prediction comparison for ${analysisDate}`);
+    console.log(`🎯 Starting ENHANCED prediction comparison for ${analysisDate}`);
     console.log(`📊 Actual results received: ${actualResults.length} races`);
 
     const races: V75RaceAnalysis[] = [];
@@ -41,7 +44,15 @@ export class V75PredictionComparator {
       
       console.log(`✅ Found cached prediction for race ${actualRace.raceNumber}`);
       console.log(`🐎 Cached horses: ${cachedAnalysis.horses.length}`);
-      console.log(`📅 Cached analysis date: ${cachedAnalysis.analysisDate}`);
+      
+      // ENHANCED: Check for missing predicted times and attempt to regenerate
+      const horsesWithoutPredictedTimes = cachedAnalysis.horses.filter(h => !h.predictedTime);
+      console.log(`⚠️ Horses without predicted times: ${horsesWithoutPredictedTimes.length}/${cachedAnalysis.horses.length}`);
+      
+      if (horsesWithoutPredictedTimes.length > 0) {
+        console.log(`🔧 FALLBACK: Attempting to regenerate missing predicted times...`);
+        await this.regenerateMissingPredictedTimes(cachedAnalysis, actualRace);
+      }
       
       // Compare predictions with actual results
       const raceAnalysis = this.compareRaceResults(actualRace, cachedAnalysis);
@@ -64,6 +75,117 @@ export class V75PredictionComparator {
       races,
       overallPerformance
     };
+  }
+
+  /**
+   * ENHANCED: Regenerate missing predicted times using cached raw KM times
+   */
+  private static async regenerateMissingPredictedTimes(
+    cachedAnalysis: RaceAnalysisData,
+    actualRace: any
+  ): Promise<void> {
+    try {
+      console.log(`🔄 Regenerating predicted times for race ${cachedAnalysis.raceNumber}...`);
+      
+      // Try to get cached raw KM times for this race
+      const cachedRawTimes = await V75CacheService.getRawTimes(cachedAnalysis.raceId);
+      
+      if (!cachedRawTimes) {
+        console.log(`❌ No cached raw KM times found for race ${cachedAnalysis.raceId}`);
+        return;
+      }
+      
+      console.log(`✅ Found cached raw KM times: ${cachedRawTimes.rawTimes.length} horses`);
+      
+      const weights = getDefaultWeights();
+      
+      // Process each horse without a predicted time
+      for (const horse of cachedAnalysis.horses) {
+        if (horse.predictedTime) {
+          continue; // Skip horses that already have predicted times
+        }
+        
+        console.log(`🔧 Regenerating predicted time for horse ${horse.horseName} (${horse.horseId})`);
+        
+        // Find the corresponding raw KM time
+        const rawTimeData = cachedRawTimes.rawTimes.find(rt => rt.horseId === horse.horseId);
+        const rawKmTime = rawTimeData?.rawKmTime;
+        
+        console.log(`  - Found raw KM time: ${!!rawKmTime}`);
+        
+        // Create a mock horse object for normalization
+        const mockHorse = {
+          horseId: horse.horseId,
+          name: horse.horseName,
+          postPosition: horse.postPosition,
+          distance: actualRace.distance || 2140,
+          driver: {
+            firstName: 'Unknown',
+            lastName: 'Driver',
+            winPercentage: 15,
+            winPercentage2025: 15,
+            experience: 'experienced'
+          },
+          statistics: {
+            startPoints: 50,
+            placePercentage: 30,
+            winPercentage: 15,
+            earningsPerStart: 25000
+          }
+        };
+        
+        const mockRace = {
+          raceNumber: cachedAnalysis.raceNumber,
+          raceId: cachedAnalysis.raceId,
+          distance: actualRace.distance || 2140,
+          startMethod: 'auto',
+          track: { name: 'Unknown' }
+        };
+        
+        // Extract horse data
+        const extractedData = extractAndValidateHorseData(mockHorse);
+        
+        // Apply normalization to generate predicted time
+        const modernNormalizedResult = applyHorseNormalization(
+          mockHorse,
+          mockRace,
+          rawKmTime,
+          extractedData,
+          weights
+        );
+        
+        if (modernNormalizedResult?.modernNormalizedTime) {
+          const predictedTime = modernNormalizedResult.modernNormalizedTime;
+          
+          // Validate the generated time
+          if (typeof predictedTime.minutes === 'number' &&
+              typeof predictedTime.seconds === 'number' &&
+              typeof predictedTime.tenths === 'number' &&
+              !isNaN(predictedTime.minutes) &&
+              !isNaN(predictedTime.seconds) &&
+              !isNaN(predictedTime.tenths)) {
+            
+            horse.predictedTime = {
+              minutes: predictedTime.minutes,
+              seconds: predictedTime.seconds,
+              tenths: predictedTime.tenths
+            };
+            
+            console.log(`  ✅ Generated predicted time: ${predictedTime.minutes}:${predictedTime.seconds.toString().padStart(2, '0')}.${predictedTime.tenths}`);
+          } else {
+            console.log(`  ❌ Invalid predicted time generated:`, predictedTime);
+          }
+        } else {
+          console.log(`  ❌ Failed to generate predicted time for horse ${horse.horseName}`);
+        }
+      }
+      
+      const regeneratedCount = cachedAnalysis.horses.filter(h => h.predictedTime).length;
+      console.log(`🔄 Regeneration complete: ${regeneratedCount}/${cachedAnalysis.horses.length} horses now have predicted times`);
+      
+    } catch (error) {
+      console.error('❌ Error regenerating predicted times:', error);
+    }
   }
 
   private static compareRaceResults(
