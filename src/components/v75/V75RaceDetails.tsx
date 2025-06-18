@@ -42,6 +42,11 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
   // Debug all horse names before rendering
   race.horses.forEach((horse, index) => {
     console.log(`🐎 V75RaceDetails - Horse ${index}: ID=${horse.horseId}, Name=`, JSON.stringify(horse.horseName), 'Type:', typeof horse.horseName);
+    console.log(`💰 V75RaceDetails - Horse ${index} stats:`, {
+      winPercentage: horse.winPercentage,
+      earningsPerStart: horse.earningsPerStart,
+      statistics: horse.statistics
+    });
   });
 
   const formatKmTime = (time: { minutes: number; seconds: number; tenths: number }) => {
@@ -260,19 +265,21 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                       
                       <TableCell className="text-center">
                         <span className="text-sm font-medium text-blue-700">
-                          {horse.statistics?.startPoints || '-'}
+                          {horse.startPoints || horse.statistics?.startPoints || '-'}
                         </span>
                       </TableCell>
                       
                       <TableCell className="text-center">
                         <span className="text-sm font-medium text-indigo-700">
-                          {horse.statistics?.placePercentage ? (horse.statistics.placePercentage / 100).toFixed(1) + '%' : '-'}
+                          {horse.placePercentage ? (horse.placePercentage / 100).toFixed(1) + '%' : 
+                           horse.statistics?.placePercentage ? (horse.statistics.placePercentage / 100).toFixed(1) + '%' : '-'}
                         </span>
                       </TableCell>
                       
                       <TableCell className="text-center">
                         <span className="text-sm font-medium text-purple-700">
-                          {horse.statistics?.winPercentage ? (horse.statistics.winPercentage / 100).toFixed(1) + '%' : '-'}
+                          {horse.winPercentage ? (horse.winPercentage / 100).toFixed(1) + '%' : 
+                           horse.statistics?.winPercentage ? (horse.statistics.winPercentage / 100).toFixed(1) + '%' : '-'}
                         </span>
                       </TableCell>
                       
@@ -280,7 +287,8 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
                         <div className="flex items-center justify-center gap-1">
                           <Banknote className="h-3 w-3 text-amber-500" />
                           <span className="text-sm font-medium text-amber-700">
-                            {horse.statistics?.earningsPerStart ? formatEarnings(horse.statistics.earningsPerStart) : '-'}
+                            {horse.earningsPerStart ? formatEarnings(horse.earningsPerStart) : 
+                             horse.statistics?.earningsPerStart ? formatEarnings(horse.statistics.earningsPerStart) : '-'}
                           </span>
                         </div>
                       </TableCell>
@@ -380,4 +388,3 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
 };
 
 export default V75RaceDetails;
-
