@@ -4,10 +4,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, Target, Clock } from "lucide-react";
 import { V75PostRaceAnalysis } from '../../types/postRaceAnalysisTypes';
+import { KmTime } from '../../../../services/types/kmTimeTypes';
 
 interface V75PostRaceDetailsProps {
   analysis: V75PostRaceAnalysis;
 }
+
+// Helper function to safely format time objects
+const formatTimeDisplay = (time: KmTime | undefined): string => {
+  if (!time || time.minutes === undefined || time.seconds === undefined || time.tenths === undefined) {
+    return 'N/A';
+  }
+  return `${time.minutes}:${time.seconds.toString().padStart(2, '0')}.${time.tenths}`;
+};
 
 const V75PostRaceDetails: React.FC<V75PostRaceDetailsProps> = ({ analysis }) => {
   const getAccuracyBadge = (accuracy: number) => {
@@ -101,16 +110,10 @@ const V75PostRaceDetails: React.FC<V75PostRaceDetailsProps> = ({ analysis }) => 
                         {horse.rankDifference > 0 ? '+' : ''}{horse.rankDifference}
                       </td>
                       <td className="p-2 text-xs">
-                        {horse.predictedTime ? 
-                          `${horse.predictedTime.minutes}:${horse.predictedTime.seconds.toString().padStart(2, '0')}.${horse.predictedTime.tenths}` : 
-                          'N/A'
-                        }
+                        {formatTimeDisplay(horse.predictedTime)}
                       </td>
                       <td className="p-2 text-xs">
-                        {horse.actualTime ? 
-                          `${horse.actualTime.minutes}:${horse.actualTime.seconds.toString().padStart(2, '0')}.${horse.actualTime.tenths}` : 
-                          'N/A'
-                        }
+                        {formatTimeDisplay(horse.actualTime)}
                       </td>
                       <td className={`p-2 text-xs ${horse.timeDifference !== undefined ? 
                         (horse.timeDifference <= 2 ? 'text-green-600' : 
