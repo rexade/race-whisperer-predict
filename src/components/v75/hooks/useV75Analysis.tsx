@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { fetchV75RaceData, fetchV75GameInfo, V75RaceData } from '../../../services/v75CalendarApi';
@@ -187,6 +188,7 @@ const convertV75ToEnhancedRaceData = (v75Race: V75RaceData): EnhancedRaceData =>
     name: extractHorseNameAsString(horse.name),
     postPosition: horse.postPosition,
     distance: horse.distance,
+    startMethod: v75Race.startMethod, // Add missing startMethod property
     driver: {
       firstName: horse.driver.firstName,
       lastName: horse.driver.lastName,
@@ -215,7 +217,7 @@ const convertV75ToEnhancedRaceData = (v75Race: V75RaceData): EnhancedRaceData =>
     raceNumber: v75Race.raceNumber,
     distance: v75Race.distance,
     startMethod: v75Race.startMethod,
-    track: { name: extractTrackNameAsString(v75Race.track) },
+    track: extractTrackNameAsString(v75Race.track), // Fix: should be string, not object
     name: v75Race.name,
     date: v75Race.date,
     prize: v75Race.prize,
@@ -223,8 +225,8 @@ const convertV75ToEnhancedRaceData = (v75Race: V75RaceData): EnhancedRaceData =>
     dataQuality: {
       hasValidPostPositions: true,
       duplicatePositions: [],
-      missingData: [],
-      validationApplied: false
+      missingData: []
+      // Remove validationApplied property as it doesn't exist in the type
     }
   };
 };
@@ -238,7 +240,7 @@ const convertEnhancedToV75RaceData = (enhancedRace: EnhancedRaceData): V75RaceDa
     raceNumber: enhancedRace.raceNumber,
     distance: enhancedRace.distance,
     startMethod: enhancedRace.startMethod,
-    track: enhancedRace.track.name,
+    track: enhancedRace.track, // Fix: already a string, no need to access .name
     name: enhancedRace.name,
     date: enhancedRace.date,
     prize: enhancedRace.prize,
