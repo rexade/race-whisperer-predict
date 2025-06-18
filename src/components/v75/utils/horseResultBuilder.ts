@@ -72,7 +72,7 @@ export const buildHorseResult = (
 };
 
 /**
- * Store race analysis data for post-race comparison with enhanced predicted time handling
+ * Store race analysis data for post-race comparison with FIXED predicted time handling
  */
 export const storeRaceAnalysisData = async (
   race: any,
@@ -83,31 +83,45 @@ export const storeRaceAnalysisData = async (
     console.log(`📊 CACHE STORAGE DEBUG - Race ${race.raceNumber}:`);
     
     const analysisHorses = horses.map(horse => {
-      const predictedTime = horse.modernNormalizedResult?.modernNormalizedTime;
+      // FIXED: Properly extract the predicted time from modernNormalizedResult
+      const predictedTimeFromResult = horse.modernNormalizedResult?.modernNormalizedTime;
       
-      // Enhanced debug logging for predicted time
+      // Enhanced debug logging for predicted time extraction
       console.log(`  🐎 Horse ${horse.horseId} (${horse.horseName}):`);
       console.log(`    - Has modernNormalizedResult: ${!!horse.modernNormalizedResult}`);
-      console.log(`    - Predicted time from result:`, predictedTime);
-      console.log(`    - Predicted time is valid:`, predictedTime && 
-        typeof predictedTime.minutes === 'number' &&
-        typeof predictedTime.seconds === 'number' &&
-        typeof predictedTime.tenths === 'number');
+      console.log(`    - Raw predicted time from modernNormalizedResult:`, predictedTimeFromResult);
       
-      // Ensure we have a valid predicted time object before storing
+      // FIXED: Validate and extract the predicted time properly
       let validPredictedTime = undefined;
-      if (predictedTime && 
-          typeof predictedTime.minutes === 'number' &&
-          typeof predictedTime.seconds === 'number' &&
-          typeof predictedTime.tenths === 'number') {
+      if (predictedTimeFromResult && 
+          typeof predictedTimeFromResult === 'object' &&
+          typeof predictedTimeFromResult.minutes === 'number' &&
+          typeof predictedTimeFromResult.seconds === 'number' &&
+          typeof predictedTimeFromResult.tenths === 'number') {
+        
+        // Create a clean copy of the predicted time object
         validPredictedTime = {
-          minutes: predictedTime.minutes,
-          seconds: predictedTime.seconds,
-          tenths: predictedTime.tenths
+          minutes: predictedTimeFromResult.minutes,
+          seconds: predictedTimeFromResult.seconds,
+          tenths: predictedTimeFromResult.tenths
         };
-        console.log(`    ✅ Valid predicted time will be stored:`, validPredictedTime);
+        
+        console.log(`    ✅ EXTRACTED valid predicted time:`, validPredictedTime);
+        console.log(`    📝 Time format: ${validPredictedTime.minutes}:${validPredictedTime.seconds.toString().padStart(2, '0')}.${validPredictedTime.tenths}`);
       } else {
-        console.log(`    ❌ Invalid or missing predicted time - will store as undefined`);
+        console.log(`    ❌ Invalid or missing predicted time from modernNormalizedResult`);
+        console.log(`    🔍 Debug info:`, {
+          hasResult: !!horse.modernNormalizedResult,
+          timeValue: predictedTimeFromResult,
+          timeType: typeof predictedTimeFromResult,
+          isObject: typeof predictedTimeFromResult === 'object',
+          hasMinutes: predictedTimeFromResult?.minutes !== undefined,
+          hasSeconds: predictedTimeFromResult?.seconds !== undefined,
+          hasTenths: predictedTimeFromResult?.tenths !== undefined,
+          minutesType: typeof predictedTimeFromResult?.minutes,
+          secondsType: typeof predictedTimeFromResult?.seconds,
+          tenthsType: typeof predictedTimeFromResult?.tenths
+        });
       }
 
       return {
@@ -126,12 +140,22 @@ export const storeRaceAnalysisData = async (
       horse.rank = index + 1;
     });
 
-    // Final summary of what's being stored
+    // Enhanced summary of what's being stored
     const horsesWithPredictedTimes = analysisHorses.filter(h => h.predictedTime);
     console.log(`📋 STORAGE SUMMARY - Race ${race.raceNumber}:`);
     console.log(`  - Total horses: ${analysisHorses.length}`);
     console.log(`  - Horses with predicted times: ${horsesWithPredictedTimes.length}`);
     console.log(`  - Horses without predicted times: ${analysisHorses.length - horsesWithPredictedTimes.length}`);
+    
+    // Sample display of horses with predicted times
+    if (horsesWithPredictedTimes.length > 0) {
+      console.log(`  🎯 Sample predicted times being stored:`);
+      horsesWithPredictedTimes.slice(0, 3).forEach(horse => {
+        if (horse.predictedTime) {
+          console.log(`    - ${horse.horseName}: ${horse.predictedTime.minutes}:${horse.predictedTime.seconds.toString().padStart(2, '0')}.${horse.predictedTime.tenths}`);
+        }
+      });
+    }
 
     await RaceAnalysisCache.storeRaceAnalysis(
       race.raceId,
@@ -140,7 +164,7 @@ export const storeRaceAnalysisData = async (
       analysisHorses
     );
 
-    console.log(`📊 Stored analysis data for race ${race.raceNumber} with enhanced time predictions`);
+    console.log(`📊 Successfully stored analysis data for race ${race.raceNumber} with ${horsesWithPredictedTimes.length} predicted times`);
   } catch (error) {
     console.error('❌ Error storing race analysis data:', error);
   }
