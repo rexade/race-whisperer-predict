@@ -44,7 +44,7 @@ export const formatEarnings = (earnings: number) => {
   return adjustedEarnings.toFixed(0);
 };
 
-export const getShoesDisplay = (frontHasShoe: boolean, backHasShoe: boolean) => {
+export const getShoesDisplay = (frontHasShoe: any, backHasShoe: any) => {
   console.log('👟 getShoesDisplay - Input:', { 
     frontHasShoe, 
     backHasShoe, 
@@ -78,7 +78,7 @@ export const getShoesDisplay = (frontHasShoe: boolean, backHasShoe: boolean) => 
   return "Shod";
 };
 
-export const getShoesColor = (frontHasShoe: boolean, backHasShoe: boolean) => {
+export const getShoesColor = (frontHasShoe: any, backHasShoe: any) => {
   // Enhanced validation and conversion to handle edge cases
   const frontShoe = frontHasShoe === true || frontHasShoe === 1 || frontHasShoe === "1" || frontHasShoe === "true";
   const backShoe = backHasShoe === true || backHasShoe === 1 || backHasShoe === "1" || backHasShoe === "true";
