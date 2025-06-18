@@ -12,8 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const [selectedDate, setSelectedDate] = useState<Date>();
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [raceData, setRaceData] = useState(null);
+  const [showRaceAnalyzer, setShowRaceAnalyzer] = useState(false);
   const { toast } = useToast();
 
   const handleAnalyzeRaces = async () => {
@@ -26,17 +25,15 @@ const Index = () => {
       return;
     }
 
-    setIsAnalyzing(true);
     try {
       const dateStr = format(selectedDate, "yyyy-MM-dd");
-      console.log(`Analyzing races for date: ${dateStr}`);
+      console.log(`Starting race analysis for date: ${dateStr}`);
       
-      // This will trigger the race analysis
-      setRaceData({ date: dateStr, timestamp: Date.now() });
+      setShowRaceAnalyzer(true);
       
       toast({
         title: "Analysis Started",
-        description: `Fetching harness racing data for ${format(selectedDate, "PPP")}`,
+        description: `Opening race analyzer for ${format(selectedDate, "PPP")}`,
       });
     } catch (error) {
       console.error("Error starting analysis:", error);
@@ -45,8 +42,6 @@ const Index = () => {
         description: "Failed to start race analysis. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsAnalyzing(false);
     }
   };
 
@@ -110,35 +105,23 @@ const Index = () => {
 
               <Button 
                 onClick={handleAnalyzeRaces}
-                disabled={!selectedDate || isAnalyzing}
+                disabled={!selectedDate}
                 className="w-80 bg-green-600 hover:bg-green-700 text-white text-lg py-6"
               >
-                {isAnalyzing ? (
-                  <>
-                    <Clock className="mr-2 h-5 w-5 animate-spin" />
-                    Analyzing Races...
-                  </>
-                ) : (
-                  <>
-                    <TrendingUp className="mr-2 h-5 w-5" />
-                    Analyze Races
-                  </>
-                )}
+                <TrendingUp className="mr-2 h-5 w-5" />
+                Analyze Races
               </Button>
             </div>
           </CardContent>
         </Card>
 
         {/* Race Analysis Results */}
-        {raceData && (
-          <RaceAnalyzer 
-            selectedDate={raceData.date} 
-            key={raceData.timestamp}
-          />
+        {showRaceAnalyzer && (
+          <RaceAnalyzer />
         )}
 
         {/* Feature Cards */}
-        {!raceData && (
+        {!showRaceAnalyzer && (
           <div className="grid md:grid-cols-3 gap-6 mt-12">
             <Card className="border-green-200 hover:shadow-lg transition-shadow">
               <CardHeader>
