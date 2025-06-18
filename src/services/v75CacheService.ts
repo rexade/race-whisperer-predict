@@ -293,4 +293,52 @@ export class V75CacheService {
       return [];
     }
   }
+
+  /**
+   * Get cached game IDs for post-race analysis
+   * This checks if we have race analyses for a given date
+   */
+  static async getCachedGameIds(): Promise<string[]> {
+    try {
+      const gameIds: string[] = [];
+      
+      // Check for race analyses
+      const raceAnalyses = await this.getAllRaceAnalyses();
+      
+      // Group by date to create game IDs
+      const dateSet = new Set<string>();
+      raceAnalyses.forEach(analysis => {
+        dateSet.add(analysis.analysisDate);
+      });
+      
+      // Convert dates to game ID format
+      dateSet.forEach(date => {
+        gameIds.push(`v75-${date}`);
+      });
+      
+      console.log(`📋 Found cached game IDs: ${gameIds.join(', ')}`);
+      return gameIds;
+      
+    } catch (error) {
+      console.error('❌ Error getting cached game IDs:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Check if predictions exist for a specific date
+   */
+  static async hasPredictionsForDate(date: string): Promise<boolean> {
+    try {
+      const raceAnalyses = await this.getAllRaceAnalyses();
+      const hasAnalyses = raceAnalyses.some(analysis => analysis.analysisDate === date);
+      
+      console.log(`🔍 Checking predictions for ${date}: ${hasAnalyses ? 'Found' : 'Not found'}`);
+      return hasAnalyses;
+      
+    } catch (error) {
+      console.error('❌ Error checking predictions for date:', error);
+      return false;
+    }
+  }
 }

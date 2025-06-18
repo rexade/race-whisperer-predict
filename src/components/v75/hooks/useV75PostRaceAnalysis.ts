@@ -26,10 +26,9 @@ export const useV75PostRaceAnalysis = () => {
       
       // Step 2: Check if predictions exist for this date
       console.log(`🔍 Checking for cached predictions for ${date}...`);
-      const cachedGameIds = await V75CacheService.getCachedGameIds();
-      const dateGameId = `v75-${date}`;
+      const hasPredictions = await V75CacheService.hasPredictionsForDate(date);
       
-      if (!cachedGameIds.includes(dateGameId)) {
+      if (!hasPredictions) {
         const errorMsg = `No V75 predictions found for ${date}. You must first analyze this date using the V75 Analyzer to create predictions, then return here to compare them with actual results.`;
         throw new Error(errorMsg);
       }
