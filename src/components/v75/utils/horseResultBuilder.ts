@@ -42,8 +42,9 @@ export const buildHorseResult = (
   console.log(`  - Modern normalized result exists: ${!!modernNormalizedResult}`);
   
   if (modernNormalizedResult) {
+    const isEstimated = (modernNormalizedResult as any).isEstimated;
     console.log(`  - Modern normalized time:`, modernNormalizedResult.modernNormalizedTime);
-    console.log(`  - Modern normalized time type:`, typeof modernNormalizedResult.modernNormalizedTime);
+    console.log(`  - Time source: ${isEstimated ? 'ESTIMATED' : 'RAW DATA'}`);
     console.log(`  - Is valid time object:`, modernNormalizedResult.modernNormalizedTime && 
       typeof modernNormalizedResult.modernNormalizedTime.minutes === 'number' &&
       typeof modernNormalizedResult.modernNormalizedTime.seconds === 'number' &&
@@ -72,7 +73,7 @@ export const buildHorseResult = (
 };
 
 /**
- * Store race analysis data for post-race comparison with FIXED predicted time handling
+ * Store race analysis data for post-race comparison with ENHANCED predicted time handling
  */
 export const storeRaceAnalysisData = async (
   race: any,
@@ -80,18 +81,20 @@ export const storeRaceAnalysisData = async (
   analysisDate: string
 ): Promise<void> => {
   try {
-    console.log(`📊 CACHE STORAGE DEBUG - Race ${race.raceNumber}:`);
+    console.log(`📊 ENHANCED CACHE STORAGE DEBUG - Race ${race.raceNumber}:`);
     
     const analysisHorses = horses.map(horse => {
-      // FIXED: Properly extract the predicted time from modernNormalizedResult
+      // ENHANCED: Always extract predicted time from modernNormalizedResult
       const predictedTimeFromResult = horse.modernNormalizedResult?.modernNormalizedTime;
+      const isEstimated = (horse.modernNormalizedResult as any)?.isEstimated || false;
       
       // Enhanced debug logging for predicted time extraction
       console.log(`  🐎 Horse ${horse.horseId} (${horse.horseName}):`);
       console.log(`    - Has modernNormalizedResult: ${!!horse.modernNormalizedResult}`);
+      console.log(`    - Time source: ${isEstimated ? 'ESTIMATED' : 'RAW DATA'}`);
       console.log(`    - Raw predicted time from modernNormalizedResult:`, predictedTimeFromResult);
       
-      // FIXED: Validate and extract the predicted time properly
+      // ENHANCED: Always create a valid predicted time
       let validPredictedTime = undefined;
       if (predictedTimeFromResult && 
           typeof predictedTimeFromResult === 'object' &&
@@ -107,9 +110,9 @@ export const storeRaceAnalysisData = async (
         };
         
         console.log(`    ✅ EXTRACTED valid predicted time:`, validPredictedTime);
-        console.log(`    📝 Time format: ${validPredictedTime.minutes}:${validPredictedTime.seconds.toString().padStart(2, '0')}.${validPredictedTime.tenths}`);
+        console.log(`    📝 Time format: ${validPredictedTime.minutes}:${validPredictedTime.seconds.toString().padStart(2, '0')}.${validPredictedTime.tenths} ${isEstimated ? '(EST)' : ''}`);
       } else {
-        console.log(`    ❌ Invalid or missing predicted time from modernNormalizedResult`);
+        console.log(`    ❌ CRITICAL: No valid predicted time found for horse with modernNormalizedResult`);
         console.log(`    🔍 Debug info:`, {
           hasResult: !!horse.modernNormalizedResult,
           timeValue: predictedTimeFromResult,
@@ -142,7 +145,7 @@ export const storeRaceAnalysisData = async (
 
     // Enhanced summary of what's being stored
     const horsesWithPredictedTimes = analysisHorses.filter(h => h.predictedTime);
-    console.log(`📋 STORAGE SUMMARY - Race ${race.raceNumber}:`);
+    console.log(`📋 ENHANCED STORAGE SUMMARY - Race ${race.raceNumber}:`);
     console.log(`  - Total horses: ${analysisHorses.length}`);
     console.log(`  - Horses with predicted times: ${horsesWithPredictedTimes.length}`);
     console.log(`  - Horses without predicted times: ${analysisHorses.length - horsesWithPredictedTimes.length}`);
