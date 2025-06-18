@@ -10,22 +10,22 @@ export class RaceResultProcessor {
   /**
    * Process a single race result with all analysis steps
    */
-  static processRaceResult(
+  static async processRaceResult(
     race: any,
     rawKmTimes: Array<{ horseId: number; best3Average: any }>,
     weights: NormalizationWeights,
     analysisDate?: string
-  ): V75RaceResult {
+  ): Promise<V75RaceResult> {
     const safeRaceTrack = extractTrackNameAsString(race.track);
     const safeRaceName = extractTrackNameAsString(race.name);
     
     try {
-      const horseResults = processHorseResults(race, rawKmTimes, weights);
+      const horseResults = await processHorseResults(race, rawKmTimes, weights, analysisDate);
       
       // Calculate final scores and ranks for horses
       const horsesWithScores = RaceScoreCalculator.calculateScoresAndRanks(horseResults);
 
-      // Store analysis results with the correct date (race date, not today's date)
+      // Calculate final scores and ranks for horses
       const analysisHorses = RaceScoreCalculator.prepareAnalysisData(horsesWithScores);
 
       // Use the race date for analysis storage instead of today's date

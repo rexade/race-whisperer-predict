@@ -118,7 +118,7 @@ export const useV75Analysis = () => {
         // Process horse results with FRESH race data and cached/calculated raw times
         // Pass the analysis date (race date) to ensure correct caching
         updateProgress(20 + raceProgress + (70 / v75Races.length), `Race ${race.raceNumber}: Processing results with fresh data...`);
-        const raceResult = processRaceResult(race, rawKmTimes, weights, date);
+        const raceResult = await processRaceResult(race, rawKmTimes, weights, date);
         results.push(raceResult);
         
         console.log(`✅ Race ${race.raceNumber} optimized analysis complete: ${raceResult.horses.length} horses processed`);

@@ -8,13 +8,13 @@ import { RaceReanalysisService } from '../services/raceReanalysisService';
 export const useV75ResultsProcessor = () => {
   const [v75Results, setV75Results] = useState<V75RaceResult[]>([]);
 
-  const processRaceResult = useCallback((
+  const processRaceResult = useCallback(async (
     race: any,
     rawKmTimes: Array<{ horseId: number; best3Average: any }>,
     weights: NormalizationWeights,
     analysisDate?: string
-  ): V75RaceResult => {
-    return RaceResultProcessor.processRaceResult(race, rawKmTimes, weights, analysisDate);
+  ): Promise<V75RaceResult> => {
+    return await RaceResultProcessor.processRaceResult(race, rawKmTimes, weights, analysisDate);
   }, []);
 
   const reanalyzeWithNewWeights = (weights: NormalizationWeights) => {
