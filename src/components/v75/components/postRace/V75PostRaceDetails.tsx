@@ -10,8 +10,8 @@ interface V75PostRaceDetailsProps {
   analysis: V75PostRaceAnalysis;
 }
 
-// Helper function to safely format time objects
-const formatTimeDisplay = (time: KmTime | undefined): string => {
+// Helper function to safely format time objects - handles both KmTime and cached time formats
+const formatTimeDisplay = (time: KmTime | { minutes: number; seconds: number; tenths: number } | undefined): string => {
   if (!time || time.minutes === undefined || time.seconds === undefined || time.tenths === undefined) {
     return 'N/A';
   }

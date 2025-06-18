@@ -27,7 +27,8 @@ export interface V75PredictionAccuracy {
   postPosition: number;
   predictedScore: number;
   predictedRank: number;
-  predictedTime?: KmTime; // Predicted normalized time
+  // Updated to match the actual cached format - plain object instead of KmTime interface
+  predictedTime?: { minutes: number; seconds: number; tenths: number };
   actualFinishPosition: number;
   actualTime?: KmTime; // Actual finish time
   timeDifference?: number; // Seconds difference between predicted and actual
