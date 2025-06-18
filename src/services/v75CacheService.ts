@@ -1,143 +1,163 @@
 
-export interface CachedV75Horse {
+export interface CachedRawTime {
   horseId: number;
-  horseName: string;
   postPosition: number;
   rawKmTime?: {
     minutes: number;
     seconds: number;
     tenths: number;
   };
-  // Store additional data that doesn't change
-  distance: number;
-  startMethod: string;
-  driverName: string;
-  statistics?: {
-    startPoints: number;
-    placePercentage: number;
-    winPercentage: number;
-    earningsPerStart: number;
-  };
-  driver2025WinPercentage?: number;
-  sulkyType?: string;
-  shoesFront?: boolean;
-  shoesBack?: boolean;
-  homeTrack?: string;
-}
-
-export interface CachedV75Race {
-  raceNumber: number;
-  raceId: string;
-  track: string;
-  distance: number;
-  startMethod: string;
-  name: string;
-  prize: number;
-  horses: CachedV75Horse[];
-  cachedAt: string; // ISO timestamp
-}
-
-export interface CachedV75Analysis {
-  date: string;
-  gameId: string;
-  races: CachedV75Race[];
   cachedAt: string;
 }
 
-const CACHE_KEY_PREFIX = 'v75_analysis_';
-const CACHE_EXPIRY_HOURS = 24; // Cache expires after 24 hours
+export interface CachedV75RawTimes {
+  date: string;
+  gameId: string;
+  raceId: string;
+  raceNumber: number;
+  rawTimes: CachedRawTime[];
+  cachedAt: string;
+}
+
+const CACHE_KEY_PREFIX = 'v75_raw_times_';
+const CACHE_EXPIRY_HOURS = 168; // 7 days - raw times never change
 
 export class V75CacheService {
-  private static getCacheKey(date: string): string {
-    return `${CACHE_KEY_PREFIX}${date}`;
+  private static getRawTimeCacheKey(raceId: string): string {
+    return `${CACHE_KEY_PREFIX}${raceId}`;
   }
 
-  static async storeAnalysis(date: string, gameId: string, races: CachedV75Race[]): Promise<void> {
-    console.log(`💾 Storing V75 analysis cache for ${date}`);
+  static async storeRawTimes(
+    date: string, 
+    gameId: string, 
+    raceId: string, 
+    raceNumber: number,
+    rawTimes: Array<{ horseId: number; postPosition: number; best3Average?: any }>
+  ): Promise<void> {
+    console.log(`💾 Storing raw KM times cache for race ${raceNumber} (${raceId})`);
     
-    const cacheData: CachedV75Analysis = {
+    const cachedRawTimes: CachedRawTime[] = rawTimes.map(rt => ({
+      horseId: rt.horseId,
+      postPosition: rt.postPosition,
+      rawKmTime: rt.best3Average,
+      cachedAt: new Date().toISOString()
+    }));
+
+    const cacheData: CachedV75RawTimes = {
       date,
       gameId,
-      races,
+      raceId,
+      raceNumber,
+      rawTimes: cachedRawTimes,
       cachedAt: new Date().toISOString()
     };
 
     try {
-      const cacheKey = this.getCacheKey(date);
+      const cacheKey = this.getRawTimeCacheKey(raceId);
       localStorage.setItem(cacheKey, JSON.stringify(cacheData));
       
-      console.log(`✅ V75 analysis cached successfully for ${date}:`);
-      console.log(`   - ${races.length} races`);
-      console.log(`   - ${races.reduce((sum, race) => sum + race.horses.length, 0)} total horses`);
-      console.log(`   - Raw times cached for future use`);
+      console.log(`✅ Raw KM times cached for race ${raceNumber}:`);
+      console.log(`   - ${cachedRawTimes.length} horses`);
+      console.log(`   - Race ID: ${raceId}`);
+      console.log(`   - Raw times permanently cached`);
       
     } catch (error) {
-      console.error('❌ Failed to store V75 analysis cache:', error);
+      console.error('❌ Failed to store raw times cache:', error);
     }
   }
 
-  static async getAnalysis(date: string): Promise<CachedV75Analysis | null> {
-    console.log(`🔍 Looking for cached V75 analysis for ${date}`);
+  static async getRawTimes(raceId: string): Promise<CachedV75RawTimes | null> {
+    console.log(`🔍 Looking for cached raw times for race ${raceId}`);
     
     try {
-      const cacheKey = this.getCacheKey(date);
+      const cacheKey = this.getRawTimeCacheKey(raceId);
       const cachedData = localStorage.getItem(cacheKey);
       
       if (!cachedData) {
-        console.log(`❌ No cache found for ${date}`);
+        console.log(`❌ No raw times cache found for race ${raceId}`);
         return null;
       }
 
-      const analysis: CachedV75Analysis = JSON.parse(cachedData);
+      const rawTimesData: CachedV75RawTimes = JSON.parse(cachedData);
       
-      // Check if cache is still valid
-      const cachedAt = new Date(analysis.cachedAt);
+      // Check if cache is still valid (raw times are cached for much longer)
+      const cachedAt = new Date(rawTimesData.cachedAt);
       const now = new Date();
       const hoursDiff = (now.getTime() - cachedAt.getTime()) / (1000 * 60 * 60);
       
       if (hoursDiff > CACHE_EXPIRY_HOURS) {
-        console.log(`⏰ Cache expired for ${date} (${hoursDiff.toFixed(1)} hours old)`);
-        this.clearAnalysis(date);
+        console.log(`⏰ Raw times cache expired for race ${raceId} (${hoursDiff.toFixed(1)} hours old)`);
+        this.clearRawTimes(raceId);
         return null;
       }
 
-      console.log(`✅ Found valid cached analysis for ${date}:`);
+      console.log(`✅ Found valid cached raw times for race ${raceId}:`);
       console.log(`   - Cached ${hoursDiff.toFixed(1)} hours ago`);
-      console.log(`   - ${analysis.races.length} races`);
-      console.log(`   - Raw times ready for instant use`);
+      console.log(`   - ${rawTimesData.rawTimes.length} horses with raw times`);
       
-      return analysis;
+      return rawTimesData;
       
     } catch (error) {
-      console.error(`❌ Error reading cache for ${date}:`, error);
+      console.error(`❌ Error reading raw times cache for race ${raceId}:`, error);
       return null;
     }
   }
 
-  static clearAnalysis(date: string): void {
-    const cacheKey = this.getCacheKey(date);
+  static clearRawTimes(raceId: string): void {
+    const cacheKey = this.getRawTimeCacheKey(raceId);
     localStorage.removeItem(cacheKey);
-    console.log(`🗑️ Cleared cache for ${date}`);
+    console.log(`🗑️ Cleared raw times cache for race ${raceId}`);
   }
 
   static clearAllCache(): void {
     const keys = Object.keys(localStorage);
-    const v75Keys = keys.filter(key => key.startsWith(CACHE_KEY_PREFIX));
+    const rawTimeKeys = keys.filter(key => key.startsWith(CACHE_KEY_PREFIX));
     
-    v75Keys.forEach(key => localStorage.removeItem(key));
-    console.log(`🗑️ Cleared ${v75Keys.length} V75 cache entries`);
+    rawTimeKeys.forEach(key => localStorage.removeItem(key));
+    console.log(`🗑️ Cleared ${rawTimeKeys.length} raw times cache entries`);
   }
 
-  static getCacheInfo(): { dates: string[], totalSize: number } {
+  static getCacheInfo(): { raceIds: string[], totalSize: number, cacheEntries: Array<{ raceId: string; raceNumber: number; date: string; horseCount: number }> } {
     const keys = Object.keys(localStorage);
-    const v75Keys = keys.filter(key => key.startsWith(CACHE_KEY_PREFIX));
+    const rawTimeKeys = keys.filter(key => key.startsWith(CACHE_KEY_PREFIX));
     
-    const dates = v75Keys.map(key => key.replace(CACHE_KEY_PREFIX, ''));
-    const totalSize = v75Keys.reduce((size, key) => {
+    const raceIds = rawTimeKeys.map(key => key.replace(CACHE_KEY_PREFIX, ''));
+    const cacheEntries: Array<{ raceId: string; raceNumber: number; date: string; horseCount: number }> = [];
+    
+    let totalSize = 0;
+    
+    rawTimeKeys.forEach(key => {
       const data = localStorage.getItem(key);
-      return size + (data ? data.length : 0);
-    }, 0);
+      if (data) {
+        totalSize += data.length;
+        try {
+          const parsed: CachedV75RawTimes = JSON.parse(data);
+          cacheEntries.push({
+            raceId: parsed.raceId,
+            raceNumber: parsed.raceNumber,
+            date: parsed.date,
+            horseCount: parsed.rawTimes.length
+          });
+        } catch (error) {
+          console.warn(`Failed to parse cache entry for key ${key}:`, error);
+        }
+      }
+    });
 
-    return { dates, totalSize };
+    return { raceIds, totalSize, cacheEntries };
+  }
+
+  // Legacy methods for backward compatibility - now deprecated
+  static async storeAnalysis(): Promise<void> {
+    console.warn('⚠️ storeAnalysis is deprecated - use storeRawTimes instead');
+  }
+
+  static async getAnalysis(): Promise<null> {
+    console.warn('⚠️ getAnalysis is deprecated - use getRawTimes instead');
+    return null;
+  }
+
+  static clearAnalysis(date: string): void {
+    console.warn('⚠️ clearAnalysis is deprecated - use clearRawTimes instead');
   }
 }
