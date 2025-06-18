@@ -81,17 +81,34 @@ export class V75ResultsFetcher {
       status: raceInfo.status,
       number: raceInfo.number,
       distance: raceInfo.distance,
-      hasResults: !!raceInfo.results
+      hasResults: !!raceInfo.results,
+      hasStarts: !!raceInfo.starts
+    });
+    
+    // FIXED: Case-insensitive status check and broader acceptance criteria
+    const raceStatus = (raceInfo.status || '').toLowerCase();
+    const isRaceFinished = raceStatus === 'finished' || 
+                          raceStatus === 'results' || 
+                          raceStatus === 'result' ||
+                          raceStatus === 'completed';
+    
+    console.log(`🔍 Race ${raceId} status check:`, {
+      originalStatus: raceInfo.status,
+      normalizedStatus: raceStatus,
+      isFinished: isRaceFinished
     });
     
     // Check if race has finished and has results
-    if (raceInfo.status !== 'FINISHED' && raceInfo.status !== 'RESULTS') {
+    if (!isRaceFinished) {
       console.warn(`Race ${raceId} not finished yet (status: ${raceInfo.status})`);
       return null;
     }
     
-    // Try multiple result endpoints
+    // ENHANCED: Multiple strategies for finding results data
     let raceResults = null;
+    let resultsSource = '';
+    
+    // Strategy 1: Try dedicated results endpoints
     const resultEndpoints = [
       `https://www.atg.se/services/racinginfo/v1/api/races/${raceId}/results`,
       `https://www.atg.se/services/racinginfo/v1/api/races/${raceId}/result`,
@@ -104,9 +121,13 @@ export class V75ResultsFetcher {
         const resultResponse = await fetch(endpoint);
         
         if (resultResponse.ok) {
-          raceResults = await resultResponse.json();
-          console.log(`✅ Results found at ${endpoint}`);
-          break;
+          const endpointData = await resultResponse.json();
+          if (endpointData && (endpointData.results || endpointData.starts)) {
+            raceResults = endpointData;
+            resultsSource = endpoint;
+            console.log(`✅ Results found at ${endpoint}`);
+            break;
+          }
         } else {
           console.log(`❌ Failed at ${endpoint}: ${resultResponse.statusText}`);
         }
@@ -115,34 +136,78 @@ export class V75ResultsFetcher {
       }
     }
     
-    // If no results from endpoints, try to extract from race info
-    if (!raceResults && raceInfo.results) {
-      console.log(`📊 Using results from race info`);
+    // Strategy 2: Extract from race info if available
+    if (!raceResults && raceInfo.results && Array.isArray(raceInfo.results) && raceInfo.results.length > 0) {
+      console.log(`📊 Using results from race info (${raceInfo.results.length} horses)`);
       raceResults = { results: raceInfo.results };
+      resultsSource = 'race info results';
     }
     
-    if (!raceResults || !raceResults.results) {
-      console.warn(`No results available for race ${raceId}`);
+    // Strategy 3: Extract from starts in race info (for live results)
+    if (!raceResults && raceInfo.starts && Array.isArray(raceInfo.starts) && raceInfo.starts.length > 0) {
+      // Check if starts have result data (finish positions)
+      const startsWithResults = raceInfo.starts.filter((start: any) => 
+        start.result && (start.result.finalPosition || start.result.finishOrder)
+      );
+      
+      if (startsWithResults.length > 0) {
+        console.log(`📊 Using results from race starts (${startsWithResults.length} horses with results)`);
+        raceResults = { results: raceInfo.starts };
+        resultsSource = 'race info starts';
+      }
+    }
+    
+    if (!raceResults || (!raceResults.results && !raceResults.starts)) {
+      console.warn(`❌ No results data found for race ${raceId}`);
+      console.log(`🔍 Available data in race info:`, {
+        hasResults: !!raceInfo.results,
+        resultsType: typeof raceInfo.results,
+        resultsLength: Array.isArray(raceInfo.results) ? raceInfo.results.length : 'not array',
+        hasStarts: !!raceInfo.starts,
+        startsLength: Array.isArray(raceInfo.starts) ? raceInfo.starts.length : 'not array'
+      });
       return null;
     }
     
-    // Process the results
-    const finishOrder = (raceResults.results || [])
-      .filter((result: any) => result.finalPosition && result.finalPosition > 0)
-      .sort((a: any, b: any) => a.finalPosition - b.finalPosition)
-      .map((result: any) => ({
-        position: result.finalPosition,
-        horseId: result.horse?.id || result.horseId || 0,
-        horseName: result.horse?.name || result.horseName || 'Unknown',
-        postPosition: result.postPosition || result.number || 0,
-        time: result.kmTime ? formatKmTime(result.kmTime) : (result.time || 'N/A'),
-        driver: result.driver ? 
-          `${result.driver.firstName || ''} ${result.driver.lastName || ''}`.trim() : 
-          'Unknown Driver'
-      }));
+    console.log(`✅ Results data source: ${resultsSource}`);
+    
+    // Process the results - handle both results and starts arrays
+    const resultsArray = raceResults.results || raceResults.starts || [];
+    
+    const finishOrder = resultsArray
+      .map((item: any) => {
+        // Handle different result formats
+        let position, horseId, horseName, postPosition, time, driver;
+        
+        if (item.result) {
+          // Format: starts with embedded result
+          position = item.result.finalPosition || item.result.finishOrder;
+          horseId = item.horse?.id || 0;
+          horseName = item.horse?.name || 'Unknown';
+          postPosition = item.number || item.postPosition || 0;
+          time = item.result.kmTime ? formatKmTime(item.result.kmTime) : 'N/A';
+          driver = item.driver ? 
+            `${item.driver.firstName || ''} ${item.driver.lastName || ''}`.trim() : 
+            'Unknown Driver';
+        } else {
+          // Format: direct results
+          position = item.finalPosition || item.finishOrder || item.position;
+          horseId = item.horse?.id || item.horseId || 0;
+          horseName = item.horse?.name || item.horseName || 'Unknown';
+          postPosition = item.postPosition || item.number || 0;
+          time = item.kmTime ? formatKmTime(item.kmTime) : (item.time || 'N/A');
+          driver = item.driver ? 
+            `${item.driver.firstName || ''} ${item.driver.lastName || ''}`.trim() : 
+            'Unknown Driver';
+        }
+        
+        return { position, horseId, horseName, postPosition, time, driver };
+      })
+      .filter((result: any) => result.position && result.position > 0)
+      .sort((a: any, b: any) => a.position - b.position);
     
     if (finishOrder.length === 0) {
-      console.warn(`No valid finish positions found for race ${raceId}`);
+      console.warn(`❌ No valid finish positions found for race ${raceId} from ${resultsSource}`);
       return null;
     }
     
@@ -156,7 +221,7 @@ export class V75ResultsFetcher {
       distance: raceInfo.distance || 0
     };
     
-    console.log(`✅ Successfully processed race ${raceId} with ${finishOrder.length} horses`);
+    console.log(`✅ Successfully processed race ${raceId} with ${finishOrder.length} horses (source: ${resultsSource})`);
     return actualResult;
   }
 }
