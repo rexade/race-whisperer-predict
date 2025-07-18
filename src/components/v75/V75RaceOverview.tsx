@@ -217,17 +217,18 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {races.map(race => {
           // CRITICAL DEBUG: Check each race's properties before rendering
-          console.log(`🏁 RENDERING RACE ${race.raceNumber}:`, {
+          console.log(`🏁 RACE ${race.raceNumber} ENHANCED DEBUG:`, {
             raceNumber: race.raceNumber,
-            name: race.name,
-            nameType: typeof race.name,
+            raceId: race.raceId,
             track: race.track,
+            name: race.name,
             trackType: typeof race.track,
-            distance: race.distance,
-            distanceType: typeof race.distance,
-            startMethod: race.startMethod,
-            startMethodType: typeof race.startMethod,
-            horsesWithData: race.horses.filter(h => h.statistics?.earningsPerStart > 0 || h.statistics?.startPoints > 0).length
+            nameType: typeof race.name,
+            horsesWithEarnings: race.horses?.filter(h => h.statistics?.earningsPerStart > 0).length || 0,
+            totalHorses: race.horses?.length || 0,
+            horsesArray: race.horses ? 'EXISTS' : 'MISSING',
+            horsesType: typeof race.horses,
+            isArray: Array.isArray(race.horses)
           });
           
           // Safety check for all string fields
@@ -235,7 +236,7 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
           const safeTrack = ensureStringForDisplay(race.track);
           const safeStartMethod = ensureStringForDisplay(race.startMethod);
           
-          const raceDataQuality = race.horses.length > 0 ? 
+          const raceDataQuality = race.horses?.length > 0 ? 
             Math.round((race.horses.filter(h => h.statistics?.earningsPerStart > 0 || h.statistics?.startPoints > 0).length / race.horses.length) * 100) : 0;
           
           return (
