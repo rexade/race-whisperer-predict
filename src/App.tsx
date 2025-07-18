@@ -1,10 +1,6 @@
 
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import Navigation from './components/Navigation';
-import Index from './pages/Index';
 import V75Analyzer from './components/V75Analyzer';
-import NotFound from './pages/NotFound';
 import './App.css';
 
 const queryClient = new QueryClient();
@@ -12,18 +8,20 @@ const queryClient = new QueryClient();
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
-        <div className="min-h-screen bg-gray-50">
-          <Navigation />
-          <main className="container mx-auto px-4 py-8">
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/v75-analyzer" element={<V75Analyzer />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </main>
-        </div>
-      </Router>
+      <div className="min-h-screen bg-gray-50">
+        <header className="bg-white shadow-sm border-b">
+          <div className="container mx-auto px-4">
+            <div className="flex items-center h-16">
+              <h1 className="text-xl font-bold text-gray-900">
+                🏇 TrotAnalyzer - V75 Analysis
+              </h1>
+            </div>
+          </div>
+        </header>
+        <main className="container mx-auto px-4 py-8">
+          <V75Analyzer />
+        </main>
+      </div>
     </QueryClientProvider>
   );
 }
