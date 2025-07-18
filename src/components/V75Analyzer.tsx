@@ -18,14 +18,12 @@ import V75Input from "./v75/components/V75Input";
 import V75Summary from "./v75/components/V75Summary";
 import V75Results from "./v75/components/V75Results";
 import V75CacheManager from "./v75/components/V75CacheManager";
-import V75TimeValidator from "./v75/components/V75TimeValidator";
 
 const V75Analyzer: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [weights, setWeights] = useState<NormalizationWeights>(getDefaultWeights());
   const [activeTab, setActiveTab] = useState("overview");
   const [showCacheManager, setShowCacheManager] = useState(false);
-  const [showTimeValidator, setShowTimeValidator] = useState(false);
   
   const {
     loading,
@@ -79,14 +77,8 @@ const V75Analyzer: React.FC = () => {
             loading={loading}
           />
 
-          {/* Control buttons - Mobile friendly */}
-          <div className="flex flex-wrap gap-2 justify-end">
-            <button
-              onClick={() => setShowTimeValidator(!showTimeValidator)}
-              className="text-xs sm:text-sm text-purple-600 hover:text-purple-800 underline touch-manipulation py-2"
-            >
-              {showTimeValidator ? 'Hide' : 'Show'} Time Validator
-            </button>
+          {/* Cache Manager Toggle - Mobile friendly */}
+          <div className="flex justify-end">
             <button
               onClick={() => setShowCacheManager(!showCacheManager)}
               className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 underline touch-manipulation py-2"
@@ -110,13 +102,6 @@ const V75Analyzer: React.FC = () => {
             <V75Summary races={v75Results} analysisDate={analysisDate} />
           )}
         </AnalyzerCard>
-
-        {/* Time Validator */}
-        {showTimeValidator && (
-          <DebugErrorBoundary>
-            <V75TimeValidator />
-          </DebugErrorBoundary>
-        )}
 
         {/* Cache Manager */}
         {showCacheManager && (
