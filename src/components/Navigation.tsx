@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -31,28 +32,6 @@ const Navigation: React.FC = () => {
               </Link>
               
               <Link
-                to="/race-analyzer"
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  isActive('/race-analyzer') 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                Race Analyzer
-              </Link>
-              
-              <Link
-                to="/modern-analyzer"
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  isActive('/modern-analyzer') 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                Modern Analyzer
-              </Link>
-              
-              <Link
                 to="/v75-analyzer"
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   isActive('/v75-analyzer') 
@@ -61,17 +40,6 @@ const Navigation: React.FC = () => {
                 }`}
               >
                 V75 Analyzer
-              </Link>
-
-              <Link
-                to="/v75-post-analysis"
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  isActive('/v75-post-analysis') 
-                    ? 'bg-purple-100 text-purple-700' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                V75 Post-Analysis
               </Link>
             </div>
           </div>

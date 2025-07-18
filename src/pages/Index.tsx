@@ -1,165 +1,129 @@
 
-import React, { useState } from 'react';
-import { Calendar } from "@/components/ui/calendar";
-import { Button } from "@/components/ui/button";
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Trophy, Calendar, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, TrendingUp, Clock, Trophy } from "lucide-react";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
-import RaceAnalyzer from "@/components/RaceAnalyzer";
-import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
-const Index = () => {
-  const [selectedDate, setSelectedDate] = useState<Date>();
-  const [showRaceAnalyzer, setShowRaceAnalyzer] = useState(false);
-  const { toast } = useToast();
-
-  const handleAnalyzeRaces = async () => {
-    if (!selectedDate) {
-      toast({
-        title: "Date Required",
-        description: "Please select a date to analyze races.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const dateStr = format(selectedDate, "yyyy-MM-dd");
-      console.log(`Starting race analysis for date: ${dateStr}`);
-      
-      setShowRaceAnalyzer(true);
-      
-      toast({
-        title: "Analysis Started",
-        description: `Opening race analyzer for ${format(selectedDate, "PPP")}`,
-      });
-    } catch (error) {
-      console.error("Error starting analysis:", error);
-      toast({
-        title: "Analysis Failed",
-        description: "Failed to start race analysis. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
+const Index: React.FC = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-amber-50">
-      {/* Hero Header */}
-      <div className="bg-gradient-to-r from-green-800 to-green-600 text-white">
-        <div className="container mx-auto px-6 py-12">
-          <div className="text-center">
-            <div className="flex justify-center mb-4">
-              <Trophy className="h-16 w-16 text-amber-300" />
-            </div>
-            <h1 className="text-4xl md:text-6xl font-bold mb-4">
-              Harness Racing Analyst
-            </h1>
-            <p className="text-xl md:text-2xl text-green-100 max-w-3xl mx-auto">
-              Professional race analysis with normalized time predictions and performance insights
-            </p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+      <div className="container mx-auto px-4 py-16">
+        {/* Hero Section */}
+        <div className="text-center mb-16">
+          <h1 className="text-5xl font-bold text-gray-900 mb-6">
+            🏇 TrotAnalyzer
+          </h1>
+          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+            Advanced V75 race analysis with intelligent caching and modern normalization algorithms.
+            Analyze entire V75 days with precision and speed.
+          </p>
+          <div className="flex justify-center">
+            <Link to="/v75-analyzer">
+              <Button size="lg" className="text-lg px-8 py-4">
+                <Trophy className="mr-2 h-6 w-6" />
+                Start V75 Analysis
+              </Button>
+            </Link>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="container mx-auto px-6 py-12">
-        {/* Date Selection Card */}
-        <Card className="max-w-2xl mx-auto mb-8 shadow-lg border-green-200">
-          <CardHeader className="text-center bg-gradient-to-r from-green-50 to-amber-50">
-            <CardTitle className="text-2xl text-green-800 flex items-center justify-center gap-2">
-              <CalendarIcon className="h-6 w-6" />
-              Select Race Date
-            </CardTitle>
-            <CardDescription className="text-green-600">
-              Choose a date to analyze harness racing data and get performance predictions
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-8">
-            <div className="flex flex-col items-center space-y-6">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-80 justify-start text-left font-normal border-green-300 hover:border-green-500",
-                      !selectedDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
+        {/* Main Feature Card */}
+        <div className="max-w-4xl mx-auto">
+          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+            <CardHeader className="text-center pb-8">
+              <div className="mx-auto mb-4 p-3 bg-purple-100 rounded-full w-fit">
+                <Trophy className="h-8 w-8 text-purple-600" />
+              </div>
+              <CardTitle className="text-3xl font-bold text-gray-900">
+                V75 Multi-Race Analyzer
+              </CardTitle>
+              <CardDescription className="text-lg text-gray-600 mt-4">
+                Analyze all 7 races in a V75 day with advanced RAW time normalization, 
+                intelligent caching, and comprehensive data validation.
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent className="space-y-8">
+              {/* Key Features */}
+              <div className="grid md:grid-cols-3 gap-6">
+                <div className="text-center p-6 rounded-lg bg-blue-50">
+                  <Calendar className="h-8 w-8 text-blue-600 mx-auto mb-4" />
+                  <h3 className="font-semibold text-gray-900 mb-2">Date-Based Analysis</h3>
+                  <p className="text-sm text-gray-600">
+                    Select any V75 date and analyze all races with comprehensive data validation
+                  </p>
+                </div>
+                
+                <div className="text-center p-6 rounded-lg bg-green-50">
+                  <TrendingUp className="h-8 w-8 text-green-600 mx-auto mb-4" />
+                  <h3 className="font-semibold text-gray-900 mb-2">Smart Caching</h3>
+                  <p className="text-sm text-gray-600">
+                    Intelligent caching system that speeds up analysis while maintaining accuracy
+                  </p>
+                </div>
+                
+                <div className="text-center p-6 rounded-lg bg-purple-50">
+                  <Trophy className="h-8 w-8 text-purple-600 mx-auto mb-4" />
+                  <h3 className="font-semibold text-gray-900 mb-2">Modern Normalization</h3>
+                  <p className="text-sm text-gray-600">
+                    Advanced time normalization using RAW km times and comprehensive factor analysis
+                  </p>
+                </div>
+              </div>
+
+              {/* Technical Highlights */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="font-semibold text-gray-900 mb-4">Technical Features</h3>
+                <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-600">
+                  <div className="space-y-2">
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                      RAW km time processing and normalization
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                      Comprehensive data validation and fixing
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full mr-3"></div>
+                      Post position and equipment adjustments
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full mr-3"></div>
+                      Driver performance analysis (2025 data)
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-red-500 rounded-full mr-3"></div>
+                      Intelligent caching for performance
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-teal-500 rounded-full mr-3"></div>
+                      Real-time progress tracking
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Call to Action */}
+              <div className="text-center pt-4">
+                <Link to="/v75-analyzer">
+                  <Button size="lg" variant="outline" className="text-lg px-8 py-4">
+                    <Trophy className="mr-2 h-5 w-5" />
+                    Open V75 Analyzer
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-              <Button 
-                onClick={handleAnalyzeRaces}
-                disabled={!selectedDate}
-                className="w-80 bg-green-600 hover:bg-green-700 text-white text-lg py-6"
-              >
-                <TrendingUp className="mr-2 h-5 w-5" />
-                Analyze Races
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Race Analysis Results */}
-        {showRaceAnalyzer && (
-          <RaceAnalyzer />
-        )}
-
-        {/* Feature Cards */}
-        {!showRaceAnalyzer && (
-          <div className="grid md:grid-cols-3 gap-6 mt-12">
-            <Card className="border-green-200 hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <Trophy className="h-8 w-8 text-amber-500 mb-2" />
-                <CardTitle className="text-green-800">Race Analysis</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  Comprehensive analysis of all horses in each race with performance metrics and predictions.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-green-200 hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <Clock className="h-8 w-8 text-green-500 mb-2" />
-                <CardTitle className="text-green-800">Time Normalization</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  Advanced algorithms normalize race times accounting for distance, start method, and conditions.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-green-200 hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <TrendingUp className="h-8 w-8 text-blue-500 mb-2" />
-                <CardTitle className="text-green-800">Performance Ranking</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  Horses ranked by predicted performance using MAE optimization and historical data analysis.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        {/* Footer */}
+        <div className="text-center mt-16 text-gray-500">
+          <p>© 2025 TrotAnalyzer - Advanced V75 Race Analysis Platform</p>
+        </div>
       </div>
     </div>
   );
