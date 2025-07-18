@@ -18,18 +18,8 @@ export const processHorseResults = async (
   const horseResults: V75HorseResult[] = [];
 
   console.log(`🔄 ENHANCED PROCESSING - Race ${race.raceNumber}:`);
-  console.log(`  - Total horses to process: ${race.horses?.length || 0}`);
+  console.log(`  - Total horses to process: ${race.horses.length}`);
   console.log(`  - Raw KM times available: ${rawKmTimes.length}`);
-  console.log(`  - Race horses data:`, race.horses ? 'EXISTS' : 'MISSING');
-  console.log(`  - Race horses type:`, typeof race.horses);
-  console.log(`  - Race horses is Array:`, Array.isArray(race.horses));
-  if (race.horses && race.horses.length > 0) {
-    console.log(`  - First horse sample:`, {
-      horseId: race.horses[0]?.horseId,
-      name: race.horses[0]?.name,
-      hasData: !!race.horses[0]
-    });
-  }
 
   for (const horse of race.horses) {
     const rawTimeData = rawKmTimes.find(rt => rt.horseId === horse.horseId);
