@@ -63,69 +63,69 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
     <TableRow 
       className={`${isTopPerformer ? 'bg-green-50/50 border-l-4 border-l-green-500' : ''} hover:bg-gray-50/50 transition-colors`}
     >
-      <TableCell className="text-center">
+      <TableCell className="text-center sticky left-0 bg-white z-10 border-r">
         <div className="flex items-center justify-center gap-1">
           {getRankIcon(rank)}
-          <Badge className={getRankBadgeStyle(rank)}>
+          <Badge className={`${getRankBadgeStyle(rank)} text-xs`}>
             {rank}
           </Badge>
         </div>
       </TableCell>
       
-      <TableCell className="text-center font-bold text-lg">
+      <TableCell className="text-center font-bold text-sm sm:text-lg">
         {horse.postPosition}
       </TableCell>
       
       <TableCell>
-        <div className="space-y-1">
-          <div className="font-medium text-gray-900">{safeHorseName}</div>
-          <div className="text-sm text-gray-600">{safeDriverName}</div>
+        <div className="space-y-1 min-w-0">
+          <div className="font-medium text-gray-900 text-xs sm:text-sm truncate">{safeHorseName}</div>
+          <div className="text-xs text-gray-600 truncate">{safeDriverName}</div>
         </div>
       </TableCell>
       
       <TableCell className="text-center">
-        <div className="font-mono text-sm text-gray-700">
+        <div className="font-mono text-xs sm:text-sm text-gray-700">
           {formatKmTime(result.rawTime)}
         </div>
       </TableCell>
       
       <TableCell className="text-center">
-        <div className={`font-mono text-sm font-bold ${isTopPerformer ? 'text-green-700' : 'text-gray-900'}`}>
+        <div className={`font-mono text-xs sm:text-sm font-bold ${isTopPerformer ? 'text-green-700' : 'text-gray-900'}`}>
           {formatKmTime(result.modernNormalizedTime)}
         </div>
       </TableCell>
       
       <TableCell className="text-center">
-        <span className={`text-sm font-medium ${horse.statistics?.startPoints > 0 ? 'text-blue-700' : 'text-gray-400'}`}>
+        <span className={`text-xs sm:text-sm font-medium ${horse.statistics?.startPoints > 0 ? 'text-blue-700' : 'text-gray-400'}`}>
           {horse.statistics?.startPoints ? horse.statistics.startPoints.toString() : '-'}
         </span>
       </TableCell>
       
       <TableCell className="text-center">
-        <span className={`text-sm font-medium ${horse.statistics?.placePercentage > 0 ? 'text-indigo-700' : 'text-gray-400'}`}>
+        <span className={`text-xs sm:text-sm font-medium ${horse.statistics?.placePercentage > 0 ? 'text-indigo-700' : 'text-gray-400'}`}>
           {horse.statistics?.placePercentage ? (horse.statistics.placePercentage / 100).toFixed(1) + '%' : '-'}
         </span>
       </TableCell>
       
       <TableCell className="text-center">
-        <span className={`text-sm font-medium ${horse.statistics?.winPercentage > 0 ? 'text-purple-700' : 'text-gray-400'}`}>
+        <span className={`text-xs sm:text-sm font-medium ${horse.statistics?.winPercentage > 0 ? 'text-purple-700' : 'text-gray-400'}`}>
           {horse.statistics?.winPercentage ? (horse.statistics.winPercentage / 100).toFixed(1) + '%' : '-'}
         </span>
       </TableCell>
       
       <TableCell className="text-center">
-        <div className="flex items-center justify-center gap-1">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-1">
           <Banknote className={`h-3 w-3 ${horse.statistics?.earningsPerStart > 0 ? 'text-amber-500' : 'text-gray-400'}`} />
-          <span className={`text-sm font-medium ${horse.statistics?.earningsPerStart > 0 ? 'text-amber-700' : 'text-gray-400'}`}>
+          <span className={`text-xs font-medium ${horse.statistics?.earningsPerStart > 0 ? 'text-amber-700' : 'text-gray-400'}`}>
             {horse.statistics?.earningsPerStart > 0 ? formatEarnings(horse.statistics.earningsPerStart) : '-'}
           </span>
         </div>
       </TableCell>
       
       <TableCell className="text-center">
-        <div className="flex items-center justify-center gap-1">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-1">
           <Zap className={`h-3 w-3 ${horse.driver2025WinPercentage > 0 ? 'text-green-500' : 'text-gray-400'}`} />
-          <span className={`text-sm font-bold ${horse.driver2025WinPercentage > 0 ? 'text-green-700' : 'text-gray-400'}`}>
+          <span className={`text-xs font-bold ${horse.driver2025WinPercentage > 0 ? 'text-green-700' : 'text-gray-400'}`}>
             {horse.driver2025WinPercentage ? (horse.driver2025WinPercentage / 100).toFixed(1) + '%' : '-'}
           </span>
         </div>
@@ -144,13 +144,13 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
       </TableCell>
       
       <TableCell className="text-center">
-        <span className="text-xs text-gray-600">
+        <span className="text-xs text-gray-600 truncate">
           {horse.homeTrack || 'Unknown'}
         </span>
       </TableCell>
       
       <TableCell className="text-center">
-        <div className="flex items-center justify-center gap-1">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-1">
           <Ruler className="h-3 w-3 text-blue-500" />
           <span className="text-xs font-medium text-blue-700">
             {horse.distance}m
@@ -159,7 +159,7 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
       </TableCell>
       
       <TableCell className="text-center">
-        <span className={`text-sm font-mono font-bold ${isTopPerformer ? 'text-green-700' : 'text-gray-600'}`}>
+        <span className={`text-xs sm:text-sm font-mono font-bold ${isTopPerformer ? 'text-green-700' : 'text-gray-600'}`}>
           {formatAdjustment(result.adjustments.total)}
         </span>
       </TableCell>

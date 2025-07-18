@@ -77,11 +77,11 @@ const V75Analyzer: React.FC = () => {
             loading={loading}
           />
 
-          {/* Cache Manager Toggle */}
+          {/* Cache Manager Toggle - Mobile friendly */}
           <div className="flex justify-end">
             <button
               onClick={() => setShowCacheManager(!showCacheManager)}
-              className="text-sm text-blue-600 hover:text-blue-800 underline"
+              className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 underline touch-manipulation py-2"
             >
               {showCacheManager ? 'Hide' : 'Show'} Cache Manager
             </button>

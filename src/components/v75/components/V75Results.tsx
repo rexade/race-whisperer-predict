@@ -31,18 +31,25 @@ const V75Results: React.FC<V75ResultsProps> = ({
           </CardTitle>
         </CardHeader>
         
-        <CardContent>
+        <CardContent className="p-3 sm:p-6">
           <Tabs value={activeTab} onValueChange={onTabChange}>
-            <TabsList className="grid w-full grid-cols-8">
-              <TabsTrigger value="overview">
-                Overview
-              </TabsTrigger>
-              {races.map(race => (
-                <TabsTrigger key={race.raceNumber} value={`race-${race.raceNumber}`}>
-                  Race {race.raceNumber}
+            {/* Mobile-friendly scrollable tabs */}
+            <div className="overflow-x-auto -mx-3 sm:mx-0">
+              <TabsList className="grid w-max sm:w-full grid-cols-8 min-w-max gap-1">
+                <TabsTrigger value="overview" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                  Overview
                 </TabsTrigger>
-              ))}
-            </TabsList>
+                {races.map(race => (
+                  <TabsTrigger 
+                    key={race.raceNumber} 
+                    value={`race-${race.raceNumber}`}
+                    className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3"
+                  >
+                    R{race.raceNumber}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
             
             <TabsContent value="overview" className="mt-6">
               <DebugErrorBoundary>

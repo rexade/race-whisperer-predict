@@ -34,24 +34,24 @@ const V75ResultsTable: React.FC<V75ResultsTableProps> = ({ race }) => {
       
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className="min-w-[800px]">
             <TableHeader>
               <TableRow className="bg-purple-50">
-                <TableHead className="w-16 text-center">Rank</TableHead>
-                <TableHead className="w-12 text-center">Start</TableHead>
-                <TableHead className="min-w-[150px]">Horse & Driver</TableHead>
-                <TableHead className="w-24 text-center">RAW Time (KM)</TableHead>
-                <TableHead className="w-24 text-center font-bold">Modern Time (KM)</TableHead>
-                <TableHead className="w-20 text-center">Start Points</TableHead>
-                <TableHead className="w-20 text-center">Place %</TableHead>
-                <TableHead className="w-20 text-center">Horse Win%</TableHead>
-                <TableHead className="w-20 text-center">Earnings/Start</TableHead>
-                <TableHead className="w-20 text-center">Driver 2025%</TableHead>
-                <TableHead className="w-20 text-center">Sulky</TableHead>
-                <TableHead className="w-24 text-center">Shoes</TableHead>
-                <TableHead className="w-20 text-center">Home Track</TableHead>
-                <TableHead className="w-20 text-center">Distance</TableHead>
-                <TableHead className="w-24 text-center font-bold">Total Adj</TableHead>
+                <TableHead className="w-12 text-center text-xs sm:text-sm sticky left-0 bg-purple-50 z-10">Rank</TableHead>
+                <TableHead className="w-10 text-center text-xs sm:text-sm">Start</TableHead>
+                <TableHead className="min-w-[120px] text-xs sm:text-sm">Horse & Driver</TableHead>
+                <TableHead className="w-20 text-center text-xs sm:text-sm">RAW</TableHead>
+                <TableHead className="w-20 text-center font-bold text-xs sm:text-sm">Modern</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm">Points</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm">Place%</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm">Win%</TableHead>
+                <TableHead className="w-20 text-center text-xs sm:text-sm">Earnings</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm">Driver</TableHead>
+                <TableHead className="w-14 text-center text-xs sm:text-sm">Sulky</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm">Shoes</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm">Track</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm">Dist</TableHead>
+                <TableHead className="w-20 text-center font-bold text-xs sm:text-sm">Adj</TableHead>
               </TableRow>
             </TableHeader>
             
