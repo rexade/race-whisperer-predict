@@ -33,7 +33,7 @@ class EnhancedLogger {
   /**
    * Log a message with specified level
    */
-  private log(level: LogLevel, category: string, message: string, data?: any, context?: string): void {
+  log(level: LogLevel, category: string, message: string, data?: any, context?: string): void {
     if (!this.enabled) return;
 
     const entry: LogEntry = {

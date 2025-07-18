@@ -69,11 +69,10 @@ export const validateAdjustmentBounds = (
   value: number,
   calibration: AdjustmentCalibration = DEFAULT_CALIBRATION
 ): { isValid: boolean; warning?: string } => {
-  const config = calibration[adjustmentType];
-  
   switch (adjustmentType) {
     case 'postPosition':
-      const maxPostAdjustment = config.baseAdjustment * config.maxPosition;
+      const postConfig = calibration.postPosition;
+      const maxPostAdjustment = postConfig.baseAdjustment * postConfig.maxPosition;
       if (Math.abs(value) > maxPostAdjustment) {
         return {
           isValid: false,
@@ -83,28 +82,31 @@ export const validateAdjustmentBounds = (
       break;
       
     case 'distance':
-      if (Math.abs(value) > config.maxReasonableAdjustment) {
+      const distanceConfig = calibration.distance;
+      if (Math.abs(value) > distanceConfig.maxReasonableAdjustment) {
         return {
           isValid: false,
-          warning: `Distance adjustment ${value.toFixed(3)}s exceeds maximum ${config.maxReasonableAdjustment.toFixed(3)}s`
+          warning: `Distance adjustment ${value.toFixed(3)}s exceeds maximum ${distanceConfig.maxReasonableAdjustment.toFixed(3)}s`
         };
       }
       break;
       
     case 'driver':
-      if (Math.abs(value) > config.maxDriverAdjustment) {
+      const driverConfig = calibration.driver;
+      if (Math.abs(value) > driverConfig.maxDriverAdjustment) {
         return {
           isValid: false,
-          warning: `Driver adjustment ${value.toFixed(3)}s exceeds maximum ${config.maxDriverAdjustment.toFixed(3)}s`
+          warning: `Driver adjustment ${value.toFixed(3)}s exceeds maximum ${driverConfig.maxDriverAdjustment.toFixed(3)}s`
         };
       }
       break;
       
     case 'equipment':
-      if (Math.abs(value) > config.maxEquipmentAdjustment) {
+      const equipmentConfig = calibration.equipment;
+      if (Math.abs(value) > equipmentConfig.maxEquipmentAdjustment) {
         return {
           isValid: false,
-          warning: `Equipment adjustment ${value.toFixed(3)}s exceeds maximum ${config.maxEquipmentAdjustment.toFixed(3)}s`
+          warning: `Equipment adjustment ${value.toFixed(3)}s exceeds maximum ${equipmentConfig.maxEquipmentAdjustment.toFixed(3)}s`
         };
       }
       break;
@@ -120,35 +122,37 @@ export const getExpectedAdjustmentRange = (
   adjustmentType: keyof AdjustmentCalibration,
   calibration: AdjustmentCalibration = DEFAULT_CALIBRATION
 ): { min: number; max: number; typical: number } => {
-  const config = calibration[adjustmentType];
-  
   switch (adjustmentType) {
     case 'postPosition':
+      const postConfig = calibration.postPosition;
       return {
-        min: -config.baseAdjustment,
-        max: config.baseAdjustment * config.maxPosition,
-        typical: config.baseAdjustment * 6 // Middle positions
+        min: -postConfig.baseAdjustment,
+        max: postConfig.baseAdjustment * postConfig.maxPosition,
+        typical: postConfig.baseAdjustment * 6 // Middle positions
       };
       
     case 'distance':
+      const distanceConfig = calibration.distance;
       return {
-        min: -config.maxReasonableAdjustment,
-        max: config.maxReasonableAdjustment,
-        typical: config.adjustmentPerMeter * 100 // 100m difference
+        min: -distanceConfig.maxReasonableAdjustment,
+        max: distanceConfig.maxReasonableAdjustment,
+        typical: distanceConfig.adjustmentPerMeter * 100 // 100m difference
       };
       
     case 'driver':
+      const driverConfig = calibration.driver;
       return {
-        min: -config.maxDriverAdjustment,
-        max: config.maxDriverAdjustment,
-        typical: config.winPercentageWeight * 10 // 10% difference
+        min: -driverConfig.maxDriverAdjustment,
+        max: driverConfig.maxDriverAdjustment,
+        typical: driverConfig.winPercentageWeight * 10 // 10% difference
       };
       
     case 'equipment':
+      const equipmentConfig = calibration.equipment;
       return {
-        min: -config.maxEquipmentAdjustment,
-        max: config.maxEquipmentAdjustment,
-        typical: config.shoesAdjustment // Shoes change
+        min: -equipmentConfig.maxEquipmentAdjustment,
+        max: equipmentConfig.maxEquipmentAdjustment,
+        typical: equipmentConfig.shoesAdjustment // Shoes change
       };
       
     default:
