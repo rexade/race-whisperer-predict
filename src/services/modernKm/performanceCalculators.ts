@@ -59,9 +59,9 @@ export const calculateEarningsPerStartAdjustment = (earningsPerStartOre: number)
   const earningsInSek = earningsPerStartOre / 100;
   
   // Baseline: 3000 SEK per start = 0 adjustment
-  // Every 1000 SEK above/below baseline = -/+ 0.02s
+  // Every 1000 SEK above/below baseline = -/+ 0.01s (halved from 0.02s)
   const baseline = 3000;
-  const adjustment = (baseline - earningsInSek) * 0.00002;
+  const adjustment = (baseline - earningsInSek) * 0.00001;
   
   console.log(`Earnings/Start adjustment: ${earningsInSek.toFixed(0)} SEK (baseline: ${baseline} SEK) → ${adjustment.toFixed(3)}s`);
   return adjustment;
