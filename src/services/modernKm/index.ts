@@ -53,18 +53,15 @@ export const applyModernKmNormalization = (
     total: 0
   };
 
-  // STEP 1: Apply volte start normalization (baseline correction)
-  const startMethodLower = factors.startMethod.toLowerCase();
-  const isVolteStart = startMethodLower.includes("volte") || startMethodLower === "v";
-  
+  // STEP 1: The rawKmTime is already normalized to 2140m AUTO start
+  // No additional volte penalty needed - it's already applied in historical normalization
   let baseTime = cloneKmTime(rawKmTime);
   
-  if (isVolteStart) {
-    baseTime = addSecondsToKmTime(baseTime, 1.0);
-    console.log(`🔥 VOLTE START DETECTED (${factors.startMethod}) - Added 1.0s penalty → ${baseTime.minutes}:${baseTime.seconds.toString().padStart(2, '0')}.${baseTime.tenths}`);
-  } else {
-    console.log(`Auto start detected (${factors.startMethod}) - No volte penalty applied`);
-  }
+  console.log(`Base time (already normalized to 2140m auto): ${baseTime.minutes}:${baseTime.seconds.toString().padStart(2, '0')}.${baseTime.tenths}`);
+  console.log(`Current race start method: ${factors.startMethod} (no additional volte penalty needed)`);
+  
+  // NOTE: Volte penalty was already applied during historical RAW time normalization
+  // The rawKmTime represents the horse's ability on a 2140m auto start baseline
 
   // STEP 2: Calculate race distance adjustment (FROM 2140m reference TO actual race distance)
   const raceDistanceAdjustmentValue = calculateRaceDistanceAdjustment(factors.raceDistance);
