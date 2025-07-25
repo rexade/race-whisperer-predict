@@ -18,15 +18,22 @@ export const normalizeKmTimeSimplified = (
   
   // Step 1: Apply distance-based adjustments to normalize to 2140m
   const referenceDistance = 2140;
-  const distanceDifferenceKm = (distance - referenceDistance) / 1000;
-  const distanceAdjustment = distanceDifferenceKm * 2.7;
+  const distanceDifferenceM = distance - referenceDistance; // e.g., 1640 - 2140 = -500m
   
-  // Subtract the adjustment because:
-  // - If race is shorter than 2140m (negative difference), we add time (make it slower)
-  // - If race is longer than 2140m (positive difference), we subtract time (make it faster)
-  normalizedTime = subtractSecondsFromKmTime(normalizedTime, distanceAdjustment);
+  // Formula: 2.7 seconds per 1000m difference
+  // If race is SHORTER than 2140m (negative difference), ADD time (make it slower)
+  // If race is LONGER than 2140m (positive difference), SUBTRACT time (make it faster)
+  const distanceAdjustmentSeconds = (distanceDifferenceM / 1000) * 2.7;
   
-  console.log(`Distance adjustment: ${distance}m to 2140m = ${distanceDifferenceKm.toFixed(3)}km × 2.7 = ${distanceAdjustment.toFixed(2)}s`);
+  // Apply the adjustment: SUBTRACT because we want opposite effect
+  // Shorter races (negative diff) → negative adjustment → subtracting negative = ADDING time ✓
+  // Longer races (positive diff) → positive adjustment → subtracting positive = SUBTRACTING time ✓
+  normalizedTime = subtractSecondsFromKmTime(normalizedTime, distanceAdjustmentSeconds);
+  
+  console.log(`Distance adjustment: ${distance}m → 2140m reference`);
+  console.log(`  Distance difference: ${distanceDifferenceM}m`);
+  console.log(`  Adjustment calculation: (${distanceDifferenceM}/1000) × 2.7 = ${distanceAdjustmentSeconds.toFixed(3)}s`);
+  console.log(`  Applied adjustment: SUBTRACT ${distanceAdjustmentSeconds.toFixed(3)}s`);
   console.log(`After distance adjustment: ${normalizedTime.minutes}:${normalizedTime.seconds.toString().padStart(2, '0')}.${normalizedTime.tenths}`);
   
   // Step 2: Check for volte start method (case-insensitive and check for volte variations)

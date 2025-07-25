@@ -14,7 +14,8 @@ export const calculateDistanceAdjustment = (horseDistance: number, raceDistance:
 
 /**
  * Calculate race distance adjustment FROM 2140m reference TO actual race distance
- * This adjusts normalized KM times (which are based on 2140m reference) to the actual race distance
+ * This should be ZERO because the RAW times are already normalized to 2140m in kmTimeNormalization.ts
+ * This function exists for edge cases but should normally return 0
  */
 export const calculateRaceDistanceAdjustment = (raceDistance: number): number => {
   const referenceDistance = 2140; // Standard reference distance in meters
@@ -24,20 +25,14 @@ export const calculateRaceDistanceAdjustment = (raceDistance: number): number =>
     return 0;
   }
   
-  // Calculate adjustment FROM 2140m reference TO actual race distance
-  // Longer races (>2140m): positive adjustment (slower KM times expected)
-  // Shorter races (<2140m): negative adjustment (faster KM times expected)
-  const distanceRatio = raceDistance / referenceDistance;
+  // WARNING: RAW times should already be normalized to 2140m in kmTimeNormalization.ts
+  // This should normally be zero unless there's a special case
+  console.log(`⚠️  Race distance adjustment: RAW times should already be normalized to 2140m reference`);
+  console.log(`   Current race distance: ${raceDistance}m`);
+  console.log(`   Reference distance: ${referenceDistance}m`);
+  console.log(`   Returning 0.000s (already normalized)`);
   
-  // Adjustment logic: races longer than 2140m get positive adjustment (slower expected KM times)
-  // races shorter than 2140m get negative adjustment (faster expected KM times)
-  const adjustment = (distanceRatio - 1) * 2.5; // 2.5 seconds per 100% distance difference
-  
-  console.log(`Race distance adjustment: FROM ${referenceDistance}m reference TO ${raceDistance}m actual`);
-  console.log(`  - Distance ratio: ${distanceRatio.toFixed(3)}`);
-  console.log(`  - Adjustment: ${adjustment.toFixed(3)}s`);
-  
-  return adjustment;
+  return 0; // RAW times are already normalized to 2140m
 };
 
 /**
