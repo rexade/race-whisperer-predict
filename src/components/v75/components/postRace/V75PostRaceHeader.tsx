@@ -6,7 +6,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarArrowDown, TrendingUp, AlertCircle, ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
-import { Link } from "react-router-dom";
+
 import ProgressIndicator from "../../../modernAnalyzer/ProgressIndicator";
 import ErrorDisplay from "../../../modernAnalyzer/ErrorDisplay";
 
@@ -54,12 +54,10 @@ const V75PostRaceHeader: React.FC<V75PostRaceHeaderProps> = ({
                 </p>
               </div>
               <div className="mt-3">
-                <Link to="/v75-analyzer">
-                  <Button variant="outline" size="sm" className="text-blue-700 border-blue-300 hover:bg-blue-100">
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Go to V75 Analyzer
-                  </Button>
-                </Link>
+                <Button variant="outline" size="sm" className="text-blue-700 border-blue-300 hover:bg-blue-100" disabled>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  V75 Analyzer (Current Page)
+                </Button>
               </div>
             </div>
           </div>
@@ -121,11 +119,9 @@ const V75PostRaceHeader: React.FC<V75PostRaceHeaderProps> = ({
                     <p className="text-sm text-amber-700 mb-3">
                       To analyze this date, you need to first create predictions using the V75 Analyzer.
                     </p>
-                    <Link to="/v75-analyzer">
-                      <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white">
-                        Create Predictions First
-                      </Button>
-                    </Link>
+                    <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white" disabled>
+                      Use V75 Analyzer Above
+                    </Button>
                   </div>
                 </div>
               </div>
