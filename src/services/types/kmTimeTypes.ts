@@ -30,12 +30,16 @@ export interface ModernKmNormalizedResult {
     postPosition: number;
     equipment: number;
     driver: number;
-    driver2025: number;
     track: number;
     form: number;
     distance: number;
+    raceDistanceAdjustment: number;
     raceType: number;
     timeOfDay: number;
+    startPoints: number;
+    placePercentage: number;
+    horseWinPercentage: number;
+    earningsPerStart: number;
     total: number;
   };
 }

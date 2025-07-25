@@ -88,7 +88,6 @@ export const applyHorseNormalization = (
       homeTrack: extractedData.safeHorseTrack,
       driverExperience: horse.driver.experience,
       driverWinPercentage: horse.driver.winPercentage,
-      driverWinPercentage2025: horse.driver.winPercentage2025,
       horseForm: horse.statistics.winPercentage,
       raceType: 'trot',
       timeOfDay: '',
@@ -122,7 +121,7 @@ export const applyHorseNormalization = (
     homeTrack: extractedData.safeHorseTrack,
     driverExperience: horse.driver.experience,
     driverWinPercentage: horse.driver.winPercentage,
-    driverWinPercentage2025: horse.driver.winPercentage2025,
+    
     horseForm: horse.statistics.winPercentage,
     raceType: 'trot',
     timeOfDay: '',

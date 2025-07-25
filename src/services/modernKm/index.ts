@@ -8,7 +8,7 @@ import {
 } from './types';
 import { calculatePostPositionAdjustment } from './postPositionCalculator';
 import { calculateShoeAdjustment, calculateSulkyAdjustment } from './equipmentCalculators';
-import { calculateDriverAdjustment, calculateDriver2025Adjustment } from './driverCalculators';
+import { calculateDriverAdjustment } from './driverCalculators';
 import { 
   calculateStartPointsAdjustment,
   calculatePlacePercentageAdjustment,
@@ -39,7 +39,6 @@ export const applyModernKmNormalization = (
     postPosition: 0,
     equipment: 0,
     driver: 0,
-    driver2025: 0,
     track: 0,
     form: 0,
     distance: 0,
@@ -76,15 +75,9 @@ export const applyModernKmNormalization = (
   ) * weights.shoeType;
   
   adjustments.driver = calculateDriverAdjustment(
-    factors.driverExperience,
     factors.driverWinPercentage,
     factors.postPosition
-  ) * weights.driverExperience;
-  
-  adjustments.driver2025 = calculateDriver2025Adjustment(
-    factors.driverWinPercentage2025,
-    factors.postPosition
-  ) * weights.driver2025Performance;
+  ) * weights.driverPerformance;
   
   adjustments.track = 0 * weights.trackFamiliarity; // Placeholder
   adjustments.form = 0 * weights.form; // Placeholder
@@ -120,7 +113,6 @@ export const applyModernKmNormalization = (
   console.log(`  Post Position (${factors.postPosition}): ${adjustments.postPosition.toFixed(3)}s`);
   console.log(`  Equipment: ${adjustments.equipment.toFixed(3)}s`);
   console.log(`  Driver: ${adjustments.driver.toFixed(3)}s`);
-  console.log(`  Driver 2025: ${adjustments.driver2025.toFixed(3)}s`);
   console.log(`  Distance: ${adjustments.distance.toFixed(3)}s`);
   console.log(`  Race Distance Adjustment (${factors.raceDistance}m): ${adjustments.raceDistanceAdjustment.toFixed(3)}s`);
   console.log(`  Race Type: ${adjustments.raceType.toFixed(3)}s`);

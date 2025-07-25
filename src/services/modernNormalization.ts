@@ -11,7 +11,7 @@ export interface ModernNormalizationFactors {
   homeTrack: string;
   driverExperience: number;
   driverWinPercentage: number;
-  driverWinPercentage2025: number;
+  
   horseForm: number;
   raceType?: string;
   timeOfDay?: string;
@@ -21,8 +21,7 @@ export interface NormalizationWeights {
   postPosition: number;
   shoeType: number;
   sulkyType: number;
-  driverExperience: number;
-  driver2025Performance: number;
+  driverPerformance: number;
   trackFamiliarity: number;
   form: number;
   distanceAdjustment: number;
@@ -37,7 +36,7 @@ export interface ModernNormalizedResult {
     postPosition: number;
     equipment: number;
     driver: number;
-    driver2025: number;
+    
     track: number;
     form: number;
     distance: number;

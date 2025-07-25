@@ -48,7 +48,7 @@ export const useRaceAnalysis = () => {
         homeTrack: horse.homeTrack,
         driverExperience: horse.driver.experience,
         driverWinPercentage: horse.driver.winPercentage,
-        driverWinPercentage2025: horse.driver.winPercentage2025,
+        
         horseForm: horse.statistics.winPercentage,
         raceType: raceData.raceType,
         timeOfDay: raceData.startTime,
