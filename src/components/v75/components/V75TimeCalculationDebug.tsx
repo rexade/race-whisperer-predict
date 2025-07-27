@@ -1,0 +1,141 @@
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { V75HorseResult } from '../types/raceResultTypes';
+import { useXanderDebugger } from '../hooks/useXanderDebugger';
+
+interface V75TimeCalculationDebugProps {
+  horse: V75HorseResult;
+}
+
+export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = ({ horse }) => {
+  const { debugLogs } = useXanderDebugger();
+  
+  // Filter logs for this specific horse
+  const horseLogs = debugLogs.filter(log => 
+    log.horseId === horse.horseId || 
+    log.horseName.toLowerCase().includes(horse.horseName.toLowerCase())
+  );
+
+  const formatKmTime = (time: any) => {
+    if (!time) return 'N/A';
+    return `${time.minutes}:${time.seconds.toString().padStart(2, '0')}.${time.tenths}`;
+  };
+
+  const getTimeCalculationData = () => {
+    const processedTimesLog = horseLogs.find(log => log.stage === 'PROCESSED_TIMES_RESULT');
+    const historicalDataLog = horseLogs.find(log => log.stage === 'HISTORICAL_DATA_RECEIVED');
+    const finalResultLog = horseLogs.find(log => log.stage === 'FINAL_RESULT');
+
+    return {
+      historicalRecords: historicalDataLog?.data?.length || 0,
+      processedTimes: processedTimesLog?.data || [],
+      rawKmTime: horse.rawKmTime,
+      modernNormalizedTime: horse.modernNormalizedResult?.modernNormalizedTime,
+      adjustments: horse.modernNormalizedResult?.adjustments
+    };
+  };
+
+  const data = getTimeCalculationData();
+
+  return (
+    <Card className="mt-4">
+      <CardHeader>
+        <CardTitle className="text-sm flex items-center gap-2">
+          <span>Time Calculation Debug - {horse.horseName}</span>
+          <Badge variant="outline">ID: {horse.horseId}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Raw Data Summary */}
+        <div>
+          <h4 className="font-medium text-sm mb-2">Data Processing Summary</h4>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-muted-foreground">Historical Records:</span>
+              <div className="font-mono">{data.historicalRecords}</div>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Valid Times Used:</span>
+              <div className="font-mono">{data.processedTimes.length || 'N/A'}</div>
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Time Calculation Flow */}
+        <div>
+          <h4 className="font-medium text-sm mb-2">Time Calculation Flow</h4>
+          <div className="space-y-3">
+            {/* Raw KM Time */}
+            <div className="flex items-center justify-between p-2 bg-secondary/20 rounded">
+              <span className="text-sm text-muted-foreground">Raw KM Time (Best 3 Avg):</span>
+              <Badge variant="secondary" className="font-mono">
+                {formatKmTime(data.rawKmTime)}
+              </Badge>
+            </div>
+
+            {/* Normalization Arrow */}
+            {data.adjustments && (
+              <>
+                <div className="flex justify-center">
+                  <div className="text-xs text-muted-foreground">↓ Normalization Applied ↓</div>
+                </div>
+
+                {/* Adjustments */}
+                <div className="p-2 bg-primary/5 rounded border">
+                  <div className="text-xs text-muted-foreground mb-1">Key Adjustments:</div>
+                  <div className="grid grid-cols-2 gap-1 text-xs">
+                    <div>Post Position: {data.adjustments.postPosition?.toFixed(2)}s</div>
+                    <div>Equipment: {data.adjustments.equipment?.toFixed(2)}s</div>
+                    <div>Driver: {data.adjustments.driver?.toFixed(2)}s</div>
+                    <div>Distance: {data.adjustments.distance?.toFixed(2)}s</div>
+                  </div>
+                  <div className="mt-1 pt-1 border-t border-border/50">
+                    <div className="text-xs font-medium">
+                      Total Adjustment: {data.adjustments.total?.toFixed(2)}s
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Final Predicted Time */}
+            <div className="flex items-center justify-between p-2 bg-primary/10 rounded border border-primary/20">
+              <span className="text-sm font-medium">Final Predicted Time:</span>
+              <Badge className="font-mono">
+                {formatKmTime(data.modernNormalizedTime)}
+              </Badge>
+            </div>
+          </div>
+        </div>
+
+        {/* Debug Logs Summary */}
+        {horseLogs.length > 0 && (
+          <>
+            <Separator />
+            <div>
+              <h4 className="font-medium text-sm mb-2">Debug Activity</h4>
+              <div className="space-y-1">
+                {horseLogs.slice(-5).map((log, index) => (
+                  <div key={index} className="text-xs p-2 bg-muted/50 rounded">
+                    <div className="flex justify-between items-center">
+                      <Badge variant="outline" className="text-xs">
+                        {log.stage.replace(/_/g, ' ')}
+                      </Badge>
+                      <span className="text-muted-foreground">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+};

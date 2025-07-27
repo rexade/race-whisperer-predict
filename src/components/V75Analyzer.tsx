@@ -7,6 +7,7 @@ import ProgressIndicator from "./modernAnalyzer/ProgressIndicator";
 import ErrorDisplay from "./modernAnalyzer/ErrorDisplay";
 import DebugErrorBoundary from "./DebugErrorBoundary";
 import { useV75Analysis } from "./v75/hooks/useV75Analysis";
+import { useRockSolidDebugger } from "./v75/hooks/useRockSolidDebugger";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
 
 // Shared components
@@ -35,6 +36,8 @@ const V75Analyzer: React.FC = () => {
     analyzeV75Date,
     reanalyzeWithNewWeights
   } = useV75Analysis();
+  
+  const { isAutoDebugging, exportRockSolidReport } = useRockSolidDebugger();
 
   const handleAnalyzeV75 = () => {
     if (!selectedDate) return;
@@ -76,13 +79,21 @@ const V75Analyzer: React.FC = () => {
           />
 
           {/* Cache Manager Toggle - Mobile friendly */}
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-4">
             <button
               onClick={() => setShowCacheManager(!showCacheManager)}
               className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 underline touch-manipulation py-2"
             >
               {showCacheManager ? 'Hide' : 'Show'} Cache Manager
             </button>
+            {isAutoDebugging && (
+              <button
+                onClick={exportRockSolidReport}
+                className="text-xs sm:text-sm text-green-600 hover:text-green-800 underline touch-manipulation py-2"
+              >
+                Export Debug Report
+              </button>
+            )}
           </div>
 
           {/* Progress */}

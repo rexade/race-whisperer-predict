@@ -1,10 +1,12 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Medal, Banknote, Zap, Ruler } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Medal, Banknote, Zap, Ruler, ChevronDown, ChevronUp } from "lucide-react";
 import { V75HorseResult } from '../hooks/useV75Analysis';
 import { ensureStringForDisplay, formatKmTime, formatAdjustment, formatEarnings, getShoesDisplay, getShoesColor, getSulkyDisplay } from '../utils/v75DisplayUtils';
+import { V75TimeCalculationDebug } from './V75TimeCalculationDebug';
 
 interface V75HorseRowProps {
   horse: V75HorseResult;
@@ -12,11 +14,16 @@ interface V75HorseRowProps {
 }
 
 const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
+  const [showDebug, setShowDebug] = useState(false);
   const result = horse.modernNormalizedResult!;
   const isTopPerformer = rank <= 3;
   
   const safeHorseName = ensureStringForDisplay(horse.horseName);
   const safeDriverName = ensureStringForDisplay(horse.driverName);
+  
+  // Check if this is Rock Solid or a target horse for debugging
+  const isTargetHorse = safeHorseName.toLowerCase().includes('rock solid') || 
+                       safeHorseName.toLowerCase().includes('xander');
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Medal className="h-4 w-4 text-yellow-500" />;
@@ -32,9 +39,10 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
   };
 
   return (
-    <TableRow 
-      className={`${isTopPerformer ? 'bg-green-50/50 border-l-4 border-l-green-500' : ''} hover:bg-gray-50/50 transition-colors`}
-    >
+    <>
+      <TableRow 
+        className={`${isTopPerformer ? 'bg-green-50/50 border-l-4 border-l-green-500' : ''} hover:bg-gray-50/50 transition-colors`}
+      >
       <TableCell className="text-center sticky left-0 bg-white z-10 border-r">
         <div className="flex items-center justify-center gap-1">
           {getRankIcon(rank)}
@@ -50,20 +58,42 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
       
       <TableCell>
         <div className="space-y-1 min-w-0">
-          <div className="font-medium text-gray-900 text-xs sm:text-sm truncate">{safeHorseName}</div>
+          <div className="flex items-center gap-2">
+            <div className="font-medium text-gray-900 text-xs sm:text-sm truncate">{safeHorseName}</div>
+            {isTargetHorse && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDebug(!showDebug)}
+                className="h-6 w-6 p-0"
+              >
+                {showDebug ? (
+                  <ChevronUp className="h-3 w-3" />
+                ) : (
+                  <ChevronDown className="h-3 w-3" />
+                )}
+              </Button>
+            )}
+          </div>
           <div className="text-xs text-gray-600 truncate">{safeDriverName}</div>
         </div>
       </TableCell>
       
       <TableCell className="text-center">
         <div className="font-mono text-xs sm:text-sm text-gray-700">
-          {formatKmTime(result.rawTime)}
+          <div>{formatKmTime(result.rawTime)}</div>
+          {isTargetHorse && (
+            <div className="text-xs text-gray-500">Best 3 Avg</div>
+          )}
         </div>
       </TableCell>
       
       <TableCell className="text-center">
         <div className={`font-mono text-xs sm:text-sm font-bold ${isTopPerformer ? 'text-green-700' : 'text-gray-900'}`}>
-          {formatKmTime(result.modernNormalizedTime)}
+          <div>{formatKmTime(result.modernNormalizedTime)}</div>
+          {isTargetHorse && (
+            <div className="text-xs text-gray-500">Predicted</div>
+          )}
         </div>
       </TableCell>
       
@@ -135,7 +165,16 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
           {formatAdjustment(result.adjustments.total)}
         </span>
       </TableCell>
-    </TableRow>
+      </TableRow>
+      
+      {showDebug && isTargetHorse && (
+        <TableRow>
+          <TableCell colSpan={14} className="p-0">
+            <V75TimeCalculationDebug horse={horse} />
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   );
 };
 

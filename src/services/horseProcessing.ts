@@ -141,6 +141,23 @@ export const processHorseKmTimes = async (
   // Enhanced debugging for final results
   HorseDebugger.logProcessedTimes(horseId, horseName, processedTimes, best3Average);
 
+  // Enhanced logging for time calculation transparency
+  if (HorseDebugger.shouldDebugHorse(horseName)) {
+    console.log(`🐎 [DETAILED TIME CALCULATION] ${horseName}:`);
+    console.log(`   📊 Historical Records Processed: ${historicalRaces.length}`);
+    console.log(`   ✅ Valid Times Found: ${processedTimes.length}`);
+    console.log(`   📈 Calculation Method: Average of best 3 normalized times`);
+    
+    if (best3Times.length >= 3) {
+      console.log(`   🏆 Top 3 Times Used:`);
+      best3Times.forEach((time, i) => {
+        console.log(`     ${i+1}. ${time.normalizedTime.minutes}:${time.normalizedTime.seconds.toString().padStart(2, '0')}.${time.normalizedTime.tenths} (from ${time.raceDate}, ${time.distance}m ${time.startMethod})`);
+      });
+    }
+    
+    console.log(`   🎯 Final Best 3 Average: ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
+  }
+
   return {
     horseId,
     horseName,

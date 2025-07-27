@@ -11,7 +11,7 @@ export interface HorseDebugInfo {
 
 export class HorseDebugger {
   private static debugLogs: HorseDebugInfo[] = [];
-  private static targetHorses = ['xander', 'Xander'];
+  private static targetHorses = ['xander', 'Xander', 'rock solid', 'Rock Solid', 'ROCK SOLID'];
 
   static shouldDebugHorse(horseName: string): boolean {
     return this.targetHorses.some(target => 
