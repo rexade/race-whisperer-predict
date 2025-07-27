@@ -35,7 +35,9 @@ export const calculateRawKmTimesForRaceWithId = async (
       const historicalData = await fetchHorseHistoricalData(raceId, postPosition);
       
       if (!historicalData || !historicalData.horse.results?.records) {
-        console.warn(`No historical records found for horse ${start.horse.name}`);
+        console.warn(`❌ NO HISTORICAL DATA - Horse ${start.horse.name} (Post ${postPosition})`);
+        console.warn(`  📊 Data check: historicalData=${!!historicalData}, horse=${!!historicalData?.horse}, results=${!!historicalData?.horse?.results}, records=${!!historicalData?.horse?.results?.records}`);
+        console.warn(`  📈 Records length: ${historicalData?.horse?.results?.records?.length || 0}`);
         
         HorseDebugger.log(horseId, horseName, 'NO_HISTORICAL_DATA', {
           historicalDataExists: !!historicalData,
@@ -102,7 +104,9 @@ export const calculateRawKmTimesForRaceWithId = async (
       const horseName = start.horse?.name || 'Unknown';
       const horseId = start.horse?.id || 0;
       
-      console.error(`Error processing KM times for horse ${horseName} (post position ${postPosition}):`, error);
+      console.error(`❌ PROCESSING ERROR - Horse ${horseName} (Post ${postPosition}):`, error);
+      console.error(`  🔍 Error type: ${error.name}`);
+      console.error(`  📝 Error message: ${error.message}`);
       
       rawKmTimes.push({
         horseId: start.horse.id,

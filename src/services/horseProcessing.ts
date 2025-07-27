@@ -135,7 +135,11 @@ export const processHorseKmTimes = async (
     console.log(`Best 3 times: ${best3Times.map(t => `${t.normalizedTime.minutes}:${t.normalizedTime.seconds.toString().padStart(2, '0')}.${t.normalizedTime.tenths}`).join(', ')}`);
     console.log(`RAW Time (Best 3 Average): ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
   } else {
-    console.log(`No valid times found for RAW time calculation`);
+    console.warn(`❌ NO VALID TIMES - Horse ${horseName}:`);
+    console.warn(`  📊 Historical races provided: ${historicalRaces.length}`);
+    console.warn(`  ✅ Valid processed times: ${processedTimes.length}`);
+    console.warn(`  🔍 All historical records were filtered out during processing`);
+    console.warn(`  💡 Possible reasons: disqualified/galloped races, invalid KM times, distance filters`);
   }
   
   // Enhanced debugging for final results
