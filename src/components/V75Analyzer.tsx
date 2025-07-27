@@ -8,7 +8,6 @@ import ErrorDisplay from "./modernAnalyzer/ErrorDisplay";
 import DebugErrorBoundary from "./DebugErrorBoundary";
 import { useV75Analysis } from "./v75/hooks/useV75Analysis";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
-import { Race7Debugger } from '../services/investigation/race7DebugUtils';
 
 // Shared components
 import AnalyzerLayout from "./shared/analyzer/AnalyzerLayout";
@@ -41,18 +40,6 @@ const V75Analyzer: React.FC = () => {
     if (!selectedDate) return;
     
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    console.log('🎯 V75Analyzer - Starting analysis for date:', dateStr);
-    
-    // Enable Race 7 debugging for target investigation dates
-    if (dateStr.includes('2025-01-18') || dateStr.includes('2025-07-26')) {
-      Race7Debugger.enableRace7Debugging(dateStr, {
-        enableDetailedLogging: true,
-        compareWithWebsiteTimes: true,
-        trackDataSources: true,
-        validateNormalizationSteps: true
-      });
-      console.log('🔧 Race 7 debugging enabled for investigation on:', dateStr);
-    }
     
     analyzeV75Date(dateStr, weights);
   };
@@ -60,7 +47,6 @@ const V75Analyzer: React.FC = () => {
   // Recalculate when weights change
   useEffect(() => {
     if (v75Results.length > 0) {
-      console.log('🔄 V75Analyzer - Reanalyzing with new weights');
       reanalyzeWithNewWeights(weights);
     }
   }, [weights]);
@@ -68,7 +54,6 @@ const V75Analyzer: React.FC = () => {
   // Update active tab when results are loaded
   useEffect(() => {
     if (v75Results.length > 0) {
-      console.log('📊 V75Analyzer - Results loaded, setting overview tab');
       setActiveTab("overview");
     }
   }, [v75Results]);

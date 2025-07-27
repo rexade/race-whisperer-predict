@@ -1,6 +1,5 @@
 
 import React, { Component, ReactNode } from 'react';
-import { EnhancedXanderDebugger } from '../services/investigation/enhancedXanderDebugger';
 
 interface Props {
   children: ReactNode;
@@ -35,18 +34,6 @@ class DebugErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: any) {
     console.error('🚨 ERROR BOUNDARY - Component stack:', errorInfo.componentStack);
     console.error('🚨 ERROR BOUNDARY - Error boundary caught:', error);
-    
-    // Log to enhanced debugger if enabled
-    if (EnhancedXanderDebugger.isDebugEnabled()) {
-      EnhancedXanderDebugger.addCheckpoint(
-        'error_boundary_triggered',
-        'error_handling',
-        'system',
-        { errorMessage: error.message, componentStack: errorInfo.componentStack },
-        false,
-        error.message
-      );
-    }
   }
 
   render() {
