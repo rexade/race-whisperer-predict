@@ -18,6 +18,42 @@ export const calculateRawKmTimesForRaceWithId = async (
   console.log('🔥 STRICT MODE: Using POST POSITIONS for historical data fetch ONLY for RAW KM time calculation');
   console.log('🔍 INVESTIGATION MODE: Enhanced debugging for time discrepancy analysis');
   
+  // 🔍 XANDER DETECTION: Enhanced multi-pattern detection with data structure validation
+  console.log(`\n🎯 XANDER DETECTION: Scanning ${starts.length} horses...`);
+  starts.forEach((start, idx) => {
+    console.log(`   Horse ${idx + 1}: ${start.horse?.name || 'NO_NAME'} (ID: ${start.horse?.id || 'NO_ID'})`);
+  });
+  
+  const xanderDetectionPatterns = [
+    (start: any) => start.horse?.name?.toLowerCase().includes('xander'),
+    (start: any) => start.horse?.name?.toLowerCase() === 'xander',
+    (start: any) => start.horse?.id === 786472, // From console logs
+    (start: any) => start.horseName?.toLowerCase().includes('xander'), // Fallback structure
+    (start: any) => start.horseId === 786472 // Alternative structure
+  ];
+  
+  const detectedXander = starts.find(start => 
+    xanderDetectionPatterns.some(pattern => pattern(start))
+  );
+  
+  if (detectedXander) {
+    console.log(`🎯 XANDER DETECTED using enhanced patterns:`, {
+      horseName: detectedXander.horse?.name,
+      horseId: detectedXander.horse?.id,
+      postPosition: detectedXander.postPosition,
+      dataStructure: {
+        hasHorseObject: !!detectedXander.horse,
+        horseKeys: detectedXander.horse ? Object.keys(detectedXander.horse) : [],
+        directProperties: Object.keys(detectedXander).filter(k => k !== 'horse')
+      }
+    });
+  } else {
+    console.log(`⚠️  XANDER NOT DETECTED - Detailed analysis:`);
+    starts.forEach((start, idx) => {
+      console.log(`   ${idx + 1}. Name: "${start.horse?.name || 'N/A'}" | ID: ${start.horse?.id || 'N/A'}"`);
+    });
+  }
+  
   // 🔍 INVESTIGATION: Auto-enable Race 7 debugging if this is Race 7
   if (raceId.includes('7') || raceId.toLowerCase().includes('race_7') || starts.some(s => s.horse.name.toLowerCase().includes('xander'))) {
     Race7Debugger.enableRace7Debugging(raceId, {
@@ -29,23 +65,42 @@ export const calculateRawKmTimesForRaceWithId = async (
   }
 
   // 🔍 ENHANCED XANDER INVESTIGATION: Enable enhanced debugging for Xander
-  const xanderHorse = starts.find(s => s.horse.name.toLowerCase().includes('xander'));
+  const xanderHorse = detectedXander || starts.find(s => s.horse?.name?.toLowerCase().includes('xander'));
   if (xanderHorse) {
+    const horseName = xanderHorse.horse?.name || 'Xander';
     console.log(`🕵️ ENHANCED DEBUGGING: Xander detected in race ${raceId}, enabling enhanced investigation`);
-    EnhancedXanderDebugger.enableXanderDebugging(xanderHorse.horse.name, `race_${raceId}_${Date.now()}`);
+    console.log(`🔧 Debug state before enabling:`, {
+      isCurrentlyEnabled: EnhancedXanderDebugger.isDebugEnabled(),
+      targetHorse: EnhancedXanderDebugger.isTargetHorse(horseName)
+    });
+    
+    EnhancedXanderDebugger.enableXanderDebugging(horseName, `kmtime_race_${raceId}_${Date.now()}`);
+    
+    console.log(`🔧 Debug state after enabling:`, {
+      isCurrentlyEnabled: EnhancedXanderDebugger.isDebugEnabled(),
+      targetHorse: EnhancedXanderDebugger.isTargetHorse(horseName)
+    });
     
     EnhancedXanderDebugger.addCheckpoint(
       'race_analysis_start',
       'initialization',
-      xanderHorse.horse.name,
+      horseName,
       {
         raceId,
         totalHorses: starts.length,
         xanderPostPosition: xanderHorse.postPosition,
+        detectionMethod: 'enhanced_patterns',
+        dataStructure: {
+          hasHorseObject: !!xanderHorse.horse,
+          horseName: horseName,
+          horseId: xanderHorse.horse?.id
+        },
         timestamp: new Date().toISOString()
       },
       true
     );
+  } else {
+    console.log(`⚠️  No Xander detected - Enhanced debugging will not be enabled for this race`);
   }
 
   for (let i = 0; i < starts.length; i++) {
@@ -54,19 +109,38 @@ export const calculateRawKmTimesForRaceWithId = async (
     progressCallback?.(i + 1, starts.length);
 
     try {
-      console.log(`\n--- Processing horse ${i + 1}/${starts.length}: ${start.horse.name} (ID: ${start.horse.id}) ---`);
+      const horseName = start.horse?.name || 'Unknown';
+      const horseId = start.horse?.id || 'Unknown';
+      
+      console.log(`\n--- Processing horse ${i + 1}/${starts.length}: ${horseName} (ID: ${horseId}) ---`);
       console.log(`🎯 Using POST POSITION: ${postPosition} for historical data fetch`);
       
-      // Enhanced data fetching with connection resilience
-      if (start.horse.name.toLowerCase().includes('xander')) {
+      // 🔍 ENHANCED XANDER DETECTION: Multiple pattern matching
+      const isXanderHorse = xanderDetectionPatterns.some(pattern => pattern(start));
+      
+      if (isXanderHorse) {
+        console.log(`🎯 PROCESSING XANDER: Enhanced debugging active`);
+        console.log(`🔧 Debug verification:`, {
+          debugEnabled: EnhancedXanderDebugger.isDebugEnabled(),
+          isTargetHorse: EnhancedXanderDebugger.isTargetHorse(horseName),
+          horseName: horseName
+        });
+        
         EnhancedXanderDebugger.addCheckpoint(
           'start_data_fetch',
           'data_fetching',
-          start.horse.name,
+          horseName,
           {
-            horseId: start.horse.id,
+            horseId: horseId,
             postPosition,
-            raceId
+            raceId,
+            processingIndex: i + 1,
+            totalHorses: starts.length,
+            dataStructure: {
+              originalStart: start,
+              extractedName: horseName,
+              extractedId: horseId
+            }
           },
           true
         );
@@ -88,15 +162,20 @@ export const calculateRawKmTimesForRaceWithId = async (
       if (!historicalDataResult.success) {
         console.error(`❌ Failed to fetch historical data for ${start.horse.name}: ${historicalDataResult.error}`);
         
-        if (start.horse.name.toLowerCase().includes('xander')) {
+        if (isXanderHorse) {
           EnhancedXanderDebugger.addCheckpoint(
             'data_fetch_failed',
             'data_fetching',
-            start.horse.name,
+            horseName,
             {
               error: historicalDataResult.error,
               attempts: historicalDataResult.attempts,
-              totalTime: historicalDataResult.totalTime
+              totalTime: historicalDataResult.totalTime,
+              postPosition: postPosition,
+              debugState: {
+                enabled: EnhancedXanderDebugger.isDebugEnabled(),
+                isTarget: EnhancedXanderDebugger.isTargetHorse(horseName)
+              }
             },
             false,
             historicalDataResult.error
@@ -127,25 +206,29 @@ export const calculateRawKmTimesForRaceWithId = async (
         continue;
       }
       
-      const validRecords = processHistoricalRecords(historicalData.horse.results.records, start.horse.name);
-      console.log(`Found ${validRecords.length} valid historical races for ${start.horse.name}`);
+      const validRecords = processHistoricalRecords(historicalData.horse.results.records, horseName);
+      console.log(`Found ${validRecords.length} valid historical races for ${horseName}`);
       
       // 🔍 ENHANCED INVESTIGATION: Debug raw historical records
-      if (start.horse.name.toLowerCase().includes('xander')) {
+      if (isXanderHorse) {
         EnhancedXanderDebugger.addCheckpoint(
           'data_fetch_success',
           'data_fetching',
-          start.horse.name,
+          horseName,
           {
             rawRecordsCount: historicalData.horse.results.records.length,
             fetchTime: historicalDataResult.totalTime,
-            attempts: historicalDataResult.attempts
+            attempts: historicalDataResult.attempts,
+            debugState: {
+              enabled: EnhancedXanderDebugger.isDebugEnabled(),
+              isTarget: EnhancedXanderDebugger.isTargetHorse(horseName)
+            }
           },
           true
         );
         
         EnhancedXanderDebugger.logDataQualityCheck(
-          start.horse.name,
+          horseName,
           'historical_data_availability',
           validRecords.length > 0,
           {
@@ -165,7 +248,7 @@ export const calculateRawKmTimesForRaceWithId = async (
           console.log(`🕵️ Record ${idx + 1}: ${record.date} - ${timeStr} (${record.start.distance}m, ${record.race.startMethod}, place: ${record.place})`);
           
           EnhancedXanderDebugger.logProcessingPhase(
-            start.horse.name,
+            horseName,
             `historical_record_${idx + 1}`,
             {
               date: record.date,
@@ -202,19 +285,74 @@ export const calculateRawKmTimesForRaceWithId = async (
       rawKmTimes.push(horseRawKmTime);
       
       const calculatedTimeStr = `${horseRawKmTime.best3Average.minutes}:${horseRawKmTime.best3Average.seconds.toString().padStart(2, '0')}.${horseRawKmTime.best3Average.tenths}`;
-      console.log(`✅ RAW KM time calculated for ${start.horse.name}: ${calculatedTimeStr}`);
+      console.log(`✅ RAW KM time calculated for ${horseName}: ${calculatedTimeStr}`);
       console.log(`🗑️  HISTORICAL DATA DISCARDED - NEVER TO BE USED AGAIN`);
+      
+      // 🔍 ENHANCED XANDER INVESTIGATION: Log final calculation
+      if (isXanderHorse) {
+        console.log(`🎯 XANDER FINAL CALCULATION:`, {
+          calculatedTime: calculatedTimeStr,
+          validTimesCount: horseRawKmTime.validTimesCount,
+          debugState: {
+            enabled: EnhancedXanderDebugger.isDebugEnabled(),
+            isTarget: EnhancedXanderDebugger.isTargetHorse(horseName)
+          }
+        });
+        
+        EnhancedXanderDebugger.addCheckpoint(
+          'final_time_calculated',
+          'time_calculation',
+          horseName,
+          {
+            finalTime: calculatedTimeStr,
+            validTimesUsed: horseRawKmTime.validTimesCount,
+            allTimesProcessed: horseRawKmTime.allTimes?.length || 0,
+            processingIndex: i + 1
+          },
+          true
+        );
+      }
       
       // 🔍 INVESTIGATION: Log data source comparison for Race 7 debugging
       Race7Debugger.logDataSourceComparison(
-        start.horse.name,
+        horseName,
         historicalData.horse.results.records.length,
         horseRawKmTime.validTimesCount,
         calculatedTimeStr
       );
       
     } catch (error) {
-      console.error(`❌ Error processing KM times for horse ${start.horse.name} (post position ${postPosition}):`, error);
+      const horseName = start.horse?.name || 'Unknown';
+      const horseId = start.horse?.id || 'Unknown';
+      
+      console.error(`❌ Error processing KM times for horse ${horseName} (post position ${postPosition}):`, error);
+      
+      // 🔍 ENHANCED XANDER ERROR HANDLING
+      const isXanderHorse = xanderDetectionPatterns.some(pattern => pattern(start));
+      if (isXanderHorse) {
+        console.log(`🎯 XANDER ERROR HANDLING:`, {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          debugState: {
+            enabled: EnhancedXanderDebugger.isDebugEnabled(),
+            isTarget: EnhancedXanderDebugger.isTargetHorse(horseName)
+          }
+        });
+        
+        EnhancedXanderDebugger.addCheckpoint(
+          'processing_error',
+          'error_handling',
+          horseName,
+          {
+            error: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            phase: 'km_time_processing',
+            processingIndex: i + 1
+          },
+          false,
+          error instanceof Error ? error.message : String(error)
+        );
+      }
       
       rawKmTimes.push({
         horseId: start.horse.id,
