@@ -3,6 +3,7 @@ import { ATGStartInfo } from './atgApi';
 import { HorseRawKmTime, KmTime } from './types/kmTimeTypes';
 import { processHorseKmTimes } from './horseProcessing';
 import { fetchHorseHistoricalData, processHistoricalRecords } from './atgHistoricalApi';
+import { Race7Debugger } from './investigation/race7DebugUtils';
 
 export const calculateRawKmTimesForRaceWithId = async (
   raceId: string,
@@ -13,6 +14,17 @@ export const calculateRawKmTimesForRaceWithId = async (
 
   console.log(`\n=== Calculating RAW KM times for race ${raceId} with ${starts.length} horses ===`);
   console.log('🔥 STRICT MODE: Using POST POSITIONS for historical data fetch ONLY for RAW KM time calculation');
+  console.log('🔍 INVESTIGATION MODE: Enhanced debugging for time discrepancy analysis');
+  
+  // 🔍 INVESTIGATION: Auto-enable Race 7 debugging if this is Race 7
+  if (raceId.includes('7') || raceId.toLowerCase().includes('race_7') || starts.some(s => s.horse.name.toLowerCase().includes('xander'))) {
+    Race7Debugger.enableRace7Debugging(raceId, {
+      enableDetailedLogging: true,
+      compareWithWebsiteTimes: true,
+      trackDataSources: true,
+      validateNormalizationSteps: true
+    });
+  }
 
   for (let i = 0; i < starts.length; i++) {
     const start = starts[i];
@@ -37,8 +49,20 @@ export const calculateRawKmTimesForRaceWithId = async (
         continue;
       }
       
-      const validRecords = processHistoricalRecords(historicalData.horse.results.records);
+      const validRecords = processHistoricalRecords(historicalData.horse.results.records, start.horse.name);
       console.log(`Found ${validRecords.length} valid historical races for ${start.horse.name}`);
+      
+      // 🔍 INVESTIGATION: Debug raw historical records
+      if (start.horse.name.toLowerCase().includes('xander')) {
+        console.log(`🕵️ XANDER INVESTIGATION: Raw historical records count: ${historicalData.horse.results.records.length}`);
+        console.log(`🕵️ XANDER INVESTIGATION: Valid records after filtering: ${validRecords.length}`);
+        validRecords.forEach((record, idx) => {
+          const timeStr = record.kmTime && typeof record.kmTime === 'object' && 'minutes' in record.kmTime 
+            ? `${record.kmTime.minutes}:${record.kmTime.seconds}.${record.kmTime.tenths}`
+            : 'No time';
+          console.log(`🕵️ Record ${idx + 1}: ${record.date} - ${timeStr} (${record.start.distance}m, ${record.race.startMethod}, place: ${record.place})`);
+        });
+      }
       
       const historicalRaces = validRecords.map(record => ({
         raceId: record.race.id,
@@ -61,8 +85,17 @@ export const calculateRawKmTimesForRaceWithId = async (
       
       rawKmTimes.push(horseRawKmTime);
       
-      console.log(`✅ RAW KM time calculated for ${start.horse.name}: ${horseRawKmTime.best3Average.minutes}:${horseRawKmTime.best3Average.seconds.toString().padStart(2, '0')}.${horseRawKmTime.best3Average.tenths}`);
+      const calculatedTimeStr = `${horseRawKmTime.best3Average.minutes}:${horseRawKmTime.best3Average.seconds.toString().padStart(2, '0')}.${horseRawKmTime.best3Average.tenths}`;
+      console.log(`✅ RAW KM time calculated for ${start.horse.name}: ${calculatedTimeStr}`);
       console.log(`🗑️  HISTORICAL DATA DISCARDED - NEVER TO BE USED AGAIN`);
+      
+      // 🔍 INVESTIGATION: Log data source comparison for Race 7 debugging
+      Race7Debugger.logDataSourceComparison(
+        start.horse.name,
+        historicalData.horse.results.records.length,
+        horseRawKmTime.validTimesCount,
+        calculatedTimeStr
+      );
       
     } catch (error) {
       console.error(`❌ Error processing KM times for horse ${start.horse.name} (post position ${postPosition}):`, error);

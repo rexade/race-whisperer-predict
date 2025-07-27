@@ -2,6 +2,7 @@ import { ProcessedKmTime, HorseRawKmTime } from './types/kmTimeTypes';
 import { KmTime } from './utils/kmTimeUtils';
 import { convertToKmTime } from './utils/timeConversion';
 import { normalizeKmTimeSimplified } from './utils/kmTimeNormalization';
+import { XanderTimeInvestigator } from './investigation/xanderTimeInvestigation';
 
 // Updated interface to match ATG API structure
 export interface ATGHistoricalRace {
@@ -30,6 +31,19 @@ export const processHorseKmTimes = async (
 
   console.log(`\n=== Processing KM times for ${horseName} (ID: ${horseId}) ===`);
   console.log(`Found ${historicalRaces.length} historical races to process`);
+  
+  // 🔍 INVESTIGATION: Special debugging for Xander
+  const isXander = horseName.toLowerCase().includes('xander');
+  if (isXander) {
+    console.log(`🕵️ XANDER INVESTIGATION: Starting detailed time processing`);
+    console.log(`🕵️ XANDER INVESTIGATION: Input races:`, historicalRaces.map(r => ({
+      date: r.date,
+      originalTime: `${r.kmTime.minutes}:${r.kmTime.seconds}.${r.kmTime.tenths}`,
+      distance: r.distance,
+      startMethod: r.startMethod,
+      place: r.finishOrder
+    })));
+  }
 
   for (const race of historicalRaces) {
     // Skip if no time recorded or horse was disqualified/galloped
@@ -94,6 +108,37 @@ export const processHorseKmTimes = async (
   if (best3Times.length > 0) {
     console.log(`Best 3 times: ${best3Times.map(t => `${t.normalizedTime.minutes}:${t.normalizedTime.seconds.toString().padStart(2, '0')}.${t.normalizedTime.tenths}`).join(', ')}`);
     console.log(`RAW Time (Best 3 Average): ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
+    
+    // 🔍 INVESTIGATION: Detailed best-3 calculation debugging for Xander
+    if (isXander) {
+      console.log(`🕵️ XANDER INVESTIGATION: Best-3 calculation details:`);
+      best3Times.forEach((time, idx) => {
+        const timeInSeconds = time.normalizedTime.minutes * 60 + time.normalizedTime.seconds + time.normalizedTime.tenths / 10;
+        console.log(`🕵️   ${idx + 1}. ${time.raceDate}: ${time.normalizedTime.minutes}:${time.normalizedTime.seconds.toString().padStart(2, '0')}.${time.normalizedTime.tenths} = ${timeInSeconds.toFixed(1)}s`);
+        console.log(`🕵️      Original: ${time.originalTime.minutes}:${time.originalTime.seconds.toString().padStart(2, '0')}.${time.originalTime.tenths} (${time.distance}m ${time.startMethod})`);
+      });
+      const averageSeconds = best3Times.reduce((sum, time) => {
+        return sum + (time.normalizedTime.minutes * 60 + time.normalizedTime.seconds + time.normalizedTime.tenths / 10);
+      }, 0) / best3Times.length;
+      console.log(`🕵️ XANDER INVESTIGATION: Average seconds: ${averageSeconds.toFixed(2)}s`);
+      console.log(`🕵️ XANDER INVESTIGATION: Converted to KM format: ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
+      
+      // Generate comprehensive investigation report
+      const expectedTime = "1:14.6"; // Based on website data
+      const calculatedTime = `${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`;
+      
+      const report = XanderTimeInvestigator.generateInvestigationReport(
+        "unknown", // Race ID would need to be passed in
+        horseName,
+        historicalRaces.length, // This is after API filtering but before our processing
+        processedTimes.length,
+        best3Times,
+        calculatedTime,
+        expectedTime
+      );
+      
+      XanderTimeInvestigator.logDetailedReport(report);
+    }
   } else {
     console.log(`No valid times found for RAW time calculation`);
   }
