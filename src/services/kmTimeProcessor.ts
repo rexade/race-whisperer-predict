@@ -28,6 +28,26 @@ export const calculateRawKmTimesForRaceWithId = async (
     });
   }
 
+  // 🔍 ENHANCED XANDER INVESTIGATION: Enable enhanced debugging for Xander
+  const xanderHorse = starts.find(s => s.horse.name.toLowerCase().includes('xander'));
+  if (xanderHorse) {
+    console.log(`🕵️ ENHANCED DEBUGGING: Xander detected in race ${raceId}, enabling enhanced investigation`);
+    EnhancedXanderDebugger.enableXanderDebugging(xanderHorse.horse.name, `race_${raceId}_${Date.now()}`);
+    
+    EnhancedXanderDebugger.addCheckpoint(
+      'race_analysis_start',
+      'initialization',
+      xanderHorse.horse.name,
+      {
+        raceId,
+        totalHorses: starts.length,
+        xanderPostPosition: xanderHorse.postPosition,
+        timestamp: new Date().toISOString()
+      },
+      true
+    );
+  }
+
   for (let i = 0; i < starts.length; i++) {
     const start = starts[i];
     const postPosition = start.postPosition;
@@ -226,6 +246,29 @@ export const calculateRawKmTimesForRaceWithId = async (
       console.log(`${index + 1}. ${horse.horseName}: No valid times`);
     }
   });
+
+  // 🔍 ENHANCED XANDER INVESTIGATION: Finalize debugging session
+  if (EnhancedXanderDebugger.isDebugEnabled()) {
+    const xanderResult = rawKmTimes.find(h => h.horseName.toLowerCase().includes('xander'));
+    if (xanderResult) {
+      EnhancedXanderDebugger.addCheckpoint(
+        'race_analysis_complete',
+        'completion',
+        xanderResult.horseName,
+        {
+          finalRanking: rawKmTimes.findIndex(h => h.horseName === xanderResult.horseName) + 1,
+          calculatedTime: `${xanderResult.best3Average.minutes}:${xanderResult.best3Average.seconds.toString().padStart(2, '0')}.${xanderResult.best3Average.tenths}`,
+          validTimesUsed: xanderResult.validTimesCount,
+          totalProcessingTime: Date.now() - (performance.now() || 0)
+        },
+        true
+      );
+    }
+    
+    // Generate final report and disable debugging
+    console.log('🕵️ ENHANCED DEBUGGING: Generating final investigation report for Xander...');
+    EnhancedXanderDebugger.disableDebugging();
+  }
 
   return rawKmTimes;
 };

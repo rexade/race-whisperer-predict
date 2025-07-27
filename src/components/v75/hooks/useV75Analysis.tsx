@@ -8,6 +8,7 @@ import { useV75Progress } from './useV75Progress';
 import { useV75Cache } from './useV75Cache';
 import { useV75ResultsProcessor } from './useV75ResultsProcessor';
 import { PostAnalysisReporter } from '../../../services/investigation/postAnalysisReporter';
+import { EnhancedXanderDebugger } from '../../../services/investigation/enhancedXanderDebugger';
 import type { V75HorseResult, V75RaceResult } from '../types/raceResultTypes';
 
 // Re-export types using 'export type'
@@ -44,6 +45,9 @@ export const useV75Analysis = () => {
     try {
       console.log(`\n🎯 === V75 OPTIMIZED ANALYSIS START for ${date} ===`);
       console.log(`🚀 Strategy: Cache only raw KM times, fetch fresh race data`);
+      
+      // 🔍 ENHANCED XANDER INVESTIGATION: Check if any race contains Xander before processing
+      console.log(`🕵️ PRE-ANALYSIS: Checking for Xander in V75 races for ${date}...`);
       
       updateProgress(5, "Checking for V75 games...");
       
@@ -85,6 +89,42 @@ export const useV75Analysis = () => {
       
       // Apply validation and fixing
       v75Races = await validateAndFixRaces(v75Races);
+      
+      // 🔍 ENHANCED XANDER INVESTIGATION: Check for Xander across all races
+      const xanderRaces = v75Races.filter(race => 
+        race.horses.some(horse => horse.name && typeof horse.name === 'string' && horse.name.toLowerCase().includes('xander'))
+      );
+      
+      if (xanderRaces.length > 0) {
+        console.log(`🕵️ ENHANCED DEBUGGING: Xander found in ${xanderRaces.length} V75 race(s) for ${date}`);
+        xanderRaces.forEach(race => {
+          const xanderHorse = race.horses.find(horse => horse.name && typeof horse.name === 'string' && horse.name.toLowerCase().includes('xander'));
+          if (xanderHorse) {
+            console.log(`🕵️ Race ${race.raceNumber}: Xander (${xanderHorse.name}) at position ${xanderHorse.postPosition}`);
+            
+            // Enable enhanced debugging for this V75 session
+            EnhancedXanderDebugger.enableXanderDebugging(
+              xanderHorse.name, 
+              `v75_${date}_race${race.raceNumber}_${Date.now()}`
+            );
+            
+            EnhancedXanderDebugger.addCheckpoint(
+              'v75_analysis_start',
+              'v75_initialization',
+              xanderHorse.name,
+              {
+                analysisDate: date,
+                gameId: gameInfo.gameId,
+                raceNumber: race.raceNumber,
+                raceId: race.raceId,
+                postPosition: xanderHorse.postPosition,
+                totalV75Races: v75Races.length
+              },
+              true
+            );
+          }
+        });
+      }
       
       updateProgress(20, "Starting optimized analysis with raw time caching...");
       
@@ -138,6 +178,38 @@ export const useV75Analysis = () => {
       console.log(`💾 Raw times cached for future instant use`);
       console.log(`📅 Analysis cached with race date: ${date}`);
       
+      // 🔍 ENHANCED XANDER INVESTIGATION: Finalize debugging if enabled
+      if (EnhancedXanderDebugger.isDebugEnabled()) {
+        console.log('🕵️ ENHANCED DEBUGGING: V75 analysis complete, generating final Xander investigation report...');
+        
+        // Find Xander's results across all races
+        const xanderResults = results.flatMap(race => 
+          race.horses.filter(horse => horse.horseName.toLowerCase().includes('xander'))
+        );
+        
+        if (xanderResults.length > 0) {
+          xanderResults.forEach(result => {
+            EnhancedXanderDebugger.addCheckpoint(
+              'v75_analysis_complete',
+              'v75_completion',
+              result.horseName,
+              {
+                finalPosition: result.rank,
+                finalScore: result.finalScore,
+                modernNormalizedResult: result.modernNormalizedResult ? 'available' : 'missing',
+                rawKmTime: result.rawKmTime ? 'available' : 'missing',
+                raceNumber: results.find(r => r.horses.includes(result))?.raceNumber || 'unknown',
+                totalRacesAnalyzed: results.length
+              },
+              true
+            );
+          });
+        }
+        
+        // Disable debugging and generate report
+        EnhancedXanderDebugger.disableDebugging();
+      }
+
       // Generate post-analysis report if debugging was enabled
       try {
         PostAnalysisReporter.generateReport();
