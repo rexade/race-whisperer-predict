@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { V75HorseResult } from '../types/raceResultTypes';
 import { useXanderDebugger } from '../hooks/useXanderDebugger';
+import V75RaceHistoryBreakdown from './V75RaceHistoryBreakdown';
 
 interface V75TimeCalculationDebugProps {
   horse: V75HorseResult;
@@ -28,9 +29,18 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
     const historicalDataLog = horseLogs.find(log => log.stage === 'HISTORICAL_DATA_RECEIVED');
     const finalResultLog = horseLogs.find(log => log.stage === 'FINAL_RESULT');
 
+    // Get detailed processed times for breakdown
+    const processedTimesDetailLog = horseLogs.find(log => 
+      log.stage === 'PROCESSED_TIMES' && log.data?.processedTimes
+    );
+    const historicalRaces = processedTimesDetailLog?.data?.processedTimes || [];
+    const best3Average = processedTimesDetailLog?.data?.best3Average || horse.rawKmTime;
+
     return {
       historicalRecords: historicalDataLog?.data?.length || 0,
       processedTimes: processedTimesLog?.data || [],
+      historicalRaces,
+      best3Average,
       rawKmTime: horse.rawKmTime,
       modernNormalizedTime: horse.modernNormalizedResult?.modernNormalizedTime,
       adjustments: horse.modernNormalizedResult?.adjustments
@@ -111,6 +121,20 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
             </div>
           </div>
         </div>
+
+        {/* Historical Race Breakdown */}
+        {data.historicalRaces.length > 0 && (
+          <>
+            <Separator />
+            <div>
+              <V75RaceHistoryBreakdown 
+                horseName={horse.horseName}
+                historicalRaces={data.historicalRaces}
+                best3Average={data.best3Average}
+              />
+            </div>
+          </>
+        )}
 
         {/* Debug Logs Summary */}
         {horseLogs.length > 0 && (
