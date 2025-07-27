@@ -42,16 +42,16 @@ const V75Analyzer: React.FC = () => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     console.log('🎯 V75Analyzer - Starting analysis for date:', dateStr);
     
-    // Enable Race 7 debugging for Xander investigation
-    if (dateStr.includes('2025-01-18')) { // Date with known Race 7 and Xander
+    // Enable Race 7 debugging for target investigation dates
+    if (dateStr.includes('2025-01-18') || dateStr.includes('2025-07-26')) {
       const { Race7Debugger } = require('../services/investigation/race7DebugUtils');
-      Race7Debugger.enableRace7Debugging(`${dateStr}_race_7`, {
+      Race7Debugger.enableRace7Debugging(dateStr, {
         enableDetailedLogging: true,
         compareWithWebsiteTimes: true,
         trackDataSources: true,
         validateNormalizationSteps: true
       });
-      console.log('🔧 Race 7 debugging enabled for Xander investigation');
+      console.log('🔧 Race 7 debugging enabled for investigation on:', dateStr);
     }
     
     analyzeV75Date(dateStr, weights);

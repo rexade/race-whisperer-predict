@@ -137,6 +137,14 @@ export const useV75Analysis = () => {
       console.log(`💾 Raw times cached for future instant use`);
       console.log(`📅 Analysis cached with race date: ${date}`);
       
+      // Generate post-analysis report if debugging was enabled
+      try {
+        const { PostAnalysisReporter } = require('../../../services/investigation/postAnalysisReporter');
+        PostAnalysisReporter.generateReport();
+      } catch (reportError) {
+        console.log('📋 Post-analysis reporting not available:', reportError);
+      }
+      
       toast({
         title: "V75 Analysis Complete",
         description: `Successfully analyzed ${successfulRaces} races with ${totalHorses} horses using optimized caching.`,

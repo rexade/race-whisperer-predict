@@ -18,26 +18,50 @@ export class Race7Debugger {
     "xander": "1:14.6", // Website reference time
     // Add other horses as needed for comparison
   };
+
+  static isRace7(raceNumber: number, raceName?: string): boolean {
+    // Check if this is race 7 by number or name patterns
+    if (raceNumber === 7) return true;
+    if (raceName && raceName.toLowerCase().includes('race 7')) return true;
+    return false;
+  }
+
+  static isXanderHorse(horseName: string): boolean {
+    return horseName.toLowerCase().includes('xander');
+  }
   
-  static enableRace7Debugging(raceId: string, options: Race7DebugOptions = {
+  static enableRace7Debugging(analysisDate: string, options: Race7DebugOptions = {
     enableDetailedLogging: true,
     compareWithWebsiteTimes: true,
     trackDataSources: true,
     validateNormalizationSteps: true
   }): void {
     
-    console.log(`\n🔧 ===== RACE 7 DEBUG MODE ENABLED =====`);
-    console.log(`🎯 Target Race ID: ${raceId}`);
+    console.log(`\n🔧 ===== RACE 7 & XANDER DEBUG MODE ENABLED =====`);
+    console.log(`🎯 Analysis Date: ${analysisDate}`);
     console.log(`📊 Debug Options:`, options);
     console.log(`🌐 Expected Times Reference:`, Race7Debugger.EXPECTED_TIMES);
+    console.log(`🐎 Xander Detection: ACTIVE`);
+    console.log(`🏁 Race 7 Auto-Detection: ACTIVE`);
     console.log(`=======================================\n`);
     
     // Store options globally for other debugging functions to use
     (globalThis as any).__race7Debug = {
-      raceId,
+      analysisDate,
       options,
-      enabled: true
+      enabled: true,
+      investigationResults: []
     };
+  }
+
+  static shouldDebugRace(raceNumber: number, raceName?: string): boolean {
+    if (!Race7Debugger.isDebugMode()) return false;
+    return Race7Debugger.isRace7(raceNumber, raceName);
+  }
+
+  static shouldDebugHorse(horseName: string): boolean {
+    if (!Race7Debugger.isDebugMode()) return false;
+    return Race7Debugger.isXanderHorse(horseName);
   }
   
   static isDebugMode(): boolean {
@@ -118,6 +142,15 @@ export class Race7Debugger {
     console.log(`   Reason: ${reason}`);
   }
   
+  static storeInvestigationResult(result: any): void {
+    if (!Race7Debugger.isDebugMode()) return;
+    
+    const debugState = (globalThis as any).__race7Debug;
+    if (debugState && debugState.investigationResults) {
+      debugState.investigationResults.push(result);
+    }
+  }
+
   static createDebugSummary(raceResults: Array<{
     horseName: string;
     calculatedTime: string;
@@ -126,7 +159,7 @@ export class Race7Debugger {
     
     if (!Race7Debugger.isDebugMode()) return;
     
-    console.log(`\n🏁 ===== RACE 7 DEBUG SUMMARY =====`);
+    console.log(`\n🏁 ===== RACE 7 & XANDER DEBUG SUMMARY =====`);
     
     raceResults.forEach(result => {
       const expectedTime = Race7Debugger.getExpectedTimeForHorse(result.horseName);
@@ -158,6 +191,30 @@ export class Race7Debugger {
     });
     
     console.log(`\n=================================`);
+  }
+
+  static generatePostAnalysisReport(): void {
+    if (!Race7Debugger.isDebugMode()) return;
+
+    const debugState = (globalThis as any).__race7Debug;
+    if (!debugState || !debugState.investigationResults) return;
+
+    console.log(`\n📋 ===== POST-ANALYSIS INVESTIGATION REPORT =====`);
+    console.log(`🗓️  Analysis Date: ${debugState.analysisDate}`);
+    console.log(`🔍 Investigation Results Count: ${debugState.investigationResults.length}`);
+    
+    debugState.investigationResults.forEach((result: any, index: number) => {
+      console.log(`\n--- Investigation ${index + 1} ---`);
+      console.log(`🐎 Horse: ${result.horseName || 'Unknown'}`);
+      console.log(`⏱️  Time: ${result.calculatedTime || 'N/A'}`);
+      console.log(`📊 Records: ${result.historicalRecordsUsed || 0}`);
+      if (result.expectedTime) {
+        console.log(`🎯 Expected: ${result.expectedTime}`);
+        console.log(`📈 Discrepancy: ${result.discrepancy || 'N/A'}`);
+      }
+    });
+    
+    console.log(`\n===============================================`);
   }
   
   static disableDebugMode(): void {
