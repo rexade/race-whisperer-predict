@@ -14,8 +14,7 @@ export const calculateDistanceAdjustment = (horseDistance: number, raceDistance:
 
 /**
  * Calculate race distance adjustment FROM 2140m reference TO actual race distance
- * This should be ZERO because the RAW times are already normalized to 2140m in kmTimeNormalization.ts
- * This function exists for edge cases but should normally return 0
+ * RAW times are normalized to 2140m reference, so we need to adjust TO the actual race distance
  */
 export const calculateRaceDistanceAdjustment = (raceDistance: number): number => {
   const referenceDistance = 2140; // Standard reference distance in meters
@@ -25,14 +24,15 @@ export const calculateRaceDistanceAdjustment = (raceDistance: number): number =>
     return 0;
   }
   
-  // WARNING: RAW times should already be normalized to 2140m in kmTimeNormalization.ts
-  // This should normally be zero unless there's a special case
-  console.log(`⚠️  Race distance adjustment: RAW times should already be normalized to 2140m reference`);
-  console.log(`   Current race distance: ${raceDistance}m`);
-  console.log(`   Reference distance: ${referenceDistance}m`);
-  console.log(`   Returning 0.000s (already normalized)`);
+  // Calculate adjustment from 2140m reference TO actual race distance
+  // Using same formula as timeNormalization.ts: distance difference in km × 2.7 seconds per km
+  const distanceDifferenceKm = (raceDistance - referenceDistance) / 1000;
+  const adjustment = distanceDifferenceKm * 2.7;
   
-  return 0; // RAW times are already normalized to 2140m
+  console.log(`Race distance adjustment: ${referenceDistance}m → ${raceDistance}m`);
+  console.log(`   Distance difference: ${distanceDifferenceKm.toFixed(3)}km × 2.7 = ${adjustment.toFixed(3)}s`);
+  
+  return adjustment;
 };
 
 /**
