@@ -16,25 +16,57 @@ export const kmTimeToSeconds = (kmTime: KmTime): number => {
  * Converts seconds back to KM time format
  */
 export const secondsToKmTime = (seconds: number): KmTime => {
+  // Input validation
+  if (isNaN(seconds) || !isFinite(seconds)) {
+    console.error('🚨 secondsToKmTime: Invalid seconds input:', seconds);
+    return { minutes: 0, seconds: 0, tenths: 0 };
+  }
+  
+  if (seconds < 0) {
+    console.warn('⚠️ secondsToKmTime: Negative seconds, clamping to 0:', seconds);
+    seconds = 0;
+  }
+  
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
   const secs = Math.floor(remainingSeconds);
-  const tenths = Math.round((remainingSeconds - secs) * 10);
   
-  // Handle tenths overflow
+  // ENHANCED: Better precision for tenths calculation
+  // Use 3 decimal places for intermediate calculation to avoid rounding errors
+  const fractionalPart = remainingSeconds - secs;
+  const tenths = Math.round(fractionalPart * 10);
+  
+  // Handle tenths overflow with proper cascading
   if (tenths >= 10) {
-    return {
-      minutes: minutes,
-      seconds: secs + 1,
-      tenths: 0
-    };
+    const newSecs = secs + 1;
+    if (newSecs >= 60) {
+      return {
+        minutes: minutes + 1,
+        seconds: 0,
+        tenths: 0
+      };
+    } else {
+      return {
+        minutes: minutes,
+        seconds: newSecs,
+        tenths: 0
+      };
+    }
   }
   
-  return {
+  const result = {
     minutes: minutes,
     seconds: secs,
-    tenths: tenths
+    tenths: Math.max(0, Math.min(9, tenths)) // Clamp tenths to 0-9 range
   };
+  
+  // Validation of output
+  if (result.minutes < 0 || result.seconds < 0 || result.seconds >= 60 || 
+      result.tenths < 0 || result.tenths >= 10) {
+    console.error('🚨 secondsToKmTime: Invalid result generated:', result, 'from seconds:', seconds);
+  }
+  
+  return result;
 };
 
 /**

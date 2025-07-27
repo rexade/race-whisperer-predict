@@ -95,6 +95,12 @@ export const getSulkyDisplay = (sulkyType: string | undefined) => {
     return 'VA';
   }
   
+  // CRITICAL FIX: Detect and handle [object Object] corruption
+  if (sulkyType.includes('[object Object]') || sulkyType === '[object Object]') {
+    console.error('🚨 SULKY DATA CORRUPTION DETECTED: [object Object] found in sulky type');
+    return 'VA'; // Safe fallback
+  }
+  
   const type = sulkyType.toUpperCase().trim();
   console.log('🛷 Processed sulky type:', type);
   

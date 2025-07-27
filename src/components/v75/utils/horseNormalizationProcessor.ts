@@ -7,6 +7,7 @@ import {
 } from '../../../services/modernKm/index';
 import { ExtractedHorseData } from './horseDataExtractor';
 import { HorseDebugger } from '../../../services/debugging/horseDebugger';
+import { EquipmentValidator } from '../../../services/validation/equipmentValidator';
 
 /**
  * Create a fallback KM time based on horse statistics and race characteristics
@@ -73,6 +74,22 @@ export const applyHorseNormalization = (
   console.log(`🔍 STRICT NORMALIZATION - Horse ${horse.horseId} (${extractedData.safeHorseName}):`);
   console.log(`  - Has raw KM time: ${!!rawKmTime}`);
   
+  // ENHANCED: Validate and correct equipment data before normalization
+  const equipmentValidation = EquipmentValidator.validateAndCorrectEquipmentData(
+    horse.horseId || 0,
+    extractedData.safeHorseName,
+    extractedData.sulkyTypeString,
+    extractedData.frontShoesStr,
+    extractedData.backShoesStr
+  );
+
+  // Use corrected equipment data for normalization
+  const correctedEquipment = equipmentValidation.correctedData || {
+    sulkyType: extractedData.sulkyTypeString,
+    frontShoes: extractedData.frontShoesStr,
+    backShoes: extractedData.backShoesStr
+  };
+  
   HorseDebugger.log(horse.horseId, extractedData.safeHorseName, 'NORMALIZATION_START', {
     hasRawKmTime: !!rawKmTime,
     rawKmTime: rawKmTime,
@@ -95,9 +112,9 @@ export const applyHorseNormalization = (
       distance: horse.distance,
       raceDistance: race.distance,
       startMethod: race.startMethod,
-      shoesFront: extractedData.frontShoesStr,
-      shoesBack: extractedData.backShoesStr,
-      sulkyType: extractedData.sulkyTypeString,
+      shoesFront: correctedEquipment.frontShoes,
+      shoesBack: correctedEquipment.backShoes,
+      sulkyType: correctedEquipment.sulkyType,
       homeTrack: extractedData.safeHorseTrack,
       driverExperience: horse.driver.experience,
       driverWinPercentage: horse.driver.winPercentage,
@@ -128,9 +145,9 @@ export const applyHorseNormalization = (
     distance: horse.distance,
     raceDistance: race.distance,
     startMethod: race.startMethod,
-    shoesFront: extractedData.frontShoesStr,
-    shoesBack: extractedData.backShoesStr,
-    sulkyType: extractedData.sulkyTypeString,
+    shoesFront: correctedEquipment.frontShoes,
+    shoesBack: correctedEquipment.backShoes,
+    sulkyType: correctedEquipment.sulkyType,
     homeTrack: extractedData.safeHorseTrack,
     driverExperience: horse.driver.experience,
     driverWinPercentage: horse.driver.winPercentage,

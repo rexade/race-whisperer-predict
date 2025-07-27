@@ -70,11 +70,35 @@ export const extractAndValidateHorseData = (horse: any): ExtractedHorseData => {
     backShoesStr
   });
 
-  // ENHANCED sulky handling with proper string conversion
-  const sulkyTypeString = String(horse.sulky?.type || "VA");
+  // CRITICAL FIX: Proper sulky type extraction to prevent [object Object] conversion
+  let sulkyTypeString = "VA"; // Default fallback
+  
+  if (horse.sulky?.type) {
+    if (typeof horse.sulky.type === 'string') {
+      sulkyTypeString = horse.sulky.type;
+    } else if (typeof horse.sulky.type === 'object' && horse.sulky.type !== null) {
+      // Handle object cases - look for common properties
+      if (horse.sulky.type.name && typeof horse.sulky.type.name === 'string') {
+        sulkyTypeString = horse.sulky.type.name;
+      } else if (horse.sulky.type.code && typeof horse.sulky.type.code === 'string') {
+        sulkyTypeString = horse.sulky.type.code;
+      } else if (horse.sulky.type.type && typeof horse.sulky.type.type === 'string') {
+        sulkyTypeString = horse.sulky.type.type;
+      } else {
+        console.warn(`🚨 SULKY DATA CORRUPTION: Unable to extract string from object for horse ${horse.horseId}:`, horse.sulky.type);
+        sulkyTypeString = "VA"; // Safe fallback
+      }
+    } else {
+      // Handle other types by safe conversion
+      sulkyTypeString = String(horse.sulky.type);
+    }
+  }
+  
   console.log(`🛡️ Normalization sulky input for horse ${horse.horseId}:`, {
     originalSulkyType: horse.sulky?.type,
-    sulkyTypeString
+    originalType: typeof horse.sulky?.type,
+    extractedSulkyTypeString: sulkyTypeString,
+    extractedType: typeof sulkyTypeString
   });
 
   return {

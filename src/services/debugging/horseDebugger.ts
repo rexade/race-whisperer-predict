@@ -101,6 +101,57 @@ export class HorseDebugger {
     }
   }
 
+  static logEquipmentData(horseId: number, horseName: string, sulkyType: any, frontShoes: any, backShoes: any): void {
+    if (!this.shouldDebugHorse(horseName)) return;
+    
+    console.log(`🐎 [XANDER DEBUG] EQUIPMENT_VALIDATION`);
+    console.log(`   Horse: ${horseName} (ID: ${horseId})`);
+    console.log(`   Sulky Type: "${sulkyType}" (${typeof sulkyType})`);
+    console.log(`   Front Shoes: "${frontShoes}" (${typeof frontShoes})`);
+    console.log(`   Back Shoes: "${backShoes}" (${typeof backShoes})`);
+    
+    if (String(sulkyType).includes('[object Object]')) {
+      console.error(`   🚨 SULKY CORRUPTION DETECTED!`);
+    }
+    
+    this.debugLogs.push({
+      horseId,
+      horseName,
+      stage: 'equipment_validation',
+      data: { 
+        sulkyType, 
+        sulkyTypeType: typeof sulkyType,
+        frontShoes, 
+        frontShoesType: typeof frontShoes,
+        backShoes,
+        backShoesType: typeof backShoes,
+        hasCorruption: String(sulkyType).includes('[object Object]')
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  static logDataCorruption(horseId: number, horseName: string, fieldName: string, corruptedValue: any): void {
+    console.error(`🐎 [XANDER DEBUG] DATA_CORRUPTION_DETECTED`);
+    console.error(`   Horse: ${horseName} (ID: ${horseId})`);
+    console.error(`   Field: ${fieldName}`);
+    console.error(`   Corrupted Value: "${corruptedValue}" (${typeof corruptedValue})`);
+    console.error(`   Is Object String: ${String(corruptedValue).includes('[object Object]')}`);
+    
+    this.debugLogs.push({
+      horseId,
+      horseName,
+      stage: 'data_corruption',
+      data: { 
+        fieldName,
+        corruptedValue,
+        valueType: typeof corruptedValue,
+        isObjectCorruption: String(corruptedValue).includes('[object Object]')
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+
   static getDebugLogs(): HorseDebugInfo[] {
     return this.debugLogs;
   }
