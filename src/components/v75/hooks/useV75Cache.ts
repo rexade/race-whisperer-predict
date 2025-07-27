@@ -18,19 +18,14 @@ export const useV75Cache = () => {
     const cachedRawTimes = await V75CacheService.getRawTimes(race.raceId);
     
     if (cachedRawTimes) {
-      console.log(`🚀 CACHE HIT! Using cached raw times for race ${race.raceNumber}`);
-      
       // Convert cached raw times to expected format
       const rawKmTimes = cachedRawTimes.rawTimes.map(cached => ({
         horseId: cached.horseId,
         best3Average: cached.rawKmTime
       }));
       
-      console.log(`✅ Loaded ${rawKmTimes.length} cached raw times for race ${race.raceNumber}`);
       return { rawKmTimes, wasFromCache: true };
     }
-
-    console.log(`📊 No cache found, calculating raw times for race ${race.raceNumber}`);
     
     // Calculate raw times from scratch
     const atgStarts = race.horses.map((horse: any) => ({
@@ -54,7 +49,7 @@ export const useV75Cache = () => {
       progressCallback
     );
     
-    console.log(`📈 RAW KM times calculated for ${rawKmTimes.length} horses`);
+    
     
     // Convert HorseRawKmTime[] to the format expected by cache service
     // We need to match horses with their post positions from the race data
@@ -78,7 +73,7 @@ export const useV75Cache = () => {
       rawTimesForCache
     );
     
-    console.log(`💾 Raw times cached for race ${race.raceNumber}`);
+    
     
     return { rawKmTimes, wasFromCache: false };
   };

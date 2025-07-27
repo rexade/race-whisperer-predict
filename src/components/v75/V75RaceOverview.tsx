@@ -9,88 +9,30 @@ interface V75RaceOverviewProps {
   races: V75RaceResult[];
 }
 
-// Enhanced safety function to ensure we never render an object as React child
+// Safety function to ensure we never render an object as React child
 const ensureStringForDisplay = (value: any): string => {
-  console.log('🔍 V75RaceOverview - ensureStringForDisplay input:', JSON.stringify(value), 'Type:', typeof value);
-  
   if (typeof value === 'string') {
-    console.log('✅ V75RaceOverview - Value is already a string:', value);
     return value;
   }
   
   if (value && typeof value === 'object') {
-    console.log('🔧 V75RaceOverview - Value is object, extracting name...');
     if ('name' in value && typeof value.name === 'string') {
-      console.log('✅ V75RaceOverview - Extracted name from object.name:', value.name);
       return value.name;
     }
     if ('id' in value && 'name' in value) {
-      console.log('✅ V75RaceOverview - Extracted name from id/name object:', value.name);
       return String(value.name || 'Unknown Horse');
     }
-    console.error('❌ V75RaceOverview - Object has no valid name property:', JSON.stringify(value));
   }
   
-  console.warn('⚠️ V75RaceOverview - Fallback conversion:', value, 'to string');
   return String(value || 'Unknown Horse');
 };
 
 const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
-  console.log('🎯 V75RaceOverview - Rendering with races:', races.length);
-  
-  // ENHANCED DATA VALIDATION: Check ALL data that will be rendered
-  races.forEach((race, raceIndex) => {
-    console.log(`🏁 RACE ${raceIndex} ENHANCED DEBUG:`, {
-      raceNumber: race.raceNumber,
-      raceId: race.raceId,
-      track: race.track,
-      name: race.name,
-      trackType: typeof race.track,
-      nameType: typeof race.name,
-      horsesWithEarnings: race.horses.filter(h => h.statistics?.earningsPerStart > 0).length,
-      totalHorses: race.horses.length
-    });
-    
-    race.horses.forEach((horse, horseIndex) => {
-      console.log(`🐎 HORSE ${horseIndex} ENHANCED VALIDATION:`, {
-        horseId: horse.horseId,
-        horseName: horse.horseName,
-        horseNameType: typeof horse.horseName,
-        driverName: horse.driverName,
-        driverNameType: typeof horse.driverName,
-        statistics: horse.statistics,
-        earningsPerStart: horse.statistics?.earningsPerStart,
-        startPoints: horse.statistics?.startPoints,
-        dataValid: (horse.statistics?.earningsPerStart > 0) || (horse.statistics?.startPoints > 0)
-      });
-      
-      // CRITICAL: If any of these are objects, log an error
-      if (typeof horse.horseName === 'object') {
-        console.error('🚨 CRITICAL: Horse name is an object!', horse.horseName);
-      }
-      if (typeof horse.driverName === 'object') {
-        console.error('🚨 CRITICAL: Driver name is an object!', horse.driverName);
-      }
-      if (typeof horse.track === 'object') {
-        console.error('🚨 CRITICAL: Track is an object!', horse.track);
-      }
-    });
-  });
   
   const getTopNormalizedTimes = () => {
     const allHorses = races.flatMap(race => 
       race.horses.filter(horse => horse.modernNormalizedResult)
     );
-    
-    // Add debugging for each horse before sorting
-    allHorses.forEach((horse, index) => {
-      console.log(`🐎 V75RaceOverview - TOP TIMES Horse ${index}: ID=${horse.horseId}, Name=`, JSON.stringify(horse.horseName), 'Type:', typeof horse.horseName);
-      
-      // Additional safety check - if horseName is still an object, we have a problem
-      if (typeof horse.horseName === 'object') {
-        console.error('🚨 CRITICAL - Horse name is still an object in getTopNormalizedTimes!', horse.horseName);
-      }
-    });
     
     return allHorses
       .sort((a, b) => {
@@ -140,15 +82,7 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
               <div>
                 <p className="text-sm text-gray-600">Tracks</p>
                 <p className="text-2xl font-bold">
-                  {new Set(races.map(r => {
-                    // CRITICAL DEBUG: Check track values
-                    console.log('🏁 Track value for unique set:', r.track, 'Type:', typeof r.track);
-                    if (typeof r.track === 'object') {
-                      console.error('🚨 CRITICAL: Race track is an object!', r.track);
-                      return ensureStringForDisplay(r.track);
-                    }
-                    return r.track;
-                  })).size}
+                  {new Set(races.map(r => ensureStringForDisplay(r.track))).size}
                 </p>
               </div>
             </div>
@@ -216,21 +150,6 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
       {/* Race Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {races.map(race => {
-          // CRITICAL DEBUG: Check each race's properties before rendering
-          console.log(`🏁 RENDERING RACE ${race.raceNumber}:`, {
-            raceNumber: race.raceNumber,
-            name: race.name,
-            nameType: typeof race.name,
-            track: race.track,
-            trackType: typeof race.track,
-            distance: race.distance,
-            distanceType: typeof race.distance,
-            startMethod: race.startMethod,
-            startMethodType: typeof race.startMethod,
-            horsesWithData: race.horses.filter(h => h.statistics?.earningsPerStart > 0 || h.statistics?.startPoints > 0).length
-          });
-          
-          // Safety check for all string fields
           const safeName = ensureStringForDisplay(race.name);
           const safeTrack = ensureStringForDisplay(race.track);
           const safeStartMethod = ensureStringForDisplay(race.startMethod);
@@ -296,51 +215,8 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
           <CardContent>
             <div className="space-y-3">
               {topTimes.map((horse, index) => {
-                // CRITICAL: Ensure horse name is always a string before rendering - TRIPLE CHECK
-                console.log(`🛡️ V75RaceOverview - CRITICAL RENDER CHECK - Horse ${horse.horseId}:`, {
-                  originalHorseName: horse.horseName,
-                  horseNameType: typeof horse.horseName,
-                  isObject: typeof horse.horseName === 'object',
-                  objectKeys: typeof horse.horseName === 'object' ? Object.keys(horse.horseName) : 'N/A',
-                  driverName: horse.driverName,
-                  driverNameType: typeof horse.driverName
-                });
-                
-                // If horseName is still an object at this point, force extract the name
-                let safeHorseName: string;
-                let safeDriverName: string;
-                
-                if (typeof horse.horseName === 'object' && horse.horseName !== null) {
-                  console.error('🚨 EMERGENCY OBJECT CONVERSION - Horse name is an object at render time!', horse.horseName);
-                  safeHorseName = ensureStringForDisplay(horse.horseName);
-                } else {
-                  safeHorseName = ensureStringForDisplay(horse.horseName);
-                }
-                
-                if (typeof horse.driverName === 'object' && horse.driverName !== null) {
-                  console.error('🚨 EMERGENCY OBJECT CONVERSION - Driver name is an object at render time!', horse.driverName);
-                  safeDriverName = ensureStringForDisplay(horse.driverName);
-                } else {
-                  safeDriverName = ensureStringForDisplay(horse.driverName);
-                }
-                
-                // Final validation before render
-                if (typeof safeHorseName !== 'string') {
-                  console.error('🚨 FINAL VALIDATION FAILED - safeHorseName is not a string!', safeHorseName);
-                  safeHorseName = 'Emergency Fallback Name';
-                }
-                
-                if (typeof safeDriverName !== 'string') {
-                  console.error('🚨 FINAL VALIDATION FAILED - safeDriverName is not a string!', safeDriverName);
-                  safeDriverName = 'Emergency Fallback Driver';
-                }
-                
-                console.log('✅ V75RaceOverview - Final safe names for render:', {
-                  safeHorseName,
-                  safeDriverName,
-                  horseNameType: typeof safeHorseName,
-                  driverNameType: typeof safeDriverName
-                });
+                const safeHorseName = ensureStringForDisplay(horse.horseName);
+                const safeDriverName = ensureStringForDisplay(horse.driverName);
                 
                 return (
                   <div key={`${horse.raceId}-${horse.horseId}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">

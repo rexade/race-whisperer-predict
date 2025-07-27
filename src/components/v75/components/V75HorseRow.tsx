@@ -15,36 +15,8 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
   const result = horse.modernNormalizedResult!;
   const isTopPerformer = rank <= 3;
   
-  // CRITICAL: Ensure horse name is always a string before rendering - TRIPLE CHECK
   const safeHorseName = ensureStringForDisplay(horse.horseName);
   const safeDriverName = ensureStringForDisplay(horse.driverName);
-  
-  console.log(`🛡️ V75HorseRow - FINAL RENDER CHECK - Horse ${horse.horseId}: 
-    Original horseName: ${JSON.stringify(horse.horseName)} (${typeof horse.horseName})
-    Safe horseName: "${safeHorseName}" (${typeof safeHorseName})
-    Original driverName: ${JSON.stringify(horse.driverName)} (${typeof horse.driverName})
-    Safe driverName: "${safeDriverName}" (${typeof safeDriverName})`);
-  
-  // Enhanced shoes and sulky debugging
-  console.log(`👟🛷 V75HorseRow - Equipment data for horse ${horse.horseId}:`, {
-    shoesFront: horse.shoesFront,
-    shoesBack: horse.shoesBack,
-    shoesFrontType: typeof horse.shoesFront,
-    shoesBackType: typeof horse.shoesBack,
-    sulkyType: horse.sulkyType,
-    sulkyTypeType: typeof horse.sulkyType
-  });
-  
-  // Additional validation
-  if (typeof safeHorseName !== 'string') {
-    console.error('🚨 CRITICAL ERROR - safeHorseName is not a string!', safeHorseName);
-    throw new Error(`Horse name safety check failed for horse ${horse.horseId}`);
-  }
-  
-  if (typeof safeDriverName !== 'string') {
-    console.error('🚨 CRITICAL ERROR - safeDriverName is not a string!', safeDriverName);
-    throw new Error(`Driver name safety check failed for horse ${horse.horseId}`);
-  }
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Medal className="h-4 w-4 text-yellow-500" />;

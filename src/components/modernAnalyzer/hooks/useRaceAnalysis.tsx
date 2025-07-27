@@ -29,11 +29,6 @@ export const useRaceAnalysis = () => {
   const applyModernNormalizationToHorses = (horses: EnhancedHorseDataWithKmTime[], raceData: any, weights: NormalizationWeights) => {
     const results: ModernKmNormalizedResult[] = [];
     
-    console.log('\n=== Applying Enhanced Modern KM Normalization ===');
-    console.log(`Race Distance: ${raceData.distance}m`);
-    console.log(`Race Type: ${raceData.raceType || 'Not specified'}`);
-    console.log(`Start Time: ${raceData.startTime || 'Not specified'}`);
-    
     for (const horse of horses) {
       if (!horse.rawKmTime) continue;
       
@@ -58,16 +53,6 @@ export const useRaceAnalysis = () => {
         earningsPerStart: horse.statistics.earningsPerStart
       };
       
-      console.log(`\nProcessing ${horse.name}:`);
-      console.log(`  Individual distance: ${factors.distance}m`);
-      console.log(`  Race distance: ${factors.raceDistance}m`);
-      console.log(`  Race type: ${factors.raceType || 'N/A'}`);
-      console.log(`  Start time: ${factors.timeOfDay || 'N/A'}`);
-      console.log(`  Start Points: ${factors.startPoints}`);
-      console.log(`  Place %: ${factors.placePercentage}%`);
-      console.log(`  Win %: ${factors.horseWinPercentage}%`);
-      console.log(`  Earnings/Start: ${factors.earningsPerStart} öre`);
-      
       const result = applyModernKmNormalization(horse.rawKmTime, factors, weights);
       results.push(result);
     }
@@ -89,7 +74,6 @@ export const useRaceAnalysis = () => {
       const validation = validateRaceData(raceData);
       
       if (!validation.isValid) {
-        console.warn('Race data has quality issues, attempting to fix...');
         
         toast({
           title: "Data Quality Issues Detected",
@@ -127,10 +111,6 @@ export const useRaceAnalysis = () => {
         }
       }));
       
-      console.log('\n=== 🔥 STRICT MAPPING: Using POST POSITIONS for historical data fetch ===');
-      atgStarts.forEach(start => {
-        console.log(`Post Position ${start.postPosition}: ${start.horse.name} - WILL FETCH HISTORICAL DATA FROM /start/${start.postPosition}`);
-      });
       
       const rawKmTimes = await calculateRawKmTimesForRaceWithId(raceId, atgStarts, (current, total) => {
         const progressValue = 50 + (current / total) * 30;

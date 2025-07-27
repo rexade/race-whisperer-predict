@@ -41,7 +41,7 @@ export const useV75Analysis = () => {
     setAnalysisDate(date);
     
     try {
-      console.log(`V75 Analysis starting for ${date}`);
+      
       
       updateProgress(5, "Checking for V75 games...");
       
@@ -59,7 +59,7 @@ export const useV75Analysis = () => {
         return;
       }
       
-      console.log(`V75 Game confirmed: ${gameInfo.gameId}`);
+      
       
       updateProgress(10, `Fetching fresh race data for ${gameInfo.raceIds.length} races...`);
       
@@ -77,7 +77,7 @@ export const useV75Analysis = () => {
         return;
       }
       
-      console.log(`Successfully fetched data for ${v75Races.length}/7 V75 races`);
+      
       
       updateProgress(15, "Validating race data...");
       
@@ -94,7 +94,7 @@ export const useV75Analysis = () => {
         
         updateProgress(20 + raceProgress, `Analyzing race ${race.raceNumber} (${i + 1} of ${v75Races.length})...`);
         
-        console.log(`Race ${race.raceNumber} - Analysis starting`);
+        
         
         // Get cached or calculate raw times
         const { rawKmTimes, wasFromCache } = await getOrCalculateRawTimes(
@@ -119,7 +119,7 @@ export const useV75Analysis = () => {
         const raceResult = await processRaceResult(race, rawKmTimes, weights, date);
         results.push(raceResult);
         
-        console.log(`Race ${race.raceNumber} analysis complete: ${raceResult.horses.length} horses processed`);
+        
       }
       
       setV75Results(results);
@@ -128,7 +128,7 @@ export const useV75Analysis = () => {
       const successfulRaces = results.filter(r => r.analysisComplete).length;
       const totalHorses = results.reduce((sum, race) => sum + race.horses.length, 0);
       
-      console.log(`V75 Analysis Complete - ${successfulRaces}/${results.length} races, ${totalHorses} horses`);
+      
       
       toast({
         title: "V75 Analysis Complete",

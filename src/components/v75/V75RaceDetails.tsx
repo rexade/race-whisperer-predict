@@ -12,27 +12,6 @@ interface V75RaceDetailsProps {
 }
 
 const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
-  console.log('🎯 V75RaceDetails - Rendering race:', race.raceNumber, 'with', race.horses.length, 'horses');
-  
-  // ENHANCED DEBUG: Check all horse names and statistics before rendering
-  race.horses.forEach((horse, index) => {
-    console.log(`🐎 V75RaceDetails - Horse ${index}: ID=${horse.horseId}, Name=`, JSON.stringify(horse.horseName), 'Type:', typeof horse.horseName);
-    console.log(`💰 V75RaceDetails - Horse ${index} ENHANCED statistics DEBUG:`, {
-      statistics: horse.statistics,
-      statisticsType: typeof horse.statistics,
-      startPoints: horse.statistics?.startPoints,
-      startPointsType: typeof horse.statistics?.startPoints,
-      placePercentage: horse.statistics?.placePercentage,
-      placePercentageType: typeof horse.statistics?.placePercentage,
-      winPercentage: horse.statistics?.winPercentage,
-      winPercentageType: typeof horse.statistics?.winPercentage,
-      earningsPerStart: horse.statistics?.earningsPerStart,
-      earningsPerStartType: typeof horse.statistics?.earningsPerStart,
-      driver2025WinPercentage: horse.driver2025WinPercentage,
-      driver2025WinPercentageType: typeof horse.driver2025WinPercentage,
-      hasValidData: (horse.statistics?.earningsPerStart > 0) || (horse.statistics?.startPoints > 0)
-    });
-  });
 
   if (!race.analysisComplete) {
     return (

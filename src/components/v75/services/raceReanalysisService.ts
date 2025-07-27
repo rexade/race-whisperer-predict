@@ -12,7 +12,7 @@ export class RaceReanalysisService {
   ): V75RaceResult[] {
     if (v75Results.length === 0) return v75Results;
     
-    console.log('🔄 Re-applying modern normalization with updated weights to fresh data...');
+    
     
     return v75Results.map(race => {
       if (!race.analysisComplete || race.horses.length === 0) return race;
@@ -21,7 +21,6 @@ export class RaceReanalysisService {
         if (!horse.rawKmTime) return horse;
         
         if (typeof horse.horseName !== 'string') {
-          console.error('🚨 CRITICAL ERROR during reanalysis - Horse name is not a string!', horse.horseName);
           throw new Error(`Horse name type error during reanalysis for horse ${horse.horseId}`);
         }
         

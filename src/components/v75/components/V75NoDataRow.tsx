@@ -13,7 +13,7 @@ const V75NoDataRow: React.FC<V75NoDataRowProps> = ({ horse }) => {
   const safeHorseName = ensureStringForDisplay(horse.horseName);
   const safeDriverName = ensureStringForDisplay(horse.driverName);
   
-  console.log(`🛡️ V75NoDataRow - No-time horse ${horse.horseId}: "${safeHorseName}" (${typeof safeHorseName})`);
+  
 
   return (
     <TableRow className="opacity-50">

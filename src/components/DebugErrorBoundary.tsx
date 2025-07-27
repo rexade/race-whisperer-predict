@@ -18,22 +18,13 @@ class DebugErrorBoundary extends Component<Props, State> {
   }
 
   static getDerivedStateFromError(error: Error): State {
-    console.error('🚨 ERROR BOUNDARY CAUGHT:', error);
-    console.error('🚨 ERROR MESSAGE:', error.message);
-    console.error('🚨 ERROR STACK:', error.stack);
-    
-    if (error.message.includes('Objects are not valid as a React child')) {
-      console.error('🚨 REACT CHILD OBJECT ERROR DETECTED!');
-      console.error('🚨 This means an object is being rendered directly in JSX');
-      console.error('🚨 Look for places where {id, name} objects are used');
-    }
-    
+    console.error('ERROR BOUNDARY CAUGHT:', error);
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: any) {
-    console.error('🚨 ERROR BOUNDARY - Component stack:', errorInfo.componentStack);
-    console.error('🚨 ERROR BOUNDARY - Error boundary caught:', error);
+    console.error('ERROR BOUNDARY - Component stack:', errorInfo.componentStack);
+    console.error('ERROR BOUNDARY - Error boundary caught:', error);
   }
 
   render() {

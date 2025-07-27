@@ -15,22 +15,17 @@ interface HorseRowProps {
 
 // Safety function to ensure we never render an object as React child
 const ensureStringForDisplay = (value: any): string => {
-  console.log('🔍 HorseRow - Ensuring string for display:', JSON.stringify(value), 'Type:', typeof value);
-  
   if (typeof value === 'string') {
     return value;
   }
   
   if (value && typeof value === 'object') {
     if ('name' in value && typeof value.name === 'string') {
-      console.log('✅ HorseRow - Extracted name from object.name:', value.name);
       return value.name;
     }
     if ('id' in value && 'name' in value) {
-      console.log('✅ HorseRow - Extracted name from id/name object:', value.name);
       return String(value.name || 'Unknown Horse');
     }
-    console.error('❌ HorseRow - Horse name is an object but no valid name found:', JSON.stringify(value));
   }
   
   return String(value || 'Unknown');
@@ -93,9 +88,6 @@ const HorseRow: React.FC<HorseRowProps> = ({ horse, result, rank }) => {
   const safeHorseName = ensureStringForDisplay(horse.name);
   const safeDriverFirstName = ensureStringForDisplay(horse.driver.firstName);
   const safeDriverLastName = ensureStringForDisplay(horse.driver.lastName);
-  
-  console.log('🛡️ HorseRow - Final safety check, horse name:', safeHorseName, 'Original:', horse.name);
-  console.log('🛡️ HorseRow - Driver names:', safeDriverFirstName, safeDriverLastName);
 
   return (
     <TableRow 

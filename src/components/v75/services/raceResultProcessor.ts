@@ -31,7 +31,7 @@ export class RaceResultProcessor {
       // Use the race date for analysis storage instead of today's date
       const cacheDate = analysisDate || race.date || new Date().toISOString().split('T')[0];
       
-      console.log(`💾 Storing race analysis for race ${race.raceNumber} with date: ${cacheDate}`);
+      
       
       // Store the analysis asynchronously (don't block the UI)
       V75CacheService.storeRaceAnalysis(
@@ -39,8 +39,8 @@ export class RaceResultProcessor {
         race.raceNumber,
         cacheDate,
         analysisHorses
-      ).catch(error => {
-        console.warn('Failed to store race analysis:', error);
+      ).catch(() => {
+        // Silently ignore cache storage errors
       });
 
       return {
