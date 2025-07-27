@@ -2,6 +2,8 @@ import { ATGStartInfo } from './atgApi';
 import { HorseRawKmTime, KmTime } from './types/kmTimeTypes';
 import { processHorseKmTimes } from './horseProcessing';
 import { fetchHorseHistoricalData, processHistoricalRecords } from './atgHistoricalApi';
+import { HorseDebugger } from './debugging/horseDebugger';
+import { DataValidator } from './debugging/dataValidator';
 
 export const calculateRawKmTimesForRaceWithId = async (
   raceId: string,
@@ -19,14 +21,30 @@ export const calculateRawKmTimesForRaceWithId = async (
 
     try {
       const horseName = start.horse?.name || 'Unknown';
-      const horseId = start.horse?.id || 'Unknown';
+      const horseId = start.horse?.id || 0;
       
       console.log(`Processing horse ${i + 1}/${starts.length}: ${horseName} (ID: ${horseId})`);
+      
+      // Enhanced debugging for target horses
+      HorseDebugger.log(horseId, horseName, 'FETCH_START', {
+        raceId,
+        postPosition,
+        horseData: start.horse
+      });
       
       const historicalData = await fetchHorseHistoricalData(raceId, postPosition);
       
       if (!historicalData || !historicalData.horse.results?.records) {
         console.warn(`No historical records found for horse ${start.horse.name}`);
+        
+        HorseDebugger.log(horseId, horseName, 'NO_HISTORICAL_DATA', {
+          historicalDataExists: !!historicalData,
+          hasHorse: !!historicalData?.horse,
+          hasResults: !!historicalData?.horse?.results,
+          hasRecords: !!historicalData?.horse?.results?.records,
+          recordsLength: historicalData?.horse?.results?.records?.length || 0
+        });
+        
         rawKmTimes.push({
           horseId: start.horse.id,
           horseName: start.horse.name,
@@ -37,8 +55,24 @@ export const calculateRawKmTimesForRaceWithId = async (
         continue;
       }
       
+      // Enhanced debugging for historical data
+      HorseDebugger.logHistoricalData(horseId, horseName, historicalData.horse.results.records);
+      
+      // Validate historical records
+      const rawRecords = historicalData.horse.results.records;
+      const validationResults = rawRecords.map((record, index) => 
+        DataValidator.validateHistoricalRecord(record, index)
+      );
+      DataValidator.logValidationResults(validationResults, `${horseName} Historical Records`);
+      
       const validRecords = processHistoricalRecords(historicalData.horse.results.records, horseName);
       console.log(`Found ${validRecords.length} valid historical races for ${horseName}`);
+      
+      HorseDebugger.log(horseId, horseName, 'PROCESSED_HISTORICAL_RECORDS', {
+        rawRecordsCount: rawRecords.length,
+        validRecordsCount: validRecords.length,
+        filteredOut: rawRecords.length - validRecords.length
+      });
       
       const historicalRaces = validRecords.map(record => ({
         raceId: record.race.id,
@@ -66,7 +100,7 @@ export const calculateRawKmTimesForRaceWithId = async (
       
     } catch (error) {
       const horseName = start.horse?.name || 'Unknown';
-      const horseId = start.horse?.id || 'Unknown';
+      const horseId = start.horse?.id || 0;
       
       console.error(`Error processing KM times for horse ${horseName} (post position ${postPosition}):`, error);
       

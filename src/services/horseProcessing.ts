@@ -2,6 +2,8 @@ import { ProcessedKmTime, HorseRawKmTime } from './types/kmTimeTypes';
 import { KmTime } from './utils/kmTimeUtils';
 import { convertToKmTime } from './utils/timeConversion';
 import { normalizeKmTimeSimplified } from './utils/kmTimeNormalization';
+import { HorseDebugger } from './debugging/horseDebugger';
+import { DataValidator } from './debugging/dataValidator';
 
 // Updated interface to match ATG API structure
 export interface ATGHistoricalRace {
@@ -30,11 +32,34 @@ export const processHorseKmTimes = async (
 
   console.log(`\n=== Processing KM times for ${horseName} (ID: ${horseId}) ===`);
   console.log(`Found ${historicalRaces.length} historical races to process`);
+  
+  HorseDebugger.log(horseId, horseName, 'START_KM_PROCESSING', {
+    historicalRacesCount: historicalRaces.length,
+    sampleRace: historicalRaces[0] || null
+  });
 
   for (const race of historicalRaces) {
+    // Validate and debug each race
+    const raceValidation = DataValidator.validateKmTime(race.kmTime, `${horseName} race ${race.date}`);
+    
     // Skip if no time recorded or horse was disqualified/galloped
     if (!race.kmTime || race.disqualified || race.galloped) {
       console.log(`Skipping race ${race.date} - disqualified: ${race.disqualified}, galloped: ${race.galloped}`);
+      HorseDebugger.log(horseId, horseName, 'RACE_SKIPPED', {
+        date: race.date,
+        reason: !race.kmTime ? 'NO_KM_TIME' : race.disqualified ? 'DISQUALIFIED' : 'GALLOPED',
+        raceData: race
+      });
+      continue;
+    }
+    
+    if (!raceValidation.isValid) {
+      console.error(`Invalid KM time for ${horseName} race ${race.date}:`, raceValidation.errors);
+      HorseDebugger.log(horseId, horseName, 'INVALID_RACE_DATA', {
+        date: race.date,
+        validation: raceValidation,
+        raceData: race
+      });
       continue;
     }
 
@@ -49,6 +74,19 @@ export const processHorseKmTimes = async (
       );
 
       console.log(`${race.date}: ${originalKmTime.minutes}:${originalKmTime.seconds.toString().padStart(2, '0')}.${originalKmTime.tenths} → ${normalizedKmTime.minutes}:${normalizedKmTime.seconds.toString().padStart(2, '0')}.${normalizedKmTime.tenths} (${race.distance}m ${race.startMethod}, place ${race.finishOrder})`);
+
+      HorseDebugger.logNormalizationStep(horseId, horseName, `RACE_${race.date}`, 
+        { 
+          original: originalKmTime, 
+          distance: race.distance, 
+          startMethod: race.startMethod 
+        },
+        { 
+          normalized: normalizedKmTime,
+          timeDifference: (normalizedKmTime.minutes * 60 + normalizedKmTime.seconds + normalizedKmTime.tenths / 10) - 
+                         (originalKmTime.minutes * 60 + originalKmTime.seconds + originalKmTime.tenths / 10)
+        }
+      );
 
       processedTimes.push({
         originalTime: originalKmTime,
@@ -99,6 +137,9 @@ export const processHorseKmTimes = async (
   } else {
     console.log(`No valid times found for RAW time calculation`);
   }
+  
+  // Enhanced debugging for final results
+  HorseDebugger.logProcessedTimes(horseId, horseName, processedTimes, best3Average);
 
   return {
     horseId,

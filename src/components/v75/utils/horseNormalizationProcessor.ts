@@ -6,6 +6,7 @@ import {
   ModernNormalizationFactors
 } from '../../../services/modernKm/index';
 import { ExtractedHorseData } from './horseDataExtractor';
+import { HorseDebugger } from '../../../services/debugging/horseDebugger';
 
 /**
  * Create a fallback KM time based on horse statistics and race characteristics
@@ -72,6 +73,17 @@ export const applyHorseNormalization = (
   console.log(`🔍 STRICT NORMALIZATION - Horse ${horse.horseId} (${extractedData.safeHorseName}):`);
   console.log(`  - Has raw KM time: ${!!rawKmTime}`);
   
+  HorseDebugger.log(horse.horseId, extractedData.safeHorseName, 'NORMALIZATION_START', {
+    hasRawKmTime: !!rawKmTime,
+    rawKmTime: rawKmTime,
+    extractedData: extractedData,
+    raceInfo: {
+      distance: race.distance,
+      startMethod: race.startMethod,
+      postPosition: horse.postPosition
+    }
+  });
+  
   // STRICT: Only process horses with actual raw KM times for predictions
   if (!rawKmTime) {
     console.log(`  🚫 NO RAW KM TIME - Creating fallback for UI display only`);
@@ -137,7 +149,9 @@ export const applyHorseNormalization = (
   // Mark as from raw data - this will be stored for post-race comparison
   (result as any).isEstimated = false;
   
-  console.log(`  - Final normalized time: ${result.modernNormalizedTime.minutes}:${result.modernNormalizedTime.seconds.toString().padStart(2, '0')}.${result.modernNormalizedTime.tenths} (FROM RAW DATA - WILL BE CACHED)`);
+    console.log(`  - Final normalized time: ${result.modernNormalizedTime.minutes}:${result.modernNormalizedTime.seconds.toString().padStart(2, '0')}.${result.modernNormalizedTime.tenths} (FROM RAW DATA - WILL BE CACHED)`);
+  
+  HorseDebugger.logFinalResult(horse.horseId, extractedData.safeHorseName, rawKmTime, result);
   
   return result;
 };
