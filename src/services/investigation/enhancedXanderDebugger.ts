@@ -56,6 +56,12 @@ export class EnhancedXanderDebugger {
   }
   
   static enableXanderDebugging(horseName: string, sessionId?: string): void {
+    // Only enable if not already enabled for this horse
+    if (this.debugEnabled && this.debugHorseName === horseName.toLowerCase()) {
+      console.log(`🔍 Enhanced debugging already enabled for ${horseName} - continuing existing session`);
+      return;
+    }
+    
     this.debugEnabled = true;
     this.debugHorseName = horseName.toLowerCase();
     this.debugSessionId = sessionId || `xander_${Date.now()}`;

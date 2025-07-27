@@ -33,11 +33,13 @@ export const processHorseKmTimes = async (
   console.log(`\n=== Processing KM times for ${horseName} (ID: ${horseId}) ===`);
   console.log(`Found ${historicalRaces.length} historical races to process`);
   
-  // 🔍 ENHANCED INVESTIGATION: Initialize enhanced debugging for Xander
+  // 🔍 ENHANCED INVESTIGATION: Use existing session if already enabled
   const isXander = horseName.toLowerCase().includes('xander');
-  if (isXander) {
+  if (isXander && !EnhancedXanderDebugger.isDebugEnabled()) {
     EnhancedXanderDebugger.enableXanderDebugging(horseName, `horse_processing_${horseId}`);
-    
+  }
+  
+  if (isXander) {
     EnhancedXanderDebugger.addCheckpoint(
       'start_processing',
       'horse_processing',
