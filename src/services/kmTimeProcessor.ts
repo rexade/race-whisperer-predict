@@ -4,6 +4,8 @@ import { HorseRawKmTime, KmTime } from './types/kmTimeTypes';
 import { processHorseKmTimes } from './horseProcessing';
 import { fetchHorseHistoricalData, processHistoricalRecords } from './atgHistoricalApi';
 import { Race7Debugger } from './investigation/race7DebugUtils';
+import { EnhancedXanderDebugger } from './investigation/enhancedXanderDebugger';
+import { ConnectionResilience } from './investigation/connectionResilience';
 
 export const calculateRawKmTimesForRaceWithId = async (
   raceId: string,
@@ -35,7 +37,63 @@ export const calculateRawKmTimesForRaceWithId = async (
       console.log(`\n--- Processing horse ${i + 1}/${starts.length}: ${start.horse.name} (ID: ${start.horse.id}) ---`);
       console.log(`🎯 Using POST POSITION: ${postPosition} for historical data fetch`);
       
-      const historicalData = await fetchHorseHistoricalData(raceId, postPosition);
+      // Enhanced data fetching with connection resilience
+      if (start.horse.name.toLowerCase().includes('xander')) {
+        EnhancedXanderDebugger.addCheckpoint(
+          'start_data_fetch',
+          'data_fetching',
+          start.horse.name,
+          {
+            horseId: start.horse.id,
+            postPosition,
+            raceId
+          },
+          true
+        );
+      }
+      
+      const historicalDataResult = await ConnectionResilience.executeWithRetry(
+        () => fetchHorseHistoricalData(raceId, postPosition),
+        {
+          horseName: start.horse.name,
+          operationName: 'fetch_historical_data',
+          url: `ATG API - Race ${raceId}, Position ${postPosition}`
+        },
+        {
+          maxRetries: 2,
+          timeout: 20000
+        }
+      );
+      
+      if (!historicalDataResult.success) {
+        console.error(`❌ Failed to fetch historical data for ${start.horse.name}: ${historicalDataResult.error}`);
+        
+        if (start.horse.name.toLowerCase().includes('xander')) {
+          EnhancedXanderDebugger.addCheckpoint(
+            'data_fetch_failed',
+            'data_fetching',
+            start.horse.name,
+            {
+              error: historicalDataResult.error,
+              attempts: historicalDataResult.attempts,
+              totalTime: historicalDataResult.totalTime
+            },
+            false,
+            historicalDataResult.error
+          );
+        }
+        
+        rawKmTimes.push({
+          horseId: start.horse.id,
+          horseName: start.horse.name,
+          allTimes: [],
+          best3Average: { minutes: 0, seconds: 0, tenths: 0 },
+          validTimesCount: 0
+        });
+        continue;
+      }
+      
+      const historicalData = historicalDataResult.data!;
       
       if (!historicalData.horse.results?.records) {
         console.warn(`No historical records found for horse ${start.horse.name}`);
@@ -52,15 +110,53 @@ export const calculateRawKmTimesForRaceWithId = async (
       const validRecords = processHistoricalRecords(historicalData.horse.results.records, start.horse.name);
       console.log(`Found ${validRecords.length} valid historical races for ${start.horse.name}`);
       
-      // 🔍 INVESTIGATION: Debug raw historical records
+      // 🔍 ENHANCED INVESTIGATION: Debug raw historical records
       if (start.horse.name.toLowerCase().includes('xander')) {
-        console.log(`🕵️ XANDER INVESTIGATION: Raw historical records count: ${historicalData.horse.results.records.length}`);
-        console.log(`🕵️ XANDER INVESTIGATION: Valid records after filtering: ${validRecords.length}`);
+        EnhancedXanderDebugger.addCheckpoint(
+          'data_fetch_success',
+          'data_fetching',
+          start.horse.name,
+          {
+            rawRecordsCount: historicalData.horse.results.records.length,
+            fetchTime: historicalDataResult.totalTime,
+            attempts: historicalDataResult.attempts
+          },
+          true
+        );
+        
+        EnhancedXanderDebugger.logDataQualityCheck(
+          start.horse.name,
+          'historical_data_availability',
+          validRecords.length > 0,
+          {
+            rawRecordsCount: historicalData.horse.results.records.length,
+            validRecordsAfterFiltering: validRecords.length,
+            filteringRate: ((historicalData.horse.results.records.length - validRecords.length) / historicalData.horse.results.records.length * 100).toFixed(1) + '%'
+          }
+        );
+        
+        console.log(`🕵️ ENHANCED XANDER INVESTIGATION: Raw historical records count: ${historicalData.horse.results.records.length}`);
+        console.log(`🕵️ ENHANCED XANDER INVESTIGATION: Valid records after filtering: ${validRecords.length}`);
+        
         validRecords.forEach((record, idx) => {
           const timeStr = record.kmTime && typeof record.kmTime === 'object' && 'minutes' in record.kmTime 
             ? `${record.kmTime.minutes}:${record.kmTime.seconds}.${record.kmTime.tenths}`
             : 'No time';
           console.log(`🕵️ Record ${idx + 1}: ${record.date} - ${timeStr} (${record.start.distance}m, ${record.race.startMethod}, place: ${record.place})`);
+          
+          EnhancedXanderDebugger.logProcessingPhase(
+            start.horse.name,
+            `historical_record_${idx + 1}`,
+            {
+              date: record.date,
+              time: timeStr,
+              distance: record.start.distance,
+              startMethod: record.race.startMethod,
+              place: record.place,
+              galloped: record.galloped,
+              disqualified: record.disqualified
+            }
+          );
         });
       }
       

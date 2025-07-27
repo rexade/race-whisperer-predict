@@ -6,6 +6,7 @@ import {
   ModernNormalizationFactors
 } from '../../../services/modernKm/index';
 import { ExtractedHorseData } from './horseDataExtractor';
+import { EnhancedXanderDebugger } from '../../../services/investigation/enhancedXanderDebugger';
 
 /**
  * Create a fallback KM time based on horse statistics and race characteristics
@@ -69,12 +70,43 @@ export const applyHorseNormalization = (
   extractedData: ExtractedHorseData,
   weights: NormalizationWeights
 ) => {
+  const isXander = extractedData.safeHorseName.toLowerCase().includes('xander');
+  
+  if (isXander) {
+    EnhancedXanderDebugger.addCheckpoint(
+      'start_normalization',
+      'horse_normalization',
+      extractedData.safeHorseName,
+      {
+        horseId: horse.horseId,
+        hasRawKmTime: !!rawKmTime,
+        rawKmTime: rawKmTime ? `${rawKmTime.minutes}:${rawKmTime.seconds.toString().padStart(2, '0')}.${rawKmTime.tenths}` : 'None',
+        postPosition: horse.postPosition,
+        raceDistance: race.distance
+      },
+      true
+    );
+  }
+  
   console.log(`🔍 STRICT NORMALIZATION - Horse ${horse.horseId} (${extractedData.safeHorseName}):`);
   console.log(`  - Has raw KM time: ${!!rawKmTime}`);
   
   // STRICT: Only process horses with actual raw KM times for predictions
   if (!rawKmTime) {
     console.log(`  🚫 NO RAW KM TIME - Creating fallback for UI display only`);
+    
+    if (isXander) {
+      EnhancedXanderDebugger.logProcessingPhase(
+        extractedData.safeHorseName,
+        'fallback_creation',
+        {
+          reason: 'no_raw_km_time',
+          willUseEstimatedData: true,
+          notForPredictions: true
+        }
+      );
+    }
+    
     const fallbackTime = createFallbackKmTime(horse, race, extractedData);
     
     const factors: ModernNormalizationFactors = {
@@ -101,6 +133,30 @@ export const applyHorseNormalization = (
     
     // Mark as estimated - this will prevent storage for post-race comparison
     (result as any).isEstimated = true;
+    
+    if (isXander) {
+      EnhancedXanderDebugger.logNormalizationStep(
+        extractedData.safeHorseName,
+        'fallback_normalization',
+        fallbackTime,
+        result.modernNormalizedTime,
+        result.adjustments.total,
+        'Estimated fallback time normalization - UI display only'
+      );
+      
+      EnhancedXanderDebugger.addCheckpoint(
+        'fallback_normalization_complete',
+        'horse_normalization',
+        extractedData.safeHorseName,
+        {
+          fallbackTime: `${fallbackTime.minutes}:${fallbackTime.seconds.toString().padStart(2, '0')}.${fallbackTime.tenths}`,
+          normalizedTime: `${result.modernNormalizedTime.minutes}:${result.modernNormalizedTime.seconds.toString().padStart(2, '0')}.${result.modernNormalizedTime.tenths}`,
+          totalAdjustment: result.adjustments.total,
+          isEstimated: true
+        },
+        true
+      );
+    }
     
     console.log(`  - Fallback normalized time: ${result.modernNormalizedTime.minutes}:${result.modernNormalizedTime.seconds.toString().padStart(2, '0')}.${result.modernNormalizedTime.tenths} (ESTIMATED - UI ONLY)`);
     
@@ -135,6 +191,53 @@ export const applyHorseNormalization = (
   
   // Mark as from raw data - this will be stored for post-race comparison
   (result as any).isEstimated = false;
+  
+  if (isXander) {
+    EnhancedXanderDebugger.logNormalizationStep(
+      extractedData.safeHorseName,
+      'modern_km_normalization',
+      rawKmTime,
+      result.modernNormalizedTime,
+      result.adjustments.total,
+      'Full modern normalization from raw KM time'
+    );
+    
+    // Log detailed adjustment breakdown
+    EnhancedXanderDebugger.logProcessingPhase(
+      extractedData.safeHorseName,
+      'normalization_adjustments',
+      {
+        postPosition: result.adjustments.postPosition,
+        equipment: result.adjustments.equipment,
+        driver: result.adjustments.driver,
+        track: result.adjustments.track,
+        form: result.adjustments.form,
+        distance: result.adjustments.distance,
+        raceDistanceAdjustment: result.adjustments.raceDistanceAdjustment,
+        raceType: result.adjustments.raceType,
+        timeOfDay: result.adjustments.timeOfDay,
+        startPoints: result.adjustments.startPoints,
+        placePercentage: result.adjustments.placePercentage,
+        horseWinPercentage: result.adjustments.horseWinPercentage,
+        earningsPerStart: result.adjustments.earningsPerStart,
+        total: result.adjustments.total
+      }
+    );
+    
+    EnhancedXanderDebugger.addCheckpoint(
+      'modern_normalization_complete',
+      'horse_normalization',
+      extractedData.safeHorseName,
+      {
+        rawTime: `${rawKmTime.minutes}:${rawKmTime.seconds.toString().padStart(2, '0')}.${rawKmTime.tenths}`,
+        normalizedTime: `${result.modernNormalizedTime.minutes}:${result.modernNormalizedTime.seconds.toString().padStart(2, '0')}.${result.modernNormalizedTime.tenths}`,
+        totalAdjustment: result.adjustments.total,
+        isEstimated: false,
+        willBeCached: true
+      },
+      true
+    );
+  }
   
   console.log(`  - Final normalized time: ${result.modernNormalizedTime.minutes}:${result.modernNormalizedTime.seconds.toString().padStart(2, '0')}.${result.modernNormalizedTime.tenths} (FROM RAW DATA - WILL BE CACHED)`);
   
