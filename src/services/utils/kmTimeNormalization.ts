@@ -4,7 +4,7 @@ import { KmTime, addSecondsToKmTime, subtractSecondsFromKmTime, kmTimeToSeconds 
 /**
  * Normalization formula with 2140m as reference point working directly with KM times:
  * 1. Apply distance-based adjustments to normalize to 2140m
- * 2. If volte start: add 1 second (because raw time assumes auto start)
+ * 2. If volte start: subtract 1 second (volte starts are faster than auto starts)
  */
 export const normalizeKmTimeSimplified = (
   kmTime: KmTime,
@@ -41,10 +41,10 @@ export const normalizeKmTimeSimplified = (
   const isVolteStart = startMethodLower.includes("volte") || startMethodLower === "v";
   
   if (isVolteStart) {
-    normalizedTime = addSecondsToKmTime(normalizedTime, 1.0);
-    console.log(`🔥 VOLTE START DETECTED (${startMethod}) - Added 1.0s penalty (raw time assumes auto) → ${normalizedTime.minutes}:${normalizedTime.seconds.toString().padStart(2, '0')}.${normalizedTime.tenths}`);
+    normalizedTime = subtractSecondsFromKmTime(normalizedTime, 1.0);
+    console.log(`🔥 VOLTE START DETECTED (${startMethod}) - Subtracted 1.0s advantage (volte starts are faster) → ${normalizedTime.minutes}:${normalizedTime.seconds.toString().padStart(2, '0')}.${normalizedTime.tenths}`);
   } else {
-    console.log(`Auto start detected (${startMethod}) - No volte penalty applied`);
+    console.log(`Auto start detected (${startMethod}) - No volte adjustment applied`);
   }
   
   console.log(`Final normalized time (2140m reference): ${normalizedTime.minutes}:${normalizedTime.seconds.toString().padStart(2, '0')}.${normalizedTime.tenths}`);
