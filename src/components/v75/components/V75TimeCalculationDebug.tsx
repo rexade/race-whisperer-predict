@@ -95,15 +95,24 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
                 </div>
 
                 {/* Adjustments */}
-                <div className="p-2 bg-primary/5 rounded border">
-                  <div className="text-xs text-muted-foreground mb-1">Key Adjustments:</div>
-                  <div className="grid grid-cols-2 gap-1 text-xs">
+                <div className="p-3 bg-primary/5 rounded border">
+                  <div className="text-xs text-muted-foreground mb-2">All Normalization Adjustments:</div>
+                  <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-xs">
                     <div>Post Position: {data.adjustments.postPosition?.toFixed(2)}s</div>
                     <div>Equipment: {data.adjustments.equipment?.toFixed(2)}s</div>
                     <div>Driver: {data.adjustments.driver?.toFixed(2)}s</div>
+                    <div>Track: {data.adjustments.track?.toFixed(2)}s</div>
+                    <div>Form: {data.adjustments.form?.toFixed(2)}s</div>
                     <div>Distance: {data.adjustments.distance?.toFixed(2)}s</div>
+                    <div>Race Distance: {data.adjustments.raceDistanceAdjustment?.toFixed(2)}s</div>
+                    <div>Race Type: {data.adjustments.raceType?.toFixed(2)}s</div>
+                    <div>Time of Day: {data.adjustments.timeOfDay?.toFixed(2)}s</div>
+                    <div>Start Points: {data.adjustments.startPoints?.toFixed(2)}s</div>
+                    <div>Place %: {data.adjustments.placePercentage?.toFixed(2)}s</div>
+                    <div>Horse Win %: {data.adjustments.horseWinPercentage?.toFixed(2)}s</div>
+                    <div>Earnings/Start: {data.adjustments.earningsPerStart?.toFixed(2)}s</div>
                   </div>
-                  <div className="mt-1 pt-1 border-t border-border/50">
+                  <div className="mt-2 pt-2 border-t border-border/50">
                     <div className="text-xs font-medium">
                       Total Adjustment: {data.adjustments.total?.toFixed(2)}s
                     </div>
