@@ -8,6 +8,7 @@ import ErrorDisplay from "./modernAnalyzer/ErrorDisplay";
 import DebugErrorBoundary from "./DebugErrorBoundary";
 import { useV75Analysis } from "./v75/hooks/useV75Analysis";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
+import { Race7Debugger } from '../services/investigation/race7DebugUtils';
 
 // Shared components
 import AnalyzerLayout from "./shared/analyzer/AnalyzerLayout";
@@ -44,7 +45,6 @@ const V75Analyzer: React.FC = () => {
     
     // Enable Race 7 debugging for target investigation dates
     if (dateStr.includes('2025-01-18') || dateStr.includes('2025-07-26')) {
-      const { Race7Debugger } = require('../services/investigation/race7DebugUtils');
       Race7Debugger.enableRace7Debugging(dateStr, {
         enableDetailedLogging: true,
         compareWithWebsiteTimes: true,

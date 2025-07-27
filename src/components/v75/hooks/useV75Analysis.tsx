@@ -7,6 +7,7 @@ import { useV75DataValidation } from './useV75DataValidation';
 import { useV75Progress } from './useV75Progress';
 import { useV75Cache } from './useV75Cache';
 import { useV75ResultsProcessor } from './useV75ResultsProcessor';
+import { PostAnalysisReporter } from '../../../services/investigation/postAnalysisReporter';
 import type { V75HorseResult, V75RaceResult } from '../types/raceResultTypes';
 
 // Re-export types using 'export type'
@@ -139,7 +140,6 @@ export const useV75Analysis = () => {
       
       // Generate post-analysis report if debugging was enabled
       try {
-        const { PostAnalysisReporter } = require('../../../services/investigation/postAnalysisReporter');
         PostAnalysisReporter.generateReport();
       } catch (reportError) {
         console.log('📋 Post-analysis reporting not available:', reportError);
