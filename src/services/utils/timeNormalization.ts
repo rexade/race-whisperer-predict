@@ -14,8 +14,12 @@ export const normalizeTimeSimplified = (
   distance: number,
   startMethod: string
 ): number => {
-  console.log(`\n--- Normalizing Time to 2140m Reference ---`);
-  console.log(`Original time: ${timeSeconds}s, Distance: ${distance}m, Start: ${startMethod}`);
+  const isDebugMode = startMethod?.toLowerCase().includes('debug') || false;
+  
+  if (isDebugMode) {
+    console.log(`\n🔍 DETAILED NORMALIZATION AUDIT`);
+    console.log(`Input: ${timeSeconds}s, Distance: ${distance}m, Start: ${startMethod}`);
+  }
   
   let normalizedTime = timeSeconds;
   
@@ -29,15 +33,25 @@ export const normalizeTimeSimplified = (
   // - If race is longer than 2140m (positive difference), we subtract time (make it faster)
   normalizedTime -= distanceAdjustment;
   
-  console.log(`Distance adjustment: ${distance}m to 2140m = ${distanceDifferenceKm.toFixed(3)}km × 2.7 = ${distanceAdjustment.toFixed(2)}s`);
-  console.log(`After distance adjustment: ${normalizedTime.toFixed(1)}s`);
+  if (isDebugMode) {
+    console.log(`🧮 Distance calculation: ${distance}m to 2140m = ${distanceDifferenceKm.toFixed(3)}km × 2.7 = ${distanceAdjustment.toFixed(3)}s`);
+    console.log(`🧮 After distance adjustment: ${timeSeconds} - ${distanceAdjustment.toFixed(3)} = ${normalizedTime.toFixed(3)}s`);
+  }
   
   // Step 2: If volte start, subtract 1 second (normalize to auto)
   if (startMethod.toLowerCase() === "volte") {
+    const beforeVolte = normalizedTime;
     normalizedTime -= 1.0;
-    console.log(`Volte start adjustment: -1.0s → ${normalizedTime.toFixed(1)}s`);
+    if (isDebugMode) {
+      console.log(`🧮 Volte start adjustment: ${beforeVolte.toFixed(3)} - 1.0 = ${normalizedTime.toFixed(3)}s`);
+    }
   }
   
-  console.log(`Final normalized time (2140m reference): ${normalizedTime.toFixed(1)}s`);
-  return Math.round(normalizedTime * 10) / 10; // Round to 1 decimal place
+  const finalResult = Math.round(normalizedTime * 10) / 10; // Round to 1 decimal place
+  
+  if (isDebugMode) {
+    console.log(`🧮 Final normalized time (2140m reference): ${normalizedTime.toFixed(3)}s → ${finalResult}s (rounded)`);
+  }
+  
+  return finalResult;
 };

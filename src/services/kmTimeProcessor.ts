@@ -6,6 +6,8 @@ import { fetchHorseHistoricalData, processHistoricalRecords } from './atgHistori
 import { Race7Debugger } from './investigation/race7DebugUtils';
 import { EnhancedXanderDebugger } from './investigation/enhancedXanderDebugger';
 import { ConnectionResilience } from './investigation/connectionResilience';
+import { MathValidationUtils } from './investigation/mathValidationUtils';
+import { TimeComparisonService } from './investigation/timeComparisonService';
 
 export const calculateRawKmTimesForRaceWithId = async (
   raceId: string,
@@ -288,7 +290,7 @@ export const calculateRawKmTimesForRaceWithId = async (
       console.log(`✅ RAW KM time calculated for ${horseName}: ${calculatedTimeStr}`);
       console.log(`🗑️  HISTORICAL DATA DISCARDED - NEVER TO BE USED AGAIN`);
       
-      // 🔍 ENHANCED XANDER INVESTIGATION: Log final calculation
+      // 🔍 ENHANCED XANDER INVESTIGATION: Log final calculation with math validation
       if (isXanderHorse) {
         console.log(`🎯 XANDER FINAL CALCULATION:`, {
           calculatedTime: calculatedTimeStr,
@@ -298,6 +300,35 @@ export const calculateRawKmTimesForRaceWithId = async (
             isTarget: EnhancedXanderDebugger.isTargetHorse(horseName)
           }
         });
+
+        // 🔍 STEP 2: Mathematical validation of the final result
+        if (horseRawKmTime.allTimes && horseRawKmTime.allTimes.length > 0) {
+          console.log(`\n🧮 MATHEMATICAL VALIDATION FOR XANDER:`);
+          const validationResult = MathValidationUtils.calculateBest3AverageWithValidation(
+            horseRawKmTime.allTimes.slice(0, 3).map(time => time.normalizedTime),
+            horseName,
+            'Final KM Time Calculation'
+          );
+          
+          // 🔍 STEP 3: Compare with expected time from real sources
+          const expectedComparison = TimeComparisonService.compareWithExpectedIfAvailable(
+            horseRawKmTime.best3Average,
+            horseName,
+            'Final Result vs Website Expected',
+            raceId
+          );
+
+          console.log(`\n📋 XANDER CALCULATION SUMMARY:`);
+          console.log(`Our calculation: ${calculatedTimeStr}`);
+          if (expectedComparison.hasExpectedTime) {
+            console.log(`Expected time: ${expectedComparison.expected}`);
+            console.log(`Difference: ${expectedComparison.differenceSeconds.toFixed(3)}s`);
+            console.log(`Accuracy: ${expectedComparison.accuracyLevel}`);
+          } else {
+            console.log(`Expected time: Not available`);
+            console.log(`Recommendation: Add expected time to database for comparison`);
+          }
+        }
         
         EnhancedXanderDebugger.addCheckpoint(
           'final_time_calculated',

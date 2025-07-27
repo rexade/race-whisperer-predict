@@ -4,6 +4,7 @@ import { convertToKmTime } from './utils/timeConversion';
 import { normalizeKmTimeSimplified } from './utils/kmTimeNormalization';
 import { XanderTimeInvestigator } from './investigation/xanderTimeInvestigation';
 import { EnhancedXanderDebugger } from './investigation/enhancedXanderDebugger';
+import { MathValidationUtils } from './investigation/mathValidationUtils';
 
 // Updated interface to match ATG API structure
 export interface ATGHistoricalRace {
@@ -211,17 +212,39 @@ export const processHorseKmTimes = async (
   let best3Average: KmTime = { minutes: 0, seconds: 0, tenths: 0 };
   
   if (best3Times.length > 0) {
-    const totalSeconds = best3Times.reduce((sum, time) => {
-      return sum + (time.normalizedTime.minutes * 60 + time.normalizedTime.seconds + time.normalizedTime.tenths / 10);
-    }, 0) / best3Times.length;
+    // 🔍 ENHANCED MATH VALIDATION: Use precise calculation for Xander
+    const isXander = horseName.toLowerCase().includes('xander');
     
-    // Convert back to KM time format
-    const minutes = Math.floor(totalSeconds / 60);
-    const remainingSeconds = totalSeconds % 60;
-    const seconds = Math.floor(remainingSeconds);
-    const tenths = Math.round((remainingSeconds - seconds) * 10);
-    
-    best3Average = { minutes, seconds, tenths };
+    if (isXander) {
+      console.log(`\n🎯 XANDER BEST-3 CALCULATION AUDIT:`);
+      console.log(`Processing ${best3Times.length} times for average`);
+      
+      // Use the validation utility for precise calculation
+      const validationResult = MathValidationUtils.calculateBest3AverageWithValidation(
+        best3Times.map(t => t.normalizedTime),
+        horseName,
+        'Best-3 Average Calculation'
+      );
+      
+      best3Average = validationResult.average;
+      
+      console.log(`🎯 XANDER CALCULATION RESULT: ${validationResult.validation.averageFormatted}`);
+      console.log(`✅ Manual verification match: ${validationResult.validation.matchesManual}`);
+      
+    } else {
+      // Standard calculation for other horses
+      const totalSeconds = best3Times.reduce((sum, time) => {
+        return sum + (time.normalizedTime.minutes * 60 + time.normalizedTime.seconds + time.normalizedTime.tenths / 10);
+      }, 0) / best3Times.length;
+      
+      // Convert back to KM time format
+      const minutes = Math.floor(totalSeconds / 60);
+      const remainingSeconds = totalSeconds % 60;
+      const seconds = Math.floor(remainingSeconds);
+      const tenths = Math.round((remainingSeconds - seconds) * 10);
+      
+      best3Average = { minutes, seconds, tenths };
+    }
   }
 
   console.log(`Processed ${processedTimes.length} valid times for ${horseName}`);
