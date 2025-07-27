@@ -41,6 +41,19 @@ const V75Analyzer: React.FC = () => {
     
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     console.log('🎯 V75Analyzer - Starting analysis for date:', dateStr);
+    
+    // Enable Race 7 debugging for Xander investigation
+    if (dateStr.includes('2025-01-18')) { // Date with known Race 7 and Xander
+      const { Race7Debugger } = require('../services/investigation/race7DebugUtils');
+      Race7Debugger.enableRace7Debugging(`${dateStr}_race_7`, {
+        enableDetailedLogging: true,
+        compareWithWebsiteTimes: true,
+        trackDataSources: true,
+        validateNormalizationSteps: true
+      });
+      console.log('🔧 Race 7 debugging enabled for Xander investigation');
+    }
+    
     analyzeV75Date(dateStr, weights);
   };
 
