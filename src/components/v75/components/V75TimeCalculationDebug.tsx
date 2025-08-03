@@ -131,6 +131,7 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
                     <div>Race Distance: {data.adjustments.raceDistanceAdjustment?.toFixed(2)}s</div>
                     <div>Race Type: {data.adjustments.raceType?.toFixed(2)}s</div>
                     <div>Time of Day: {data.adjustments.timeOfDay?.toFixed(2)}s</div>
+                    <div>Volte Start Penalty: {data.adjustments.volteStartDistancePenalty?.toFixed(2)}s</div>
                     <div>Start Points: {data.adjustments.startPoints?.toFixed(2)}s</div>
                     <div>Place %: {data.adjustments.placePercentage?.toFixed(2)}s</div>
                     <div>Horse Win %: {data.adjustments.horseWinPercentage?.toFixed(2)}s</div>
