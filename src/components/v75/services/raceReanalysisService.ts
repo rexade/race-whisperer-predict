@@ -36,8 +36,6 @@ export class RaceReanalysisService {
           driverExperience: 0,
           driverWinPercentage: horse.driver2025WinPercentage || 0,
           horseForm: horse.statistics?.winPercentage || 0,
-          raceType: 'trot',
-          timeOfDay: '',
           startPoints: horse.statistics?.startPoints || 500,
           placePercentage: horse.statistics?.placePercentage || 5000,
           horseWinPercentage: horse.statistics?.winPercentage || 1500,

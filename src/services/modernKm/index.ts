@@ -18,8 +18,7 @@ import {
 import {
   calculateDistanceAdjustment,
   calculateRaceDistanceAdjustment,
-  calculateRaceTypeAdjustment,
-  calculateTimeOfDayAdjustment,
+  calculateTrackFamiliarityAdjustment,
   calculateVolteStartDistancePenalty
 } from './adjustmentCalculators';
 
@@ -81,7 +80,11 @@ export const applyModernKmNormalization = (
     factors.postPosition
   ) * weights.driverPerformance;
   
-  adjustments.track = 0 * weights.trackFamiliarity; // Placeholder
+  adjustments.track = calculateTrackFamiliarityAdjustment(
+    factors.homeTrack,
+    "UNKNOWN" // TODO: Get actual race track from race data
+  ) * weights.trackFamiliarity;
+  
   adjustments.form = 0 * weights.form; // Placeholder
   
   adjustments.distance = calculateDistanceAdjustment(
@@ -89,17 +92,10 @@ export const applyModernKmNormalization = (
     factors.raceDistance
   ) * weights.distanceAdjustment;
   
-  adjustments.raceType = calculateRaceTypeAdjustment(
-    factors.raceType || ""
-  ) * weights.raceType;
-  
-  adjustments.timeOfDay = calculateTimeOfDayAdjustment(
-    factors.timeOfDay || ""
-  ) * weights.timeOfDay;
+  adjustments.raceType = 0; // Removed - always trot races
+  adjustments.timeOfDay = 0; // Removed - not needed
   
   adjustments.volteStartDistancePenalty = calculateVolteStartDistancePenalty(
-    factors.distance,
-    factors.raceDistance,
     factors.startMethod
   ) * weights.volteStartDistancePenalty;
   
@@ -123,9 +119,8 @@ export const applyModernKmNormalization = (
   console.log(`  Driver: ${adjustments.driver.toFixed(3)}s`);
   console.log(`  Distance: ${adjustments.distance.toFixed(3)}s`);
   console.log(`  Race Distance Adjustment (${factors.raceDistance}m): ${adjustments.raceDistanceAdjustment.toFixed(3)}s`);
-  console.log(`  Race Type: ${adjustments.raceType.toFixed(3)}s`);
-  console.log(`  Time of Day: ${adjustments.timeOfDay.toFixed(3)}s`);
-  console.log(`  Volte Start Distance Penalty: ${adjustments.volteStartDistancePenalty.toFixed(3)}s`);
+  console.log(`  Track Familiarity: ${adjustments.track.toFixed(3)}s`);
+  console.log(`  Volte Start Penalty: ${adjustments.volteStartDistancePenalty.toFixed(3)}s`);
   console.log(`  Start Points: ${adjustments.startPoints.toFixed(3)}s`);
   console.log(`  Place %: ${adjustments.placePercentage.toFixed(3)}s`);
   console.log(`  Horse Win %: ${adjustments.horseWinPercentage.toFixed(3)}s`);

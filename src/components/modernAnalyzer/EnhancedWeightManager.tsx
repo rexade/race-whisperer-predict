@@ -165,27 +165,9 @@ const WEIGHT_CATEGORIES: WeightCategory[] = [
         impact: 'high'
       },
       {
-        key: 'raceType',
-        label: 'Race Type',
-        description: 'Race classification adjustment',
-        range: [0, 2],
-        step: 0.1,
-        defaultValue: 0.9,
-        impact: 'low'
-      },
-      {
-        key: 'timeOfDay',
-        label: 'Time of Day',
-        description: 'Race time impact',
-        range: [0, 2],
-        step: 0.1,
-        defaultValue: 0.5,
-        impact: 'low'
-      },
-      {
         key: 'trackFamiliarity',
         label: 'Track Familiarity',
-        description: 'Horse familiarity with track',
+        description: 'Home track advantage',
         range: [0, 2],
         step: 0.1,
         defaultValue: 0.7,

@@ -35,8 +35,6 @@ export interface ModernNormalizationFactors {
   driverExperience: number;
   driverWinPercentage: number;
   horseForm: number;
-  raceType?: string;
-  timeOfDay?: string;
   startPoints: number;
   placePercentage: number;
   horseWinPercentage: number;
@@ -52,8 +50,6 @@ export interface NormalizationWeights {
   form: number;
   distanceAdjustment: number;
   raceDistanceAdjustment: number;
-  raceType: number;
-  timeOfDay: number;
   volteStartDistancePenalty: number;
   startPoints: number;
   placePercentage: number;
@@ -66,14 +62,12 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   shoeType: 0.8,
   sulkyType: 0.6,
   driverPerformance: 1.1,
-  trackFamiliarity: 0.7,
+  trackFamiliarity: 1.0,
   form: 1.2,
   distanceAdjustment: 1.0,
   raceDistanceAdjustment: 1.0,
-  raceType: 0.9,
-  timeOfDay: 0.5,
   volteStartDistancePenalty: 1.0,
-  startPoints: 0.8,
+  startPoints: 1.2,
   placePercentage: 0.9,
   horseWinPercentage: 1.0,
   earningsPerStart: 0.7

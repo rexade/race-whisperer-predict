@@ -55,87 +55,42 @@ export const calculateRaceDistanceAdjustment = (raceDistance: number): number =>
 };
 
 /**
- * Calculate race type adjustment based on race classification
+ * Calculate track familiarity adjustment based on horse's home track vs race track
  */
-export const calculateRaceTypeAdjustment = (raceType: string): number => {
-  if (!raceType) return 0;
-  
-  const raceTypeAdjustments: { [key: string]: number } = {
-    'MAIDEN': 0.2,      // Easier competition
-    'CLAIMING': 0.1,    // Lower class
-    'ALLOWANCE': 0.0,   // Standard baseline
-    'STAKES': -0.15,    // Higher class, faster times
-    'GRADUATE': -0.1,   // Moving up in class
-    'OPEN': -0.05,      // Open competition
-    'RESTRICTED': 0.05, // Limited field
-    'TROT': 0.0         // Standard trot race
-  };
-  
-  const adjustment = raceTypeAdjustments[raceType.toUpperCase()] || 0;
-  console.log(`Race type adjustment: ${raceType} → ${adjustment.toFixed(3)}s`);
-  return adjustment;
-};
-
-/**
- * Calculate time-of-day adjustment based on when the race is run
- */
-export const calculateTimeOfDayAdjustment = (timeOfDay: string): number => {
-  if (!timeOfDay) return 0;
-  
-  // Extract hour from ISO timestamp or time string
-  let hour: number;
-  
-  if (timeOfDay.includes('T')) {
-    // ISO timestamp format: 2025-06-22T16:20:00
-    const timeMatch = timeOfDay.match(/T(\d{2}):/);
-    hour = timeMatch ? parseInt(timeMatch[1]) : 12;
-  } else {
-    // Simple time format: HH:MM
-    const timeMatch = timeOfDay.match(/(\d{1,2}):/);
-    hour = timeMatch ? parseInt(timeMatch[1]) : 12;
-  }
-  
-  let adjustment = 0;
-  let period = '';
-  
-  if (hour >= 6 && hour < 12) {
-    adjustment = 0.1;
-    period = 'Morning';
-  } else if (hour >= 12 && hour < 18) {
-    adjustment = -0.05;
-    period = 'Afternoon';
-  } else if (hour >= 18 && hour <= 23) {
-    adjustment = 0.0;
-    period = 'Evening';
-  } else {
-    adjustment = 0.15;
-    period = 'Night/Early Morning';
-  }
-  
-  console.log(`Time of day adjustment: ${timeOfDay} (${period}, hour ${hour}) → ${adjustment.toFixed(3)}s`);
-  return adjustment;
-};
-
-/**
- * Calculate volte start distance penalty for horses starting at different distance than race distance
- */
-export const calculateVolteStartDistancePenalty = (
-  horseDistance: number, 
-  raceDistance: number, 
-  startMethod: string
+export const calculateTrackFamiliarityAdjustment = (
+  horseHomeTrack: string,
+  raceTrack: string
 ): number => {
+  if (!horseHomeTrack || !raceTrack) {
+    console.log('Track familiarity adjustment: Missing track data → 0.000s');
+    return 0;
+  }
+
+  const homeTrackNormalized = horseHomeTrack.trim().toUpperCase();
+  const raceTrackNormalized = raceTrack.trim().toUpperCase();
+  
+  if (homeTrackNormalized === raceTrackNormalized) {
+    const adjustment = -0.15; // Home track advantage
+    console.log(`Track familiarity adjustment: Home track advantage (${horseHomeTrack} = ${raceTrack}) → ${adjustment.toFixed(3)}s`);
+    return adjustment;
+  }
+  
+  console.log(`Track familiarity adjustment: Away track (${horseHomeTrack} ≠ ${raceTrack}) → 0.000s`);
+  return 0;
+};
+
+/**
+ * Calculate volte start distance penalty - simplified logic for all volte starts
+ */
+export const calculateVolteStartDistancePenalty = (startMethod: string): number => {
   // Only apply penalty for volte start races
   if (!startMethod || !startMethod.toLowerCase().includes('volte')) {
+    console.log(`Volte start penalty: Not a volte start (${startMethod || 'unknown'}) → 0.000s`);
     return 0;
   }
   
-  // Check if horse starts at different distance than race distance
-  if (horseDistance !== raceDistance) {
-    const penalty = 0.4; // Fixed 0.4s penalty for volte start distance mismatch
-    console.log(`Volte start distance penalty: Horse ${horseDistance}m vs Race ${raceDistance}m in ${startMethod} → +${penalty.toFixed(3)}s`);
-    return penalty;
-  }
-  
-  console.log(`Volte start distance penalty: Horse ${horseDistance}m = Race ${raceDistance}m in ${startMethod} → 0.000s`);
-  return 0;
+  // Apply fixed penalty for all volte starts (inherently more difficult)
+  const penalty = 0.4;
+  console.log(`Volte start penalty: Volte start detected (${startMethod}) → +${penalty.toFixed(3)}s`);
+  return penalty;
 };

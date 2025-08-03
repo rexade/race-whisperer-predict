@@ -12,8 +12,7 @@ import {
 import {
   calculateDistanceAdjustment,
   calculateRaceDistanceAdjustment,
-  calculateRaceTypeAdjustment,
-  calculateTimeOfDayAdjustment,
+  calculateTrackFamiliarityAdjustment,
   calculateVolteStartDistancePenalty
 } from './adjustmentCalculators';
 
@@ -113,29 +112,18 @@ export const calculatePreview = (
     description: `Race distance: ${factors.raceDistance}m from 2140m baseline`
   });
 
-  const raceTypeRaw = calculateRaceTypeAdjustment(factors.raceType || '');
-  const raceTypeWeighted = raceTypeRaw * weights.raceType;
+  const trackFamiliarityRaw = calculateTrackFamiliarityAdjustment(factors.homeTrack, "UNKNOWN");
+  const trackFamiliarityWeighted = trackFamiliarityRaw * weights.trackFamiliarity;
   contributions.push({
-    factor: 'raceType',
-    rawAdjustment: raceTypeRaw,
-    weightedAdjustment: raceTypeWeighted,
-    weight: weights.raceType,
-    impactLevel: getImpactLevel(Math.abs(raceTypeWeighted)),
-    description: `Race type: ${factors.raceType || 'Standard'}`
+    factor: 'trackFamiliarity',
+    rawAdjustment: trackFamiliarityRaw,
+    weightedAdjustment: trackFamiliarityWeighted,
+    weight: weights.trackFamiliarity,
+    impactLevel: getImpactLevel(Math.abs(trackFamiliarityWeighted)),
+    description: `Track familiarity: ${factors.homeTrack}`
   });
 
-  const timeOfDayRaw = calculateTimeOfDayAdjustment(factors.timeOfDay || '');
-  const timeOfDayWeighted = timeOfDayRaw * weights.timeOfDay;
-  contributions.push({
-    factor: 'timeOfDay',
-    rawAdjustment: timeOfDayRaw,
-    weightedAdjustment: timeOfDayWeighted,
-    weight: weights.timeOfDay,
-    impactLevel: getImpactLevel(Math.abs(timeOfDayWeighted)),
-    description: `Time of day: ${factors.timeOfDay || 'Standard'}`
-  });
-
-  const volteRaw = calculateVolteStartDistancePenalty(factors.distance, factors.raceDistance, factors.startMethod);
+  const volteRaw = calculateVolteStartDistancePenalty(factors.startMethod);
   const volteWeighted = volteRaw * weights.volteStartDistancePenalty;
   contributions.push({
     factor: 'volteStart',
@@ -234,8 +222,6 @@ export const getSampleFactors = (): ModernNormalizationFactors => ({
   driverExperience: 10,
   driverWinPercentage: 18,
   horseForm: 3,
-  raceType: 'Maiden',
-  timeOfDay: '19:30',
   startPoints: 500,
   placePercentage: 5000, // 50%
   horseWinPercentage: 1500, // 15%

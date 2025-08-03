@@ -28,8 +28,31 @@ export const calculateSulkyAdjustment = (sulkyType: string): number => {
     return 0;
   }
   
-  if (sulkyType.includes('[object Object]')) {
-    console.error('🚨 SULKY DATA CORRUPTION detected in equipment calculator:', sulkyType);
+  // Detect multiple corruption patterns
+  const corruptionPatterns = [
+    '[object Object]',
+    'undefined',
+    'null',
+    '{}',
+    '[object HTMLElement]',
+    'function',
+    'NaN'
+  ];
+  
+  const hasCorruption = corruptionPatterns.some(pattern => 
+    sulkyType.includes(pattern) || sulkyType === pattern
+  );
+  
+  if (hasCorruption) {
+    console.error('🚨 SULKY DATA CORRUPTION detected:', sulkyType);
+    // Report corruption pattern for analysis
+    console.error('🚨 Corruption pattern analysis:', {
+      originalValue: sulkyType,
+      length: sulkyType.length,
+      containsObject: sulkyType.includes('[object'),
+      containsFunction: sulkyType.includes('function'),
+      isStringified: sulkyType.startsWith('{') || sulkyType.startsWith('[')
+    });
     return 0; // Safe fallback
   }
   
@@ -50,6 +73,7 @@ export const calculateSulkyAdjustment = (sulkyType: string): number => {
     default:
       adjustment = 0;
       console.log('🛷 Unknown sulky type, no adjustment:', normalizedType);
+      console.log('🛷 Valid sulky types: AM/AMERICAN (-0.2s), VA/VANLIG (0s)');
   }
   
   return adjustment;
