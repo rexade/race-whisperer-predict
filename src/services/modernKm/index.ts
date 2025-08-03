@@ -101,10 +101,20 @@ export const applyModernKmNormalization = (
   
   adjustments.equipment = (shoeResult.adjustment + sulkyResult.adjustment) * weights.shoeType;
   
-  adjustments.driver = calculateDriverAdjustment(
+  // Driver adjustment with detailed logging
+  console.log(`[NORMALIZATION DEBUG] Driver calculation for ${factors.horseName || 'Unknown'}:`);
+  console.log(`[NORMALIZATION DEBUG] Driver win percentage: ${factors.driverWinPercentage}%`);
+  console.log(`[NORMALIZATION DEBUG] Post position: ${factors.postPosition}`);
+  console.log(`[NORMALIZATION DEBUG] Driver weight: ${weights.driverPerformance}`);
+  
+  const rawDriverAdjustment = calculateDriverAdjustment(
     factors.driverWinPercentage,
     factors.postPosition
-  ) * weights.driverPerformance;
+  );
+  adjustments.driver = rawDriverAdjustment * weights.driverPerformance;
+  
+  console.log(`[NORMALIZATION DEBUG] Raw driver adjustment: ${rawDriverAdjustment}s`);
+  console.log(`[NORMALIZATION DEBUG] Weighted driver adjustment: ${adjustments.driver}s`);
   
   adjustments.track = calculateTrackFamiliarityAdjustment(
     factors.homeTrack,
