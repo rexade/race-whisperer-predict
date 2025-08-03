@@ -469,48 +469,76 @@ const extractHorseData = (start: any): V75HorseData => {
   let sulkyType = 'VA'; // Default to Vanlig (normal)
   let sulkySource = 'default';
   
-  // Try different paths with detailed logging
-  if (start.sulky?.type) {
-    sulkyType = String(start.sulky.type);
-    sulkySource = 'start.sulky.type';
-    console.log('🛷 Found sulky type in start.sulky.type:', sulkyType);
-  } else if (start.horse?.sulky?.type) {
-    sulkyType = String(start.horse.sulky.type);
-    sulkySource = 'start.horse.sulky.type';
-    console.log('🛷 Found sulky type in start.horse.sulky.type:', sulkyType);
-  } else if (start.equipment?.sulky?.type) {
-    sulkyType = String(start.equipment.sulky.type);
-    sulkySource = 'start.equipment.sulky.type';
-    console.log('🛷 Found sulky type in start.equipment.sulky.type:', sulkyType);
-  } else if (start.sulky?.category) {
-    sulkyType = String(start.sulky.category);
-    sulkySource = 'start.sulky.category';
-    console.log('🛷 Found sulky type in start.sulky.category:', sulkyType);
-  } else if (start.horse?.sulky?.category) {
-    sulkyType = String(start.horse.sulky.category);
-    sulkySource = 'start.horse.sulky.category';
-    console.log('🛷 Found sulky type in start.horse.sulky.category:', sulkyType);
-  } else if (start.sulky?.name) {
-    sulkyType = String(start.sulky.name);
-    sulkySource = 'start.sulky.name';
-    console.log('🛷 Found sulky type in start.sulky.name:', sulkyType);
-  } else if (start.horse?.sulky?.name) {
-    sulkyType = String(start.horse.sulky.name);
-    sulkySource = 'start.horse.sulky.name';
-    console.log('🛷 Found sulky type in start.horse.sulky.name:', sulkyType);
-  } else if (start.equipment?.sulky?.name) {
-    sulkyType = String(start.equipment.sulky.name);
-    sulkySource = 'start.equipment.sulky.name';
-    console.log('🛷 Found sulky type in start.equipment.sulky.name:', sulkyType);
-  } else if (start.sulky && typeof start.sulky === 'string') {
-    sulkyType = String(start.sulky);
-    sulkySource = 'start.sulky';
-    console.log('🛷 Found sulky type in start.sulky (string):', sulkyType);
-  } else if (start.horse?.sulky && typeof start.horse.sulky === 'string') {
-    sulkyType = String(start.horse.sulky);
-    sulkySource = 'start.horse.sulky';
-    console.log('🛷 Found sulky type in start.horse.sulky (string):', sulkyType);
-  } else {
+  // ENHANCED: Safe sulky extraction with corruption detection
+  const extractSafeString = (value: any, path: string): { value: string; isValid: boolean } => {
+    if (value === null || value === undefined) {
+      return { value: '', isValid: false };
+    }
+    
+    if (typeof value === 'string') {
+      // Check for corruption patterns
+      if (value.includes('[object Object]') || value === '[object Object]') {
+        console.error(`🚨 SULKY CORRUPTION detected at ${path}:`, value);
+        return { value: '', isValid: false };
+      }
+      return { value: value.trim(), isValid: true };
+    }
+    
+    if (typeof value === 'object') {
+      // Try to extract string from object safely
+      if (value.code && typeof value.code === 'string') {
+        return extractSafeString(value.code, `${path}.code`);
+      }
+      if (value.type && typeof value.type === 'string') {
+        return extractSafeString(value.type, `${path}.type`);
+      }
+      if (value.name && typeof value.name === 'string') {
+        return extractSafeString(value.name, `${path}.name`);
+      }
+      
+      console.warn(`🛷 Object found at ${path} but no extractable string:`, value);
+      return { value: '', isValid: false };
+    }
+    
+    // Convert other types to string with validation
+    const stringValue = String(value);
+    if (stringValue.includes('[object Object]')) {
+      console.error(`🚨 CONVERSION CORRUPTION at ${path}:`, value, '→', stringValue);
+      return { value: '', isValid: false };
+    }
+    
+    return { value: stringValue, isValid: true };
+  };
+  
+  // Try different paths with enhanced safety
+  const sulkyPaths = [
+    { path: 'start.sulky.type', value: start.sulky?.type },
+    { path: 'start.horse.sulky.type', value: start.horse?.sulky?.type },
+    { path: 'start.equipment.sulky.type', value: start.equipment?.sulky?.type },
+    { path: 'start.sulky.code', value: start.sulky?.code },
+    { path: 'start.horse.sulky.code', value: start.horse?.sulky?.code },
+    { path: 'start.equipment.sulky.code', value: start.equipment?.sulky?.code },
+    { path: 'start.sulky.category', value: start.sulky?.category },
+    { path: 'start.horse.sulky.category', value: start.horse?.sulky?.category },
+    { path: 'start.sulky.name', value: start.sulky?.name },
+    { path: 'start.horse.sulky.name', value: start.horse?.sulky?.name },
+    { path: 'start.equipment.sulky.name', value: start.equipment?.sulky?.name },
+    { path: 'start.sulky', value: start.sulky },
+    { path: 'start.horse.sulky', value: start.horse?.sulky }
+  ];
+  
+  for (const { path, value } of sulkyPaths) {
+    const extracted = extractSafeString(value, path);
+    if (extracted.isValid && extracted.value) {
+      sulkyType = extracted.value;
+      sulkySource = path;
+      console.log(`🛷 ✅ Found valid sulky type in ${path}:`, sulkyType);
+      break;
+    }
+  }
+  
+  // If no valid sulky type found, log the failure
+  if (sulkyType === 'VA' && sulkySource === 'default') {
     console.log('🛷 NO SULKY DATA FOUND! Using default VA. Checked paths:');
     console.log('  - start.sulky?.type:', start.sulky?.type);
     console.log('  - start.horse?.sulky?.type:', start.horse?.sulky?.type);

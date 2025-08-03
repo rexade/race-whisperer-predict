@@ -70,27 +70,78 @@ export const extractAndValidateHorseData = (horse: any): ExtractedHorseData => {
     backShoesStr
   });
 
-  // CRITICAL FIX: Proper sulky type extraction to prevent [object Object] conversion
+  // ENHANCED: Ultra-safe sulky type extraction with comprehensive corruption detection
   let sulkyTypeString = "VA"; // Default fallback
   
-  if (horse.sulky?.type) {
-    if (typeof horse.sulky.type === 'string') {
-      sulkyTypeString = horse.sulky.type;
-    } else if (typeof horse.sulky.type === 'object' && horse.sulky.type !== null) {
-      // Handle object cases - look for common properties
-      if (horse.sulky.type.name && typeof horse.sulky.type.name === 'string') {
-        sulkyTypeString = horse.sulky.type.name;
-      } else if (horse.sulky.type.code && typeof horse.sulky.type.code === 'string') {
-        sulkyTypeString = horse.sulky.type.code;
-      } else if (horse.sulky.type.type && typeof horse.sulky.type.type === 'string') {
-        sulkyTypeString = horse.sulky.type.type;
-      } else {
-        console.warn(`🚨 SULKY DATA CORRUPTION: Unable to extract string from object for horse ${horse.horseId}:`, horse.sulky.type);
-        sulkyTypeString = "VA"; // Safe fallback
+  const safeSulkyExtraction = (sulkyData: any, sourcePath: string): string => {
+    if (!sulkyData) {
+      console.log(`🛷 No sulky data at ${sourcePath}, using default VA`);
+      return "VA";
+    }
+    
+    // Direct string check
+    if (typeof sulkyData === 'string') {
+      if (sulkyData.includes('[object Object]')) {
+        console.error(`🚨 SULKY CORRUPTION at ${sourcePath}: Found [object Object]`);
+        return "VA";
       }
-    } else {
-      // Handle other types by safe conversion
-      sulkyTypeString = String(horse.sulky.type);
+      const cleaned = sulkyData.trim();
+      if (cleaned) {
+        console.log(`🛷 ✅ Valid string sulky at ${sourcePath}:`, cleaned);
+        return cleaned;
+      }
+    }
+    
+    // Object extraction with multiple fallbacks
+    if (typeof sulkyData === 'object' && sulkyData !== null) {
+      const extractionPaths = ['code', 'type', 'name', 'category'];
+      
+      for (const prop of extractionPaths) {
+        if (sulkyData[prop] && typeof sulkyData[prop] === 'string') {
+          const value = sulkyData[prop].trim();
+          if (value && !value.includes('[object Object]')) {
+            console.log(`🛷 ✅ Extracted sulky from ${sourcePath}.${prop}:`, value);
+            return value;
+          }
+        }
+      }
+      
+      console.warn(`🛷 ⚠️ Object at ${sourcePath} has no extractable string properties:`, Object.keys(sulkyData));
+      return "VA";
+    }
+    
+    // Safe conversion for other types
+    const converted = String(sulkyData);
+    if (converted.includes('[object Object]')) {
+      console.error(`🚨 CONVERSION CORRUPTION at ${sourcePath}:`, sulkyData, '→', converted);
+      return "VA";
+    }
+    
+    if (converted && converted !== 'undefined' && converted !== 'null') {
+      console.log(`🛷 ✅ Converted sulky at ${sourcePath}:`, converted);
+      return converted;
+    }
+    
+    console.log(`🛷 Empty/invalid sulky at ${sourcePath}, using default VA`);
+    return "VA";
+  };
+  
+  // Try multiple extraction paths with comprehensive logging
+  const sulkyExtractionPaths = [
+    { data: horse.sulky?.type, path: 'horse.sulky.type' },
+    { data: horse.sulky?.code, path: 'horse.sulky.code' },
+    { data: horse.sulky?.category, path: 'horse.sulky.category' },
+    { data: horse.sulky?.name, path: 'horse.sulky.name' },
+    { data: horse.sulky, path: 'horse.sulky' },
+    { data: horse.equipment?.sulky?.type, path: 'horse.equipment.sulky.type' },
+    { data: horse.equipment?.sulky?.code, path: 'horse.equipment.sulky.code' }
+  ];
+  
+  for (const { data, path } of sulkyExtractionPaths) {
+    const extracted = safeSulkyExtraction(data, path);
+    if (extracted !== "VA") {
+      sulkyTypeString = extracted;
+      break;
     }
   }
   

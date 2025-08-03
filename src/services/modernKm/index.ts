@@ -7,7 +7,13 @@ import {
   DEFAULT_WEIGHTS 
 } from './types';
 import { calculatePostPositionAdjustment } from './postPositionCalculator';
-import { calculateShoeAdjustment, calculateSulkyAdjustment } from './equipmentCalculators';
+import { 
+  calculateShoeAdjustment, 
+  calculateSulkyAdjustment,
+  calculateRobustShoeAdjustment,
+  calculateRobustSulkyAdjustment
+} from './equipmentCalculators';
+import { EquipmentDebugger } from '../debugging/equipmentDebugger';
 import { calculateDriverAdjustment } from './driverCalculators';
 import { 
   calculateStartPointsAdjustment,
@@ -70,10 +76,30 @@ export const applyModernKmNormalization = (
   // STEP 3: Calculate all other adjustment factors
   adjustments.postPosition = calculatePostPositionAdjustment(factors.postPosition, factors.startMethod) * weights.postPosition;
   
-  adjustments.equipment = (
-    calculateShoeAdjustment(factors.shoesFront, factors.shoesBack) +
-    calculateSulkyAdjustment(factors.sulkyType)
-  ) * weights.shoeType;
+  // Equipment adjustments with enhanced debugging
+  const shoeResult = calculateRobustShoeAdjustment(factors.shoesFront, factors.shoesBack, factors.horseId);
+  const sulkyResult = calculateRobustSulkyAdjustment(factors.sulkyType, factors.horseId);
+  
+  // Log equipment calculations for debugging
+  if (factors.horseId !== undefined) {
+    EquipmentDebugger.logEquipmentCalculation(
+      factors.horseId, 
+      factors.horseName || 'Unknown', 
+      'shoes', 
+      { front: factors.shoesFront, back: factors.shoesBack }, 
+      shoeResult
+    );
+    
+    EquipmentDebugger.logEquipmentCalculation(
+      factors.horseId,
+      factors.horseName || 'Unknown',
+      'sulky',
+      factors.sulkyType,
+      sulkyResult
+    );
+  }
+  
+  adjustments.equipment = (shoeResult.adjustment + sulkyResult.adjustment) * weights.shoeType;
   
   adjustments.driver = calculateDriverAdjustment(
     factors.driverWinPercentage,

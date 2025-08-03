@@ -8,6 +8,7 @@ import {
 import { ExtractedHorseData } from './horseDataExtractor';
 import { HorseDebugger } from '../../../services/debugging/horseDebugger';
 import { EquipmentValidator } from '../../../services/validation/equipmentValidator';
+import { EquipmentDebugger } from '../../../services/debugging/equipmentDebugger';
 
 /**
  * Create a fallback KM time based on horse statistics and race characteristics
@@ -74,13 +75,32 @@ export const applyHorseNormalization = (
   console.log(`🔍 STRICT NORMALIZATION - Horse ${horse.horseId} (${extractedData.safeHorseName}):`);
   console.log(`  - Has raw KM time: ${!!rawKmTime}`);
   
-  // ENHANCED: Validate and correct equipment data before normalization
+  // ENHANCED: Log equipment extraction and validate
+  EquipmentDebugger.logEquipmentExtraction(
+    horse.horseId || 0,
+    extractedData.safeHorseName,
+    { sulky: horse.sulky, shoes: horse.shoes, equipment: horse.equipment },
+    extractedData,
+    'horseNormalizationProcessor'
+  );
+
   const equipmentValidation = EquipmentValidator.validateAndCorrectEquipmentData(
     horse.horseId || 0,
     extractedData.safeHorseName,
     extractedData.sulkyTypeString,
     extractedData.frontShoesStr,
     extractedData.backShoesStr
+  );
+
+  EquipmentDebugger.logEquipmentValidation(
+    horse.horseId || 0,
+    extractedData.safeHorseName,
+    equipmentValidation,
+    { 
+      sulkyType: extractedData.sulkyTypeString,
+      frontShoes: extractedData.frontShoesStr,
+      backShoes: extractedData.backShoesStr
+    }
   );
 
   // Use corrected equipment data for normalization
@@ -123,7 +143,9 @@ export const applyHorseNormalization = (
       startPoints: horse.statistics.startPoints,
       placePercentage: horse.statistics.placePercentage,
       horseWinPercentage: horse.statistics.winPercentage,
-      earningsPerStart: horse.statistics.earningsPerStart
+      earningsPerStart: horse.statistics.earningsPerStart,
+      horseId: horse.horseId,
+      horseName: extractedData.safeHorseName
     };
 
     const result = applyModernKmNormalization(fallbackTime, factors, weights);
@@ -156,7 +178,9 @@ export const applyHorseNormalization = (
     startPoints: horse.statistics.startPoints,
     placePercentage: horse.statistics.placePercentage,
     horseWinPercentage: horse.statistics.winPercentage,
-    earningsPerStart: horse.statistics.earningsPerStart
+    earningsPerStart: horse.statistics.earningsPerStart,
+    horseId: horse.horseId,
+    horseName: extractedData.safeHorseName
   };
 
   const result = applyModernKmNormalization(rawKmTime, factors, weights);

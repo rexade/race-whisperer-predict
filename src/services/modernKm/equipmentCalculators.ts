@@ -1,80 +1,50 @@
 
+// Import the robust calculators
+import { 
+  calculateRobustShoeAdjustment, 
+  calculateRobustSulkyAdjustment,
+  type EquipmentCalculationResult 
+} from './robustEquipmentCalculators';
+
 export const calculateShoeAdjustment = (frontShoes: string, backShoes: string): number => {
-  console.log('👟 ENHANCED calculateShoeAdjustment:', { frontShoes, backShoes, frontType: typeof frontShoes, backType: typeof backShoes });
+  const result = calculateRobustShoeAdjustment(frontShoes, backShoes);
   
-  let adjustment = 0;
-  let details = [];
+  // Enhanced logging with result details
+  console.log('👟 ENHANCED shoe adjustment result:', {
+    adjustment: result.adjustment,
+    confidence: result.confidence,
+    source: result.source,
+    warnings: result.warnings,
+    fallbackUsed: result.fallbackUsed
+  });
   
-  // Enhanced validation and logging
-  if (frontShoes === "0" || frontShoes === "" || frontShoes === "false") {
-    adjustment -= 0.1;
-    details.push('Front barefoot: -0.1s');
-  }
-  if (backShoes === "0" || backShoes === "" || backShoes === "false") {
-    adjustment -= 0.1;
-    details.push('Back barefoot: -0.1s');
-  }
-  
-  console.log('👟 Shoe adjustment details:', details.join(', '), `Total: ${adjustment}s`);
-  return adjustment;
+  return result.adjustment;
 };
 
 export const calculateSulkyAdjustment = (sulkyType: string): number => {
-  console.log('🛷 ENHANCED calculateSulkyAdjustment:', { sulkyType, type: typeof sulkyType });
+  const result = calculateRobustSulkyAdjustment(sulkyType);
   
-  // Enhanced validation to catch corruption
-  if (!sulkyType || typeof sulkyType !== 'string') {
-    console.warn('🚨 Invalid sulky type, defaulting to 0 adjustment:', sulkyType);
-    return 0;
-  }
+  // Enhanced logging with result details
+  console.log('🛷 ENHANCED sulky adjustment result:', {
+    sulkyType,
+    adjustment: result.adjustment,
+    confidence: result.confidence,
+    source: result.source,
+    warnings: result.warnings,
+    fallbackUsed: result.fallbackUsed
+  });
   
-  // Detect multiple corruption patterns
-  const corruptionPatterns = [
-    '[object Object]',
-    'undefined',
-    'null',
-    '{}',
-    '[object HTMLElement]',
-    'function',
-    'NaN'
-  ];
-  
-  const hasCorruption = corruptionPatterns.some(pattern => 
-    sulkyType.includes(pattern) || sulkyType === pattern
-  );
-  
-  if (hasCorruption) {
-    console.error('🚨 SULKY DATA CORRUPTION detected:', sulkyType);
-    // Report corruption pattern for analysis
-    console.error('🚨 Corruption pattern analysis:', {
-      originalValue: sulkyType,
-      length: sulkyType.length,
-      containsObject: sulkyType.includes('[object'),
-      containsFunction: sulkyType.includes('function'),
-      isStringified: sulkyType.startsWith('{') || sulkyType.startsWith('[')
+  // Alert on low confidence or fallback usage
+  if (result.confidence === 'low' || result.fallbackUsed) {
+    console.warn('⚠️ EQUIPMENT CALCULATION WARNING:', {
+      sulkyType,
+      issue: result.warnings.join(', '),
+      usingFallback: result.fallbackUsed
     });
-    return 0; // Safe fallback
   }
   
-  const normalizedType = sulkyType.toUpperCase().trim();
-  let adjustment = 0;
-  
-  switch (normalizedType) {
-    case "AM":
-    case "AMERICAN":
-      adjustment = -0.2;
-      console.log('🛷 American sulky detected: -0.2s advantage');
-      break;
-    case "VA":
-    case "VANLIG":
-      adjustment = 0;
-      console.log('🛷 Standard sulky detected: 0s adjustment');
-      break;
-    default:
-      adjustment = 0;
-      console.log('🛷 Unknown sulky type, no adjustment:', normalizedType);
-      console.log('🛷 Valid sulky types: AM/AMERICAN (-0.2s), VA/VANLIG (0s)');
-  }
-  
-  return adjustment;
+  return result.adjustment;
 };
+
+// Export the robust calculation functions for advanced usage
+export { calculateRobustShoeAdjustment, calculateRobustSulkyAdjustment };

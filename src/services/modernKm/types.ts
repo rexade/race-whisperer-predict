@@ -38,6 +38,9 @@ export interface ModernNormalizationFactors {
   horseForm: number;
   startPoints: number;
   placePercentage: number;
+  // Optional fields for debugging
+  horseId?: number;
+  horseName?: string;
   horseWinPercentage: number;
   earningsPerStart: number;
 }
