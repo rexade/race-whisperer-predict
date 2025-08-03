@@ -63,6 +63,15 @@ export const calculateEarningsPerStartAdjustment = (earningsPerStartOre: number)
   const baseline = 3000;
   const adjustment = (baseline - earningsInSek) * 0.00001;
   
-  console.log(`Earnings/Start adjustment: ${earningsInSek.toFixed(0)} SEK (baseline: ${baseline} SEK) → ${adjustment.toFixed(3)}s`);
+  console.log(`💰 Earnings/Start adjustment: ${earningsPerStartOre} öre = ${earningsInSek.toFixed(0)} SEK (baseline: ${baseline} SEK) → ${adjustment.toFixed(3)}s`);
+  
+  // Additional validation logging
+  if (earningsInSek > 10000) {
+    console.warn(`⚠️  High earnings detected: ${earningsInSek} SEK/start - adjustment: ${adjustment.toFixed(3)}s`);
+  }
+  if (earningsInSek < 500) {
+    console.warn(`⚠️  Low earnings detected: ${earningsInSek} SEK/start - adjustment: ${adjustment.toFixed(3)}s`);
+  }
+  
   return adjustment;
 };

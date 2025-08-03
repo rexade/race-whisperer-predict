@@ -40,7 +40,7 @@ export class RaceReanalysisService {
           startPoints: horse.statistics?.startPoints || 500,
           placePercentage: horse.statistics?.placePercentage || 5000,
           horseWinPercentage: horse.statistics?.winPercentage || 1500,
-          earningsPerStart: horse.statistics?.earningsPerStart || 300000
+          earningsPerStart: horse.statistics?.earningsPerStart || 300000 // 3000 SEK in öre
         };
         
         const modernNormalizedResult = applyModernKmNormalization(horse.rawKmTime, factors, weights);

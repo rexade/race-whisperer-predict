@@ -164,6 +164,15 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
         console.log(`Processing horse "${start.horse.name}" (ID: ${start.horse.id}) - Post Position: ${postPos}`);
         console.log(`  Horse distance: ${start.distance || data.distance}m vs Race distance: ${data.distance}m`);
         
+        // Debug earnings data structure 
+        console.log(`💰 Earnings debug for ${start.horse.name}:`, {
+          lifeStatistics: start.horse.statistics?.life,
+          totalEarnings: start.horse.statistics?.life?.earnings,
+          totalStarts: start.horse.statistics?.life?.starts,
+          directEarningsPerStart: start.horse.statistics?.life?.earningsPerStart,
+          hasDirectField: start.horse.statistics?.life?.earningsPerStart !== undefined
+        });
+        
         // Debug driver statistics structure
         console.log(`Driver statistics for ${start.driver.firstName} ${start.driver.lastName}:`, {
           statistics: start.driver.statistics,
@@ -267,10 +276,22 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
           homeTrack: start.horse.homeTrack?.name || "Unknown",
           statistics: {
             startPoints: start.horse.statistics?.life?.startPoints || 0,
-            earningsPerStart: calculateEarningsPerStart(
-              start.horse.statistics?.life?.earnings || 0,
-              start.horse.statistics?.life?.starts || 1
-            ),
+            earningsPerStart: (() => {
+              // Check if API provides earningsPerStart directly
+              const directEarningsPerStart = start.horse.statistics?.life?.earningsPerStart;
+              if (directEarningsPerStart !== undefined && directEarningsPerStart !== null) {
+                // API provides earningsPerStart directly, assume it's in öre
+                console.log(`💰 Using direct API earningsPerStart: ${directEarningsPerStart} öre for ${start.horse.name}`);
+                return directEarningsPerStart;
+              }
+              
+              // Fallback: calculate from total earnings and starts
+              console.log(`💰 Calculating earningsPerStart from totals for ${start.horse.name}`);
+              return calculateEarningsPerStart(
+                start.horse.statistics?.life?.earnings || 0,
+                start.horse.statistics?.life?.starts || 1
+              );
+            })(),
             placePercentage: start.horse.statistics?.life?.placePercentage || 0,
             winPercentage: start.horse.statistics?.life?.winPercentage || 0
           },
@@ -349,7 +370,15 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
 
 const calculateEarningsPerStart = (totalEarnings: number, totalStarts: number): number => {
   if (totalStarts === 0) return 0;
-  return Math.round(totalEarnings / totalStarts);
+  
+  // Calculate earnings per start and convert to öre (Swedish cents)
+  // ATG API provides earnings in SEK, but our calculations expect öre
+  const earningsPerStartSek = totalEarnings / totalStarts;
+  const earningsPerStartOre = Math.round(earningsPerStartSek * 100);
+  
+  console.log(`💰 Earnings calculation: ${totalEarnings} SEK / ${totalStarts} starts = ${earningsPerStartSek.toFixed(0)} SEK/start = ${earningsPerStartOre} öre/start`);
+  
+  return earningsPerStartOre;
 };
 
 // Remove fetchEnhancedStartData function - we only use main race endpoint for horse data
