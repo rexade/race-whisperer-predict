@@ -23,9 +23,9 @@ export const calculatePlacePercentageAdjustment = (placePercentageBasisPoints: n
   const actualPercentage = placePercentageBasisPoints / 100;
   
   // Baseline: 50% place rate = 0 adjustment
-  // Every 10% above/below baseline = -/+ 0.1s
+  // Every 10% above/below baseline = -/+ 0.01s (reduced from 0.1s)
   const baseline = 50;
-  const adjustment = (baseline - actualPercentage) * 0.01;
+  const adjustment = (baseline - actualPercentage) * 0.001;
   
   console.log(`Place % adjustment: ${actualPercentage.toFixed(1)}% (baseline: ${baseline}%) → ${adjustment.toFixed(3)}s`);
   return adjustment;
