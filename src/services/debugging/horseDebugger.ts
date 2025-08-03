@@ -11,12 +11,26 @@ export interface HorseDebugInfo {
 
 export class HorseDebugger {
   private static debugLogs: HorseDebugInfo[] = [];
-  private static targetHorses = ['xander', 'Xander', 'rock solid', 'Rock Solid', 'ROCK SOLID'];
+  private static targetHorses: string[] = [];
+  private static debugAllHorses = true; // Debug all horses by default
 
   static shouldDebugHorse(horseName: string): boolean {
+    // If debugging all horses, always return true
+    if (this.debugAllHorses) return true;
+    
+    // Otherwise check if horse name matches any target
     return this.targetHorses.some(target => 
       horseName.toLowerCase().includes(target.toLowerCase())
     );
+  }
+
+  static setTargetHorses(horses: string[]): void {
+    this.targetHorses = horses;
+    this.debugAllHorses = false;
+  }
+
+  static setDebugAllHorses(debug: boolean): void {
+    this.debugAllHorses = debug;
   }
 
   static log(horseId: number, horseName: string, stage: string, data: any): void {
