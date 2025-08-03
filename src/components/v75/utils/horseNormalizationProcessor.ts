@@ -163,6 +163,17 @@ export const applyHorseNormalization = (
 
   const result = applyModernKmNormalization(rawKmTime, factors, weights);
   
+  // Log modern normalization breakdown
+  if (result) {
+    HorseDebugger.logModernNormalizationBreakdown(
+      horse.horseId, 
+      extractedData.safeHorseName, 
+      rawKmTime, 
+      result.adjustments, 
+      result.modernNormalizedTime
+    );
+  }
+  
   // Mark as from raw data - this will be stored for post-race comparison
   (result as any).isEstimated = false;
   

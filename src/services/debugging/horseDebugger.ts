@@ -101,6 +101,93 @@ export class HorseDebugger {
     }
   }
 
+  static logHistoricalNormalization(horseId: number, horseName: string, originalRace: any, normalizedTime: any): void {
+    if (!this.shouldDebugHorse(horseName)) return;
+
+    console.log(`🐎 [XANDER DEBUG] HISTORICAL_NORMALIZATION_STEP`);
+    console.log(`   Horse: ${horseName} (ID: ${horseId})`);
+    console.log(`   Race Date: ${originalRace.date}`);
+    console.log(`   Distance: ${originalRace.distance}m`);
+    console.log(`   Start Method: ${originalRace.startMethod}`);
+    console.log(`   Original KM Time: ${originalRace.kmTime}`);
+    console.log(`   Normalized to 2140m: ${normalizedTime.minutes}:${normalizedTime.seconds.toString().padStart(2, '0')}.${normalizedTime.tenths}`);
+    
+    this.debugLogs.push({
+      horseId,
+      horseName,
+      stage: 'historical_normalization_step',
+      data: {
+        raceDate: originalRace.date,
+        distance: originalRace.distance,
+        startMethod: originalRace.startMethod,
+        originalKmTime: originalRace.kmTime,
+        normalizedKmTime: normalizedTime,
+        place: originalRace.place,
+        galloped: originalRace.galloped,
+        disqualified: originalRace.disqualified
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  static logValidationStats(horseId: number, horseName: string, stats: any): void {
+    if (!this.shouldDebugHorse(horseName)) return;
+
+    console.log(`🐎 [XANDER DEBUG] VALIDATION_STATISTICS`);
+    console.log(`   Horse: ${horseName} (ID: ${horseId})`);
+    console.log(`   Total Historical Records: ${stats.totalRecords}`);
+    console.log(`   Valid Records: ${stats.validRecords}`);
+    console.log(`   Disqualified: ${stats.disqualified}`);
+    console.log(`   Galloped: ${stats.galloped}`);
+    console.log(`   Missing KM Times: ${stats.missingKmTimes}`);
+    console.log(`   Best 3 Times Used: ${stats.best3TimesUsed}`);
+    
+    this.debugLogs.push({
+      horseId,
+      horseName,
+      stage: 'validation_statistics',
+      data: stats,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  static logModernNormalizationBreakdown(horseId: number, horseName: string, rawTime: any, adjustments: any, finalTime: any): void {
+    if (!this.shouldDebugHorse(horseName)) return;
+
+    console.log(`🐎 [XANDER DEBUG] MODERN_NORMALIZATION_BREAKDOWN`);
+    console.log(`   Horse: ${horseName} (ID: ${horseId})`);
+    console.log(`   Raw KM Time: ${rawTime.minutes}:${rawTime.seconds.toString().padStart(2, '0')}.${rawTime.tenths}`);
+    console.log(`   Total Adjustment: ${adjustments.total?.toFixed(3)}s`);
+    console.log(`   Final Time: ${finalTime.minutes}:${finalTime.seconds.toString().padStart(2, '0')}.${finalTime.tenths}`);
+    
+    this.debugLogs.push({
+      horseId,
+      horseName,
+      stage: 'modern_normalization_breakdown',
+      data: {
+        rawTime,
+        adjustments,
+        finalTime,
+        adjustmentBreakdown: {
+          postPosition: adjustments.postPosition,
+          equipment: adjustments.equipment,
+          driver: adjustments.driver,
+          track: adjustments.track,
+          form: adjustments.form,
+          distance: adjustments.distance,
+          raceDistanceAdjustment: adjustments.raceDistanceAdjustment,
+          raceType: adjustments.raceType,
+          timeOfDay: adjustments.timeOfDay,
+          startPoints: adjustments.startPoints,
+          placePercentage: adjustments.placePercentage,
+          horseWinPercentage: adjustments.horseWinPercentage,
+          earningsPerStart: adjustments.earningsPerStart
+        }
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+
   static logEquipmentData(horseId: number, horseName: string, sulkyType: any, frontShoes: any, backShoes: any): void {
     if (!this.shouldDebugHorse(horseName)) return;
     

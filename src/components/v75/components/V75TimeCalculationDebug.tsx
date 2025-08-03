@@ -1,17 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { V75HorseResult } from '../types/raceResultTypes';
 import { useXanderDebugger } from '../hooks/useXanderDebugger';
 import V75RaceHistoryBreakdown from './V75RaceHistoryBreakdown';
+import { V75HistoricalNormalizationDebug } from './V75HistoricalNormalizationDebug';
+import { V75ModernNormalizationDebug } from './V75ModernNormalizationDebug';
 
 interface V75TimeCalculationDebugProps {
   horse: V75HorseResult;
 }
 
 export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = ({ horse }) => {
-  const { debugLogs } = useXanderDebugger();
+  const { debugLogs, exportDebugReport } = useXanderDebugger();
+  const [activeTab, setActiveTab] = useState('overview');
   
   // Filter logs for this specific horse
   const horseLogs = debugLogs.filter(log => 
@@ -52,12 +57,31 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
   return (
     <Card className="mt-4">
       <CardHeader>
-        <CardTitle className="text-sm flex items-center gap-2">
-          <span>Time Calculation Debug - {horse.horseName}</span>
-          <Badge variant="outline">ID: {horse.horseId}</Badge>
+        <CardTitle className="text-sm flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>Time Calculation Debug - {horse.horseName}</span>
+            <Badge variant="outline">ID: {horse.horseId}</Badge>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportDebugReport}
+            className="text-xs"
+          >
+            Export Debug Report
+          </Button>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="historical">Historical Normalization</TabsTrigger>
+            <TabsTrigger value="modern">Modern Normalization</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="overview" className="space-y-4 mt-4">
         {/* Raw Data Summary */}
         <div>
           <h4 className="font-medium text-sm mb-2">Data Processing Summary</h4>
@@ -145,29 +169,42 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
           </>
         )}
 
-        {/* Debug Logs Summary */}
-        {horseLogs.length > 0 && (
-          <>
-            <Separator />
-            <div>
-              <h4 className="font-medium text-sm mb-2">Debug Activity</h4>
-              <div className="space-y-1">
-                {horseLogs.slice(-5).map((log, index) => (
-                  <div key={index} className="text-xs p-2 bg-muted/50 rounded">
-                    <div className="flex justify-between items-center">
-                      <Badge variant="outline" className="text-xs">
-                        {log.stage.replace(/_/g, ' ')}
-                      </Badge>
-                      <span className="text-muted-foreground">
-                        {new Date(log.timestamp).toLocaleTimeString()}
-                      </span>
-                    </div>
+            {/* Debug Logs Summary */}
+            {horseLogs.length > 0 && (
+              <>
+                <Separator />
+                <div>
+                  <h4 className="font-medium text-sm mb-2">Recent Debug Activity</h4>
+                  <div className="space-y-1">
+                    {horseLogs.slice(-5).map((log, index) => (
+                      <div key={index} className="text-xs p-2 bg-muted/50 rounded">
+                        <div className="flex justify-between items-center">
+                          <Badge variant="outline" className="text-xs">
+                            {log.stage.replace(/_/g, ' ')}
+                          </Badge>
+                          <span className="text-muted-foreground">
+                            {new Date(log.timestamp).toLocaleTimeString()}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
+                </div>
+              </>
+            )}
+
+          </TabsContent>
+          
+          <TabsContent value="historical">
+            <V75HistoricalNormalizationDebug horse={horse} />
+          </TabsContent>
+          
+          <TabsContent value="modern">
+            <V75ModernNormalizationDebug horse={horse} />
+          </TabsContent>
+          
+        </Tabs>
+        
       </CardContent>
     </Card>
   );

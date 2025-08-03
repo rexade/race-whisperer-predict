@@ -29,27 +29,38 @@ export const processHorseKmTimes = async (
   historicalRaces: ATGHistoricalRace[]
 ): Promise<HorseRawKmTime> => {
   const processedTimes: ProcessedKmTime[] = [];
+  let totalRecords = historicalRaces.length;
+  let validRecords = 0;
+  let disqualified = 0;
+  let galloped = 0;
+  let missingKmTimes = 0;
 
   console.log(`\n=== Processing KM times for ${horseName} (ID: ${horseId}) ===`);
   console.log(`Found ${historicalRaces.length} historical races to process`);
   
-  HorseDebugger.log(horseId, horseName, 'START_KM_PROCESSING', {
-    historicalRacesCount: historicalRaces.length,
-    sampleRace: historicalRaces[0] || null
-  });
+  HorseDebugger.logHistoricalData(horseId, horseName, historicalRaces);
 
   for (const race of historicalRaces) {
     // Validate and debug each race
     const raceValidation = DataValidator.validateKmTime(race.kmTime, `${horseName} race ${race.date}`);
     
-    // Skip if no time recorded or horse was disqualified/galloped
-    if (!race.kmTime || race.disqualified || race.galloped) {
-      console.log(`Skipping race ${race.date} - disqualified: ${race.disqualified}, galloped: ${race.galloped}`);
-      HorseDebugger.log(horseId, horseName, 'RACE_SKIPPED', {
-        date: race.date,
-        reason: !race.kmTime ? 'NO_KM_TIME' : race.disqualified ? 'DISQUALIFIED' : 'GALLOPED',
-        raceData: race
-      });
+    // Track validation statistics
+    if (!race.kmTime) {
+      missingKmTimes++;
+      console.log(`Skipping race ${race.date} - no km time`);
+      continue;
+    }
+
+    // Skip disqualified or galloped races
+    if (race.disqualified) {
+      disqualified++;
+      console.log(`Skipping race ${race.date} - disqualified`);
+      continue;
+    }
+    
+    if (race.galloped) {
+      galloped++;
+      console.log(`Skipping race ${race.date} - galloped`);
       continue;
     }
     
@@ -75,18 +86,16 @@ export const processHorseKmTimes = async (
 
       console.log(`${race.date}: ${originalKmTime.minutes}:${originalKmTime.seconds.toString().padStart(2, '0')}.${originalKmTime.tenths} → ${normalizedKmTime.minutes}:${normalizedKmTime.seconds.toString().padStart(2, '0')}.${normalizedKmTime.tenths} (${race.distance}m ${race.startMethod}, place ${race.finishOrder})`);
 
-      HorseDebugger.logNormalizationStep(horseId, horseName, `RACE_${race.date}`, 
-        { 
-          original: originalKmTime, 
-          distance: race.distance, 
-          startMethod: race.startMethod 
-        },
-        { 
-          normalized: normalizedKmTime,
-          timeDifference: (normalizedKmTime.minutes * 60 + normalizedKmTime.seconds + normalizedKmTime.tenths / 10) - 
-                         (originalKmTime.minutes * 60 + originalKmTime.seconds + originalKmTime.tenths / 10)
-        }
-      );
+      // Log each historical normalization step
+      HorseDebugger.logHistoricalNormalization(horseId, horseName, {
+        date: race.date,
+        distance: race.distance,
+        startMethod: race.startMethod,
+        kmTime: `${originalKmTime.minutes}:${originalKmTime.seconds.toString().padStart(2, '0')}.${originalKmTime.tenths}`,
+        place: race.finishOrder,
+        galloped: race.galloped,
+        disqualified: race.disqualified
+      }, normalizedKmTime);
 
       processedTimes.push({
         originalTime: originalKmTime,
@@ -98,6 +107,7 @@ export const processHorseKmTimes = async (
         valid: true
       });
       
+      validRecords++;
     } catch (error) {
       console.error(`Error processing race ${race.date} for ${horseName}:`, error);
       continue;
@@ -129,6 +139,17 @@ export const processHorseKmTimes = async (
     
     best3Average = { minutes, seconds, tenths };
   }
+
+  // Log validation statistics
+  const validationStats = {
+    totalRecords,
+    validRecords,
+    disqualified,
+    galloped,
+    missingKmTimes,
+    best3TimesUsed: Math.min(3, validRecords)
+  };
+  HorseDebugger.logValidationStats(horseId, horseName, validationStats);
 
   console.log(`Processed ${processedTimes.length} valid times for ${horseName}`);
   if (best3Times.length > 0) {
