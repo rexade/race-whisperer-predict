@@ -25,16 +25,11 @@ function App() {
             </div>
           </header>
           <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
-            {/* Debug: Testing tab visibility */}
-            <div className="bg-red-500 text-white p-4 mb-4 rounded">
-              DEBUGGING: Can you see this red box? If yes, tabs should appear below.
-            </div>
-            
             <Tabs defaultValue="v75" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-6 bg-blue-500 p-2 rounded">
-                <TabsTrigger value="v75" className="bg-white text-black">V75 Analyzer</TabsTrigger>
-                <TabsTrigger value="modern" className="bg-white text-black">Modern KM Analyzer</TabsTrigger>
-                <TabsTrigger value="enhanced" className="bg-white text-black">Enhanced Control</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3 mb-6">
+                <TabsTrigger value="v75">V75 Analyzer</TabsTrigger>
+                <TabsTrigger value="modern">Modern KM Analyzer</TabsTrigger>
+                <TabsTrigger value="enhanced">Enhanced Control</TabsTrigger>
               </TabsList>
               <TabsContent value="v75">
                 <V75Analyzer />
