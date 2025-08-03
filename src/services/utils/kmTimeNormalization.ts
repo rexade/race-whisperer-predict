@@ -39,11 +39,11 @@ export const normalizeKmTimeSimplified = (
   const referenceDistance = 2140;
   const distanceAdjustmentSeconds = calculateNonLinearDistanceAdjustmentSeconds(distance, referenceDistance);
   
-  // Apply the adjustment: SUBTRACT because the function already handles the direction
-  normalizedTime = subtractSecondsFromKmTime(normalizedTime, distanceAdjustmentSeconds);
+  // Apply the adjustment: ADD because positive adjustment means slower time
+  normalizedTime = addSecondsToKmTime(normalizedTime, distanceAdjustmentSeconds);
   
   console.log(`Non-linear distance adjustment: ${distance}m → 2140m reference`);
-  console.log(`  Applied adjustment: SUBTRACT ${distanceAdjustmentSeconds.toFixed(3)}s`);
+  console.log(`  Applied adjustment: ADD ${distanceAdjustmentSeconds.toFixed(3)}s`);
   console.log(`After distance adjustment: ${normalizedTime.minutes}:${normalizedTime.seconds.toString().padStart(2, '0')}.${normalizedTime.tenths}`);
   
   // Step 2: Check for volte start method (case-insensitive and check for volte variations)

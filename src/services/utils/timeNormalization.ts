@@ -46,14 +46,14 @@ export const normalizeTimeSimplified = (
   const referenceDistance = 2140; // Our reference point
   const distanceAdjustment = calculateNonLinearDistanceAdjustment(distance, referenceDistance);
   
-  // Subtract the adjustment because:
-  // - If race is shorter than 2140m (negative difference), we add time (make it slower)
-  // - If race is longer than 2140m (positive difference), we subtract time (make it faster)
-  normalizedTime -= distanceAdjustment;
+  // Add the adjustment because:
+  // - If race is shorter than 2140m (positive adjustment), we add time (make it slower)
+  // - If race is longer than 2140m (negative adjustment), we subtract time (make it faster)
+  normalizedTime += distanceAdjustment;
   
   if (isDebugMode) {
     console.log(`🧮 Non-linear distance calculation: ${distance}m to 2140m = ${distanceAdjustment.toFixed(3)}s`);
-    console.log(`🧮 After distance adjustment: ${timeSeconds} - ${distanceAdjustment.toFixed(3)} = ${normalizedTime.toFixed(3)}s`);
+    console.log(`🧮 After distance adjustment: ${timeSeconds} + ${distanceAdjustment.toFixed(3)} = ${normalizedTime.toFixed(3)}s`);
   }
   
   // Step 2: If volte start, subtract 1 second (normalize to auto)
