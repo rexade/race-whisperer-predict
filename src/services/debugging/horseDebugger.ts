@@ -61,6 +61,19 @@ export class HorseDebugger {
         });
       });
     }
+
+    // Store the debug log entry for UI consumption
+    this.debugLogs.push({
+      horseId,
+      horseName,
+      stage: 'HISTORICAL_DATA_RECEIVED',
+      data: {
+        length: records?.length || 0,
+        records: records || [],
+        sampleRecord: records && records.length > 0 ? records[0] : null
+      },
+      timestamp: new Date().toISOString()
+    });
   }
 
   static logProcessedTimes(horseId: number, horseName: string, processedTimes: any[], best3Average: KmTime): void {
