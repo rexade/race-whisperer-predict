@@ -116,6 +116,7 @@ export const applyHorseNormalization = (
       shoesBack: correctedEquipment.backShoes,
       sulkyType: correctedEquipment.sulkyType,
       homeTrack: extractedData.safeHorseTrack,
+      raceTrack: race.track || "Unknown",
       driverExperience: horse.driver.experience,
       driverWinPercentage: horse.driver.winPercentage,
       horseForm: horse.statistics.winPercentage,
@@ -147,6 +148,7 @@ export const applyHorseNormalization = (
     shoesBack: correctedEquipment.backShoes,
     sulkyType: correctedEquipment.sulkyType,
     homeTrack: extractedData.safeHorseTrack,
+    raceTrack: race.track || "Unknown",
     driverExperience: horse.driver.experience,
     driverWinPercentage: horse.driver.winPercentage,
     

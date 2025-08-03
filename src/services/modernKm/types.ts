@@ -32,6 +32,7 @@ export interface ModernNormalizationFactors {
   shoesBack: string;
   sulkyType: string;
   homeTrack: string;
+  raceTrack: string;
   driverExperience: number;
   driverWinPercentage: number;
   horseForm: number;

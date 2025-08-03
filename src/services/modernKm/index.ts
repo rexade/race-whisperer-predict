@@ -82,7 +82,7 @@ export const applyModernKmNormalization = (
   
   adjustments.track = calculateTrackFamiliarityAdjustment(
     factors.homeTrack,
-    "UNKNOWN" // TODO: Get actual race track from race data
+    factors.raceTrack
   ) * weights.trackFamiliarity;
   
   adjustments.form = 0 * weights.form; // Placeholder

@@ -112,7 +112,7 @@ export const calculatePreview = (
     description: `Race distance: ${factors.raceDistance}m from 2140m baseline`
   });
 
-  const trackFamiliarityRaw = calculateTrackFamiliarityAdjustment(factors.homeTrack, "UNKNOWN");
+  const trackFamiliarityRaw = calculateTrackFamiliarityAdjustment(factors.homeTrack, factors.raceTrack);
   const trackFamiliarityWeighted = trackFamiliarityRaw * weights.trackFamiliarity;
   contributions.push({
     factor: 'trackFamiliarity',
@@ -120,7 +120,7 @@ export const calculatePreview = (
     weightedAdjustment: trackFamiliarityWeighted,
     weight: weights.trackFamiliarity,
     impactLevel: getImpactLevel(Math.abs(trackFamiliarityWeighted)),
-    description: `Track familiarity: ${factors.homeTrack}`
+    description: `Track familiarity: ${factors.homeTrack} vs ${factors.raceTrack}`
   });
 
   const volteRaw = calculateVolteStartDistancePenalty(
@@ -223,6 +223,7 @@ export const getSampleFactors = (): ModernNormalizationFactors => ({
   shoesBack: '1',
   sulkyType: 'VA',
   homeTrack: 'Solvalla',
+  raceTrack: 'Solvalla',
   driverExperience: 10,
   driverWinPercentage: 18,
   horseForm: 3,

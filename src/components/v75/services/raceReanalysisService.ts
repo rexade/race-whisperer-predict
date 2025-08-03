@@ -33,6 +33,7 @@ export class RaceReanalysisService {
           shoesBack: horse.shoesBack ? "1" : "0",
           sulkyType: horse.sulkyType || "VA",
           homeTrack: horse.homeTrack || "Unknown",
+          raceTrack: race.track || "Unknown",
           driverExperience: 0,
           driverWinPercentage: horse.driver2025WinPercentage || 0,
           horseForm: horse.statistics?.winPercentage || 0,
