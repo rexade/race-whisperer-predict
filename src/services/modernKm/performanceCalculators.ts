@@ -41,9 +41,9 @@ export const calculateHorseWinPercentageAdjustment = (winPercentageBasisPoints: 
   const actualPercentage = winPercentageBasisPoints / 100;
   
   // Baseline: 15% win rate = 0 adjustment
-  // Every 5% above/below baseline = -/+ 0.15s
+  // Every 5% above/below baseline = -/+ 0.075s (halved from 0.15s)
   const baseline = 15;
-  const adjustment = (baseline - actualPercentage) * 0.03;
+  const adjustment = (baseline - actualPercentage) * 0.015;
   
   console.log(`Horse Win % adjustment: ${actualPercentage.toFixed(1)}% (baseline: ${baseline}%) → ${adjustment.toFixed(3)}s`);
   return adjustment;
