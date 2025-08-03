@@ -36,6 +36,7 @@ export const applyModernKmNormalization = (
   factors: ModernNormalizationFactors,
   weights: NormalizationWeights = DEFAULT_WEIGHTS
 ): ModernKmNormalizedResult => {
+  console.log(`🚀 [MODERN NORMALIZATION] Starting for ${factors.horseName || 'Unknown Horse'} - Driver: ${factors.driverWinPercentage}%`);
   console.log(`\n=== Enhanced Modern KM Normalization ===`);
   console.log(`RAW Time: ${rawKmTime.minutes}:${rawKmTime.seconds.toString().padStart(2, '0')}.${rawKmTime.tenths}`);
   console.log(`Race Distance: ${factors.raceDistance}m`);
