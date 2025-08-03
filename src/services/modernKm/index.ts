@@ -96,7 +96,9 @@ export const applyModernKmNormalization = (
   adjustments.timeOfDay = 0; // Removed - not needed
   
   adjustments.volteStartDistancePenalty = calculateVolteStartDistancePenalty(
-    factors.startMethod
+    factors.startMethod,
+    factors.distance,
+    factors.raceDistance
   ) * weights.volteStartDistancePenalty;
   
   // STEP 4: Baseline performance adjustments

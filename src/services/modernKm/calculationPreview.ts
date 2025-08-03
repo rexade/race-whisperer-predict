@@ -123,7 +123,11 @@ export const calculatePreview = (
     description: `Track familiarity: ${factors.homeTrack}`
   });
 
-  const volteRaw = calculateVolteStartDistancePenalty(factors.startMethod);
+  const volteRaw = calculateVolteStartDistancePenalty(
+    factors.startMethod,
+    factors.distance,
+    factors.raceDistance
+  );
   const volteWeighted = volteRaw * weights.volteStartDistancePenalty;
   contributions.push({
     factor: 'volteStart',
@@ -131,7 +135,7 @@ export const calculatePreview = (
     weightedAdjustment: volteWeighted,
     weight: weights.volteStartDistancePenalty,
     impactLevel: getImpactLevel(Math.abs(volteWeighted)),
-    description: `Volte start penalty: ${factors.startMethod}`
+    description: `Volte start: ${factors.startMethod} (${factors.distance}m vs ${factors.raceDistance}m)`
   });
 
   const startPointsRaw = calculateStartPointsAdjustment(factors.startPoints);

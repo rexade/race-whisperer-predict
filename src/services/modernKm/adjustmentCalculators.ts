@@ -80,17 +80,27 @@ export const calculateTrackFamiliarityAdjustment = (
 };
 
 /**
- * Calculate volte start distance penalty - simplified logic for all volte starts
+ * Calculate volte start distance penalty - only for horses with longer distance than race
  */
-export const calculateVolteStartDistancePenalty = (startMethod: string): number => {
+export const calculateVolteStartDistancePenalty = (
+  startMethod: string,
+  horseDistance: number,
+  raceDistance: number
+): number => {
   // Only apply penalty for volte start races
   if (!startMethod || !startMethod.toLowerCase().includes('volte')) {
     console.log(`Volte start penalty: Not a volte start (${startMethod || 'unknown'}) → 0.000s`);
     return 0;
   }
   
-  // Apply fixed penalty for all volte starts (inherently more difficult)
+  // Only apply penalty if horse has longer distance than race
+  if (horseDistance <= raceDistance) {
+    console.log(`Volte start penalty: Horse distance ${horseDistance}m ≤ race distance ${raceDistance}m → 0.000s`);
+    return 0;
+  }
+  
+  // Apply penalty for volte starts with longer horse distance
   const penalty = 0.4;
-  console.log(`Volte start penalty: Volte start detected (${startMethod}) → +${penalty.toFixed(3)}s`);
+  console.log(`Volte start penalty: Volte start with longer distance (${horseDistance}m > ${raceDistance}m) → +${penalty.toFixed(3)}s`);
   return penalty;
 };
