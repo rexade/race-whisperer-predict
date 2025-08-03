@@ -26,21 +26,30 @@ export const calculateRaceDistanceAdjustment = (raceDistance: number): number =>
   
   // Calculate adjustment from 2140m reference TO actual race distance using non-linear rates
   let adjustment = 0;
+  const distanceDifferenceM = Math.abs(raceDistance - referenceDistance);
+  const distanceDifferenceKm = distanceDifferenceM / 1000;
+  
+  console.log(`\n--- Race Distance Adjustment Calculation ---`);
+  console.log(`Reference distance: ${referenceDistance}m`);
+  console.log(`Actual race distance: ${raceDistance}m`);
+  console.log(`Distance difference: ${distanceDifferenceM}m (${distanceDifferenceKm.toFixed(3)}km)`);
   
   if (raceDistance < referenceDistance) {
     // Shorter distances: use 3.2s per 1000m rate
     // When going FROM 2140m TO shorter distance, we need to subtract time
-    const distanceDifferenceKm = (referenceDistance - raceDistance) / 1000;
     adjustment = -(distanceDifferenceKm * 3.2);
+    console.log(`Shorter distance rate: 3.2s per 1000m`);
+    console.log(`Calculation: -(${distanceDifferenceKm.toFixed(3)} km × 3.2) = ${adjustment.toFixed(3)}s`);
   } else {
     // Longer distances: use 2.0s per 1000m rate
     // When going FROM 2140m TO longer distance, we need to add time
-    const distanceDifferenceKm = (raceDistance - referenceDistance) / 1000;
     adjustment = distanceDifferenceKm * 2.0;
+    console.log(`Longer distance rate: 2.0s per 1000m`);
+    console.log(`Calculation: ${distanceDifferenceKm.toFixed(3)} km × 2.0 = ${adjustment.toFixed(3)}s`);
   }
   
-  console.log(`Non-linear race distance adjustment: ${referenceDistance}m → ${raceDistance}m`);
-  console.log(`   Adjustment: ${adjustment.toFixed(3)}s`);
+  console.log(`Final race distance adjustment: ${adjustment.toFixed(3)}s`);
+  console.log(`--- End Race Distance Adjustment ---\n`);
   
   return adjustment;
 };
