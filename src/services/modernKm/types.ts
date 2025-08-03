@@ -14,6 +14,7 @@ export interface ModernKmNormalizedResult {
     raceDistanceAdjustment: number;
     raceType: number;
     timeOfDay: number;
+    volteStartDistancePenalty: number;
     startPoints: number;
     placePercentage: number;
     horseWinPercentage: number;
@@ -53,6 +54,7 @@ export interface NormalizationWeights {
   raceDistanceAdjustment: number;
   raceType: number;
   timeOfDay: number;
+  volteStartDistancePenalty: number;
   startPoints: number;
   placePercentage: number;
   horseWinPercentage: number;
@@ -70,6 +72,7 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   raceDistanceAdjustment: 1.0,
   raceType: 0.9,
   timeOfDay: 0.5,
+  volteStartDistancePenalty: 1.0,
   startPoints: 0.8,
   placePercentage: 0.9,
   horseWinPercentage: 1.0,

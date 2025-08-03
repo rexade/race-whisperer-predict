@@ -19,7 +19,8 @@ import {
   calculateDistanceAdjustment,
   calculateRaceDistanceAdjustment,
   calculateRaceTypeAdjustment,
-  calculateTimeOfDayAdjustment
+  calculateTimeOfDayAdjustment,
+  calculateVolteStartDistancePenalty
 } from './adjustmentCalculators';
 
 /**
@@ -45,6 +46,7 @@ export const applyModernKmNormalization = (
     raceDistanceAdjustment: 0,
     raceType: 0,
     timeOfDay: 0,
+    volteStartDistancePenalty: 0,
     startPoints: 0,
     placePercentage: 0,
     horseWinPercentage: 0,
@@ -95,6 +97,12 @@ export const applyModernKmNormalization = (
     factors.timeOfDay || ""
   ) * weights.timeOfDay;
   
+  adjustments.volteStartDistancePenalty = calculateVolteStartDistancePenalty(
+    factors.distance,
+    factors.raceDistance,
+    factors.startMethod
+  ) * weights.volteStartDistancePenalty;
+  
   // STEP 4: Baseline performance adjustments
   adjustments.startPoints = calculateStartPointsAdjustment(factors.startPoints) * weights.startPoints;
   adjustments.placePercentage = calculatePlacePercentageAdjustment(factors.placePercentage) * weights.placePercentage;
@@ -117,6 +125,7 @@ export const applyModernKmNormalization = (
   console.log(`  Race Distance Adjustment (${factors.raceDistance}m): ${adjustments.raceDistanceAdjustment.toFixed(3)}s`);
   console.log(`  Race Type: ${adjustments.raceType.toFixed(3)}s`);
   console.log(`  Time of Day: ${adjustments.timeOfDay.toFixed(3)}s`);
+  console.log(`  Volte Start Distance Penalty: ${adjustments.volteStartDistancePenalty.toFixed(3)}s`);
   console.log(`  Start Points: ${adjustments.startPoints.toFixed(3)}s`);
   console.log(`  Place %: ${adjustments.placePercentage.toFixed(3)}s`);
   console.log(`  Horse Win %: ${adjustments.horseWinPercentage.toFixed(3)}s`);

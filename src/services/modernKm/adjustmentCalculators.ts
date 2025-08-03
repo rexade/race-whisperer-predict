@@ -115,3 +115,27 @@ export const calculateTimeOfDayAdjustment = (timeOfDay: string): number => {
   console.log(`Time of day adjustment: ${timeOfDay} (${period}, hour ${hour}) → ${adjustment.toFixed(3)}s`);
   return adjustment;
 };
+
+/**
+ * Calculate volte start distance penalty for horses starting at different distance than race distance
+ */
+export const calculateVolteStartDistancePenalty = (
+  horseDistance: number, 
+  raceDistance: number, 
+  startMethod: string
+): number => {
+  // Only apply penalty for volte start races
+  if (!startMethod || !startMethod.toLowerCase().includes('volte')) {
+    return 0;
+  }
+  
+  // Check if horse starts at different distance than race distance
+  if (horseDistance !== raceDistance) {
+    const penalty = 0.4; // Fixed 0.4s penalty for volte start distance mismatch
+    console.log(`Volte start distance penalty: Horse ${horseDistance}m vs Race ${raceDistance}m in ${startMethod} → +${penalty.toFixed(3)}s`);
+    return penalty;
+  }
+  
+  console.log(`Volte start distance penalty: Horse ${horseDistance}m = Race ${raceDistance}m in ${startMethod} → 0.000s`);
+  return 0;
+};

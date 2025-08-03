@@ -38,6 +38,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
     { key: 'raceDistanceAdjustment' as keyof NormalizationWeights, label: 'Race Distance Adjustment', description: 'Non-linear normalization from 2140m reference to actual race distance' },
     { key: 'raceType' as keyof NormalizationWeights, label: 'Race Type', description: 'Stakes, maiden, claiming race adjustments' },
     { key: 'timeOfDay' as keyof NormalizationWeights, label: 'Time of Day', description: 'Morning, afternoon, evening race adjustments' },
+    { key: 'volteStartDistancePenalty' as keyof NormalizationWeights, label: 'Volte Start Distance Penalty', description: 'Penalty for horses starting at different distance in volte races' },
     { key: 'startPoints' as keyof NormalizationWeights, label: 'Start Points', description: 'Horse form based on start points' },
     { key: 'placePercentage' as keyof NormalizationWeights, label: 'Place Percentage', description: 'Horse consistency in placing' },
     { key: 'horseWinPercentage' as keyof NormalizationWeights, label: 'Horse Win Percentage', description: 'Horse quality and ability' },
@@ -86,7 +87,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
                   <div>
                     <Label className="font-medium flex items-center gap-2">
                       {factor.label}
-                      {['startPoints', 'placePercentage', 'horseWinPercentage', 'earningsPerStart', 'raceDistanceAdjustment'].includes(factor.key) && (
+                      {['startPoints', 'placePercentage', 'horseWinPercentage', 'earningsPerStart', 'raceDistanceAdjustment', 'volteStartDistancePenalty'].includes(factor.key) && (
                         <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">NEW</Badge>
                       )}
                     </Label>
