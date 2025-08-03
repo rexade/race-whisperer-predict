@@ -2,7 +2,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import V75Analyzer from './components/V75Analyzer';
-import { ModernAnalyzer } from './components/ModernAnalyzer';
 import { EnhancedModernAnalyzer } from './components/modernAnalyzer/EnhancedModernAnalyzer';
 import DebugErrorBoundary from './components/DebugErrorBoundary';
 import { Toaster } from './components/ui/toaster';
@@ -26,16 +25,12 @@ function App() {
           </header>
           <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
             <Tabs defaultValue="v75" className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-6">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="v75">V75 Analyzer</TabsTrigger>
-                <TabsTrigger value="modern">Modern KM Analyzer</TabsTrigger>
                 <TabsTrigger value="enhanced">Enhanced Control</TabsTrigger>
               </TabsList>
               <TabsContent value="v75">
                 <V75Analyzer />
-              </TabsContent>
-              <TabsContent value="modern">
-                <ModernAnalyzer />
               </TabsContent>
               <TabsContent value="enhanced">
                 <EnhancedModernAnalyzer />
