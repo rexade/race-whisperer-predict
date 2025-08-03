@@ -2,8 +2,27 @@
 import { KmTime, addSecondsToKmTime, subtractSecondsFromKmTime, kmTimeToSeconds } from './kmTimeUtils';
 
 /**
+ * Non-linear distance adjustment calculation for 2140m reference:
+ * - 1640m to 2140m: 1.6s total difference (3.2s per 1000m rate)
+ * - 2140m to 2640m: 1.0s total difference (2.0s per 1000m rate)
+ */
+const calculateNonLinearDistanceAdjustmentSeconds = (distance: number, referenceDistance: number): number => {
+  if (distance === referenceDistance) return 0;
+  
+  if (distance < referenceDistance) {
+    // Shorter distances: use 3.2s per 1000m rate
+    const distanceDifferenceKm = (referenceDistance - distance) / 1000;
+    return distanceDifferenceKm * 3.2; // Add time for shorter distances
+  } else {
+    // Longer distances: use 2.0s per 1000m rate  
+    const distanceDifferenceKm = (distance - referenceDistance) / 1000;
+    return -(distanceDifferenceKm * 2.0); // Subtract time for longer distances
+  }
+};
+
+/**
  * Normalization formula with 2140m as reference point working directly with KM times:
- * 1. Apply distance-based adjustments to normalize to 2140m
+ * 1. Apply non-linear distance-based adjustments to normalize to 2140m
  * 2. If volte start: subtract 1 second (volte starts are faster than auto starts)
  */
 export const normalizeKmTimeSimplified = (
@@ -16,23 +35,14 @@ export const normalizeKmTimeSimplified = (
   
   let normalizedTime = { ...kmTime };
   
-  // Step 1: Apply distance-based adjustments to normalize to 2140m
+  // Step 1: Apply non-linear distance-based adjustments to normalize to 2140m
   const referenceDistance = 2140;
-  const distanceDifferenceM = distance - referenceDistance; // e.g., 1640 - 2140 = -500m
+  const distanceAdjustmentSeconds = calculateNonLinearDistanceAdjustmentSeconds(distance, referenceDistance);
   
-  // Formula: 2.7 seconds per 1000m difference
-  // If race is SHORTER than 2140m (negative difference), ADD time (make it slower)
-  // If race is LONGER than 2140m (positive difference), SUBTRACT time (make it faster)
-  const distanceAdjustmentSeconds = (distanceDifferenceM / 1000) * 2.7;
-  
-  // Apply the adjustment: SUBTRACT because we want opposite effect
-  // Shorter races (negative diff) → negative adjustment → subtracting negative = ADDING time ✓
-  // Longer races (positive diff) → positive adjustment → subtracting positive = SUBTRACTING time ✓
+  // Apply the adjustment: SUBTRACT because the function already handles the direction
   normalizedTime = subtractSecondsFromKmTime(normalizedTime, distanceAdjustmentSeconds);
   
-  console.log(`Distance adjustment: ${distance}m → 2140m reference`);
-  console.log(`  Distance difference: ${distanceDifferenceM}m`);
-  console.log(`  Adjustment calculation: (${distanceDifferenceM}/1000) × 2.7 = ${distanceAdjustmentSeconds.toFixed(3)}s`);
+  console.log(`Non-linear distance adjustment: ${distance}m → 2140m reference`);
   console.log(`  Applied adjustment: SUBTRACT ${distanceAdjustmentSeconds.toFixed(3)}s`);
   console.log(`After distance adjustment: ${normalizedTime.minutes}:${normalizedTime.seconds.toString().padStart(2, '0')}.${normalizedTime.tenths}`);
   

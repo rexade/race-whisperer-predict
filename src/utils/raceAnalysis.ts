@@ -24,13 +24,30 @@ export interface RaceData {
 }
 
 /**
+ * Non-linear distance adjustment calculation for 2140m reference:
+ * - 1640m to 2140m: 1.6s total difference (3.2s per 1000m rate)
+ * - 2140m to 2640m: 1.0s total difference (2.0s per 1000m rate)
+ */
+const calculateNonLinearDistanceAdjustment = (distance: number, referenceDistance: number): number => {
+  if (distance === referenceDistance) return 0;
+  
+  if (distance < referenceDistance) {
+    // Shorter distances: use 3.2s per 1000m rate
+    const distanceDifferenceKm = (referenceDistance - distance) / 1000;
+    return distanceDifferenceKm * 3.2; // Add time for shorter distances
+  } else {
+    // Longer distances: use 2.0s per 1000m rate  
+    const distanceDifferenceKm = (distance - referenceDistance) / 1000;
+    return -(distanceDifferenceKm * 2.0); // Subtract time for longer distances
+  }
+};
+
+/**
  * Normalization formula with 2140m as reference point:
  * 1. Convert all times to seconds
- * 2. Apply distance-based adjustments to normalize to 2140m:
- *    - Distance difference in km × 2.7 seconds per km
- *    - 1640m: Add 1.35s (shorter distance, so slower normalized time)
- *    - 2140m: No adjustment (reference distance)
- *    - 2640m: Subtract 1.35s (longer distance, so faster normalized time)
+ * 2. Apply non-linear distance-based adjustments to normalize to 2140m:
+ *    - 1640m to 2140m: 3.2 seconds per 1000m (1.6s total difference)
+ *    - 2140m to 2640m: 2.0 seconds per 1000m (1.0s total difference)
  * 3. If volte start: subtract 1 second (normalize to auto)
  */
 export const normalizeTimeSimplified = (
@@ -40,10 +57,9 @@ export const normalizeTimeSimplified = (
 ): number => {
   let normalizedTime = timeSeconds;
   
-  // Step 1: Apply distance-based adjustments to normalize to 2140m
+  // Step 1: Apply non-linear distance-based adjustments to normalize to 2140m
   const referenceDistance = 2140; // Our reference point
-  const distanceDifferenceKm = (distance - referenceDistance) / 1000;
-  const distanceAdjustment = distanceDifferenceKm * 2.7;
+  const distanceAdjustment = calculateNonLinearDistanceAdjustment(distance, referenceDistance);
   
   // Subtract the adjustment because:
   // - If race is shorter than 2140m (negative difference), we add time (make it slower)

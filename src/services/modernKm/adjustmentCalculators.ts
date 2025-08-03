@@ -13,7 +13,7 @@ export const calculateDistanceAdjustment = (horseDistance: number, raceDistance:
 };
 
 /**
- * Calculate race distance adjustment FROM 2140m reference TO actual race distance
+ * Calculate non-linear race distance adjustment FROM 2140m reference TO actual race distance
  * RAW times are normalized to 2140m reference, so we need to adjust TO the actual race distance
  */
 export const calculateRaceDistanceAdjustment = (raceDistance: number): number => {
@@ -24,13 +24,23 @@ export const calculateRaceDistanceAdjustment = (raceDistance: number): number =>
     return 0;
   }
   
-  // Calculate adjustment from 2140m reference TO actual race distance
-  // Using same formula as timeNormalization.ts: distance difference in km × 2.7 seconds per km
-  const distanceDifferenceKm = (raceDistance - referenceDistance) / 1000;
-  const adjustment = distanceDifferenceKm * 2.7;
+  // Calculate adjustment from 2140m reference TO actual race distance using non-linear rates
+  let adjustment = 0;
   
-  console.log(`Race distance adjustment: ${referenceDistance}m → ${raceDistance}m`);
-  console.log(`   Distance difference: ${distanceDifferenceKm.toFixed(3)}km × 2.7 = ${adjustment.toFixed(3)}s`);
+  if (raceDistance < referenceDistance) {
+    // Shorter distances: use 3.2s per 1000m rate
+    // When going FROM 2140m TO shorter distance, we need to subtract time
+    const distanceDifferenceKm = (referenceDistance - raceDistance) / 1000;
+    adjustment = -(distanceDifferenceKm * 3.2);
+  } else {
+    // Longer distances: use 2.0s per 1000m rate
+    // When going FROM 2140m TO longer distance, we need to add time
+    const distanceDifferenceKm = (raceDistance - referenceDistance) / 1000;
+    adjustment = distanceDifferenceKm * 2.0;
+  }
+  
+  console.log(`Non-linear race distance adjustment: ${referenceDistance}m → ${raceDistance}m`);
+  console.log(`   Adjustment: ${adjustment.toFixed(3)}s`);
   
   return adjustment;
 };
