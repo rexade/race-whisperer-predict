@@ -46,9 +46,14 @@ export const useXanderDebugger = () => {
     };
   };
 
+  const getLiveDebugLogs = () => {
+    return HorseDebugger.getDebugLogs();
+  };
+
   return {
     isDebugging,
     debugLogs,
+    getLiveDebugLogs,
     startDebugging,
     stopDebugging,
     exportDebugReport,

@@ -15,11 +15,11 @@ interface V75TimeCalculationDebugProps {
 }
 
 export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = ({ horse }) => {
-  const { debugLogs, exportDebugReport } = useXanderDebugger();
+  const { getLiveDebugLogs, exportDebugReport } = useXanderDebugger();
   const [activeTab, setActiveTab] = useState('overview');
   
-  // Filter logs for this specific horse
-  const horseLogs = debugLogs.filter(log => 
+  // Get live debug logs for this specific horse
+  const horseLogs = getLiveDebugLogs().filter(log => 
     log.horseId === horse.horseId || 
     log.horseName.toLowerCase().includes(horse.horseName.toLowerCase())
   );
