@@ -1,9 +1,10 @@
 
 import { V75CacheService } from '../../../services/v75CacheService';
 import { calculateRawKmTimesForRaceWithId } from '../../../services/kmTimeProcessor';
+import { HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 
 export interface CacheResult {
-  rawKmTimes: Array<{ horseId: number; best3Average: any }>;
+  rawKmTimes: HorseRawKmTime[];
   wasFromCache: boolean;
 }
 
@@ -25,10 +26,17 @@ export const useV75Cache = () => {
         sampleHorse: cachedRawTimes.rawTimes[0]
       });
       
-      // Convert cached raw times to expected format
+      // Convert cached raw times to expected format with fallback for missing fields
       const rawKmTimes = cachedRawTimes.rawTimes.map(cached => ({
         horseId: cached.horseId,
-        best3Average: cached.rawKmTime
+        horseName: `Horse ${cached.horseId}`, // Fallback name
+        allTimes: [], // Empty array for cached data
+        best3Average: cached.rawKmTime,
+        validTimesCount: 3, // Assume 3 for cached data
+        isNotifiee: false, // Default for cached data
+        dataSource: 'recent' as const, // Default for cached data
+        oldestRecordDate: undefined,
+        newestRecordDate: undefined
       }));
       
       console.log(`✅ [V75Cache] Converted cached data:`, rawKmTimes.slice(0, 2));

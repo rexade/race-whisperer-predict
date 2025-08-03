@@ -4,6 +4,7 @@ import { processHorseResults } from '../utils/horseResultProcessor';
 import { extractTrackNameAsString } from '../utils/dataExtraction';
 import { V75CacheService } from '../../../services/v75CacheService';
 import { V75RaceResult } from '../types/raceResultTypes';
+import { HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 import { RaceScoreCalculator } from './raceScoreCalculator';
 
 export class RaceResultProcessor {
@@ -12,7 +13,7 @@ export class RaceResultProcessor {
    */
   static async processRaceResult(
     race: any,
-    rawKmTimes: Array<{ horseId: number; best3Average: any }>,
+    rawKmTimes: HorseRawKmTime[],
     weights: NormalizationWeights,
     analysisDate?: string
   ): Promise<V75RaceResult> {

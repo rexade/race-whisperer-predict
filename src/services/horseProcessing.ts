@@ -24,9 +24,15 @@ export interface ATGHistoricalRace {
 }
 
 export const processHorseKmTimes = async (
-  horseId: number, 
-  horseName: string, 
-  historicalRaces: ATGHistoricalRace[]
+  horseId: number,
+  horseName: string,
+  historicalRaces: ATGHistoricalRace[],
+  metadata?: {
+    usedFallback: boolean;
+    dataSource: 'recent' | 'fallback';
+    oldestRecordDate?: string;
+    newestRecordDate?: string;
+  }
 ): Promise<HorseRawKmTime> => {
   const processedTimes: ProcessedKmTime[] = [];
   let totalRecords = historicalRaces.length;
@@ -209,7 +215,11 @@ export const processHorseKmTimes = async (
     horseName,
     allTimes: processedTimes,
     best3Average,
-    validTimesCount: processedTimes.length
+    validTimesCount: processedTimes.length,
+    isNotifiee: metadata?.usedFallback || false,
+    dataSource: metadata?.dataSource || 'recent',
+    oldestRecordDate: metadata?.oldestRecordDate,
+    newestRecordDate: metadata?.newestRecordDate
   };
 };
 

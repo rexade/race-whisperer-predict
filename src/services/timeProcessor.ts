@@ -71,7 +71,8 @@ export const calculateRawTimesForRace = async (
       }
       
       // Process and filter historical records - ONLY FOR RAW TIME CALCULATION
-      const validRecords = processHistoricalRecords(historicalData.horse.results.records);
+      const processingResult = processHistoricalRecords(historicalData.horse.results.records);
+      const validRecords = processingResult.records;
       console.log(`Found ${validRecords.length} valid historical races for ${start.horse.name}`);
       
       // Convert to the format expected by processHorseTimes
@@ -171,7 +172,8 @@ export const calculateRawTimesForRaceWithId = async (
       }
       
       // Process and filter historical records - ONLY FOR RAW TIME CALCULATION
-      const validRecords = processHistoricalRecords(historicalData.horse.results.records);
+      const processingResult = processHistoricalRecords(historicalData.horse.results.records);
+      const validRecords = processingResult.records;
       console.log(`Found ${validRecords.length} valid historical races for ${start.horse.name}`);
       
       // Convert to the format expected by processHorseTimes

@@ -1,6 +1,7 @@
 
 import { V75HorseResult } from '../types/raceResultTypes';
 import { ExtractedHorseData } from './horseDataExtractor';
+import { HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 import { RaceAnalysisCache } from '../../../services/v75Cache/raceAnalysisCache';
 
 export const buildHorseResult = (
@@ -9,7 +10,8 @@ export const buildHorseResult = (
   rawKmTime: any,
   modernNormalizedResult: any,
   extractedData: ExtractedHorseData,
-  safeRaceTrack: string
+  safeRaceTrack: string,
+  rawTimeData?: HorseRawKmTime
 ): V75HorseResult => {
   const horseResult: V75HorseResult = {
     raceNumber: race.raceNumber,
@@ -33,7 +35,11 @@ export const buildHorseResult = (
     sulkyType: extractedData.sulkyTypeString,
     shoesFront: extractedData.frontShoesBoolean,
     shoesBack: extractedData.backShoesBoolean,
-    homeTrack: extractedData.safeHorseTrack
+    homeTrack: extractedData.safeHorseTrack,
+    isNotifiee: rawTimeData?.isNotifiee || false,
+    dataSource: rawTimeData?.dataSource || 'recent',
+    oldestRecordDate: rawTimeData?.oldestRecordDate,
+    newestRecordDate: rawTimeData?.newestRecordDate
   };
 
   return horseResult;

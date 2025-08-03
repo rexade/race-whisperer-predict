@@ -21,6 +21,10 @@ export interface HorseRawKmTime {
   allTimes: ProcessedKmTime[];
   best3Average: KmTime;
   validTimesCount: number;
+  isNotifiee?: boolean;
+  dataSource?: 'recent' | 'fallback';
+  oldestRecordDate?: string;
+  newestRecordDate?: string;
 }
 
 export interface ModernKmNormalizedResult {

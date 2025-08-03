@@ -24,6 +24,10 @@ export interface V75HorseResult {
   homeTrack?: string;
   finalScore?: number;
   rank?: number;
+  isNotifiee?: boolean;
+  dataSource?: 'recent' | 'fallback';
+  oldestRecordDate?: string;
+  newestRecordDate?: string;
 }
 
 export interface V75RaceResult {

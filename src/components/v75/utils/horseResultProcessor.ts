@@ -1,6 +1,6 @@
 
 import { V75RaceData } from '../../../services/v75CalendarApi';
-import { KmTime } from '../../../services/types/kmTimeTypes';
+import { KmTime, HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 import { NormalizationWeights } from '../../../services/modernKm/index';
 import { V75HorseResult } from '../types/raceResultTypes';
 import { extractTrackNameAsString } from './dataExtraction';
@@ -10,7 +10,7 @@ import { buildHorseResult, storeRaceAnalysisData } from './horseResultBuilder';
 
 export const processHorseResults = async (
   race: V75RaceData,
-  rawKmTimes: Array<{ horseId: number; best3Average?: KmTime }>,
+  rawKmTimes: HorseRawKmTime[],
   weights: NormalizationWeights,
   analysisDate?: string
 ): Promise<V75HorseResult[]> => {
@@ -46,14 +46,15 @@ export const processHorseResults = async (
       console.log(`  - Predicted time: ${time.minutes}:${time.seconds.toString().padStart(2, '0')}.${time.tenths} ${(modernNormalizedResult as any).isEstimated ? '(EST)' : '(RAW)'}`);
     }
 
-    // Build the final horse result
+    // Build the final horse result with notifiee information
     const horseResult = buildHorseResult(
       horse,
       race,
       rawKmTime,
       modernNormalizedResult,
       extractedData,
-      safeRaceTrack
+      safeRaceTrack,
+      rawTimeData // Pass the full raw time data including notifiee info
     );
 
     horseResults.push(horseResult);

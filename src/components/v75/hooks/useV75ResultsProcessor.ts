@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { NormalizationWeights } from '../../../services/modernKm/index';
 import { V75RaceResult } from '../types/raceResultTypes';
+import { HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 import { RaceResultProcessor } from '../services/raceResultProcessor';
 import { RaceReanalysisService } from '../services/raceReanalysisService';
 
@@ -10,7 +11,7 @@ export const useV75ResultsProcessor = () => {
 
   const processRaceResult = useCallback(async (
     race: any,
-    rawKmTimes: Array<{ horseId: number; best3Average: any }>,
+    rawKmTimes: HorseRawKmTime[],
     weights: NormalizationWeights,
     analysisDate?: string
   ): Promise<V75RaceResult> => {

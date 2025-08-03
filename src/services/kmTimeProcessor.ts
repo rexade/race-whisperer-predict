@@ -79,17 +79,27 @@ export const calculateRawKmTimesForRaceWithId = async (
       );
       DataValidator.logValidationResults(validationResults, `${horseName} Historical Records`);
       
-      const validRecords = processHistoricalRecords(historicalData.horse.results.records, horseName);
+      const processingResult = processHistoricalRecords(historicalData.horse.results.records, horseName);
+      const validRecords = processingResult.records;
+      const metadata = processingResult.metadata;
+      
       console.log(`📊 [KmTimeProcessor] Historical records processing for ${horseName}:`);
       console.log(`   - Raw records from API: ${rawRecords.length}`);
       console.log(`   - Valid records after filtering: ${validRecords.length}`);
       console.log(`   - Filtered out: ${rawRecords.length - validRecords.length}`);
+      console.log(`   - Data source: ${metadata.dataSource.toUpperCase()}`);
+      if (metadata.usedFallback) {
+        console.log(`   🚨 FALLBACK MODE: Using historical data (${metadata.oldestRecordDate} to ${metadata.newestRecordDate})`);
+      }
       
       HorseDebugger.log(horseId, horseName, 'PROCESSED_HISTORICAL_RECORDS', {
         rawRecordsCount: rawRecords.length,
         validRecordsCount: validRecords.length,
         filteredOut: rawRecords.length - validRecords.length,
-        sampleRecord: validRecords[0]
+        sampleRecord: validRecords[0],
+        dataSource: metadata.dataSource,
+        usedFallback: metadata.usedFallback,
+        dateRange: `${metadata.oldestRecordDate} to ${metadata.newestRecordDate}`
       });
       
       const historicalRaces = validRecords.map(record => ({
@@ -110,7 +120,8 @@ export const calculateRawKmTimesForRaceWithId = async (
       const horseRawKmTime = await processHorseKmTimes(
         start.horse.id,
         start.horse.name,
-        historicalRaces
+        historicalRaces,
+        metadata
       );
       
       console.log(`⚙️ [KmTimeProcessor] processHorseKmTimes result for ${horseName}:`, {
