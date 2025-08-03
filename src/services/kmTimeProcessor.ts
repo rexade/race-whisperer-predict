@@ -32,12 +32,22 @@ export const calculateRawKmTimesForRaceWithId = async (
         horseData: start.horse
       });
       
+      console.log(`📡 [KmTimeProcessor] Fetching historical data for ${horseName}...`);
       const historicalData = await fetchHorseHistoricalData(raceId, postPosition);
       
+      console.log(`📡 [KmTimeProcessor] Historical data fetch result for ${horseName}:`, {
+        hasData: !!historicalData,
+        hasHorse: !!historicalData?.horse,
+        hasResults: !!historicalData?.horse?.results,
+        hasRecords: !!historicalData?.horse?.results?.records,
+        recordsCount: historicalData?.horse?.results?.records?.length || 0
+      });
+      
       if (!historicalData || !historicalData.horse.results?.records) {
-        console.warn(`❌ NO HISTORICAL DATA - Horse ${start.horse.name} (Post ${postPosition})`);
+        console.warn(`❌ [KmTimeProcessor] NO HISTORICAL DATA - Horse ${start.horse.name} (Post ${postPosition})`);
         console.warn(`  📊 Data check: historicalData=${!!historicalData}, horse=${!!historicalData?.horse}, results=${!!historicalData?.horse?.results}, records=${!!historicalData?.horse?.results?.records}`);
         console.warn(`  📈 Records length: ${historicalData?.horse?.results?.records?.length || 0}`);
+        console.warn(`  🚫 This horse will get zero time and be excluded from analysis`);
         
         HorseDebugger.log(horseId, horseName, 'NO_HISTORICAL_DATA', {
           historicalDataExists: !!historicalData,
@@ -57,6 +67,8 @@ export const calculateRawKmTimesForRaceWithId = async (
         continue;
       }
       
+      console.log(`✅ [KmTimeProcessor] Historical data found for ${horseName}: ${historicalData.horse.results.records.length} records`);
+      
       // Enhanced debugging for historical data
       HorseDebugger.logHistoricalData(horseId, horseName, historicalData.horse.results.records);
       
@@ -68,12 +80,16 @@ export const calculateRawKmTimesForRaceWithId = async (
       DataValidator.logValidationResults(validationResults, `${horseName} Historical Records`);
       
       const validRecords = processHistoricalRecords(historicalData.horse.results.records, horseName);
-      console.log(`Found ${validRecords.length} valid historical races for ${horseName}`);
+      console.log(`📊 [KmTimeProcessor] Historical records processing for ${horseName}:`);
+      console.log(`   - Raw records from API: ${rawRecords.length}`);
+      console.log(`   - Valid records after filtering: ${validRecords.length}`);
+      console.log(`   - Filtered out: ${rawRecords.length - validRecords.length}`);
       
       HorseDebugger.log(horseId, horseName, 'PROCESSED_HISTORICAL_RECORDS', {
         rawRecordsCount: rawRecords.length,
         validRecordsCount: validRecords.length,
-        filteredOut: rawRecords.length - validRecords.length
+        filteredOut: rawRecords.length - validRecords.length,
+        sampleRecord: validRecords[0]
       });
       
       const historicalRaces = validRecords.map(record => ({
@@ -89,16 +105,24 @@ export const calculateRawKmTimesForRaceWithId = async (
         disqualified: record.disqualified || false
       }));
       
+      console.log(`⚙️ [KmTimeProcessor] Sending ${historicalRaces.length} historical races to processHorseKmTimes for ${horseName}`);
+      
       const horseRawKmTime = await processHorseKmTimes(
         start.horse.id,
         start.horse.name,
         historicalRaces
       );
       
+      console.log(`⚙️ [KmTimeProcessor] processHorseKmTimes result for ${horseName}:`, {
+        validTimesCount: horseRawKmTime.validTimesCount,
+        best3Average: horseRawKmTime.best3Average,
+        allTimesLength: horseRawKmTime.allTimes.length
+      });
+      
       rawKmTimes.push(horseRawKmTime);
       
       const calculatedTimeStr = `${horseRawKmTime.best3Average.minutes}:${horseRawKmTime.best3Average.seconds.toString().padStart(2, '0')}.${horseRawKmTime.best3Average.tenths}`;
-      console.log(`RAW KM time calculated for ${horseName}: ${calculatedTimeStr}`);
+      console.log(`✅ [KmTimeProcessor] RAW KM time calculated for ${horseName}: ${calculatedTimeStr} (from ${horseRawKmTime.validTimesCount} valid times)`);
       
     } catch (error) {
       const horseName = start.horse?.name || 'Unknown';

@@ -36,8 +36,29 @@ export const processHorseKmTimes = async (
   let missingKmTimes = 0;
 
   console.log(`\n=== Processing KM times for ${horseName} (ID: ${horseId}) ===`);
-  console.log(`Found ${historicalRaces.length} historical races to process`);
+  console.log(`📊 Historical records provided: ${historicalRaces.length}`);
   
+  // CRITICAL: Check if we have historical records before processing
+  if (!historicalRaces || historicalRaces.length === 0) {
+    console.warn(`❌ NO HISTORICAL RECORDS - Horse ${horseName}:`);
+    console.warn(`  📊 Historical races provided: ${historicalRaces?.length || 0}`);
+    console.warn(`  🔍 This will result in empty processed times`);
+    
+    HorseDebugger.log(horseId, horseName, 'NO_HISTORICAL_RECORDS', {
+      historicalRacesLength: historicalRaces?.length || 0,
+      historicalRaces: historicalRaces
+    });
+    
+    return {
+      horseId,
+      horseName,
+      allTimes: [],
+      best3Average: { minutes: 0, seconds: 0, tenths: 0 },
+      validTimesCount: 0
+    };
+  }
+  
+  console.log(`✅ Historical records validation passed: ${historicalRaces.length} races found`);
   HorseDebugger.logHistoricalData(horseId, horseName, historicalRaces);
 
   for (const race of historicalRaces) {

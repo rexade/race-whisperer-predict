@@ -15,17 +15,27 @@ export const useV75Cache = () => {
     progressCallback?: (current: number, total: number) => void
   ): Promise<CacheResult> => {
     // Check for cached raw times FIRST
+    console.log(`🔍 [V75Cache] Checking cache for race ${race.raceId}`);
     const cachedRawTimes = await V75CacheService.getRawTimes(race.raceId);
     
     if (cachedRawTimes) {
+      console.log(`✅ [V75Cache] Found cached data for race ${race.raceId}:`, {
+        raceNumber: cachedRawTimes.raceNumber,
+        horseCount: cachedRawTimes.rawTimes.length,
+        sampleHorse: cachedRawTimes.rawTimes[0]
+      });
+      
       // Convert cached raw times to expected format
       const rawKmTimes = cachedRawTimes.rawTimes.map(cached => ({
         horseId: cached.horseId,
         best3Average: cached.rawKmTime
       }));
       
+      console.log(`✅ [V75Cache] Converted cached data:`, rawKmTimes.slice(0, 2));
       return { rawKmTimes, wasFromCache: true };
     }
+    
+    console.log(`❌ [V75Cache] No cached data found for race ${race.raceId}, calculating fresh`);
     
     // Calculate raw times from scratch
     const atgStarts = race.horses.map((horse: any) => ({
@@ -43,13 +53,17 @@ export const useV75Cache = () => {
       }
     }));
     
+    console.log(`⚙️ [V75Cache] Starting fresh calculation for race ${race.raceId} with ${atgStarts.length} horses`);
+    
     const rawKmTimes = await calculateRawKmTimesForRaceWithId(
       race.raceId, 
       atgStarts, 
       progressCallback
     );
     
-    
+    console.log(`⚙️ [V75Cache] Calculation completed, got ${rawKmTimes.length} results:`, 
+      rawKmTimes.map(r => ({ horseId: r.horseId, horseName: r.horseName, validTimes: r.validTimesCount }))
+    );
     
     // Convert HorseRawKmTime[] to the format expected by cache service
     // We need to match horses with their post positions from the race data
@@ -64,6 +78,12 @@ export const useV75Cache = () => {
       };
     });
     
+    console.log(`💾 [V75Cache] Storing cache data for race ${race.raceId}:`, {
+      raceNumber: race.raceNumber,
+      horseCount: rawTimesForCache.length,
+      sampleData: rawTimesForCache.slice(0, 2)
+    });
+    
     // Cache the raw times for future use
     await V75CacheService.storeRawTimes(
       date,
@@ -72,8 +92,6 @@ export const useV75Cache = () => {
       race.raceNumber,
       rawTimesForCache
     );
-    
-    
     
     return { rawKmTimes, wasFromCache: false };
   };

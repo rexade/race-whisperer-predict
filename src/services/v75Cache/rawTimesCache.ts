@@ -16,7 +16,12 @@ export class RawTimesCache {
     raceNumber: number,
     rawTimes: Array<{ horseId: number; postPosition: number; best3Average?: any }>
   ): Promise<void> {
-    console.log(`💾 Storing raw KM times cache for race ${raceNumber} (${raceId})`);
+    console.log(`💾 [RawTimesCache] Storing raw KM times cache for race ${raceNumber} (${raceId})`);
+    console.log(`💾 [RawTimesCache] Input data:`, {
+      rawTimesCount: rawTimes.length,
+      sampleRawTime: rawTimes[0],
+      allHorseIds: rawTimes.map(rt => rt.horseId)
+    });
     
     const cachedRawTimes: CachedRawTime[] = rawTimes.map(rt => ({
       horseId: rt.horseId,
@@ -24,6 +29,11 @@ export class RawTimesCache {
       rawKmTime: rt.best3Average,
       cachedAt: new Date().toISOString()
     }));
+
+    console.log(`💾 [RawTimesCache] Converted for storage:`, {
+      cachedRawTimesCount: cachedRawTimes.length,
+      sampleCachedTime: cachedRawTimes[0]
+    });
 
     const cacheData: CachedV75RawTimes = {
       date,
@@ -38,29 +48,37 @@ export class RawTimesCache {
       const cacheKey = this.getRawTimeCacheKey(raceId);
       localStorage.setItem(cacheKey, JSON.stringify(cacheData));
       
-      console.log(`✅ Raw KM times cached for race ${raceNumber}:`);
+      console.log(`✅ [RawTimesCache] Successfully cached for race ${raceNumber}:`);
       console.log(`   - ${cachedRawTimes.length} horses`);
       console.log(`   - Race ID: ${raceId}`);
-      console.log(`   - Raw times permanently cached`);
+      console.log(`   - Cache key: ${cacheKey}`);
+      console.log(`   - First horse cached time:`, cachedRawTimes[0]?.rawKmTime);
       
     } catch (error) {
-      console.error('❌ Failed to store raw times cache:', error);
+      console.error('❌ [RawTimesCache] Failed to store raw times cache:', error);
     }
   }
 
   static async getRawTimes(raceId: string): Promise<CachedV75RawTimes | null> {
-    console.log(`🔍 Looking for cached raw times for race ${raceId}`);
+    console.log(`🔍 [RawTimesCache] Looking for cached raw times for race ${raceId}`);
     
     try {
       const cacheKey = this.getRawTimeCacheKey(raceId);
+      console.log(`🔍 [RawTimesCache] Using cache key: ${cacheKey}`);
+      
       const cachedData = localStorage.getItem(cacheKey);
       
       if (!cachedData) {
-        console.log(`❌ No raw times cache found for race ${raceId}`);
+        console.log(`❌ [RawTimesCache] No raw times cache found for race ${raceId}`);
         return null;
       }
 
       const rawTimesData: CachedV75RawTimes = JSON.parse(cachedData);
+      console.log(`🔍 [RawTimesCache] Found cached data:`, {
+        raceNumber: rawTimesData.raceNumber,
+        horseCount: rawTimesData.rawTimes.length,
+        firstHorseData: rawTimesData.rawTimes[0]
+      });
       
       // Check if cache is still valid (raw times are cached for much longer)
       const cachedAt = new Date(rawTimesData.cachedAt);
@@ -68,19 +86,20 @@ export class RawTimesCache {
       const hoursDiff = (now.getTime() - cachedAt.getTime()) / (1000 * 60 * 60);
       
       if (hoursDiff > CACHE_EXPIRY_HOURS) {
-        console.log(`⏰ Raw times cache expired for race ${raceId} (${hoursDiff.toFixed(1)} hours old)`);
+        console.log(`⏰ [RawTimesCache] Cache expired for race ${raceId} (${hoursDiff.toFixed(1)} hours old)`);
         this.clearRawTimes(raceId);
         return null;
       }
 
-      console.log(`✅ Found valid cached raw times for race ${raceId}:`);
+      console.log(`✅ [RawTimesCache] Valid cached data for race ${raceId}:`);
       console.log(`   - Cached ${hoursDiff.toFixed(1)} hours ago`);
       console.log(`   - ${rawTimesData.rawTimes.length} horses with raw times`);
+      console.log(`   - Sample rawKmTime:`, rawTimesData.rawTimes[0]?.rawKmTime);
       
       return rawTimesData;
       
     } catch (error) {
-      console.error(`❌ Error reading raw times cache for race ${raceId}:`, error);
+      console.error(`❌ [RawTimesCache] Error reading cache for race ${raceId}:`, error);
       return null;
     }
   }
