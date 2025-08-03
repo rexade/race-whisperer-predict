@@ -1,0 +1,129 @@
+import { NormalizationWeights } from './types';
+
+export interface WeightPreset {
+  name: string;
+  description: string;
+  weights: NormalizationWeights;
+  category: 'conservative' | 'balanced' | 'aggressive' | 'specialized';
+}
+
+export const WEIGHT_PRESETS: WeightPreset[] = [
+  {
+    name: 'Conservative',
+    description: 'Minimal adjustments, focus on core factors only',
+    category: 'conservative',
+    weights: {
+      postPosition: 0.8,
+      shoeType: 0.5,
+      sulkyType: 0.3,
+      driverPerformance: 0.7,
+      trackFamiliarity: 0.4,
+      form: 0.8,
+      distanceAdjustment: 0.8,
+      raceDistanceAdjustment: 1.0,
+      raceType: 0.5,
+      timeOfDay: 0.2,
+      volteStartDistancePenalty: 1.0,
+      startPoints: 0.5,
+      placePercentage: 0.6,
+      horseWinPercentage: 0.7,
+      earningsPerStart: 0.4
+    }
+  },
+  {
+    name: 'Balanced',
+    description: 'Default weights with proven effectiveness',
+    category: 'balanced',
+    weights: {
+      postPosition: 1.0,
+      shoeType: 0.8,
+      sulkyType: 0.6,
+      driverPerformance: 1.1,
+      trackFamiliarity: 0.7,
+      form: 1.2,
+      distanceAdjustment: 1.0,
+      raceDistanceAdjustment: 1.0,
+      raceType: 0.9,
+      timeOfDay: 0.5,
+      volteStartDistancePenalty: 1.0,
+      startPoints: 0.8,
+      placePercentage: 0.9,
+      horseWinPercentage: 1.0,
+      earningsPerStart: 0.7
+    }
+  },
+  {
+    name: 'Aggressive',
+    description: 'Amplified adjustments for maximum differentiation',
+    category: 'aggressive',
+    weights: {
+      postPosition: 1.3,
+      shoeType: 1.2,
+      sulkyType: 1.0,
+      driverPerformance: 1.5,
+      trackFamiliarity: 1.1,
+      form: 1.6,
+      distanceAdjustment: 1.3,
+      raceDistanceAdjustment: 1.2,
+      raceType: 1.3,
+      timeOfDay: 0.8,
+      volteStartDistancePenalty: 1.2,
+      startPoints: 1.2,
+      placePercentage: 1.3,
+      horseWinPercentage: 1.4,
+      earningsPerStart: 1.1
+    }
+  },
+  {
+    name: 'Equipment Focus',
+    description: 'Emphasizes equipment and setup factors',
+    category: 'specialized',
+    weights: {
+      postPosition: 1.2,
+      shoeType: 1.5,
+      sulkyType: 1.3,
+      driverPerformance: 0.8,
+      trackFamiliarity: 1.0,
+      form: 0.9,
+      distanceAdjustment: 1.0,
+      raceDistanceAdjustment: 1.0,
+      raceType: 0.7,
+      timeOfDay: 0.3,
+      volteStartDistancePenalty: 1.1,
+      startPoints: 0.6,
+      placePercentage: 0.7,
+      horseWinPercentage: 0.8,
+      earningsPerStart: 0.5
+    }
+  },
+  {
+    name: 'Performance Focus',
+    description: 'Emphasizes historical performance metrics',
+    category: 'specialized',
+    weights: {
+      postPosition: 0.9,
+      shoeType: 0.6,
+      sulkyType: 0.4,
+      driverPerformance: 1.3,
+      trackFamiliarity: 0.8,
+      form: 1.5,
+      distanceAdjustment: 0.8,
+      raceDistanceAdjustment: 1.0,
+      raceType: 0.7,
+      timeOfDay: 0.3,
+      volteStartDistancePenalty: 1.0,
+      startPoints: 1.3,
+      placePercentage: 1.4,
+      horseWinPercentage: 1.5,
+      earningsPerStart: 1.2
+    }
+  }
+];
+
+export const getPresetByName = (name: string): WeightPreset | undefined => {
+  return WEIGHT_PRESETS.find(preset => preset.name === name);
+};
+
+export const getPresetsByCategory = (category: WeightPreset['category']): WeightPreset[] => {
+  return WEIGHT_PRESETS.filter(preset => preset.category === category);
+};
