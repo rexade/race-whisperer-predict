@@ -90,6 +90,24 @@ export class HorseDebugger {
         console.log(`     ${index + 1}. Original: ${time.originalTime.minutes}:${time.originalTime.seconds.toString().padStart(2, '0')}.${time.originalTime.tenths} → Normalized: ${time.normalizedTime.minutes}:${time.normalizedTime.seconds.toString().padStart(2, '0')}.${time.normalizedTime.tenths} (${time.distance}m, ${time.startMethod})`);
       });
     }
+
+    // Store the debug log entry for UI consumption
+    this.debugLogs.push({
+      horseId,
+      horseName,
+      stage: 'PROCESSED_TIMES',
+      data: {
+        validProcessedTimes: processedTimes.length,
+        best3Average,
+        processedTimes: processedTimes.map(time => ({
+          originalTime: time.originalTime,
+          normalizedTime: time.normalizedTime,
+          distance: time.distance,
+          startMethod: time.startMethod
+        }))
+      },
+      timestamp: new Date().toISOString()
+    });
   }
 
   static logNormalizationStep(horseId: number, horseName: string, step: string, before: any, after: any): void {
