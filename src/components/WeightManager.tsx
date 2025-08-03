@@ -36,8 +36,6 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
     { key: 'form' as keyof NormalizationWeights, label: 'Recent Form', description: 'Current performance trend' },
     { key: 'distanceAdjustment' as keyof NormalizationWeights, label: 'Distance Adjustment', description: 'Individual vs race distance differences' },
     { key: 'raceDistanceAdjustment' as keyof NormalizationWeights, label: 'Race Distance Adjustment', description: 'Non-linear normalization from 2140m reference to actual race distance' },
-    { key: 'raceType' as keyof NormalizationWeights, label: 'Race Type', description: 'Stakes, maiden, claiming race adjustments' },
-    { key: 'timeOfDay' as keyof NormalizationWeights, label: 'Time of Day', description: 'Morning, afternoon, evening race adjustments' },
     { key: 'volteStartDistancePenalty' as keyof NormalizationWeights, label: 'Volte Start Distance Penalty', description: 'Penalty for horses starting at different distance in volte races' },
     { key: 'startPoints' as keyof NormalizationWeights, label: 'Start Points', description: 'Horse form based on start points' },
     { key: 'placePercentage' as keyof NormalizationWeights, label: 'Place Percentage', description: 'Horse consistency in placing' },
