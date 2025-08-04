@@ -36,7 +36,8 @@ export const calculatePostPositionAdjustment = (postPosition: number, startMetho
       5: 0.10,   // Front-line disadvantage
       6: -0.10,  // Advantage in volt start
       7: -0.10,  // Advantage in volt start
-      // Post 8 n/a (no post 8 in first line)
+      8: 0.00,   // Neutral (no post 8 in first line)
+      // Post positions 9+ are second row and beyond
       9: 0.50,   // Second row start
       10: 0.50,  // Second row start
       11: 0.70,  // Third row start
