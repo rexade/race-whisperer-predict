@@ -8,6 +8,14 @@ export const calculateDriverAdjustment = (
   let adjustment = 0;
   let reason = '';
   
+  // Debug the actual values
+  console.log(`[DRIVER DEBUG] Checking conditions for ${winPercentage}%:`);
+  console.log(`[DRIVER DEBUG] > 25? ${winPercentage > 25}`);
+  console.log(`[DRIVER DEBUG] > 20? ${winPercentage > 20}`);
+  console.log(`[DRIVER DEBUG] > 15? ${winPercentage > 15}`);
+  console.log(`[DRIVER DEBUG] > 10? ${winPercentage > 10}`);
+  console.log(`[DRIVER DEBUG] > 5? ${winPercentage > 5}`);
+  
   if (winPercentage > 25) {
     adjustment -= 0.3;
     reason = 'Win% > 25%';
