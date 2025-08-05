@@ -32,6 +32,7 @@ export const useV75Cache = () => {
         horseName: `Horse ${cached.horseId}`, // Fallback name
         allTimes: [], // Empty array for cached data
         best3Average: cached.rawKmTime,
+        bestRecordTime: cached.rawKmTime, // Use same as best3Average for cached data
         validTimesCount: 3, // Assume 3 for cached data
         isNotifiee: false, // Default for cached data
         dataSource: 'recent' as const, // Default for cached data

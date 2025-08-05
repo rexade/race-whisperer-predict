@@ -60,6 +60,7 @@ export const processHorseKmTimes = async (
       horseName,
       allTimes: [],
       best3Average: { minutes: 0, seconds: 0, tenths: 0 },
+      bestRecordTime: { minutes: 0, seconds: 0, tenths: 0 },
       validTimesCount: 0
     };
   }
@@ -152,6 +153,12 @@ export const processHorseKmTimes = async (
   const best3Times = processedTimes.slice(0, 3);
   let best3Average: KmTime = { minutes: 0, seconds: 0, tenths: 0 };
   
+  // Find the best single record time (fastest ever)
+  let bestRecordTime: KmTime = { minutes: 0, seconds: 0, tenths: 0 };
+  if (processedTimes.length > 0) {
+    bestRecordTime = { ...processedTimes[0].normalizedTime };
+  }
+  
   if (best3Times.length > 0) {
     // Standard calculation
     const totalSeconds = best3Times.reduce((sum, time) => {
@@ -215,6 +222,7 @@ export const processHorseKmTimes = async (
     horseName,
     allTimes: processedTimes,
     best3Average,
+    bestRecordTime,
     validTimesCount: processedTimes.length,
     isNotifiee: metadata?.usedFallback || false,
     dataSource: metadata?.dataSource || 'recent',

@@ -42,6 +42,7 @@ const V75ResultsTable: React.FC<V75ResultsTableProps> = ({ race }) => {
                 <TableHead className="min-w-[120px] text-xs sm:text-sm">Horse & Driver</TableHead>
                 <TableHead className="w-20 text-center text-xs sm:text-sm">RAW</TableHead>
                 <TableHead className="w-20 text-center font-bold text-xs sm:text-sm">Modern</TableHead>
+                <TableHead className="w-20 text-center font-bold text-xs sm:text-sm text-gold-500">REKORD</TableHead>
                 <TableHead className="w-16 text-center text-xs sm:text-sm">Points</TableHead>
                 <TableHead className="w-16 text-center text-xs sm:text-sm">Place%</TableHead>
                 <TableHead className="w-16 text-center text-xs sm:text-sm">Win%</TableHead>

@@ -62,6 +62,7 @@ export const calculateRawKmTimesForRaceWithId = async (
           horseName: start.horse.name,
           allTimes: [],
           best3Average: { minutes: 0, seconds: 0, tenths: 0 },
+          bestRecordTime: { minutes: 0, seconds: 0, tenths: 0 },
           validTimesCount: 0
         });
         continue;
@@ -148,6 +149,7 @@ export const calculateRawKmTimesForRaceWithId = async (
         horseName: start.horse.name,
         allTimes: [],
         best3Average: { minutes: 0, seconds: 0, tenths: 0 },
+        bestRecordTime: { minutes: 0, seconds: 0, tenths: 0 },
         validTimesCount: 0
       });
     }

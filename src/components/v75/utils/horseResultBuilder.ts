@@ -21,6 +21,7 @@ export const buildHorseResult = (
     postPosition: horse.postPosition,
     rawKmTime,
     modernNormalizedResult,
+    bestRecordTime: rawTimeData?.bestRecordTime,
     driverName: extractedData.safeDriverName,
     track: safeRaceTrack,
     distance: horse.distance,

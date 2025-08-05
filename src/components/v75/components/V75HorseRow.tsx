@@ -90,6 +90,18 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
       </TableCell>
       
       <TableCell className="text-center">
+        <div className="font-mono text-xs sm:text-sm font-bold text-yellow-700">
+          <div>
+            {horse.bestRecordTime ? 
+              `${horse.bestRecordTime.minutes}:${horse.bestRecordTime.seconds.toString().padStart(2, '0')}.${horse.bestRecordTime.tenths}` : 
+              '-'
+            }
+          </div>
+          <div className="text-xs text-gray-500">Best Ever</div>
+        </div>
+      </TableCell>
+      
+      <TableCell className="text-center">
         <span className={`text-xs sm:text-sm font-medium ${horse.statistics?.startPoints > 0 ? 'text-blue-700' : 'text-gray-400'}`}>
           {horse.statistics?.startPoints ? horse.statistics.startPoints.toString() : '-'}
         </span>

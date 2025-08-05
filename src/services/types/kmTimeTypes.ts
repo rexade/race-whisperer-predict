@@ -20,6 +20,7 @@ export interface HorseRawKmTime {
   horseName: string;
   allTimes: ProcessedKmTime[];
   best3Average: KmTime;
+  bestRecordTime: KmTime;
   validTimesCount: number;
   isNotifiee?: boolean;
   dataSource?: 'recent' | 'fallback';

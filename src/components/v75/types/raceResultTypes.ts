@@ -7,6 +7,7 @@ export interface V75HorseResult {
   postPosition: number;
   rawKmTime?: any;
   modernNormalizedResult?: any;
+  bestRecordTime?: any;
   driverName: string;
   track: string;
   distance: number;
