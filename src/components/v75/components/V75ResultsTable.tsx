@@ -27,32 +27,32 @@ const V75ResultsTable: React.FC<V75ResultsTableProps> = ({ race }) => {
   const horsesWithoutTimes = race.horses.filter(horse => !horse.modernNormalizedResult);
 
   return (
-    <Card className="border-purple-200 shadow-lg">
-      <CardHeader>
-        <CardTitle>Enhanced Race Analysis (Sorted by Normalized Time)</CardTitle>
+    <Card className="border-primary/20 shadow-lg bg-card">
+      <CardHeader className="bg-atg-light-blue/50">
+        <CardTitle className="text-primary">Enhanced Race Analysis (Sorted by Normalized Time)</CardTitle>
       </CardHeader>
       
       <CardContent className="p-0">
         <div className="overflow-x-auto">
           <Table className="min-w-[800px]">
             <TableHeader>
-              <TableRow className="bg-purple-50">
-                <TableHead className="w-12 text-center text-xs sm:text-sm sticky left-0 bg-purple-50 z-10">Rank</TableHead>
-                <TableHead className="w-10 text-center text-xs sm:text-sm">Start</TableHead>
-                <TableHead className="min-w-[120px] text-xs sm:text-sm">Horse & Driver</TableHead>
-                <TableHead className="w-20 text-center text-xs sm:text-sm">RAW</TableHead>
-                <TableHead className="w-20 text-center font-bold text-xs sm:text-sm">Modern</TableHead>
-                <TableHead className="w-20 text-center font-bold text-xs sm:text-sm text-gold-500">REKORD</TableHead>
-                <TableHead className="w-16 text-center text-xs sm:text-sm">Points</TableHead>
-                <TableHead className="w-16 text-center text-xs sm:text-sm">Place%</TableHead>
-                <TableHead className="w-16 text-center text-xs sm:text-sm">Win%</TableHead>
-                <TableHead className="w-20 text-center text-xs sm:text-sm">Earnings</TableHead>
-                <TableHead className="w-16 text-center text-xs sm:text-sm">Driver</TableHead>
-                <TableHead className="w-14 text-center text-xs sm:text-sm">Sulky</TableHead>
-                <TableHead className="w-16 text-center text-xs sm:text-sm">Shoes</TableHead>
-                <TableHead className="w-16 text-center text-xs sm:text-sm">Track</TableHead>
-                <TableHead className="w-16 text-center text-xs sm:text-sm">Dist</TableHead>
-                <TableHead className="w-20 text-center font-bold text-xs sm:text-sm">Adj</TableHead>
+              <TableRow className="bg-atg-light-blue hover:bg-atg-light-blue/80">
+                <TableHead className="w-12 text-center text-xs sm:text-sm sticky left-0 bg-atg-light-blue z-10 text-primary font-medium">Rank</TableHead>
+                <TableHead className="w-10 text-center text-xs sm:text-sm text-primary font-medium">Start</TableHead>
+                <TableHead className="min-w-[120px] text-xs sm:text-sm text-primary font-medium">Horse & Driver</TableHead>
+                <TableHead className="w-20 text-center text-xs sm:text-sm text-primary font-medium">RAW</TableHead>
+                <TableHead className="w-20 text-center font-bold text-xs sm:text-sm text-atg-blue">Modern</TableHead>
+                <TableHead className="w-20 text-center font-bold text-xs sm:text-sm text-atg-yellow">REKORD</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm text-primary font-medium">Points</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm text-primary font-medium">Place%</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm text-primary font-medium">Win%</TableHead>
+                <TableHead className="w-20 text-center text-xs sm:text-sm text-primary font-medium">Earnings</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm text-primary font-medium">Driver</TableHead>
+                <TableHead className="w-14 text-center text-xs sm:text-sm text-primary font-medium">Sulky</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm text-primary font-medium">Shoes</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm text-primary font-medium">Track</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm text-primary font-medium">Dist</TableHead>
+                <TableHead className="w-20 text-center font-bold text-xs sm:text-sm text-primary">Adj</TableHead>
               </TableRow>
             </TableHeader>
             
@@ -76,8 +76,8 @@ const V75ResultsTable: React.FC<V75ResultsTableProps> = ({ race }) => {
         </div>
         
         {horsesWithoutTimes.length > 0 && (
-          <div className="p-4 bg-gray-50 border-t">
-            <p className="text-sm text-gray-500">
+          <div className="p-4 bg-muted border-t">
+            <p className="text-sm text-muted-foreground">
               {horsesWithoutTimes.length} horse(s) could not be analyzed due to insufficient historical data.
             </p>
           </div>

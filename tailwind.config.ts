@@ -61,6 +61,25 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// ATG-specific color tokens
+				success: {
+					DEFAULT: 'hsl(var(--success))',
+					foreground: 'hsl(var(--success-foreground))'
+				},
+				warning: {
+					DEFAULT: 'hsl(var(--warning))',
+					foreground: 'hsl(var(--warning-foreground))'
+				},
+				atg: {
+					header: 'hsl(var(--atg-header))',
+					'light-blue': 'hsl(var(--atg-light-blue))',
+					blue: 'hsl(var(--atg-blue))',
+					yellow: 'hsl(var(--atg-yellow))',
+					red: 'hsl(var(--atg-red))',
+					green: 'hsl(var(--atg-green))',
+					gray: 'hsl(var(--atg-gray))',
+					'dark-gray': 'hsl(var(--atg-dark-gray))'
 				}
 			},
 			borderRadius: {
