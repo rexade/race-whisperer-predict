@@ -13,13 +13,18 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <DebugErrorBoundary>
-        <div className="min-h-screen bg-background">
-          <header className="bg-card shadow-sm border-b sticky top-0 z-50">
-            <div className="container mx-auto px-2 sm:px-4">
-              <div className="flex items-center h-12 sm:h-16">
-                <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">
-                  🏇 TrotAnalyzer
-                </h1>
+        <div className="min-h-screen bg-background font-primary">
+          <header className="bg-gradient-hero shadow-lg border-b border-atg-gray-200 sticky top-0 z-50">
+            <div className="container mx-auto px-4 sm:px-6">
+              <div className="flex items-center h-16 sm:h-20">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-accent rounded-lg flex items-center justify-center">
+                    <span className="text-xl sm:text-2xl">🏇</span>
+                  </div>
+                  <h1 className="text-xl sm:text-2xl font-bold text-white font-secondary">
+                    TrotAnalyzer
+                  </h1>
+                </div>
               </div>
             </div>
           </header>

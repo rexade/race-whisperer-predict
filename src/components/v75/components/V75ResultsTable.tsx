@@ -27,32 +27,32 @@ const V75ResultsTable: React.FC<V75ResultsTableProps> = ({ race }) => {
   const horsesWithoutTimes = race.horses.filter(horse => !horse.modernNormalizedResult);
 
   return (
-    <Card className="border-primary/20 shadow-lg bg-card">
-      <CardHeader className="bg-atg-light-blue/50">
-        <CardTitle className="text-primary">Enhanced Race Analysis (Sorted by Normalized Time)</CardTitle>
+    <Card className="bg-gradient-card shadow-xl border-atg-gray-200">
+      <CardHeader className="bg-gradient-accent">
+        <CardTitle className="text-white font-secondary text-lg">Enhanced Race Analysis (Sorted by Normalized Time)</CardTitle>
       </CardHeader>
       
       <CardContent className="p-0">
         <div className="overflow-x-auto">
           <Table className="min-w-[800px]">
             <TableHeader>
-              <TableRow className="bg-atg-light-blue hover:bg-atg-light-blue/80">
-                <TableHead className="w-12 text-center text-xs sm:text-sm sticky left-0 bg-atg-light-blue z-10 text-primary font-medium">Rank</TableHead>
-                <TableHead className="w-10 text-center text-xs sm:text-sm text-primary font-medium">Start</TableHead>
-                <TableHead className="min-w-[120px] text-xs sm:text-sm text-primary font-medium">Horse & Driver</TableHead>
-                <TableHead className="w-20 text-center text-xs sm:text-sm text-primary font-medium">RAW</TableHead>
+              <TableRow className="bg-atg-gray-100 hover:bg-atg-gray-100/80 border-b border-atg-gray-200">
+                <TableHead className="w-12 text-center text-xs sm:text-sm sticky left-0 bg-atg-gray-100 z-10 text-atg-navy font-semibold">Rank</TableHead>
+                <TableHead className="w-10 text-center text-xs sm:text-sm text-atg-navy font-semibold">Start</TableHead>
+                <TableHead className="min-w-[120px] text-xs sm:text-sm text-atg-navy font-semibold">Horse & Driver</TableHead>
+                <TableHead className="w-20 text-center text-xs sm:text-sm text-atg-navy font-semibold">RAW</TableHead>
                 <TableHead className="w-20 text-center font-bold text-xs sm:text-sm text-atg-blue">Modern</TableHead>
-                <TableHead className="w-20 text-center font-bold text-xs sm:text-sm text-atg-yellow">REKORD</TableHead>
-                <TableHead className="w-16 text-center text-xs sm:text-sm text-primary font-medium">Points</TableHead>
-                <TableHead className="w-16 text-center text-xs sm:text-sm text-primary font-medium">Place%</TableHead>
-                <TableHead className="w-16 text-center text-xs sm:text-sm text-primary font-medium">Win%</TableHead>
-                <TableHead className="w-20 text-center text-xs sm:text-sm text-primary font-medium">Earnings</TableHead>
-                <TableHead className="w-16 text-center text-xs sm:text-sm text-primary font-medium">Driver</TableHead>
-                <TableHead className="w-14 text-center text-xs sm:text-sm text-primary font-medium">Sulky</TableHead>
-                <TableHead className="w-16 text-center text-xs sm:text-sm text-primary font-medium">Shoes</TableHead>
-                <TableHead className="w-16 text-center text-xs sm:text-sm text-primary font-medium">Track</TableHead>
-                <TableHead className="w-16 text-center text-xs sm:text-sm text-primary font-medium">Dist</TableHead>
-                <TableHead className="w-20 text-center font-bold text-xs sm:text-sm text-primary">Adj</TableHead>
+                <TableHead className="w-20 text-center font-bold text-xs sm:text-sm text-atg-orange">REKORD</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm text-atg-navy font-semibold">Points</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm text-atg-navy font-semibold">Place%</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm text-atg-navy font-semibold">Win%</TableHead>
+                <TableHead className="w-20 text-center text-xs sm:text-sm text-atg-navy font-semibold">Earnings</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm text-atg-navy font-semibold">Driver</TableHead>
+                <TableHead className="w-14 text-center text-xs sm:text-sm text-atg-navy font-semibold">Sulky</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm text-atg-navy font-semibold">Shoes</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm text-atg-navy font-semibold">Track</TableHead>
+                <TableHead className="w-16 text-center text-xs sm:text-sm text-atg-navy font-semibold">Dist</TableHead>
+                <TableHead className="w-20 text-center font-bold text-xs sm:text-sm text-atg-navy">Adj</TableHead>
               </TableRow>
             </TableHeader>
             

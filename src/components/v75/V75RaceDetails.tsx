@@ -15,15 +15,15 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
 
   if (!race.analysisComplete) {
     return (
-      <Card className="border-red-200">
+      <Card className="border-destructive bg-gradient-card shadow-md">
         <CardHeader>
-          <CardTitle className="text-red-600 flex items-center gap-2">
+          <CardTitle className="text-destructive flex items-center gap-2 font-secondary">
             <Trophy className="h-5 w-5" />
             Race {race.raceNumber} - Analysis Failed
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-gray-600">
+          <p className="text-muted-foreground">
             Unable to analyze this race. This could be due to missing data or API issues.
           </p>
         </CardContent>

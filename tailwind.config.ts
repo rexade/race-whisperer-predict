@@ -18,6 +18,11 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				sans: ['var(--font-primary)'],
+				primary: ['var(--font-primary)'],
+				secondary: ['var(--font-secondary)'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -26,7 +31,8 @@ export default {
 				foreground: 'hsl(var(--foreground))',
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
-					foreground: 'hsl(var(--primary-foreground))'
+					foreground: 'hsl(var(--primary-foreground))',
+					hover: 'hsl(var(--primary-hover))'
 				},
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
@@ -42,7 +48,8 @@ export default {
 				},
 				accent: {
 					DEFAULT: 'hsl(var(--accent))',
-					foreground: 'hsl(var(--accent-foreground))'
+					foreground: 'hsl(var(--accent-foreground))',
+					hover: 'hsl(var(--accent-hover))'
 				},
 				popover: {
 					DEFAULT: 'hsl(var(--popover))',
@@ -62,7 +69,6 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				// ATG-specific color tokens
 				success: {
 					DEFAULT: 'hsl(var(--success))',
 					foreground: 'hsl(var(--success-foreground))'
@@ -71,16 +77,38 @@ export default {
 					DEFAULT: 'hsl(var(--warning))',
 					foreground: 'hsl(var(--warning-foreground))'
 				},
+				// ATG Brand Colors
 				atg: {
-					header: 'hsl(var(--atg-header))',
-					'light-blue': 'hsl(var(--atg-light-blue))',
+					navy: 'hsl(var(--atg-navy))',
 					blue: 'hsl(var(--atg-blue))',
-					yellow: 'hsl(var(--atg-yellow))',
+					'light-blue': 'hsl(var(--atg-light-blue))',
+					orange: 'hsl(var(--atg-orange))',
 					red: 'hsl(var(--atg-red))',
 					green: 'hsl(var(--atg-green))',
-					gray: 'hsl(var(--atg-gray))',
-					'dark-gray': 'hsl(var(--atg-dark-gray))'
+					gray: {
+						50: 'hsl(var(--atg-gray-50))',
+						100: 'hsl(var(--atg-gray-100))',
+						200: 'hsl(var(--atg-gray-200))',
+						300: 'hsl(var(--atg-gray-300))',
+						400: 'hsl(var(--atg-gray-400))',
+						500: 'hsl(var(--atg-gray-500))',
+						600: 'hsl(var(--atg-gray-600))',
+						700: 'hsl(var(--atg-gray-700))',
+						800: 'hsl(var(--atg-gray-800))',
+						900: 'hsl(var(--atg-gray-900))',
+					}
 				}
+			},
+			backgroundImage: {
+				'gradient-hero': 'var(--gradient-hero)',
+				'gradient-card': 'var(--gradient-card)',
+				'gradient-accent': 'var(--gradient-accent)',
+			},
+			boxShadow: {
+				'sm': 'var(--shadow-sm)',
+				'md': 'var(--shadow-md)',
+				'lg': 'var(--shadow-lg)',
+				'xl': 'var(--shadow-xl)',
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
