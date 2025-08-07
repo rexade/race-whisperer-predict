@@ -72,31 +72,36 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
           </div>
 
           {/* Times - Mobile: Stack vertically, Desktop: Side by side */}
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 min-w-0">
-            {/* Modern Time - Most important */}
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 min-w-0">
+            {/* Predicted Time - Most important */}
             <div className="text-center">
               <div className={`font-mono text-sm font-bold ${isTopPerformer ? 'text-primary' : 'text-foreground'}`}>
                 {formatKmTime(result.modernNormalizedTime)}
               </div>
-              <div className="text-xs text-muted-foreground">Predicted</div>
+              <div className="text-xs text-muted-foreground">Pred</div>
             </div>
 
-            {/* Best Record - Desktop only */}
+            {/* Raw Time - Always visible on mobile */}
+            <div className="text-center">
+              <div className="font-mono text-sm font-bold text-muted-foreground">
+                {horse.rawKmTime ? formatKmTime(horse.rawKmTime) : '-'}
+              </div>
+              <div className="text-xs text-muted-foreground">Raw</div>
+            </div>
+
+            {/* Best Record - Desktop only for space */}
             <div className="text-center hidden sm:block">
               <div className="font-mono text-sm font-bold text-warning">
-                {horse.bestRecordTime ? 
-                  `${horse.bestRecordTime.minutes}:${horse.bestRecordTime.seconds.toString().padStart(2, '0')}.${horse.bestRecordTime.tenths}` : 
-                  '-'
-                }
+                {horse.bestRecordTime ? formatKmTime(horse.bestRecordTime) : '-'}
               </div>
               <div className="text-xs text-muted-foreground">Best</div>
             </div>
           </div>
         </div>
 
-        {/* Secondary info row - Mobile: Always visible, Desktop: Compact */}
-        <div className="flex items-center justify-between mt-3 gap-2">
-          <div className="flex items-center gap-3 text-xs">
+        {/* Secondary info row - Mobile: Stack, Desktop: Single line */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-3 gap-2">
+          <div className="flex items-center gap-3 text-xs flex-wrap">
             {/* Statistics */}
             <div className="flex items-center gap-1">
               <span className={`font-medium ${horse.statistics?.winPercentage > 0 ? 'text-success' : 'text-muted-foreground'}`}>
@@ -120,6 +125,16 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
                 {horse.statistics?.earningsPerStart > 0 ? formatEarnings(horse.statistics.earningsPerStart) : '-'}
               </span>
             </div>
+
+            {/* Home Track - Only show if different from race track */}
+            {horse.homeTrack && horse.homeTrack !== horse.track && (
+              <div className="flex items-center gap-1">
+                <span className="text-muted-foreground">@</span>
+                <span className="font-medium text-accent">
+                  {horse.homeTrack}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Equipment info */}
@@ -130,6 +145,18 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
             <span className={`font-medium ${getShoesColor(horse.shoesFront || false, horse.shoesBack || false)}`}>
               {getShoesDisplay(horse.shoesFront || false, horse.shoesBack || false)}
             </span>
+          </div>
+        </div>
+
+        {/* Mobile-only: Best Record Time row */}
+        <div className="sm:hidden mt-2 pt-2 border-t border-border/30">
+          <div className="flex items-center justify-center gap-4 text-xs">
+            <div className="text-center">
+              <div className="font-mono text-sm font-bold text-warning">
+                {horse.bestRecordTime ? formatKmTime(horse.bestRecordTime) : '-'}
+              </div>
+              <div className="text-xs text-muted-foreground">Best Record</div>
+            </div>
           </div>
         </div>
       </div>
