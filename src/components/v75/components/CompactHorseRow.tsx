@@ -39,7 +39,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
 
   return (
     <>
-      <div className={`${getRowStyle(rank)} p-4 transition-all duration-200 border-b border-border/50`}>
+      <div className={`${getRowStyle(rank)} p-3 transition-all duration-200 border-b border-border/50`}>
         {/* Main content - always visible */}
         <div className="flex items-center gap-3">
           {/* Rank and Start Position */}
@@ -58,50 +58,50 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
           {/* Horse Info - Primary column */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-semibold text-sm truncate">{safeHorseName}</span>
+              <span className="font-semibold text-sm break-words leading-tight">{safeHorseName}</span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowDebug(!showDebug)}
-                className="h-6 w-6 p-0 opacity-60 hover:opacity-100"
+                className="h-5 w-5 p-0 opacity-60 hover:opacity-100 flex-shrink-0"
               >
                 {showDebug ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               </Button>
             </div>
-            <div className="text-xs text-muted-foreground truncate">{safeDriverName}</div>
+            <div className="text-xs text-muted-foreground break-words leading-tight">{safeDriverName}</div>
           </div>
 
-          {/* Times - Mobile: Stack vertically, Desktop: Side by side */}
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 min-w-0">
-            {/* Predicted Time - Most important */}
+          {/* Times - Reordered with Pred as most prominent */}
+          <div className="flex flex-col gap-1 min-w-0">
+            {/* Predicted Time - Most prominent */}
             <div className="text-center">
-              <div className={`font-mono text-sm font-bold ${isTopPerformer ? 'text-primary' : 'text-foreground'}`}>
+              <div className={`font-mono text-lg font-bold ${isTopPerformer ? 'text-primary' : 'text-foreground'}`}>
                 {formatKmTime(result.modernNormalizedTime)}
               </div>
-              <div className="text-xs text-muted-foreground">Pred</div>
+              <div className="text-xs text-primary font-medium">Pred</div>
             </div>
-
-            {/* Raw Time - Always visible on mobile */}
-            <div className="text-center">
-              <div className="font-mono text-sm font-bold text-muted-foreground">
-                {horse.rawKmTime ? formatKmTime(horse.rawKmTime) : '-'}
+            
+            {/* Raw and Best in smaller format */}
+            <div className="flex gap-2 justify-center">
+              <div className="text-center">
+                <div className="font-mono text-xs font-medium text-muted-foreground">
+                  {horse.rawKmTime ? formatKmTime(horse.rawKmTime) : '-'}
+                </div>
+                <div className="text-xs text-muted-foreground">Raw</div>
               </div>
-              <div className="text-xs text-muted-foreground">Raw</div>
-            </div>
-
-            {/* Best Record - Desktop only for space */}
-            <div className="text-center hidden sm:block">
-              <div className="font-mono text-sm font-bold text-warning">
-                {horse.bestRecordTime ? formatKmTime(horse.bestRecordTime) : '-'}
+              <div className="text-center">
+                <div className="font-mono text-xs font-medium text-muted-foreground">
+                  {horse.bestRecordTime ? formatKmTime(horse.bestRecordTime) : '-'}
+                </div>
+                <div className="text-xs text-muted-foreground">Best</div>
               </div>
-              <div className="text-xs text-muted-foreground">Best</div>
             </div>
           </div>
         </div>
 
-        {/* Secondary info row - Mobile: Stack, Desktop: Single line */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-3 gap-2">
-          <div className="flex items-center gap-3 text-xs flex-wrap">
+        {/* Secondary info row - Compact single line */}
+        <div className="flex items-center justify-between mt-2 gap-2">
+          <div className="flex items-center gap-2 text-xs flex-wrap">
             {/* Statistics */}
             <div className="flex items-center gap-1">
               <span className={`font-medium ${horse.statistics?.winPercentage > 0 ? 'text-success' : 'text-muted-foreground'}`}>
@@ -135,28 +135,14 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
                 </span>
               </div>
             )}
-          </div>
 
-          {/* Equipment info */}
-          <div className="flex items-center gap-2 text-xs">
-            <Badge variant="outline" className="text-xs h-5">
+            {/* Equipment info - Now inline with other stats */}
+            <Badge variant="outline" className="text-xs h-4 px-1">
               {getSulkyDisplay(horse.sulkyType)}
             </Badge>
-            <span className={`font-medium ${getShoesColor(horse.shoesFront || false, horse.shoesBack || false)}`}>
+            <span className={`font-medium text-xs ${getShoesColor(horse.shoesFront || false, horse.shoesBack || false)}`}>
               {getShoesDisplay(horse.shoesFront || false, horse.shoesBack || false)}
             </span>
-          </div>
-        </div>
-
-        {/* Mobile-only: Best Record Time row */}
-        <div className="sm:hidden mt-2 pt-2 border-t border-border/30">
-          <div className="flex items-center justify-center gap-4 text-xs">
-            <div className="text-center">
-              <div className="font-mono text-sm font-bold text-warning">
-                {horse.bestRecordTime ? formatKmTime(horse.bestRecordTime) : '-'}
-              </div>
-              <div className="text-xs text-muted-foreground">Best Record</div>
-            </div>
           </div>
         </div>
       </div>
