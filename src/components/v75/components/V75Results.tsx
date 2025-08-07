@@ -21,13 +21,6 @@ const V75Results: React.FC<V75ResultsProps> = ({
 }) => {
   if (races.length === 0) return null;
 
-  // Default to first race instead of overview if no active tab is set
-  React.useEffect(() => {
-    if (!activeTab && races.length > 0) {
-      onTabChange(`race-${races[0].raceNumber}`);
-    }
-  }, [activeTab, races, onTabChange]);
-
   return (
     <DebugErrorBoundary>
       <Card className="border-purple-200 shadow-lg">
@@ -42,7 +35,7 @@ const V75Results: React.FC<V75ResultsProps> = ({
           <Tabs value={activeTab} onValueChange={onTabChange}>
             {/* Mobile-friendly scrollable tabs */}
             <div className="overflow-x-auto -mx-3 sm:mx-0">
-              <TabsList className={`grid w-max sm:w-full grid-cols-${Math.min(races.length + 1, 8)} min-w-max gap-1`}>
+              <TabsList className="grid w-max sm:w-full grid-cols-8 min-w-max gap-1">
                 <TabsTrigger value="overview" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
                   Overview
                 </TabsTrigger>
@@ -52,7 +45,7 @@ const V75Results: React.FC<V75ResultsProps> = ({
                     value={`race-${race.raceNumber}`}
                     className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3"
                   >
-                    Race {race.raceNumber}
+                    R{race.raceNumber}
                   </TabsTrigger>
                 ))}
               </TabsList>
