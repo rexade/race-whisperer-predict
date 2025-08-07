@@ -4,8 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy } from "lucide-react";
 import { V75RaceResult } from './hooks/useV75Analysis';
 import V75RaceHeader from './components/V75RaceHeader';
-import V75DataQuality from './components/V75DataQuality';
-import V75ResultsTable from './components/V75ResultsTable';
+import CompactV75ResultsTable from './components/CompactV75ResultsTable';
 
 interface V75RaceDetailsProps {
   race: V75RaceResult;
@@ -32,19 +31,9 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Enhanced Race Info */}
-      <V75RaceHeader race={race} />
-
-      {/* Add Data Quality to Race Header */}
-      <Card>
-        <CardContent className="pt-6">
-          <V75DataQuality race={race} />
-        </CardContent>
-      </Card>
-
-      {/* Enhanced Results Table */}
-      <V75ResultsTable race={race} />
+    <div className="space-y-4">
+      {/* Compact Results Table with integrated race info */}
+      <CompactV75ResultsTable race={race} />
     </div>
   );
 };
