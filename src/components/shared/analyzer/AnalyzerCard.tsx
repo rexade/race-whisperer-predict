@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import SectionHeader from "@/components/shared/SectionHeader";
 
 interface AnalyzerCardProps {
   title: string;
@@ -18,14 +19,8 @@ const AnalyzerCard: React.FC<AnalyzerCardProps> = ({
   className = "" 
 }) => {
   return (
-    <Card className={`border-purple-200 shadow-lg ${className}`}>
-      <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
-        <CardTitle className="text-2xl text-purple-800 flex items-center gap-2">
-          {icon}
-          {title}
-        </CardTitle>
-        <p className="text-purple-600">{description}</p>
-      </CardHeader>
+    <Card className={`border-border shadow-md ${className}`}>
+      <SectionHeader title={title} subtitle={description} icon={icon} />
       
       <CardContent className="space-y-6">
         {children}
