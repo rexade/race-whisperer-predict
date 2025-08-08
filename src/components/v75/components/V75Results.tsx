@@ -42,7 +42,7 @@ const V75Results: React.FC<V75ResultsProps> = ({
           <Tabs value={activeTab} onValueChange={onTabChange}>
             {/* Mobile-friendly scrollable tabs */}
             <div className="overflow-x-auto -mx-3 sm:mx-0">
-              <TabsList className={`grid w-max sm:w-full grid-cols-${Math.min(races.length + 1, 8)} min-w-max gap-1`}>
+              <TabsList className="w-max sm:w-full flex-nowrap gap-1">
                 <TabsTrigger value="overview" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
                   Overview
                 </TabsTrigger>
