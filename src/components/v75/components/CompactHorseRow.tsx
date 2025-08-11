@@ -27,9 +27,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
   };
 
   const getRankBadgeStyle = (rank: number) => {
-    if (rank <= 3) return "bg-primary text-primary-foreground font-bold shadow-sm";
-    if (rank <= 5) return "bg-secondary text-secondary-foreground border border-primary/30 font-medium";
-    return "bg-muted text-muted-foreground border border-border";
+    return "bg-primary text-primary-foreground font-bold shadow-sm";
   };
 
   const getRowStyle = (rank: number) => {
@@ -39,7 +37,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
 
   return (
     <>
-      <div className={`${getRowStyle(rank)} p-2 sm:p-3 transition-all duration-200 sm:border-b sm:border-border/50`}>
+      <div className={`${getRowStyle(rank)} p-2 sm:p-3 transition-all duration-200 border-b border-border/60 last:border-b-0`}>
         {/* Main content - always visible */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Rank and Start Position */}
@@ -50,7 +48,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
                 {rank}
               </Badge>
             </div>
-            <Badge variant="secondary" className="text-xs font-bold h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0">
+            <Badge variant="default" className="text-xs font-bold h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0">
               {horse.postPosition}
             </Badge>
           </div>

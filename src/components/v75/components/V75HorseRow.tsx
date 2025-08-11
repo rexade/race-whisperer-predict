@@ -31,15 +31,13 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
   };
 
   const getRankBadgeStyle = (rank: number) => {
-    if (rank <= 3) return "bg-gradient-accent text-white font-bold shadow-sm";
-    if (rank <= 5) return "bg-atg-light-blue text-atg-navy border border-atg-blue/30 font-medium";
-    return "bg-atg-gray-100 text-atg-gray-600 border border-atg-gray-200";
+    return "bg-gradient-accent text-white font-bold shadow-sm";
   };
 
   return (
     <>
       <TableRow 
-        className={`${isTopPerformer ? 'bg-atg-light-blue/40 border-l-4 border-l-atg-blue shadow-sm' : ''} hover:bg-atg-gray-50 transition-all duration-200`}
+        className={`${isTopPerformer ? 'bg-atg-light-blue/40 border-l-4 border-l-atg-blue shadow-sm' : ''} hover:bg-atg-gray-50 transition-all duration-200 border-b border-border/60 last:border-b-0`}
       >
       <TableCell className="text-center sticky left-0 bg-background z-10 border-r border-atg-gray-200">
         <div className="flex items-center justify-center gap-1">
@@ -50,8 +48,10 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
         </div>
       </TableCell>
       
-      <TableCell className="text-center font-bold text-sm sm:text-lg text-atg-navy">
-        {horse.postPosition}
+      <TableCell className="text-center">
+        <Badge variant="default" className="text-xs font-bold h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0">
+          {horse.postPosition}
+        </Badge>
       </TableCell>
       
       <TableCell>
