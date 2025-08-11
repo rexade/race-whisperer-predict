@@ -5,7 +5,7 @@ import { Medal, ChevronDown, ChevronUp, Zap, Banknote } from "lucide-react";
 import { V75HorseResult } from '../hooks/useV75Analysis';
 import { ensureStringForDisplay, formatKmTime, formatEarnings, getShoesDisplay, getShoesColor, getSulkyDisplay } from '../utils/v75DisplayUtils';
 import { V75TimeCalculationDebug } from './V75TimeCalculationDebug';
-
+import { useIsMobile } from '../../../hooks/use-mobile';
 interface CompactHorseRowProps {
   horse: V75HorseResult;
   rank: number;
@@ -13,9 +13,9 @@ interface CompactHorseRowProps {
 
 const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
   const [showDebug, setShowDebug] = useState(false);
+  const isMobile = useIsMobile();
   const result = horse.modernNormalizedResult!;
   const isTopPerformer = rank <= 3;
-  
   const safeHorseName = ensureStringForDisplay(horse.horseName);
   const safeDriverName = ensureStringForDisplay(horse.driverName);
 
@@ -37,7 +37,15 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
 
   return (
     <>
-      <div className={`${getRowStyle(rank)} p-2 sm:p-3 transition-all duration-200 border-b border-border/60 last:border-b-0`}>
+      <div
+        className={`${getRowStyle(rank)} p-2 sm:p-3 transition-all duration-200 border-b border-border/60 last:border-b-0 ${isMobile ? 'cursor-pointer' : ''}`}
+        onClick={isMobile ? () => setShowDebug(!showDebug) : undefined}
+        onKeyDown={isMobile ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowDebug(!showDebug); } } : undefined}
+        role={isMobile ? 'button' : undefined}
+        tabIndex={isMobile ? 0 : -1}
+        aria-expanded={showDebug}
+        aria-controls={`debug-${horse.horseId}`}
+      >
         {/* Main content - always visible */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Rank and Start Position */}
@@ -65,7 +73,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowDebug(!showDebug)}
+                onClick={(e) => { e.stopPropagation(); setShowDebug(!showDebug); }}
                 className="hidden sm:inline-flex h-5 w-5 p-0 opacity-60 hover:opacity-100 flex-shrink-0"
               >
                 {showDebug ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
@@ -150,7 +158,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
       </div>
       
       {showDebug && (
-        <div className="bg-muted/50 sm:border-b sm:border-border/50">
+        <div id={`debug-${horse.horseId}`} className="bg-muted/50 sm:border-b sm:border-border/50">
           <V75TimeCalculationDebug horse={horse} />
         </div>
       )}
