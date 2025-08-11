@@ -64,7 +64,7 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race })
           {horsesWithoutTimes.map(horse => (
             <div 
               key={horse.horseId}
-              className="p-2 sm:p-3 bg-muted/50 border-l-4 border-l-muted-foreground/30"
+              className="p-2 sm:p-3 bg-muted/50 sm:border-l-4 sm:border-l-muted-foreground/30"
             >
               <div className="flex items-center gap-3">
                 <Badge variant="outline" className="text-xs">
@@ -78,7 +78,7 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race })
         </div>
         
         {horsesWithoutTimes.length > 0 && (
-          <div className="p-2 sm:p-3 bg-muted/30 border-t">
+          <div className="p-2 sm:p-3 bg-muted/30 sm:border-t">
             <p className="text-xs text-muted-foreground">
               {horsesWithoutTimes.length} horse(s) could not be analyzed due to insufficient historical data.
             </p>

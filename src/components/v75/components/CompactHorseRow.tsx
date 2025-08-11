@@ -33,13 +33,13 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
   };
 
   const getRowStyle = (rank: number) => {
-    if (rank <= 3) return "bg-primary/5 border-l-4 border-l-primary shadow-sm";
+    if (rank <= 3) return "bg-primary/5 sm:border-l-4 border-l-transparent sm:border-l-primary shadow-sm";
     return "bg-card hover:bg-muted/30";
   };
 
   return (
     <>
-      <div className={`${getRowStyle(rank)} p-2 sm:p-3 transition-all duration-200 border-b border-border/50`}>
+      <div className={`${getRowStyle(rank)} p-2 sm:p-3 transition-all duration-200 sm:border-b sm:border-border/50`}>
         {/* Main content - always visible */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Rank and Start Position */}
@@ -148,7 +148,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
       </div>
       
       {showDebug && (
-        <div className="bg-muted/50 border-b border-border/50">
+        <div className="bg-muted/50 sm:border-b sm:border-border/50">
           <V75TimeCalculationDebug horse={horse} />
         </div>
       )}

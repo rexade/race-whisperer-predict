@@ -23,7 +23,7 @@ import V75CacheManager from "./v75/components/V75CacheManager";
 const V75Analyzer: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [weights, setWeights] = useState<NormalizationWeights>(getDefaultWeights());
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("");
   const [showCacheManager, setShowCacheManager] = useState(false);
   
   const {
@@ -57,7 +57,7 @@ const V75Analyzer: React.FC = () => {
   // Update active tab when results are loaded
   useEffect(() => {
     if (v75Results.length > 0) {
-      setActiveTab("overview");
+      setActiveTab(`race-${v75Results[0].raceNumber}`);
     }
   }, [v75Results]);
 
