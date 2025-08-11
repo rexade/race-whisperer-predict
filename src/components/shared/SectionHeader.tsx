@@ -19,7 +19,7 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({ title, subtitle, icon, ac
   };
 
   return (
-    <CardHeader className="bg-card border-b border-border animate-fade-in">
+    <CardHeader className="bg-transparent border-none sm:bg-card sm:border-b animate-fade-in">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
           {icon && (

@@ -20,7 +20,7 @@ const V75Input: React.FC<V75InputProps> = ({
   loading
 }) => {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Mobile-first date selection */}
       <div>
         <h3 className="text-base sm:text-lg font-semibold mb-3 flex items-center gap-2">
@@ -31,27 +31,38 @@ const V75Input: React.FC<V75InputProps> = ({
           selectedDate={selectedDate}
           onDateSelect={onDateSelect}
         />
+        {/* Compact helper on mobile */}
+        {selectedDate && (
+          <p className="sm:hidden text-xs text-muted-foreground mt-2">
+            Selected: {format(selectedDate, 'MMM d, yyyy')}
+          </p>
+        )}
       </div>
       
       {/* Selected date status - compact on mobile */}
-      {selectedDate && (
-        <StatusCard type="info" title="Date Selected">
-          <div className="text-sm text-blue-700">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-              <div>
-                <div className="font-medium">{format(selectedDate, 'MMM d, yyyy')}</div>
-                <div className="text-xs text-blue-600 mt-1">
-                  Tap "Analyze V75" to check for races
+      {/* Selected date status - desktop only */}
+      <div className="hidden sm:block">
+        {selectedDate && (
+          <StatusCard type="info" title="Date Selected">
+            <div className="text-sm text-blue-700">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-medium">{format(selectedDate, 'MMM d, yyyy')}</div>
+                  <div className="text-xs text-blue-600 mt-1">
+                    Tap "Analyze V75" to check for races
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </StatusCard>
-      )}
+          </StatusCard>
+        )}
+      </div>
       
       {/* Analysis status and button */}
       <div className="space-y-3">
+      {/* Analysis status - desktop only */}
+      <div className="hidden sm:block">
         <StatusCard type="info" title="Ready to Analyze">
           <div className="text-sm text-purple-700">
             {selectedDate ? (
@@ -68,6 +79,7 @@ const V75Input: React.FC<V75InputProps> = ({
             )}
           </div>
         </StatusCard>
+      </div>
         
         <Button 
           onClick={onAnalyze}

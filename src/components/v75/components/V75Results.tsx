@@ -40,16 +40,16 @@ const V75Results: React.FC<V75ResultsProps> = ({
         
         <CardContent className="p-0">
           <Tabs value={activeTab} onValueChange={onTabChange}>
-            {/* Mobile-friendly scrollable tabs */}
+            {/* Non-scrollable grid tabs */}
             <div className="">
-              <TabsList className="bg-transparent p-0 w-full flex items-stretch justify-between gap-0 h-9 sm:h-10">
+              <TabsList className="bg-transparent p-0 grid grid-cols-4 sm:grid-cols-7 gap-1 w-full h-9 sm:h-10">
                 {races.map(race => (
                   <TabsTrigger 
                     key={race.raceNumber} 
                     value={`race-${race.raceNumber}`}
                     aria-label={`Race ${race.raceNumber}`}
                     title={`Race ${race.raceNumber}`}
-                    className="flex-1 basis-0 text-center rounded-md text-xs sm:text-sm px-0 py-2 h-9 sm:h-10 whitespace-nowrap bg-atg-gray-100 text-atg-navy focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:bg-atg-blue data-[state=active]:text-white"
+                    className="text-center rounded-md text-xs sm:text-sm px-0 py-2 h-9 sm:h-10 whitespace-nowrap bg-atg-gray-100 text-atg-navy focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:bg-atg-blue data-[state=active]:text-white"
                   >
                     R{race.raceNumber}
                   </TabsTrigger>

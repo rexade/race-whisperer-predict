@@ -22,7 +22,7 @@ const AnalyzerCard: React.FC<AnalyzerCardProps> = ({
     <Card className={`border-0 shadow-none sm:border-border sm:shadow-md ${className}`}>
       <SectionHeader title={title} subtitle={description} icon={icon} />
       
-      <CardContent className="space-y-3 sm:space-y-6">
+      <CardContent className="px-0 py-3 sm:px-6 sm:py-6 space-y-3 sm:space-y-6">
         {children}
       </CardContent>
     </Card>

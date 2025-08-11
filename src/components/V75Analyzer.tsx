@@ -25,6 +25,7 @@ const V75Analyzer: React.FC = () => {
   const [weights, setWeights] = useState<NormalizationWeights>(getDefaultWeights());
   const [activeTab, setActiveTab] = useState("");
   const [showCacheManager, setShowCacheManager] = useState(false);
+  const [showInput, setShowInput] = useState(true);
   
   const {
     loading,
@@ -41,9 +42,8 @@ const V75Analyzer: React.FC = () => {
 
   const handleAnalyzeV75 = () => {
     if (!selectedDate) return;
-    
+    setShowInput(false);
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    
     analyzeV75Date(dateStr, weights);
   };
 
@@ -61,6 +61,15 @@ const V75Analyzer: React.FC = () => {
     }
   }, [v75Results]);
 
+  // Collapse input when results are available
+  useEffect(() => {
+    if (v75Results.length > 0) {
+      setShowInput(false);
+    } else {
+      setShowInput(true);
+    }
+  }, [v75Results]);
+
   return (
     <DebugErrorBoundary>
       <AnalyzerLayout>
@@ -70,30 +79,54 @@ const V75Analyzer: React.FC = () => {
           description="Analyze all 7 races in a V75 day with advanced RAW time normalization and intelligent caching"
           icon={<Trophy className="h-6 w-6" />}
         >
-          {/* Date Selection and Analysis */}
-          <V75Input
-            selectedDate={selectedDate}
-            onDateSelect={setSelectedDate}
-            onAnalyze={handleAnalyzeV75}
-            loading={loading}
-          />
+          {/* Date Selection / Summary */}
+          {showInput ? (
+            <V75Input
+              selectedDate={selectedDate}
+              onDateSelect={setSelectedDate}
+              onAnalyze={handleAnalyzeV75}
+              loading={loading}
+            />
+          ) : (
+            v75Results.length > 0 && (
+              <div className="flex items-center justify-between gap-3 px-2 sm:px-0">
+                <div className="text-xs sm:text-sm text-muted-foreground">
+                  {analysisDate ? format(new Date(analysisDate), 'PPP') : (selectedDate ? format(selectedDate, 'PPP') : '')} • {v75Results.length} races
+                </div>
+                <button
+                  onClick={() => setShowInput(true)}
+                  className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 underline touch-manipulation"
+                >
+                  Change date
+                </button>
+              </div>
+            )
+          )}
 
-          {/* Cache Manager Toggle - Mobile friendly */}
-          <div className="flex justify-end gap-4">
-            <button
-              onClick={() => setShowCacheManager(!showCacheManager)}
-              className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 underline touch-manipulation py-2"
-            >
-              {showCacheManager ? 'Hide' : 'Show'} Cache Manager
-            </button>
-            {isAutoDebugging && (
-              <button
-                onClick={exportRockSolidReport}
-                className="text-xs sm:text-sm text-green-600 hover:text-green-800 underline touch-manipulation py-2"
-              >
-                Export Debug Report
-              </button>
-            )}
+          {/* Tools (collapsed) */}
+          <div className="mt-2">
+            <div className="sm:hidden h-px bg-border my-1" />
+            <div className="flex items-center justify-between">
+              <details className="w-full">
+                <summary className="cursor-pointer text-xs sm:text-sm text-muted-foreground">Tools</summary>
+                <div className="mt-2 flex justify-end gap-4">
+                  <button
+                    onClick={() => setShowCacheManager(!showCacheManager)}
+                    className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 underline touch-manipulation py-2"
+                  >
+                    {showCacheManager ? 'Hide' : 'Show'} Cache Manager
+                  </button>
+                  {isAutoDebugging && (
+                    <button
+                      onClick={exportRockSolidReport}
+                      className="text-xs sm:text-sm text-green-600 hover:text-green-800 underline touch-manipulation py-2"
+                    >
+                      Export Debug Report
+                    </button>
+                  )}
+                </div>
+              </details>
+            </div>
           </div>
 
           {/* Progress */}
