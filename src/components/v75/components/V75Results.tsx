@@ -42,7 +42,7 @@ const V75Results: React.FC<V75ResultsProps> = ({
           <Tabs value={activeTab} onValueChange={onTabChange}>
             {/* Non-scrollable grid tabs */}
             <div className="">
-              <TabsList className="bg-transparent p-0 grid grid-cols-4 sm:grid-cols-7 gap-1 w-full h-9 sm:h-10">
+              <TabsList className="bg-transparent p-0 grid grid-cols-7 gap-1 w-full h-9 sm:h-10">
                 {races.map(race => (
                   <TabsTrigger 
                     key={race.raceNumber} 

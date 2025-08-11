@@ -25,6 +25,7 @@ const V75Analyzer: React.FC = () => {
   const [weights, setWeights] = useState<NormalizationWeights>(getDefaultWeights());
   const [activeTab, setActiveTab] = useState("");
   const [showCacheManager, setShowCacheManager] = useState(false);
+  const [showWeights, setShowWeights] = useState(false);
   const [showInput, setShowInput] = useState(true);
   
   const {
@@ -116,6 +117,12 @@ const V75Analyzer: React.FC = () => {
                   >
                     {showCacheManager ? 'Hide' : 'Show'} Cache Manager
                   </button>
+                  <button
+                    onClick={() => setShowWeights(!showWeights)}
+                    className="text-xs sm:text-sm text-purple-600 hover:text-purple-800 underline touch-manipulation py-2"
+                  >
+                    {showWeights ? 'Hide' : 'Show'} Weights
+                  </button>
                   {isAutoDebugging && (
                     <button
                       onClick={exportRockSolidReport}
@@ -153,7 +160,7 @@ const V75Analyzer: React.FC = () => {
         )}
 
         {/* Weight Manager */}
-        {v75Results.length > 0 && (
+        {v75Results.length > 0 && showWeights && (
           <DebugErrorBoundary>
             <WeightManager weights={weights} onWeightsChange={setWeights} />
           </DebugErrorBoundary>
