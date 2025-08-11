@@ -167,29 +167,6 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
             </>
           )}
 
-          {/* Debug Logs Summary */}
-          {horseLogs.length > 0 && (
-            <>
-              <Separator />
-              <div>
-                <h4 className="font-medium text-sm mb-2">Recent Debug Activity</h4>
-                <div className="space-y-1">
-                  {horseLogs.slice(-5).map((log, index) => (
-                    <div key={index} className="text-xs p-2 bg-muted/50 rounded">
-                      <div className="flex justify-between items-center">
-                        <Badge variant="outline" className="text-xs">
-                          {log.stage.replace(/_/g, ' ')}
-                        </Badge>
-                        <span className="text-muted-foreground">
-                          {new Date(log.timestamp).toLocaleTimeString()}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
         </div>
         
       </CardContent>
