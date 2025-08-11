@@ -28,7 +28,7 @@ function App() {
               </div>
             </div>
           </header>
-          <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+          <main className="container mx-auto px-0 sm:px-4 py-4 sm:py-8">
             <Tabs defaultValue="v75" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="v75">V75 Analyzer</TabsTrigger>

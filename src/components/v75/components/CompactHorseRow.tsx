@@ -33,8 +33,8 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
   };
 
   const getRowStyle = (rank: number) => {
-    if (rank <= 3) return "bg-primary/5 sm:border-l-4 border-l-transparent sm:border-l-primary shadow-sm";
-    return "bg-card hover:bg-muted/30";
+    if (rank <= 3) return "bg-transparent sm:bg-primary/5 sm:border-l-4 border-l-transparent sm:border-l-primary sm:shadow-sm";
+    return "bg-transparent sm:bg-card sm:hover:bg-muted/30";
   };
 
   return (
@@ -50,7 +50,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
                 {rank}
               </Badge>
             </div>
-            <Badge variant="outline" className="text-xs font-bold h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0">
+            <Badge variant="secondary" className="text-xs font-bold h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0">
               {horse.postPosition}
             </Badge>
           </div>
@@ -63,12 +63,12 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowDebug(!showDebug)}
-                className="h-5 w-5 p-0 opacity-60 hover:opacity-100 flex-shrink-0"
+                className="hidden sm:inline-flex h-5 w-5 p-0 opacity-60 hover:opacity-100 flex-shrink-0"
               >
                 {showDebug ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               </Button>
             </div>
-            <div className="text-xs text-muted-foreground break-words leading-tight">{safeDriverName}</div>
+            <div className="text-xs text-muted-foreground break-words leading-tight mt-0.5">{safeDriverName}</div>
           </div>
 
           {/* Times - Reordered with Pred as most prominent */}
@@ -137,7 +137,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
             )}
 
             {/* Equipment info - Now inline with other stats */}
-            <Badge variant="outline" className="text-xs h-4 px-1">
+            <Badge variant="secondary" className="text-xs h-4 px-1">
               {getSulkyDisplay(horse.sulkyType)}
             </Badge>
             <span className={`font-medium text-xs ${getShoesColor(horse.shoesFront || false, horse.shoesBack || false)}`}>

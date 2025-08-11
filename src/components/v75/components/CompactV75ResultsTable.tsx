@@ -34,14 +34,14 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race })
       <CardHeader className="px-2 py-2 sm:px-4 sm:py-3">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <CardTitle className="text-foreground font-secondary text-base sm:text-lg flex items-center gap-2">
-            Race {race.raceNumber} - {race.name}
+            Race {race.raceNumber} <span className="hidden sm:inline">- {race.name}</span>
             {qualityPercentage < 80 && (
               <Badge variant="destructive" className="text-xs">
                 {qualityPercentage}% analyzed
               </Badge>
             )}
           </CardTitle>
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+          <div className="hidden sm:flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
             <span>{race.track}</span>
             <span>•</span>
             <span>{race.distance}m</span>
@@ -67,7 +67,7 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race })
               className="p-2 sm:p-3 bg-muted/50 sm:border-l-4 sm:border-l-muted-foreground/30"
             >
               <div className="flex items-center gap-3">
-                <Badge variant="outline" className="text-xs">
+                <Badge variant="secondary" className="text-xs">
                   {horse.postPosition}
                 </Badge>
                 <span className="font-medium text-sm">{horse.horseName}</span>
