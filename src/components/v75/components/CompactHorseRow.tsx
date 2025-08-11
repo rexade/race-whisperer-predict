@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Medal, ChevronDown, ChevronUp, Zap, Banknote } from "lucide-react";
+import { Medal, ChevronDown, ChevronUp, Zap, Banknote, Award } from "lucide-react";
 import { V75HorseResult } from '../hooks/useV75Analysis';
 import { ensureStringForDisplay, formatKmTime, formatEarnings, getShoesDisplay, getShoesColor, getSulkyDisplay } from '../utils/v75DisplayUtils';
 import { V75TimeCalculationDebug } from './V75TimeCalculationDebug';
@@ -125,6 +125,14 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
               <Zap className="h-3 w-3 text-success" />
               <span className={`font-medium ${horse.driver2025WinPercentage > 0 ? 'text-success' : 'text-muted-foreground'}`}>
                 {horse.driver2025WinPercentage ? (horse.driver2025WinPercentage / 100).toFixed(0) + '%' : '-'}
+              </span>
+            </div>
+
+            {/* Start Points */}
+            <div className="flex items-center gap-1">
+              <Award className="h-3 w-3 text-primary" />
+              <span className={`font-medium ${horse.statistics?.startPoints > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
+                {horse.statistics?.startPoints ? horse.statistics.startPoints : '-'}
               </span>
             </div>
 
