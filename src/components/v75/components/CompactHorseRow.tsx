@@ -48,7 +48,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
                 {rank}
               </Badge>
             </div>
-            <Badge variant="default" className="text-xs font-bold h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0">
+            <Badge variant="secondary" className="text-xs font-bold h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0">
               {horse.postPosition}
             </Badge>
           </div>

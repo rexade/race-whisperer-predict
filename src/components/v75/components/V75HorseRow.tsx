@@ -48,10 +48,8 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
         </div>
       </TableCell>
       
-      <TableCell className="text-center">
-        <Badge variant="default" className="text-xs font-bold h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0">
-          {horse.postPosition}
-        </Badge>
+      <TableCell className="text-center font-bold text-sm sm:text-lg text-atg-navy">
+        {horse.postPosition}
       </TableCell>
       
       <TableCell>
