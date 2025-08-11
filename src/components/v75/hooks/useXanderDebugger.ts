@@ -5,6 +5,23 @@ export const useXanderDebugger = () => {
   const [debugLogs, setDebugLogs] = useState<HorseDebugInfo[]>([]);
   const [isDebugging, setIsDebugging] = useState(false);
 
+  useEffect(() => {
+    const current = HorseDebugger.getDebugLogs();
+    setDebugLogs(current);
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'xander_debug_logs_v1') {
+        try {
+          const parsed = e.newValue ? JSON.parse(e.newValue) : [];
+          setDebugLogs(Array.isArray(parsed) ? parsed : (parsed?.logs || []));
+        } catch {}
+      }
+    };
+
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   const startDebugging = () => {
     HorseDebugger.clearLogs();
     setIsDebugging(true);

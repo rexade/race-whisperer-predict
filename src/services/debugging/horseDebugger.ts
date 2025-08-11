@@ -10,10 +10,36 @@ export interface HorseDebugInfo {
 }
 
 export class HorseDebugger {
+  private static STORAGE_KEY = 'xander_debug_logs_v1';
   private static debugLogs: HorseDebugInfo[] = [];
   private static targetHorses: string[] = [];
   private static debugAllHorses = true; // Debug all horses by default
+  private static isHydrated = false;
 
+  private static hydrateFromStorage(): void {
+    if (this.isHydrated) return;
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(this.STORAGE_KEY) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        this.debugLogs = Array.isArray(parsed) ? parsed : (parsed?.logs || []);
+      }
+    } catch (e) {
+      console.warn('XANDER DEBUG: Failed to hydrate logs from storage', e);
+    } finally {
+      this.isHydrated = true;
+    }
+  }
+
+  private static persist(): void {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.debugLogs));
+      }
+    } catch (e) {
+      console.warn('XANDER DEBUG: Failed to persist logs to storage', e);
+    }
+  }
   static shouldDebugHorse(horseName: string): boolean {
     // If debugging all horses, always return true
     if (this.debugAllHorses) return true;
@@ -48,6 +74,7 @@ export class HorseDebugger {
       data: JSON.parse(JSON.stringify(data)),
       timestamp: new Date().toISOString()
     });
+    this.persist();
   }
 
   static logHistoricalData(horseId: number, horseName: string, records: any[]): void {
@@ -88,6 +115,7 @@ export class HorseDebugger {
       },
       timestamp: new Date().toISOString()
     });
+    this.persist();
   }
 
   static logProcessedTimes(horseId: number, horseName: string, processedTimes: any[], best3Average: KmTime): void {
@@ -122,6 +150,7 @@ export class HorseDebugger {
       },
       timestamp: new Date().toISOString()
     });
+    this.persist();
   }
 
   static logNormalizationStep(horseId: number, horseName: string, step: string, before: any, after: any): void {
@@ -173,6 +202,7 @@ export class HorseDebugger {
       },
       timestamp: new Date().toISOString()
     });
+    this.persist();
   }
 
   static logValidationStats(horseId: number, horseName: string, stats: any): void {
@@ -194,6 +224,7 @@ export class HorseDebugger {
       data: stats,
       timestamp: new Date().toISOString()
     });
+    this.persist();
   }
 
   static logModernNormalizationBreakdown(horseId: number, horseName: string, rawTime: any, adjustments: any, finalTime: any): void {
@@ -231,6 +262,7 @@ export class HorseDebugger {
       },
       timestamp: new Date().toISOString()
     });
+    this.persist();
   }
 
   static logEquipmentData(horseId: number, horseName: string, sulkyType: any, frontShoes: any, backShoes: any): void {
@@ -261,6 +293,7 @@ export class HorseDebugger {
       },
       timestamp: new Date().toISOString()
     });
+    this.persist();
   }
 
   static logDataCorruption(horseId: number, horseName: string, fieldName: string, corruptedValue: any): void {
@@ -282,14 +315,21 @@ export class HorseDebugger {
       },
       timestamp: new Date().toISOString()
     });
+    this.persist();
   }
 
   static getDebugLogs(): HorseDebugInfo[] {
+    this.hydrateFromStorage();
     return this.debugLogs;
   }
 
   static clearLogs(): void {
     this.debugLogs = [];
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(this.STORAGE_KEY);
+      }
+    } catch {}
   }
 
   static exportDebugReport(): string {
