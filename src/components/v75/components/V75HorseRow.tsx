@@ -39,9 +39,9 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
       <TableRow 
         className={`${isTopPerformer ? 'bg-atg-light-blue/40 border-l-4 border-l-atg-blue shadow-sm' : ''} hover:bg-atg-gray-50 transition-all duration-200 border-b border-border/60 last:border-b-0`}
       >
-      <TableCell className="text-center sticky left-0 bg-background z-10 border-r border-atg-gray-200">
-        <div className="flex items-center justify-center gap-1">
-          {getRankIcon(rank)}
+      <TableCell className="text-center sticky left-0 bg-background z-10 border-r border-atg-gray-200 w-16 sm:w-20">
+        <div className="flex items-center justify-center gap-1 w-full">
+          <span className="w-4 h-4 flex items-center justify-center">{getRankIcon(rank)}</span>
           <Badge className={`${getRankBadgeStyle(rank)} text-xs`}>
             {rank}
           </Badge>
@@ -55,12 +55,12 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
       <TableCell>
         <div className="space-y-1 min-w-0">
           <div className="flex items-center gap-2">
-            <div className="font-medium text-foreground text-xs sm:text-sm truncate">{safeHorseName}</div>
+            <div className="font-medium text-foreground text-xs sm:text-sm truncate flex-1 min-w-0">{safeHorseName}</div>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowDebug(!showDebug)}
-              className="h-6 w-6 p-0"
+              className="h-6 w-6 p-0 flex-shrink-0"
             >
               {showDebug ? (
                 <ChevronUp className="h-3 w-3" />
