@@ -39,18 +39,18 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
 
   return (
     <>
-      <div className={`${getRowStyle(rank)} p-3 transition-all duration-200 border-b border-border/50`}>
+      <div className={`${getRowStyle(rank)} p-2 sm:p-3 transition-all duration-200 border-b border-border/50`}>
         {/* Main content - always visible */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Rank and Start Position */}
-          <div className="flex flex-col items-center gap-1 min-w-[50px]">
+          <div className="flex flex-col items-center gap-1 min-w-[42px] sm:min-w-[50px]">
             <div className="flex items-center gap-1">
               {getRankIcon(rank)}
-              <Badge className={`${getRankBadgeStyle(rank)} text-xs h-6 w-6 flex items-center justify-center p-0`}>
+              <Badge className={`${getRankBadgeStyle(rank)} text-xs h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0`}>
                 {rank}
               </Badge>
             </div>
-            <Badge variant="outline" className="text-xs font-bold h-6 w-6 flex items-center justify-center p-0">
+            <Badge variant="outline" className="text-xs font-bold h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0">
               {horse.postPosition}
             </Badge>
           </div>
@@ -75,7 +75,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
           <div className="flex flex-col gap-1 min-w-0">
             {/* Predicted Time - Most prominent */}
             <div className="text-center">
-              <div className={`font-mono text-lg font-bold ${isTopPerformer ? 'text-primary' : 'text-foreground'}`}>
+              <div className={`font-mono text-base sm:text-lg font-bold ${isTopPerformer ? 'text-primary' : 'text-foreground'}`}>
                 {formatKmTime(result.modernNormalizedTime)}
               </div>
               <div className="text-xs text-primary font-medium">Pred</div>
@@ -100,7 +100,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
         </div>
 
         {/* Secondary info row - Compact single line */}
-        <div className="flex items-center justify-between mt-2 gap-2">
+        <div className="flex items-center justify-between mt-1 sm:mt-2 gap-2">
           <div className="flex items-center gap-2 text-xs flex-wrap">
             {/* Statistics */}
             <div className="flex items-center gap-1">

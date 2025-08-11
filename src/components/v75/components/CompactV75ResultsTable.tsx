@@ -30,10 +30,10 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race })
   const qualityPercentage = totalHorses > 0 ? Math.round((analyzedHorses / totalHorses) * 100) : 0;
 
   return (
-    <Card className="bg-gradient-card shadow-xl border-border">
-      <CardHeader className="pb-3">
+    <Card className="border-0 shadow-none bg-transparent">
+      <CardHeader className="px-2 py-2 sm:px-4 sm:py-3">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <CardTitle className="text-foreground font-secondary text-lg flex items-center gap-2">
+          <CardTitle className="text-foreground font-secondary text-base sm:text-lg flex items-center gap-2">
             Race {race.raceNumber} - {race.name}
             {qualityPercentage < 80 && (
               <Badge variant="destructive" className="text-xs">
@@ -41,7 +41,7 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race })
               </Badge>
             )}
           </CardTitle>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
             <span>{race.track}</span>
             <span>•</span>
             <span>{race.distance}m</span>
@@ -64,7 +64,7 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race })
           {horsesWithoutTimes.map(horse => (
             <div 
               key={horse.horseId}
-              className="p-4 bg-muted/50 border-l-4 border-l-muted-foreground/30"
+              className="p-2 sm:p-3 bg-muted/50 border-l-4 border-l-muted-foreground/30"
             >
               <div className="flex items-center gap-3">
                 <Badge variant="outline" className="text-xs">
@@ -78,7 +78,7 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race })
         </div>
         
         {horsesWithoutTimes.length > 0 && (
-          <div className="p-3 bg-muted/30 border-t">
+          <div className="p-2 sm:p-3 bg-muted/30 border-t">
             <p className="text-xs text-muted-foreground">
               {horsesWithoutTimes.length} horse(s) could not be analyzed due to insufficient historical data.
             </p>
