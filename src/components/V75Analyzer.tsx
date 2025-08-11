@@ -39,7 +39,7 @@ const V75Analyzer: React.FC = () => {
     reanalyzeWithNewWeights
   } = useV75Analysis();
   
-  const { isAutoDebugging, exportRockSolidReport } = useRockSolidDebugger();
+  const { isAutoDebugging, exportRockSolidReport, startFresh } = useRockSolidDebugger();
 
   const handleAnalyzeV75 = () => {
     if (!selectedDate) return;
@@ -124,12 +124,20 @@ const V75Analyzer: React.FC = () => {
                     {showWeights ? 'Hide' : 'Show'} Weights
                   </button>
                   {isAutoDebugging && (
-                    <button
-                      onClick={exportRockSolidReport}
-                      className="text-xs sm:text-sm text-green-600 hover:text-green-800 underline touch-manipulation py-2"
-                    >
-                      Export Debug Report
-                    </button>
+                    <div className="flex gap-4">
+                      <button
+                        onClick={exportRockSolidReport}
+                        className="text-xs sm:text-sm text-green-600 hover:text-green-800 underline touch-manipulation py-2"
+                      >
+                        Export Debug Report
+                      </button>
+                      <button
+                        onClick={startFresh}
+                        className="text-xs sm:text-sm text-rose-600 hover:text-rose-800 underline touch-manipulation py-2"
+                      >
+                        Start fresh debug
+                      </button>
+                    </div>
                   )}
                 </div>
               </details>

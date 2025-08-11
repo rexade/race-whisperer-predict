@@ -5,10 +5,9 @@ export const useRockSolidDebugger = () => {
   const [isAutoDebugging, setIsAutoDebugging] = useState(false);
 
   useEffect(() => {
-    // Auto-start debugging when component mounts
+    // Initialize debugging without clearing existing logs
     if (!isAutoDebugging) {
-      console.log('🔍 AUTO-STARTING ROCK SOLID DEBUGGING');
-      HorseDebugger.clearLogs();
+      console.log('🔍 ROCK SOLID DEBUGGING READY (no auto-clear)');
       setIsAutoDebugging(true);
     }
   }, [isAutoDebugging]);
@@ -65,10 +64,17 @@ export const useRockSolidDebugger = () => {
     URL.revokeObjectURL(url);
   };
 
+  const startFresh = () => {
+    HorseDebugger.clearLogs();
+    console.log('🧹 Cleared debug logs for Rock Solid session');
+    // Optionally trigger a re-render in consumers that read directly from the debugger
+    // (no state change needed here since logs are read on demand)
+  };
   return {
     isAutoDebugging,
     generateRockSolidReport,
     exportRockSolidReport,
+    startFresh,
     getRockSolidLogs: () => {
       const logs = HorseDebugger.getDebugLogs();
       return logs.filter(log => 
