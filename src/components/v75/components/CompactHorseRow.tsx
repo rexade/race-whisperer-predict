@@ -57,8 +57,11 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
 
           {/* Horse Info - Primary column */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-semibold text-sm break-words leading-tight">{safeHorseName}</span>
+            <div className="flex items-start gap-2">
+              <div className="min-w-0">
+                <div className="font-semibold text-sm break-words leading-tight">{safeHorseName}</div>
+                <div className="text-xs text-muted-foreground break-words leading-tight mt-0.5">{safeDriverName}</div>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
@@ -68,7 +71,6 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
                 {showDebug ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               </Button>
             </div>
-            <div className="text-xs text-muted-foreground break-words leading-tight mt-0.5">{safeDriverName}</div>
           </div>
 
           {/* Times - Reordered with Pred as most prominent */}

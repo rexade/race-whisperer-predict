@@ -14,7 +14,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <DebugErrorBoundary>
         <div className="min-h-screen bg-background font-primary">
-          <header className="bg-gradient-hero shadow-lg border-b border-atg-gray-200 sticky top-0 z-50">
+          <header className="bg-gradient-hero shadow-lg border-b border-atg-gray-200">
             <div className="container mx-auto px-4 sm:px-6">
               <div className="flex items-center h-16 sm:h-20">
                 <div className="flex items-center space-x-3">
