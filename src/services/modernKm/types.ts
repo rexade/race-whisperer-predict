@@ -65,7 +65,7 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   postPosition: 1.0,
   shoeType: 0.8,
   sulkyType: 0.6,
-  driverPerformance: 1.1,
+  driverPerformance: 2.0,
   trackFamiliarity: 1.0,
   form: 1.2,
   distanceAdjustment: 1.0,
