@@ -21,9 +21,9 @@ export const calculateDriverAdjustment = (
   // Smooth, bounded mapping around a realistic baseline (~15%)
   // Use a gentle sigmoid so small differences don't explode adjustments
   const baseline = 15; // % where adjustment ~ 0
-  const scale = 8;     // steeper -> smaller number; controls sensitivity
+  const scale = 4;     // steeper -> smaller number; controls sensitivity
   const maxReward = -0.12; // seconds at very high win%
-  const maxPenalty = 0.08; // seconds at very low win%
+  const maxPenalty = 0.12; // seconds at very low win%
 
   const x = (wp - baseline) / scale; // normalized deviation
   const sigmoid = Math.tanh(x); // in [-1, 1]
