@@ -5,17 +5,26 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Settings, RotateCcw, ChevronDown, ChevronRight, Save, Upload, Download, Info } from "lucide-react";
+import { Settings, RotateCcw, ChevronDown, ChevronRight, Save, Upload, Download, Info, TrendingUp } from "lucide-react";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
+import { PostPositionCurveEditor, PostPositionCurves, getDefaultPostPositionCurves } from './PostPositionCurveEditor';
 import { useToast } from "@/hooks/use-toast";
 
 interface WeightManagerProps {
   weights: NormalizationWeights;
   onWeightsChange: (weights: NormalizationWeights) => void;
+  postPositionCurves?: PostPositionCurves;
+  onPostPositionCurvesChange?: (curves: PostPositionCurves) => void;
 }
 
-const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange }) => {
+const WeightManager: React.FC<WeightManagerProps> = ({ 
+  weights, 
+  onWeightsChange, 
+  postPositionCurves = getDefaultPostPositionCurves(),
+  onPostPositionCurvesChange 
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
     equipment: true,
@@ -298,153 +307,180 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
       
       {isExpanded && (
         <CardContent className="space-y-6 pt-6">
-          <div className="flex justify-between items-start gap-4">
-            <p className="text-sm text-gray-600">
-              Adjust the weights to control how much each factor affects the final normalized time. 
-              <span className="font-medium text-blue-600">New: Performance metrics baseline adjustments!</span>
-            </p>
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={resetToDefaults}
-                  className="flex items-center gap-2"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Factory Reset
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={loadCustomDefaults}
-                  className="flex items-center gap-2"
-                >
-                  <Upload className="h-4 w-4" />
-                  Load My Defaults
-                </Button>
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  onClick={saveAsDefault}
-                  className="flex items-center gap-2"
-                >
-                  <Save className="h-4 w-4" />
-                  Save as Default
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={exportWeights}
-                  className="flex items-center gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Export
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={importWeights}
-                  className="flex items-center gap-2"
-                >
-                  <Upload className="h-4 w-4" />
-                  Import
-                </Button>
-              </div>
-            </div>
-          </div>
-          
-          <div className="space-y-4">
-            {weightCategories.map((category) => (
-              <Collapsible
-                key={category.id}
-                open={expandedCategories[category.id]}
-                onOpenChange={() => toggleCategory(category.id)}
-              >
-                <CollapsibleTrigger className="w-full">
-                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div className="text-left">
-                      <h3 className="font-medium text-gray-900">{category.title}</h3>
-                      <p className="text-sm text-gray-500">{category.description}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {category.factors.length} factors
-                      </Badge>
-                      {expandedCategories[category.id] ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                    </div>
+          <Tabs defaultValue="weights" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="weights">Weight Factors</TabsTrigger>
+              <TabsTrigger value="positions" className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Post Position Curves
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="weights" className="space-y-6 mt-6">
+              <div className="flex justify-between items-start gap-4">
+                <p className="text-sm text-gray-600">
+                  Adjust the weights to control how much each factor affects the final normalized time. 
+                  <span className="font-medium text-blue-600">New: Performance metrics baseline adjustments!</span>
+                </p>
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={resetToDefaults}
+                      className="flex items-center gap-2"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Factory Reset
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={loadCustomDefaults}
+                      className="flex items-center gap-2"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Load My Defaults
+                    </Button>
                   </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-3">
-                  <div className="space-y-4 pl-4 border-l-2 border-gray-200">
-                    {category.factors.map((factor) => (
-                      <div key={factor.key} className="space-y-3 bg-white p-4 rounded-lg border border-gray-100">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <Label className="font-medium flex items-center gap-2">
-                              {factor.label}
-                              {factor.isNew && (
-                                <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">NEW</Badge>
-                              )}
-                            </Label>
-                            <p className="text-xs text-gray-500 mt-1">{factor.description}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Info className="h-3 w-3 text-blue-500" />
-                              <span className="text-xs text-blue-600">{factor.baseEffect}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="number"
-                              value={weights[factor.key].toFixed(1)}
-                              onChange={(e) => handleDirectWeightChange(factor.key, e.target.value)}
-                              className="w-16 h-8 text-center text-sm"
-                              min="0"
-                              max="2.0"
-                              step="0.1"
-                            />
-                            <Badge variant="secondary" className="text-xs">
-                              {factor.typicalRange}
-                            </Badge>
-                          </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      onClick={saveAsDefault}
+                      className="flex items-center gap-2"
+                    >
+                      <Save className="h-4 w-4" />
+                      Save as Default
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={exportWeights}
+                      className="flex items-center gap-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      Export
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={importWeights}
+                      className="flex items-center gap-2"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Import
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                {weightCategories.map((category) => (
+                  <Collapsible
+                    key={category.id}
+                    open={expandedCategories[category.id]}
+                    onOpenChange={() => toggleCategory(category.id)}
+                  >
+                    <CollapsibleTrigger className="w-full">
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        <div className="text-left">
+                          <h3 className="font-medium text-gray-900">{category.title}</h3>
+                          <p className="text-sm text-gray-500">{category.description}</p>
                         </div>
-                        <Slider
-                          value={[weights[factor.key]]}
-                          onValueChange={(value) => handleWeightChange(factor.key, value)}
-                          max={2.0}
-                          min={0.0}
-                          step={0.1}
-                          className="w-full"
-                        />
-                        <div className="flex justify-between text-xs text-gray-400">
-                          <span>0.0 (No impact)</span>
-                          <span>2.0 (Max impact)</span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {category.factors.length} factors
+                          </Badge>
+                          {expandedCategories[category.id] ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            ))}
-          </div>
-          
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-medium text-blue-800 mb-2">Enhanced Weight Summary</h4>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              {weightCategories.flatMap(category => category.factors).map((factor) => (
-                <div key={factor.key} className="flex justify-between">
-                  <span className="text-blue-700">{factor.label}:</span>
-                  <span className="font-mono font-medium">{weights[factor.key].toFixed(1)}</span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-3">
+                      <div className="space-y-4 pl-4 border-l-2 border-gray-200">
+                        {category.factors.map((factor) => (
+                          <div key={factor.key} className="space-y-3 bg-white p-4 rounded-lg border border-gray-100">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <Label className="font-medium flex items-center gap-2">
+                                  {factor.label}
+                                  {factor.isNew && (
+                                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">NEW</Badge>
+                                  )}
+                                </Label>
+                                <p className="text-xs text-gray-500 mt-1">{factor.description}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Info className="h-3 w-3 text-blue-500" />
+                                  <span className="text-xs text-blue-600">{factor.baseEffect}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  value={weights[factor.key].toFixed(1)}
+                                  onChange={(e) => handleDirectWeightChange(factor.key, e.target.value)}
+                                  className="w-16 h-8 text-center text-sm"
+                                  min="0"
+                                  max="2.0"
+                                  step="0.1"
+                                />
+                                <Badge variant="secondary" className="text-xs">
+                                  {factor.typicalRange}
+                                </Badge>
+                              </div>
+                            </div>
+                            <Slider
+                              value={[weights[factor.key]]}
+                              onValueChange={(value) => handleWeightChange(factor.key, value)}
+                              max={2.0}
+                              min={0.0}
+                              step={0.1}
+                              className="w-full"
+                            />
+                            <div className="flex justify-between text-xs text-gray-400">
+                              <span>0.0 (No impact)</span>
+                              <span>2.0 (Max impact)</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                ))}
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-medium text-blue-800 mb-2">Enhanced Weight Summary</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {weightCategories.flatMap(category => category.factors).map((factor) => (
+                    <div key={factor.key} className="flex justify-between">
+                      <span className="text-blue-700">{factor.label}:</span>
+                      <span className="font-mono font-medium">{weights[factor.key].toFixed(1)}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="positions" className="mt-6">
+              {onPostPositionCurvesChange ? (
+                <PostPositionCurveEditor 
+                  curves={postPositionCurves}
+                  onCurvesChange={onPostPositionCurvesChange}
+                />
+              ) : (
+                <div className="text-center p-8 text-gray-500">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <p>Post position curve editing not available.</p>
+                  <p className="text-sm mt-2">This feature requires additional configuration.</p>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       )}
     </Card>

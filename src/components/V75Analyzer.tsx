@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Trophy } from "lucide-react";
 import { format } from "date-fns";
 import WeightManager from "./WeightManager";
+import { PostPositionCurves, getDefaultPostPositionCurves } from "./PostPositionCurveEditor";
 import ProgressIndicator from "./modernAnalyzer/ProgressIndicator";
 import ErrorDisplay from "./modernAnalyzer/ErrorDisplay";
 import DebugErrorBoundary from "./DebugErrorBoundary";
@@ -23,6 +24,7 @@ import V75CacheManager from "./v75/components/V75CacheManager";
 const V75Analyzer: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [weights, setWeights] = useState<NormalizationWeights>(getDefaultWeights());
+  const [postPositionCurves, setPostPositionCurves] = useState<PostPositionCurves>(getDefaultPostPositionCurves());
   const [activeTab, setActiveTab] = useState("");
   const [showCacheManager, setShowCacheManager] = useState(false);
   const [showWeights, setShowWeights] = useState(false);
@@ -185,7 +187,12 @@ const V75Analyzer: React.FC = () => {
         {/* Weight Manager */}
         {v75Results.length > 0 && showWeights && (
           <DebugErrorBoundary>
-            <WeightManager weights={weights} onWeightsChange={setWeights} />
+            <WeightManager 
+              weights={weights} 
+              onWeightsChange={setWeights}
+              postPositionCurves={postPositionCurves}
+              onPostPositionCurvesChange={setPostPositionCurves}
+            />
           </DebugErrorBoundary>
         )}
 
