@@ -3,45 +3,39 @@ export const calculateDriverAdjustment = (
   winPercentage: number,
   postPosition: number
 ): number => {
-  console.log(`[DRIVER DEBUG] Input: winPercentage=${winPercentage}%, postPosition=${postPosition}`);
-  
-  let adjustment = 0;
-  let reason = '';
-  
-  if (winPercentage > 25) {
-    adjustment -= 0.3;
-    reason = 'Win% > 25%';
-  } else if (winPercentage > 20) {
-    adjustment -= 0.2;
-    reason = 'Win% > 20%';
-  } else if (winPercentage > 15) {
-    adjustment -= 0.1;
-    reason = 'Win% > 15%';
-  } else if (winPercentage > 10) {
-    adjustment -= 0.05;
-    reason = 'Win% > 10%';
-  } else if (winPercentage > 5) {
-    adjustment += 0.02;
-    reason = 'Win% 5-10%';
-  } else {
-    adjustment += 0.05;
-    reason = 'Win% <= 5%';
-  }
-  
-  console.log(`[DRIVER DEBUG] Base adjustment: ${adjustment}s (${reason})`);
-  
-  // Post position bonus for good drivers
-  let positionBonus = 0;
-  if (winPercentage > 25 && postPosition >= 9) {
-    positionBonus = -0.08;
-    console.log(`[DRIVER DEBUG] Position bonus: ${positionBonus}s (win% > 25% and pos >= 9)`);
-  } else if (winPercentage > 20 && postPosition >= 11) {
-    positionBonus = -0.05;
-    console.log(`[DRIVER DEBUG] Position bonus: ${positionBonus}s (win% > 20% and pos >= 11)`);
-  }
-  
-  adjustment += positionBonus;
-  
-  console.log(`[DRIVER DEBUG] Final adjustment: ${adjustment}s`);
+  const wp = Number.isFinite(winPercentage) ? winPercentage : 0;
+  const pos = Number.isFinite(postPosition) ? postPosition : 1;
+  console.log(`[DRIVER DEBUG] Input: winPercentage=${wp}%, postPosition=${pos}`);
+
+  // Smooth, bounded mapping around a realistic baseline (~15%)
+  // Use a gentle sigmoid so small differences don't explode adjustments
+  const baseline = 15; // % where adjustment ~ 0
+  const scale = 8;     // steeper -> smaller number; controls sensitivity
+  const maxReward = -0.12; // seconds at very high win%
+  const maxPenalty = 0.08; // seconds at very low win%
+
+  const x = (wp - baseline) / scale; // normalized deviation
+  const sigmoid = Math.tanh(x); // in [-1, 1]
+
+  // Map to [-maxReward, +maxPenalty] but note rewards are negative (faster)
+  // When wp > baseline -> negative (reward), else positive (penalty)
+  const rewardSpan = Math.abs(maxReward);
+  const penaltySpan = Math.abs(maxPenalty);
+  const baseAdjustment = sigmoid >= 0
+    ? -rewardSpan * sigmoid // reward up to -maxReward
+    : penaltySpan * (-sigmoid); // penalty up to +maxPenalty
+
+  // Tiny synergy: strong drivers slightly mitigate wide/outside positions
+  // Only applies when wp > baseline and for positions worse than 8
+  const posDeviation = Math.max(0, pos - 8); // 0 for 1-8, grows for 9+
+  const skillFactor = Math.max(0, Math.min(1, (wp - baseline) / 10)); // 0..1
+  const positionMitigation = -0.005 * posDeviation * skillFactor; // up to ~ -0.02s
+
+  let adjustment = baseAdjustment + positionMitigation;
+
+  // Final clamp for safety
+  adjustment = Math.max(maxReward, Math.min(maxPenalty, adjustment));
+
+  console.log(`[DRIVER DEBUG] Base=${baseAdjustment.toFixed(3)}s, PosMit=${positionMitigation.toFixed(3)}s -> Final=${adjustment.toFixed(3)}s`);
   return adjustment;
 };
