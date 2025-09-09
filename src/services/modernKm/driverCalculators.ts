@@ -3,9 +3,20 @@ export const calculateDriverAdjustment = (
   winPercentage: number,
   postPosition: number
 ): number => {
-  const wp = Number.isFinite(winPercentage) ? winPercentage : 0;
+  // Normalize winPercentage into 0-100 range from possible inputs (e.g., 0.20, 20, 2000)
+  const wpRaw = Number.isFinite(winPercentage) ? winPercentage : 0;
+  let wp = wpRaw;
+  if (wp > 100) {
+    // Likely basis points (e.g., 1986 -> 19.86%)
+    wp = wp / 100;
+  } else if (wp > 0 && wp <= 1) {
+    // Likely fractional (e.g., 0.20 -> 20%)
+    wp = wp * 100;
+  }
+  wp = Math.max(0, Math.min(100, wp));
+
   const pos = Number.isFinite(postPosition) ? postPosition : 1;
-  console.log(`[DRIVER DEBUG] Input: winPercentage=${wp}%, postPosition=${pos}`);
+  console.log(`[DRIVER DEBUG] Input: rawWin%=${wpRaw} -> normalized=${wp}%, postPosition=${pos}`);
 
   // Smooth, bounded mapping around a realistic baseline (~15%)
   // Use a gentle sigmoid so small differences don't explode adjustments
