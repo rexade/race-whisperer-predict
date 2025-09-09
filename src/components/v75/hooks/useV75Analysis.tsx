@@ -26,7 +26,8 @@ export const useV75Analysis = () => {
     startProgress,
     updateProgress,
     setErrorState,
-    finishProgress
+    finishProgress,
+    resetProgress
   } = useV75Progress();
 
   const {
@@ -37,6 +38,7 @@ export const useV75Analysis = () => {
   } = useV75ResultsProcessor();
 
   const analyzeV75Date = async (date: string, weights: NormalizationWeights) => {
+    resetProgress(); // Clear any previous errors
     startProgress();
     setAnalysisDate(date);
     
@@ -157,6 +159,7 @@ export const useV75Analysis = () => {
     v75Results,
     analysisDate,
     analyzeV75Date,
-    reanalyzeWithNewWeights
+    reanalyzeWithNewWeights,
+    clearError: resetProgress
   };
 };

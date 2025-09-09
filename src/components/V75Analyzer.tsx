@@ -36,13 +36,15 @@ const V75Analyzer: React.FC = () => {
     v75Results,
     analysisDate,
     analyzeV75Date,
-    reanalyzeWithNewWeights
+    reanalyzeWithNewWeights,
+    clearError
   } = useV75Analysis();
   
   const { isAutoDebugging, exportRockSolidReport, startFresh } = useRockSolidDebugger();
 
   const handleAnalyzeV75 = () => {
     if (!selectedDate) return;
+    clearError(); // Clear any previous errors
     setShowInput(false);
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     analyzeV75Date(dateStr, weights);
@@ -151,7 +153,20 @@ const V75Analyzer: React.FC = () => {
 
           {/* Error */}
           {error && (
-            <ErrorDisplay error={error} />
+            <div className="space-y-3">
+              <ErrorDisplay error={error} />
+              <div className="flex justify-end">
+                <button
+                  onClick={() => {
+                    clearError();
+                    setShowInput(true);
+                  }}
+                  className="text-sm text-blue-600 hover:text-blue-800 underline px-3 py-1"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
           )}
 
           {/* Results Summary */}
