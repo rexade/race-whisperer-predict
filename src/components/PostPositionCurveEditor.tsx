@@ -141,26 +141,15 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
 
   const renderPositionSliders = (startMethod: 'auto' | 'volte') => {
     const positions = Array.from({ length: 15 }, (_, i) => i + 1);
-    const relevantPositions = startMethod === 'auto' ? positions.slice(0, 12) : positions;
+    const relevantPositions = startMethod === 'auto' ? positions : positions.slice(0, 15);
     
     return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
+      <div className="space-y-3">
+        <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
           {relevantPositions.map((position) => (
             <div key={position} className="bg-white p-2 rounded border border-gray-200">
               <div className="text-center mb-1">
                 <Label className="text-xs font-medium">P{position}</Label>
-              </div>
-              <div className="mb-2">
-                <Input
-                  type="number"
-                  value={curves[startMethod][position]?.toFixed(2) || '0.00'}
-                  onChange={(e) => handleDirectValueChange(startMethod, position, e.target.value)}
-                  className="w-full h-6 text-center text-xs"
-                  min="-1.0"
-                  max="2.0"
-                  step="0.05"
-                />
               </div>
               <Slider
                 value={[curves[startMethod][position] || 0]}
@@ -168,10 +157,10 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
                 max={2.0}
                 min={-1.0}
                 step={0.05}
-                className="w-full h-2"
+                className="w-full h-2 mb-1"
               />
-              <div className="text-center mt-1">
-                <span className="text-xs text-gray-500">
+              <div className="text-center">
+                <span className="text-xs text-gray-600">
                   {curves[startMethod][position] >= 0 ? '+' : ''}{curves[startMethod][position]?.toFixed(2) || '0.00'}s
                 </span>
               </div>
@@ -180,32 +169,8 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
         </div>
         
         {startMethod === 'auto' && (
-          <div className="bg-blue-50 border border-blue-200 rounded p-2">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="font-medium text-blue-800 text-xs flex items-center gap-1">
-                <TrendingUp className="h-3 w-3" />
-                Extended (13-15)
-              </h4>
-              <span className="text-xs text-blue-600">Rare cases only</span>
-            </div>
-            <div className="flex gap-2">
-              {positions.slice(12).map((position) => (
-                <div key={position} className="flex-1 bg-white p-1 rounded border text-center">
-                  <Label className="text-xs font-medium block mb-1">P{position}</Label>
-                  <Slider
-                    value={[curves[startMethod][position] || 1.0]}
-                    onValueChange={(value) => handlePositionChange(startMethod, position, value)}
-                    max={2.0}
-                    min={-1.0}
-                    step={0.05}
-                    className="w-full h-2 mb-1"
-                  />
-                  <span className="text-xs text-gray-600">
-                    {curves[startMethod][position] >= 0 ? '+' : ''}{curves[startMethod][position]?.toFixed(2) || '1.00'}s
-                  </span>
-                </div>
-              ))}
-            </div>
+          <div className="text-xs text-blue-600 text-center">
+            Positions 13-15 are for rare extended auto races
           </div>
         )}
       </div>
