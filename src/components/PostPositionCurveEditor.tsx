@@ -145,23 +145,22 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
     
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
           {relevantPositions.map((position) => (
-            <div key={position} className="bg-white p-4 rounded-lg border border-gray-100">
-              <div className="flex justify-between items-center mb-2">
-                <Label className="font-medium text-sm">Position {position}</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    value={curves[startMethod][position]?.toFixed(2) || '0.00'}
-                    onChange={(e) => handleDirectValueChange(startMethod, position, e.target.value)}
-                    className="w-20 h-8 text-center text-sm"
-                    min="-1.0"
-                    max="2.0"
-                    step="0.05"
-                  />
-                  <span className="text-xs text-gray-500">sec</span>
-                </div>
+            <div key={position} className="bg-white p-2 rounded border border-gray-200">
+              <div className="text-center mb-1">
+                <Label className="text-xs font-medium">P{position}</Label>
+              </div>
+              <div className="mb-2">
+                <Input
+                  type="number"
+                  value={curves[startMethod][position]?.toFixed(2) || '0.00'}
+                  onChange={(e) => handleDirectValueChange(startMethod, position, e.target.value)}
+                  className="w-full h-6 text-center text-xs"
+                  min="-1.0"
+                  max="2.0"
+                  step="0.05"
+                />
               </div>
               <Slider
                 value={[curves[startMethod][position] || 0]}
@@ -169,47 +168,46 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
                 max={2.0}
                 min={-1.0}
                 step={0.05}
-                className="w-full"
+                className="w-full h-2"
               />
-              <div className="flex justify-between text-xs text-gray-400 mt-1">
-                <span>-1.0s</span>
-                <span>+2.0s</span>
+              <div className="text-center mt-1">
+                <span className="text-xs text-gray-500">
+                  {curves[startMethod][position] >= 0 ? '+' : ''}{curves[startMethod][position]?.toFixed(2) || '0.00'}s
+                </span>
               </div>
             </div>
           ))}
         </div>
         
         {startMethod === 'auto' && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-medium text-blue-800 mb-2 flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <h4 className="font-medium text-blue-800 mb-2 text-sm flex items-center gap-2">
+              <TrendingUp className="h-3 w-3" />
               Extended Positions (13-15)
             </h4>
-            <p className="text-sm text-blue-700 mb-3">
-              Auto start races typically only go to position 12. Set values for positions 13-15 for rare cases.
+            <p className="text-xs text-blue-700 mb-3">
+              Auto races typically only go to position 12. Set values for rare extended cases.
             </p>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-3">
               {positions.slice(12).map((position) => (
-                <div key={position} className="bg-white p-3 rounded border">
-                  <div className="flex justify-between items-center mb-2">
-                    <Label className="font-medium text-sm">Pos {position}</Label>
-                    <Input
-                      type="number"
-                      value={curves[startMethod][position]?.toFixed(2) || '1.00'}
-                      onChange={(e) => handleDirectValueChange(startMethod, position, e.target.value)}
-                      className="w-16 h-7 text-center text-xs"
-                      min="-1.0"
-                      max="2.0"
-                      step="0.05"
-                    />
-                  </div>
+                <div key={position} className="bg-white p-2 rounded border text-center">
+                  <Label className="text-xs font-medium">P{position}</Label>
+                  <Input
+                    type="number"
+                    value={curves[startMethod][position]?.toFixed(2) || '1.00'}
+                    onChange={(e) => handleDirectValueChange(startMethod, position, e.target.value)}
+                    className="w-full h-6 text-center text-xs mt-1 mb-2"
+                    min="-1.0"
+                    max="2.0"
+                    step="0.05"
+                  />
                   <Slider
                     value={[curves[startMethod][position] || 1.0]}
                     onValueChange={(value) => handlePositionChange(startMethod, position, value)}
                     max={2.0}
                     min={-1.0}
                     step={0.05}
-                    className="w-full"
+                    className="w-full h-2"
                   />
                 </div>
               ))}
