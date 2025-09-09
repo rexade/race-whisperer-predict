@@ -1,6 +1,6 @@
 
 import { useState, useCallback } from 'react';
-import { NormalizationWeights } from '../../../services/modernKm/index';
+import { NormalizationWeights, PostPositionCurves } from '../../../services/modernKm/index';
 import { V75RaceResult } from '../types/raceResultTypes';
 import { HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 import { RaceResultProcessor } from '../services/raceResultProcessor';
@@ -13,13 +13,14 @@ export const useV75ResultsProcessor = () => {
     race: any,
     rawKmTimes: HorseRawKmTime[],
     weights: NormalizationWeights,
-    analysisDate?: string
+    analysisDate?: string,
+    postPositionCurves?: PostPositionCurves
   ): Promise<V75RaceResult> => {
-    return await RaceResultProcessor.processRaceResult(race, rawKmTimes, weights, analysisDate);
+    return await RaceResultProcessor.processRaceResult(race, rawKmTimes, weights, analysisDate, postPositionCurves);
   }, []);
 
-  const reanalyzeWithNewWeights = (weights: NormalizationWeights) => {
-    const updatedResults = RaceReanalysisService.reanalyzeWithNewWeights(v75Results, weights);
+  const reanalyzeWithNewWeights = (weights: NormalizationWeights, postPositionCurves?: PostPositionCurves) => {
+    const updatedResults = RaceReanalysisService.reanalyzeWithNewWeights(v75Results, weights, postPositionCurves);
     setV75Results(updatedResults);
   };
 

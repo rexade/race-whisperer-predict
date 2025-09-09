@@ -1,7 +1,7 @@
 
 import { V75RaceData } from '../../../services/v75CalendarApi';
 import { KmTime, HorseRawKmTime } from '../../../services/types/kmTimeTypes';
-import { NormalizationWeights } from '../../../services/modernKm/index';
+import { NormalizationWeights, PostPositionCurves } from '../../../services/modernKm/index';
 import { V75HorseResult } from '../types/raceResultTypes';
 import { extractTrackNameAsString } from './dataExtraction';
 import { extractAndValidateHorseData } from './horseDataExtractor';
@@ -12,7 +12,8 @@ export const processHorseResults = async (
   race: V75RaceData,
   rawKmTimes: HorseRawKmTime[],
   weights: NormalizationWeights,
-  analysisDate?: string
+  analysisDate?: string,
+  postPositionCurves?: PostPositionCurves
 ): Promise<V75HorseResult[]> => {
   const safeRaceTrack = extractTrackNameAsString(race.track);
   const horseResults: V75HorseResult[] = [];
@@ -37,7 +38,8 @@ export const processHorseResults = async (
       race,
       rawKmTime,
       extractedData,
-      weights
+      weights,
+      postPositionCurves
     );
 
     console.log(`  - Generated normalized result: ${!!modernNormalizedResult}`);

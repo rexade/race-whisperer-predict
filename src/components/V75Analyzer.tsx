@@ -49,15 +49,15 @@ const V75Analyzer: React.FC = () => {
     clearError(); // Clear any previous errors
     setShowInput(false);
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    analyzeV75Date(dateStr, weights);
+    analyzeV75Date(dateStr, weights, postPositionCurves);
   };
 
-  // Recalculate when weights change
+  // Recalculate when weights or post position curves change
   useEffect(() => {
     if (v75Results.length > 0) {
-      reanalyzeWithNewWeights(weights);
+      reanalyzeWithNewWeights(weights, postPositionCurves);
     }
-  }, [weights]);
+  }, [weights, postPositionCurves]);
 
   // Update active tab when results are loaded
   useEffect(() => {

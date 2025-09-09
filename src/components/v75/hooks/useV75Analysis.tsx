@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { fetchV75RaceData, fetchV75GameInfo } from '../../../services/v75CalendarApi';
-import { NormalizationWeights } from '../../../services/modernKm/index';
+import { NormalizationWeights, PostPositionCurves } from '../../../services/modernKm/index';
 import { useV75DataValidation } from './useV75DataValidation';
 import { useV75Progress } from './useV75Progress';
 import { useV75Cache } from './useV75Cache';
@@ -37,7 +37,7 @@ export const useV75Analysis = () => {
     reanalyzeWithNewWeights
   } = useV75ResultsProcessor();
 
-  const analyzeV75Date = async (date: string, weights: NormalizationWeights) => {
+  const analyzeV75Date = async (date: string, weights: NormalizationWeights, postPositionCurves?: PostPositionCurves) => {
     resetProgress(); // Clear any previous errors
     startProgress();
     setAnalysisDate(date);
@@ -118,7 +118,7 @@ export const useV75Analysis = () => {
         // Process horse results with FRESH race data and cached/calculated raw times
         // Pass the analysis date (race date) to ensure correct caching
         updateProgress(20 + raceProgress + (70 / v75Races.length), `Race ${race.raceNumber}: Processing results with fresh data...`);
-        const raceResult = await processRaceResult(race, rawKmTimes, weights, date);
+        const raceResult = await processRaceResult(race, rawKmTimes, weights, date, postPositionCurves);
         results.push(raceResult);
         
         

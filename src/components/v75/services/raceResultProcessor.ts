@@ -1,5 +1,5 @@
 
-import { NormalizationWeights } from '../../../services/modernKm/index';
+import { NormalizationWeights, PostPositionCurves } from '../../../services/modernKm/index';
 import { processHorseResults } from '../utils/horseResultProcessor';
 import { extractTrackNameAsString } from '../utils/dataExtraction';
 import { V75CacheService } from '../../../services/v75CacheService';
@@ -15,13 +15,14 @@ export class RaceResultProcessor {
     race: any,
     rawKmTimes: HorseRawKmTime[],
     weights: NormalizationWeights,
-    analysisDate?: string
+    analysisDate?: string,
+    postPositionCurves?: PostPositionCurves
   ): Promise<V75RaceResult> {
     const safeRaceTrack = extractTrackNameAsString(race.track);
     const safeRaceName = extractTrackNameAsString(race.name);
     
     try {
-      const horseResults = await processHorseResults(race, rawKmTimes, weights, analysisDate);
+      const horseResults = await processHorseResults(race, rawKmTimes, weights, analysisDate, postPositionCurves);
       
       // Calculate final scores and ranks for horses
       const horsesWithScores = RaceScoreCalculator.calculateScoresAndRanks(horseResults);

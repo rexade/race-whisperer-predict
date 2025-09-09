@@ -1,5 +1,6 @@
 
 import { NormalizationWeights, applyModernKmNormalization, ModernNormalizationFactors } from '../../../services/modernKm/index';
+import { PostPositionCurves } from '../../../services/modernKm/index';
 import { V75RaceResult } from '../types/raceResultTypes';
 
 export class RaceReanalysisService {
@@ -8,7 +9,8 @@ export class RaceReanalysisService {
    */
   static reanalyzeWithNewWeights(
     v75Results: V75RaceResult[], 
-    weights: NormalizationWeights
+    weights: NormalizationWeights,
+    postPositionCurves?: PostPositionCurves
   ): V75RaceResult[] {
     if (v75Results.length === 0) return v75Results;
     
@@ -43,7 +45,7 @@ export class RaceReanalysisService {
           earningsPerStart: horse.statistics?.earningsPerStart || 300000 // 3000 SEK in öre
         };
         
-        const modernNormalizedResult = applyModernKmNormalization(horse.rawKmTime, factors, weights);
+        const modernNormalizedResult = applyModernKmNormalization(horse.rawKmTime, factors, weights, postPositionCurves);
         
         return {
           ...horse,

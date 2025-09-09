@@ -3,7 +3,8 @@ import { KmTime } from '../../../services/types/kmTimeTypes';
 import { 
   applyModernKmNormalization,
   NormalizationWeights,
-  ModernNormalizationFactors
+  ModernNormalizationFactors,
+  PostPositionCurves
 } from '../../../services/modernKm/index';
 import { ExtractedHorseData } from './horseDataExtractor';
 import { HorseDebugger } from '../../../services/debugging/horseDebugger';
@@ -70,7 +71,8 @@ export const applyHorseNormalization = (
   race: any,
   rawKmTime: KmTime | undefined,
   extractedData: ExtractedHorseData,
-  weights: NormalizationWeights
+  weights: NormalizationWeights,
+  postPositionCurves?: PostPositionCurves
 ) => {
   console.log(`🔍 STRICT NORMALIZATION - Horse ${horse.horseId} (${extractedData.safeHorseName}):`);
   console.log(`  - Has raw KM time: ${!!rawKmTime}`);
@@ -148,7 +150,7 @@ export const applyHorseNormalization = (
       horseName: extractedData.safeHorseName
     };
 
-    const result = applyModernKmNormalization(fallbackTime, factors, weights);
+    const result = applyModernKmNormalization(fallbackTime, factors, weights, postPositionCurves);
     
     // Mark as estimated - this will prevent storage for post-race comparison
     (result as any).isEstimated = true;
@@ -183,7 +185,7 @@ export const applyHorseNormalization = (
     horseName: extractedData.safeHorseName
   };
 
-  const result = applyModernKmNormalization(rawKmTime, factors, weights);
+  const result = applyModernKmNormalization(rawKmTime, factors, weights, postPositionCurves);
   
   // Log modern normalization breakdown
   if (result) {

@@ -28,13 +28,20 @@ import {
   calculateVolteStartDistancePenalty
 } from './adjustmentCalculators';
 
+// Post position curves interface
+export interface PostPositionCurves {
+  auto: { [position: number]: number };
+  volte: { [position: number]: number };
+}
+
 /**
  * Applies modern normalization to a RAW KM time using race-specific factors
  */
 export const applyModernKmNormalization = (
   rawKmTime: KmTime,
   factors: ModernNormalizationFactors,
-  weights: NormalizationWeights = DEFAULT_WEIGHTS
+  weights: NormalizationWeights = DEFAULT_WEIGHTS,
+  postPositionCurves?: PostPositionCurves
 ): ModernKmNormalizedResult => {
   console.log(`🚀 [MODERN NORMALIZATION] Starting for ${factors.horseName || 'Unknown Horse'} - Driver: ${factors.driverWinPercentage}%`);
   console.log(`\n=== Enhanced Modern KM Normalization ===`);
@@ -75,7 +82,7 @@ export const applyModernKmNormalization = (
   adjustments.raceDistanceAdjustment = raceDistanceAdjustmentValue * weights.raceDistanceAdjustment;
 
   // STEP 3: Calculate all other adjustment factors
-  adjustments.postPosition = calculatePostPositionAdjustment(factors.postPosition, factors.startMethod) * weights.postPosition;
+  adjustments.postPosition = calculatePostPositionAdjustment(factors.postPosition, factors.startMethod, postPositionCurves) * weights.postPosition;
   
   // Equipment adjustments with enhanced debugging
   const shoeResult = calculateRobustShoeAdjustment(factors.shoesFront, factors.shoesBack, factors.horseId);
