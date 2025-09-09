@@ -5,8 +5,9 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Settings, RotateCcw, ChevronDown, ChevronRight } from "lucide-react";
+import { Settings, RotateCcw, ChevronDown, ChevronRight, Save, Upload, Download } from "lucide-react";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
+import { useToast } from "@/hooks/use-toast";
 
 interface WeightManagerProps {
   weights: NormalizationWeights;
@@ -21,6 +22,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
     driver: true,
     distance: true
   });
+  const { toast } = useToast();
 
   const handleWeightChange = (factor: keyof NormalizationWeights, value: number[]) => {
     const newWeights = {
@@ -32,6 +34,102 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
 
   const resetToDefaults = () => {
     onWeightsChange(getDefaultWeights());
+  };
+
+  const saveAsDefault = () => {
+    try {
+      localStorage.setItem('customDefaultWeights', JSON.stringify(weights));
+      toast({
+        title: "Default Weights Saved",
+        description: "Current weights have been saved as your new defaults.",
+      });
+    } catch (error) {
+      toast({
+        title: "Save Failed",
+        description: "Failed to save default weights. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loadCustomDefaults = () => {
+    try {
+      const saved = localStorage.getItem('customDefaultWeights');
+      if (saved) {
+        const customDefaults = JSON.parse(saved);
+        onWeightsChange(customDefaults);
+        toast({
+          title: "Custom Defaults Loaded",
+          description: "Your saved default weights have been applied.",
+        });
+      } else {
+        toast({
+          title: "No Custom Defaults",
+          description: "No custom default weights found. Save current weights first.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Load Failed",
+        description: "Failed to load custom defaults. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const exportWeights = () => {
+    try {
+      const dataStr = JSON.stringify(weights, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'v75-weights-config.json';
+      link.click();
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Weights Exported",
+        description: "Weight configuration downloaded successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export weights. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const importWeights = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const imported = JSON.parse(e.target?.result as string);
+            onWeightsChange(imported);
+            toast({
+              title: "Weights Imported",
+              description: "Weight configuration imported successfully.",
+            });
+          } catch (error) {
+            toast({
+              title: "Import Failed",
+              description: "Invalid weight configuration file.",
+              variant: "destructive",
+            });
+          }
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
   };
 
   const toggleCategory = (category: string) => {
@@ -104,20 +202,62 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
       
       {isExpanded && (
         <CardContent className="space-y-6 pt-6">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-start gap-4">
             <p className="text-sm text-gray-600">
               Adjust the weights to control how much each factor affects the final normalized time. 
               <span className="font-medium text-blue-600">New: Performance metrics baseline adjustments!</span>
             </p>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={resetToDefaults}
-              className="flex items-center gap-2"
-            >
-              <RotateCcw className="h-4 w-4" />
-              Reset
-            </Button>
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={resetToDefaults}
+                  className="flex items-center gap-2"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Factory Reset
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={loadCustomDefaults}
+                  className="flex items-center gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  Load My Defaults
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={saveAsDefault}
+                  className="flex items-center gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  Save as Default
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={exportWeights}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={importWeights}
+                  className="flex items-center gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  Import
+                </Button>
+              </div>
+            </div>
           </div>
           
           <div className="space-y-4">

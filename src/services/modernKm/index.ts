@@ -174,7 +174,23 @@ export const applyModernKmNormalization = (
   };
 };
 
-export const getDefaultWeights = (): NormalizationWeights => ({ ...DEFAULT_WEIGHTS });
+export const getDefaultWeights = (): NormalizationWeights => {
+  try {
+    const saved = localStorage.getItem('customDefaultWeights');
+    if (saved) {
+      const customDefaults = JSON.parse(saved);
+      // Validate that all required keys exist
+      const defaultKeys = Object.keys(DEFAULT_WEIGHTS) as (keyof NormalizationWeights)[];
+      const hasAllKeys = defaultKeys.every(key => key in customDefaults);
+      if (hasAllKeys) {
+        return customDefaults;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load custom default weights, using factory defaults:', error);
+  }
+  return { ...DEFAULT_WEIGHTS };
+};
 
 // Re-export types for convenience
 export type { 
