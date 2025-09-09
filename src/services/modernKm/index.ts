@@ -149,7 +149,9 @@ export const applyModernKmNormalization = (
   adjustments.startPoints = calculateStartPointsAdjustment(factors.startPoints) * weights.startPoints;
   adjustments.placePercentage = calculatePlacePercentageAdjustment(factors.placePercentage) * weights.placePercentage;
   adjustments.horseWinPercentage = calculateHorseWinPercentageAdjustment(factors.horseWinPercentage) * weights.horseWinPercentage;
-  adjustments.earningsPerStart = calculateEarningsPerStartAdjustment(factors.earningsPerStart) * weights.earningsPerStart;
+  const epsRaw = calculateEarningsPerStartAdjustment(factors.earningsPerStart);
+  const epsWeighted = epsRaw * weights.earningsPerStart;
+  adjustments.earningsPerStart = Math.max(epsWeighted, -0.2);
 
   // STEP 5: Calculate total adjustment (all adjustments)
   adjustments.total = Object.entries(adjustments)

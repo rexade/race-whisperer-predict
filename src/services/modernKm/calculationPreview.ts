@@ -172,14 +172,14 @@ export const calculatePreview = (
   });
 
   const earningsRaw = calculateEarningsPerStartAdjustment(factors.earningsPerStart);
-  const earningsWeighted = earningsRaw * weights.earningsPerStart;
+  const earningsWeighted = Math.max(earningsRaw * weights.earningsPerStart, -0.2);
   contributions.push({
     factor: 'earningsPerStart',
     rawAdjustment: earningsRaw,
     weightedAdjustment: earningsWeighted,
     weight: weights.earningsPerStart,
     impactLevel: getImpactLevel(Math.abs(earningsWeighted)),
-    description: `Earnings per start: ${Math.round(factors.earningsPerStart / 100)} SEK`
+    description: `Earnings per start: ${Math.round(factors.earningsPerStart / 100)} SEK (capped at -0.2s)`
   });
 
   // Calculate totals
