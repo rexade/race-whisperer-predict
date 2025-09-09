@@ -4,8 +4,9 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Settings, RotateCcw, ChevronDown, ChevronRight, Save, Upload, Download } from "lucide-react";
+import { Settings, RotateCcw, ChevronDown, ChevronRight, Save, Upload, Download, Info } from "lucide-react";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
 import { useToast } from "@/hooks/use-toast";
 
@@ -30,6 +31,17 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
       [factor]: value[0]
     };
     onWeightsChange(newWeights);
+  };
+
+  const handleDirectWeightChange = (factor: keyof NormalizationWeights, value: string) => {
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue >= 0 && numValue <= 2.0) {
+      const newWeights = {
+        ...weights,
+        [factor]: numValue
+      };
+      onWeightsChange(newWeights);
+    }
   };
 
   const resetToDefaults = () => {
@@ -145,9 +157,27 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
       title: 'Equipment & Position',
       description: 'Hardware and starting position factors',
       factors: [
-        { key: 'postPosition' as keyof NormalizationWeights, label: 'Post Position', description: 'Impact of starting position' },
-        { key: 'shoeType' as keyof NormalizationWeights, label: 'Shoe Type', description: 'Barefoot vs shod advantages' },
-        { key: 'sulkyType' as keyof NormalizationWeights, label: 'Sulky Type', description: 'American vs Volvo sulky impact' },
+        { 
+          key: 'postPosition' as keyof NormalizationWeights, 
+          label: 'Post Position', 
+          description: 'Impact of starting position',
+          typicalRange: '0.0 to +1.0s per position',
+          baseEffect: 'Auto: +0.5s per pos after 5th, Volte: +1.0s per pos after 8th'
+        },
+        { 
+          key: 'shoeType' as keyof NormalizationWeights, 
+          label: 'Shoe Type', 
+          description: 'Barefoot vs shod advantages',
+          typicalRange: '-0.5s to +0.3s',
+          baseEffect: 'Barefoot typically -0.3s advantage'
+        },
+        { 
+          key: 'sulkyType' as keyof NormalizationWeights, 
+          label: 'Sulky Type', 
+          description: 'American vs Volvo sulky impact',
+          typicalRange: '-0.2s to +0.2s',
+          baseEffect: 'American typically -0.1s advantage'
+        },
       ]
     },
     {
@@ -155,11 +185,45 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
       title: 'Performance Metrics',
       description: 'Horse performance and consistency indicators',
       factors: [
-        { key: 'form' as keyof NormalizationWeights, label: 'Recent Form', description: 'Current performance trend' },
-        { key: 'startPoints' as keyof NormalizationWeights, label: 'Start Points', description: 'Horse form based on start points', isNew: true },
-        { key: 'placePercentage' as keyof NormalizationWeights, label: 'Place Percentage', description: 'Horse consistency in placing', isNew: true },
-        { key: 'horseWinPercentage' as keyof NormalizationWeights, label: 'Horse Win Percentage', description: 'Horse quality and ability', isNew: true },
-        { key: 'earningsPerStart' as keyof NormalizationWeights, label: 'Earnings Per Start', description: 'Horse earning power and class', isNew: true }
+        { 
+          key: 'form' as keyof NormalizationWeights, 
+          label: 'Recent Form', 
+          description: 'Current performance trend',
+          typicalRange: 'Currently 0s (placeholder)',
+          baseEffect: 'Not yet implemented'
+        },
+        { 
+          key: 'startPoints' as keyof NormalizationWeights, 
+          label: 'Start Points', 
+          description: 'Horse form based on start points',
+          typicalRange: '-0.5s to +0.5s',
+          baseEffect: 'Higher points = faster horse',
+          isNew: true
+        },
+        { 
+          key: 'placePercentage' as keyof NormalizationWeights, 
+          label: 'Place Percentage', 
+          description: 'Horse consistency in placing',
+          typicalRange: '-0.3s to +0.3s',
+          baseEffect: 'Higher % = more consistent',
+          isNew: true
+        },
+        { 
+          key: 'horseWinPercentage' as keyof NormalizationWeights, 
+          label: 'Horse Win Percentage', 
+          description: 'Horse quality and ability',
+          typicalRange: '-0.4s to +0.4s',
+          baseEffect: 'Higher % = better horse',
+          isNew: true
+        },
+        { 
+          key: 'earningsPerStart' as keyof NormalizationWeights, 
+          label: 'Earnings Per Start', 
+          description: 'Horse earning power and class',
+          typicalRange: '-0.3s to +0.3s',
+          baseEffect: 'Higher earnings = higher class',
+          isNew: true
+        }
       ]
     },
     {
@@ -167,8 +231,20 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
       title: 'Driver & Track',
       description: 'Driver skill and track familiarity factors',
       factors: [
-        { key: 'driverPerformance' as keyof NormalizationWeights, label: 'Driver Performance', description: 'Driver win percentage and skill' },
-        { key: 'trackFamiliarity' as keyof NormalizationWeights, label: 'Track Familiarity', description: 'Home track advantage' },
+        { 
+          key: 'driverPerformance' as keyof NormalizationWeights, 
+          label: 'Driver Performance', 
+          description: 'Driver win percentage and skill',
+          typicalRange: '-0.4s to +0.4s',
+          baseEffect: 'Top drivers: -0.2s, Poor drivers: +0.2s'
+        },
+        { 
+          key: 'trackFamiliarity' as keyof NormalizationWeights, 
+          label: 'Track Familiarity', 
+          description: 'Home track advantage',
+          typicalRange: '-0.2s to 0s',
+          baseEffect: 'Home track typically -0.1s advantage'
+        },
       ]
     },
     {
@@ -176,9 +252,29 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
       title: 'Distance Adjustments',
       description: 'Race and individual distance normalization',
       factors: [
-        { key: 'distanceAdjustment' as keyof NormalizationWeights, label: 'Distance Adjustment', description: 'Individual vs race distance differences' },
-        { key: 'raceDistanceAdjustment' as keyof NormalizationWeights, label: 'Race Distance Adjustment', description: 'Non-linear normalization from 2140m reference to actual race distance', isNew: true },
-        { key: 'volteStartDistancePenalty' as keyof NormalizationWeights, label: 'Volte Start Distance Penalty', description: 'Penalty for horses starting at different distance in volte races', isNew: true },
+        { 
+          key: 'distanceAdjustment' as keyof NormalizationWeights, 
+          label: 'Distance Adjustment', 
+          description: 'Individual vs race distance differences',
+          typicalRange: '-0.3s to +0.3s',
+          baseEffect: 'Different distances from race average'
+        },
+        { 
+          key: 'raceDistanceAdjustment' as keyof NormalizationWeights, 
+          label: 'Race Distance Adjustment', 
+          description: 'Non-linear normalization from 2140m reference to actual race distance',
+          typicalRange: '-0.5s to +0.5s',
+          baseEffect: 'Shorter races typically faster per km',
+          isNew: true
+        },
+        { 
+          key: 'volteStartDistancePenalty' as keyof NormalizationWeights, 
+          label: 'Volte Start Distance Penalty', 
+          description: 'Penalty for horses starting at different distance in volte races',
+          typicalRange: '0s to +0.5s',
+          baseEffect: 'Back markers get time penalty',
+          isNew: true
+        },
       ]
     }
   ];
@@ -288,20 +384,35 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
                 <CollapsibleContent className="mt-3">
                   <div className="space-y-4 pl-4 border-l-2 border-gray-200">
                     {category.factors.map((factor) => (
-                      <div key={factor.key} className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <div>
+                      <div key={factor.key} className="space-y-3 bg-white p-4 rounded-lg border border-gray-100">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
                             <Label className="font-medium flex items-center gap-2">
                               {factor.label}
                               {factor.isNew && (
                                 <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">NEW</Badge>
                               )}
                             </Label>
-                            <p className="text-xs text-gray-500">{factor.description}</p>
+                            <p className="text-xs text-gray-500 mt-1">{factor.description}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Info className="h-3 w-3 text-blue-500" />
+                              <span className="text-xs text-blue-600">{factor.baseEffect}</span>
+                            </div>
                           </div>
-                          <Badge variant="secondary" className="font-mono">
-                            {weights[factor.key].toFixed(1)}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              value={weights[factor.key].toFixed(1)}
+                              onChange={(e) => handleDirectWeightChange(factor.key, e.target.value)}
+                              className="w-16 h-8 text-center text-sm"
+                              min="0"
+                              max="2.0"
+                              step="0.1"
+                            />
+                            <Badge variant="secondary" className="text-xs">
+                              {factor.typicalRange}
+                            </Badge>
+                          </div>
                         </div>
                         <Slider
                           value={[weights[factor.key]]}
@@ -313,7 +424,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
                         />
                         <div className="flex justify-between text-xs text-gray-400">
                           <span>0.0 (No impact)</span>
-                          <span>2.0 (High impact)</span>
+                          <span>2.0 (Max impact)</span>
                         </div>
                       </div>
                     ))}
