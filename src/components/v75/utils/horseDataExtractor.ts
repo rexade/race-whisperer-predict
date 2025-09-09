@@ -63,11 +63,16 @@ export const extractAndValidateHorseData = (horse: any): ExtractedHorseData => {
   const frontShoesStr = frontShoesBoolean ? "1" : "0";
   const backShoesStr = backShoesBoolean ? "1" : "0";
   
-  console.log(`🛡️ Normalization shoes input for horse ${horse.horseId}:`, {
+  console.log(`🛡️ Normalization shoes input for horse ${horse.horseId} (${safeHorseName}):`, {
+    originalShoesObject: horse.shoes,
+    frontRawValue: horse.shoes?.front,
+    backRawValue: horse.shoes?.back,
     frontShoesBoolean,
     backShoesBoolean,
     frontShoesStr,
-    backShoesStr
+    backShoesStr,
+    frontIsBarefoot: !frontShoesBoolean,
+    backIsBarefoot: !backShoesBoolean
   });
 
   // ENHANCED: Ultra-safe sulky type extraction with comprehensive corruption detection
