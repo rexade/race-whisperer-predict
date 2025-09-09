@@ -38,26 +38,27 @@ export const formatEarnings = (earnings: number) => {
 };
 
 export const getShoesDisplay = (frontHasShoe: any, backHasShoe: any) => {
-  // Removed console logs to reduce noise
-  
   // Enhanced validation and conversion to handle edge cases
   const frontShoe = frontHasShoe === true || frontHasShoe === 1 || frontHasShoe === "1" || frontHasShoe === "true";
   const backShoe = backHasShoe === true || backHasShoe === 1 || backHasShoe === "1" || backHasShoe === "true";
   
-  // If both front and back have no shoes (are barefoot)
+  // Swedish trotting notation:
+  // cc = Skor runt om (shoes all around)
+  // ȼc = Barfota fram, skor bak (barefoot front, shoes back)  
+  // cȼ = Skor fram, barfota bak (shoes front, barefoot back)
+  // ȼȼ = Barfota runt om (barefoot all around)
+  
   if (!frontShoe && !backShoe) {
-    return "All Barefoot";
+    return "ȼȼ"; // Barfota runt om
   }
-  // If only front has no shoes
   if (!frontShoe && backShoe) {
-    return "Front Barefoot";
+    return "ȼc"; // Barfota fram, skor bak
   }
-  // If only back has no shoes  
   if (frontShoe && !backShoe) {
-    return "Back Barefoot";
+    return "cȼ"; // Skor fram, barfota bak
   }
-  // If both have shoes
-  return "Shod";
+  // Both have shoes
+  return "cc"; // Skor runt om
 };
 
 export const getShoesColor = (frontHasShoe: any, backHasShoe: any) => {
