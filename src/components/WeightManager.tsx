@@ -4,7 +4,8 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Settings, RotateCcw } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Settings, RotateCcw, ChevronDown, ChevronRight } from "lucide-react";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
 
 interface WeightManagerProps {
@@ -14,6 +15,12 @@ interface WeightManagerProps {
 
 const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
+    equipment: true,
+    performance: true,
+    driver: true,
+    distance: true
+  });
 
   const handleWeightChange = (factor: keyof NormalizationWeights, value: number[]) => {
     const newWeights = {
@@ -27,20 +34,55 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
     onWeightsChange(getDefaultWeights());
   };
 
-  const weightFactors = [
-    { key: 'postPosition' as keyof NormalizationWeights, label: 'Post Position', description: 'Impact of starting position' },
-    { key: 'shoeType' as keyof NormalizationWeights, label: 'Shoe Type', description: 'Barefoot vs shod advantages' },
-    { key: 'sulkyType' as keyof NormalizationWeights, label: 'Sulky Type', description: 'American vs Volvo sulky impact' },
-    { key: 'driverPerformance' as keyof NormalizationWeights, label: 'Driver Performance', description: 'Driver win percentage and skill' },
-    { key: 'trackFamiliarity' as keyof NormalizationWeights, label: 'Track Familiarity', description: 'Home track advantage' },
-    { key: 'form' as keyof NormalizationWeights, label: 'Recent Form', description: 'Current performance trend' },
-    { key: 'distanceAdjustment' as keyof NormalizationWeights, label: 'Distance Adjustment', description: 'Individual vs race distance differences' },
-    { key: 'raceDistanceAdjustment' as keyof NormalizationWeights, label: 'Race Distance Adjustment', description: 'Non-linear normalization from 2140m reference to actual race distance' },
-    { key: 'volteStartDistancePenalty' as keyof NormalizationWeights, label: 'Volte Start Distance Penalty', description: 'Penalty for horses starting at different distance in volte races' },
-    { key: 'startPoints' as keyof NormalizationWeights, label: 'Start Points', description: 'Horse form based on start points' },
-    { key: 'placePercentage' as keyof NormalizationWeights, label: 'Place Percentage', description: 'Horse consistency in placing' },
-    { key: 'horseWinPercentage' as keyof NormalizationWeights, label: 'Horse Win Percentage', description: 'Horse quality and ability' },
-    { key: 'earningsPerStart' as keyof NormalizationWeights, label: 'Earnings Per Start', description: 'Horse earning power and class' }
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [category]: !prev[category]
+    }));
+  };
+
+  const weightCategories = [
+    {
+      id: 'equipment',
+      title: 'Equipment & Position',
+      description: 'Hardware and starting position factors',
+      factors: [
+        { key: 'postPosition' as keyof NormalizationWeights, label: 'Post Position', description: 'Impact of starting position' },
+        { key: 'shoeType' as keyof NormalizationWeights, label: 'Shoe Type', description: 'Barefoot vs shod advantages' },
+        { key: 'sulkyType' as keyof NormalizationWeights, label: 'Sulky Type', description: 'American vs Volvo sulky impact' },
+      ]
+    },
+    {
+      id: 'performance',
+      title: 'Performance Metrics',
+      description: 'Horse performance and consistency indicators',
+      factors: [
+        { key: 'form' as keyof NormalizationWeights, label: 'Recent Form', description: 'Current performance trend' },
+        { key: 'startPoints' as keyof NormalizationWeights, label: 'Start Points', description: 'Horse form based on start points', isNew: true },
+        { key: 'placePercentage' as keyof NormalizationWeights, label: 'Place Percentage', description: 'Horse consistency in placing', isNew: true },
+        { key: 'horseWinPercentage' as keyof NormalizationWeights, label: 'Horse Win Percentage', description: 'Horse quality and ability', isNew: true },
+        { key: 'earningsPerStart' as keyof NormalizationWeights, label: 'Earnings Per Start', description: 'Horse earning power and class', isNew: true }
+      ]
+    },
+    {
+      id: 'driver',
+      title: 'Driver & Track',
+      description: 'Driver skill and track familiarity factors',
+      factors: [
+        { key: 'driverPerformance' as keyof NormalizationWeights, label: 'Driver Performance', description: 'Driver win percentage and skill' },
+        { key: 'trackFamiliarity' as keyof NormalizationWeights, label: 'Track Familiarity', description: 'Home track advantage' },
+      ]
+    },
+    {
+      id: 'distance',
+      title: 'Distance Adjustments',
+      description: 'Race and individual distance normalization',
+      factors: [
+        { key: 'distanceAdjustment' as keyof NormalizationWeights, label: 'Distance Adjustment', description: 'Individual vs race distance differences' },
+        { key: 'raceDistanceAdjustment' as keyof NormalizationWeights, label: 'Race Distance Adjustment', description: 'Non-linear normalization from 2140m reference to actual race distance', isNew: true },
+        { key: 'volteStartDistancePenalty' as keyof NormalizationWeights, label: 'Volte Start Distance Penalty', description: 'Penalty for horses starting at different distance in volte races', isNew: true },
+      ]
+    }
   ];
 
   return (
@@ -78,43 +120,73 @@ const WeightManager: React.FC<WeightManagerProps> = ({ weights, onWeightsChange 
             </Button>
           </div>
           
-          <div className="grid gap-6">
-            {weightFactors.map((factor) => (
-              <div key={factor.key} className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <Label className="font-medium flex items-center gap-2">
-                      {factor.label}
-                      {['startPoints', 'placePercentage', 'horseWinPercentage', 'earningsPerStart', 'raceDistanceAdjustment', 'volteStartDistancePenalty'].includes(factor.key) && (
-                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">NEW</Badge>
+          <div className="space-y-4">
+            {weightCategories.map((category) => (
+              <Collapsible
+                key={category.id}
+                open={expandedCategories[category.id]}
+                onOpenChange={() => toggleCategory(category.id)}
+              >
+                <CollapsibleTrigger className="w-full">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="text-left">
+                      <h3 className="font-medium text-gray-900">{category.title}</h3>
+                      <p className="text-sm text-gray-500">{category.description}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs">
+                        {category.factors.length} factors
+                      </Badge>
+                      {expandedCategories[category.id] ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
                       )}
-                    </Label>
-                    <p className="text-xs text-gray-500">{factor.description}</p>
+                    </div>
                   </div>
-                  <Badge variant="secondary" className="font-mono">
-                    {weights[factor.key].toFixed(1)}
-                  </Badge>
-                </div>
-                <Slider
-                  value={[weights[factor.key]]}
-                  onValueChange={(value) => handleWeightChange(factor.key, value)}
-                  max={2.0}
-                  min={0.0}
-                  step={0.1}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-gray-400">
-                  <span>0.0 (No impact)</span>
-                  <span>2.0 (High impact)</span>
-                </div>
-              </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-3">
+                  <div className="space-y-4 pl-4 border-l-2 border-gray-200">
+                    {category.factors.map((factor) => (
+                      <div key={factor.key} className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <Label className="font-medium flex items-center gap-2">
+                              {factor.label}
+                              {factor.isNew && (
+                                <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">NEW</Badge>
+                              )}
+                            </Label>
+                            <p className="text-xs text-gray-500">{factor.description}</p>
+                          </div>
+                          <Badge variant="secondary" className="font-mono">
+                            {weights[factor.key].toFixed(1)}
+                          </Badge>
+                        </div>
+                        <Slider
+                          value={[weights[factor.key]]}
+                          onValueChange={(value) => handleWeightChange(factor.key, value)}
+                          max={2.0}
+                          min={0.0}
+                          step={0.1}
+                          className="w-full"
+                        />
+                        <div className="flex justify-between text-xs text-gray-400">
+                          <span>0.0 (No impact)</span>
+                          <span>2.0 (High impact)</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             ))}
           </div>
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="font-medium text-blue-800 mb-2">Enhanced Weight Summary</h4>
             <div className="grid grid-cols-2 gap-2 text-sm">
-              {weightFactors.map((factor) => (
+              {weightCategories.flatMap(category => category.factors).map((factor) => (
                 <div key={factor.key} className="flex justify-between">
                   <span className="text-blue-700">{factor.label}:</span>
                   <span className="font-mono font-medium">{weights[factor.key].toFixed(1)}</span>
