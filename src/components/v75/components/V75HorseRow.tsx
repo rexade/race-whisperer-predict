@@ -135,10 +135,7 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
       <TableCell className="text-center">
         <div className="font-mono text-xs sm:text-sm font-bold text-atg-orange">
           <div>
-            {horse.bestRecordTime ? 
-              `${horse.bestRecordTime.minutes}:${horse.bestRecordTime.seconds.toString().padStart(2, '0')}.${horse.bestRecordTime.tenths}` : 
-              '-'
-            }
+            {formatKmTime(horse.bestRecordTime)}
           </div>
           <div className="text-xs text-muted-foreground">Best Ever</div>
         </div>

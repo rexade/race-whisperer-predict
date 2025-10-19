@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { V75HorseResult } from '../types/raceResultTypes';
 import { useXanderDebugger } from '../hooks/useXanderDebugger';
 import V75RaceHistoryBreakdown from './V75RaceHistoryBreakdown';
+import { formatKmTime } from '../utils/v75DisplayUtils';
 
 interface V75TimeCalculationDebugProps {
   horse: V75HorseResult;
@@ -19,11 +20,6 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
     log.horseId === horse.horseId || 
     log.horseName.toLowerCase().includes(horse.horseName.toLowerCase())
   );
-
-  const formatKmTime = (time: any) => {
-    if (!time) return 'N/A';
-    return `${time.minutes}:${time.seconds.toString().padStart(2, '0')}.${time.tenths}`;
-  };
 
   const getTimeCalculationData = () => {
     const historicalDataLog = horseLogs.find(log => log.stage === 'HISTORICAL_DATA_RECEIVED');

@@ -5,18 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle, Target, Clock } from "lucide-react";
 import { V75PostRaceAnalysis } from '../../types/postRaceAnalysisTypes';
 import { KmTime } from '../../../../services/types/kmTimeTypes';
+import { formatKmTime } from '../../utils/v75DisplayUtils';
 
 interface V75PostRaceDetailsProps {
   analysis: V75PostRaceAnalysis;
 }
-
-// Helper function to safely format time objects - handles both KmTime and cached time formats
-const formatTimeDisplay = (time: KmTime | { minutes: number; seconds: number; tenths: number } | undefined): string => {
-  if (!time || time.minutes === undefined || time.seconds === undefined || time.tenths === undefined) {
-    return 'N/A';
-  }
-  return `${time.minutes}:${time.seconds.toString().padStart(2, '0')}.${time.tenths}`;
-};
 
 const V75PostRaceDetails: React.FC<V75PostRaceDetailsProps> = ({ analysis }) => {
   const getAccuracyBadge = (accuracy: number) => {
@@ -110,10 +103,10 @@ const V75PostRaceDetails: React.FC<V75PostRaceDetailsProps> = ({ analysis }) => 
                         {horse.rankDifference > 0 ? '+' : ''}{horse.rankDifference}
                       </td>
                       <td className="p-2 text-xs">
-                        {formatTimeDisplay(horse.predictedTime)}
+                        {formatKmTime(horse.predictedTime)}
                       </td>
                       <td className="p-2 text-xs">
-                        {formatTimeDisplay(horse.actualTime)}
+                        {formatKmTime(horse.actualTime)}
                       </td>
                       <td className={`p-2 text-xs ${horse.timeDifference !== undefined ? 
                         (horse.timeDifference <= 2 ? 'text-green-600' : 

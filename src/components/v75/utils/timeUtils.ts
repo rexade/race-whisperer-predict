@@ -5,6 +5,12 @@
 export type TimeParts = { minutes: number; seconds: number; tenths: number };
 
 /**
+ * Check if time parts represent zero/invalid time
+ */
+export const isZeroParts = (t?: TimeParts | null): boolean =>
+  !t || (t.minutes === 0 && t.seconds === 0 && t.tenths === 0);
+
+/**
  * Convert time parts (minutes:seconds.tenths) to total seconds
  */
 export const partsToSeconds = (t?: TimeParts | null): number | undefined => {
@@ -39,4 +45,40 @@ export const totalToKmSeconds = (totalSeconds?: number, distanceMeters?: number)
 export const partsToKmSeconds = (t?: TimeParts | null, distanceMeters?: number): number | undefined => {
   const totalSec = partsToSeconds(t);
   return totalToKmSeconds(totalSec, distanceMeters);
+};
+
+/**
+ * Choose best display time from available sources
+ * Priority: normalized → best record → raw km → none
+ */
+export const pickDisplayTime = ({
+  normalized,
+  bestRecordTime,
+  rawKmTime,
+  distanceMeters,
+}: {
+  normalized?: TimeParts | null;
+  bestRecordTime?: TimeParts | null;
+  rawKmTime?: TimeParts | null;
+  distanceMeters?: number;
+}): { parts: TimeParts | null; source: "normalized" | "best_raw" | "raw" | "none" } => {
+  // First priority: normalized time
+  if (!isZeroParts(normalized)) {
+    return { parts: normalized!, source: "normalized" };
+  }
+
+  // Second priority: best record converted to km
+  const bestTotalSec = partsToSeconds(bestRecordTime);
+  const kmSecFromBest = totalToKmSeconds(bestTotalSec, distanceMeters);
+  if (kmSecFromBest && kmSecFromBest > 0) {
+    return { parts: secondsToParts(kmSecFromBest)!, source: "best_raw" };
+  }
+
+  // Third priority: raw km time
+  if (!isZeroParts(rawKmTime)) {
+    return { parts: rawKmTime!, source: "raw" };
+  }
+
+  // No valid time available
+  return { parts: null, source: "none" };
 };

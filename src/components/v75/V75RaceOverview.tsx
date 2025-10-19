@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, MapPin, Clock, DollarSign, AlertTriangle } from "lucide-react";
 import { V75RaceResult } from './hooks/useV75Analysis';
+import { formatKmTime } from './utils/v75DisplayUtils';
 
 interface V75RaceOverviewProps {
   races: V75RaceResult[];
@@ -45,10 +46,6 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
         return totalSecondsA - totalSecondsB;
       })
       .slice(0, 10);
-  };
-
-  const formatKmTime = (time: { minutes: number; seconds: number; tenths: number }) => {
-    return `${time.minutes}:${time.seconds.toString().padStart(2, '0')}.${time.tenths}`;
   };
 
   const topTimes = getTopNormalizedTimes();

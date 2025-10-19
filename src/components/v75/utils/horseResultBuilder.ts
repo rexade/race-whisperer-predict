@@ -4,7 +4,7 @@ import { ExtractedHorseData } from './horseDataExtractor';
 import { HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 import { RaceAnalysisCache } from '../../../services/v75Cache/raceAnalysisCache';
 import { analyzeHistorySource } from './confidenceCalculator';
-import { partsToSeconds, secondsToParts, totalToKmSeconds } from './timeUtils';
+import { pickDisplayTime, isZeroParts } from './timeUtils';
 import type { TimeSource } from '../types/raceResultTypes';
 
 export const buildHorseResult = (
@@ -24,40 +24,52 @@ export const buildHorseResult = (
   let uncertain = false;
   let uncertaintyReason: V75HorseResult["uncertaintyReason"] | undefined = undefined;
   let finalConfidence = confidenceAnalysis.confidence;
-  
-  let shownTimeParts = modernNormalizedResult?.modernNormalizedTime ?? null;
   let finalNormalizedResult = modernNormalizedResult;
   
-  // If normalization failed or no valid samples → use best raw time as fallback
-  if (!shownTimeParts || (shownTimeParts.minutes === 0 && shownTimeParts.seconds === 0 && shownTimeParts.tenths === 0)) {
-    console.log(`🔄 No normalized time for ${extractedData.safeHorseName}, attempting fallback...`);
+  // Use canonical picker to get the best available time
+  const picked = pickDisplayTime({
+    normalized: modernNormalizedResult?.modernNormalizedTime ?? null,
+    bestRecordTime: rawTimeData?.bestRecordTime ?? null,
+    rawKmTime: rawKmTime ?? null,
+    distanceMeters: race?.distance,
+  });
+  
+  console.log(`🎯 Time picker for ${extractedData.safeHorseName}:`, {
+    source: picked.source,
+    hasParts: !!picked.parts,
+    normalized: modernNormalizedResult?.modernNormalizedTime,
+    bestRecord: rawTimeData?.bestRecordTime,
+    rawKm: rawKmTime,
+  });
+  
+  // If picker chose a non-normalized fallback, create synthetic result
+  if (picked.source !== "normalized" && picked.parts) {
+    finalNormalizedResult = {
+      ...(modernNormalizedResult ?? {}),
+      modernNormalizedTime: picked.parts,
+      rawTime: modernNormalizedResult?.rawTime ?? picked.parts,
+      adjustments: modernNormalizedResult?.adjustments ?? { total: 0 },
+      isEstimated: true,
+      isFallback: true,
+    };
     
-    // Try to derive km time from best record
-    const bestTotalSec = partsToSeconds(rawTimeData?.bestRecordTime);
-    const kmSec = totalToKmSeconds(bestTotalSec, race?.distance);
+    timeSource = picked.source === "best_raw" ? "best_raw" : picked.source === "raw" ? "best_raw" : "none";
     
-    if (kmSec && kmSec > 0) {
-      shownTimeParts = secondsToParts(kmSec);
-      timeSource = "best_raw";
+    if (picked.source !== "none") {
       uncertain = true;
       uncertaintyReason = rawTimeData?.validTimesCount ? "best_only" : "no_valid_samples";
-      
-      // Cap confidence when using fallback
       finalConfidence = Math.min(finalConfidence ?? 60, 60);
-      
-      // Create a synthetic normalized result with the fallback time
-      finalNormalizedResult = {
-        modernNormalizedTime: shownTimeParts,
-        rawTime: rawKmTime || shownTimeParts,
-        adjustments: { total: 0 },
-        isEstimated: true,
-        isFallback: true
-      };
-      
-      console.log(`✅ Fallback time created: ${shownTimeParts.minutes}:${shownTimeParts.seconds.toString().padStart(2, '0')}.${shownTimeParts.tenths}`);
-    } else {
-      console.log(`❌ No fallback time available for ${extractedData.safeHorseName}`);
+      console.log(`⚠️ Using fallback time for ${extractedData.safeHorseName}: ${picked.parts.minutes}:${picked.parts.seconds.toString().padStart(2, '0')}.${picked.parts.tenths}`);
     }
+  }
+  
+  // CRITICAL: Never allow 0:00.0 to reach the UI
+  if (isZeroParts(finalNormalizedResult?.modernNormalizedTime)) {
+    console.log(`🚫 Rejecting zero time for ${extractedData.safeHorseName}, will render as "—"`);
+    finalNormalizedResult = undefined as any;
+    timeSource = "none";
+    uncertain = false;
+    uncertaintyReason = undefined;
   }
   
   const horseResult: V75HorseResult = {
