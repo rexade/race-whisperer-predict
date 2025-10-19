@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { Trophy } from "lucide-react";
+import { Trophy, CalendarIcon, Settings2, Trash2, Play } from "lucide-react";
 import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
 import WeightManager from "./WeightManager";
 import { PostPositionCurves, getDefaultPostPositionCurves } from "./PostPositionCurveEditor";
 import ProgressIndicator from "./modernAnalyzer/ProgressIndicator";
@@ -14,6 +15,7 @@ import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/in
 // Shared components
 import AnalyzerLayout from "./shared/analyzer/AnalyzerLayout";
 import AnalyzerCard from "./shared/analyzer/AnalyzerCard";
+import ProgressStrip from "./shared/ProgressStrip";
 
 // V75-specific components
 import V75Input from "./v75/components/V75Input";
@@ -75,14 +77,68 @@ const V75Analyzer: React.FC = () => {
     }
   }, [v75Results]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // 1-8 to jump between races if results present
+      if (v75Results.length > 0) {
+        const n = Number(e.key);
+        if (n >= 1 && n <= Math.min(8, v75Results.length)) {
+          setActiveTab(`race-${n}`);
+        }
+      }
+      // A to analyze
+      if (e.key.toLowerCase() === "a" && !loading && selectedDate) {
+        handleAnalyzeV75();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [v75Results, loading, selectedDate]);
+
   return (
     <DebugErrorBoundary>
+      {/* Sticky top bar */}
+      <div className="sticky top-0 z-30 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+        <div className="mx-auto max-w-7xl px-3 sm:px-4 py-2 flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Trophy className="h-5 w-5" />
+            <div className="text-sm sm:text-base font-medium">V85 Analyzer</div>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowInput(true)}>
+              <CalendarIcon className="h-4 w-4 mr-1" />
+              <span className="hidden sm:inline">{selectedDate ? format(selectedDate, "MMM d") : "Select date"}</span>
+              <span className="sm:hidden">{selectedDate ? format(selectedDate, "d/M") : "Date"}</span>
+            </Button>
+            <Button size="sm" onClick={handleAnalyzeV75} disabled={!selectedDate || loading}>
+              <Play className="h-4 w-4 mr-1" />
+              <span className="hidden sm:inline">{loading ? "Analyzing…" : "Analyze"}</span>
+              <span className="sm:hidden">Go</span>
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setShowWeights((v) => !v)} title="Weights">
+              <Settings2 className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => setShowCacheManager((v) => !v)} title="Cache">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Progress strip */}
+      {loading && (
+        <div className="mx-auto max-w-7xl px-3 sm:px-4 py-2 border-b">
+          <ProgressStrip progress={progress} label={currentTask || "Analyzing…"} />
+        </div>
+      )}
+
       <AnalyzerLayout>
         {/* Header */}
         <AnalyzerCard
-          title="V85 Multi-Race Analyzer"
-          description="Analyze all 8 races in a V85 day with advanced RAW time normalization and intelligent caching"
-          icon={<Trophy className="h-6 w-6" />}
+          title={showInput ? "V85 Multi-Race Analyzer" : undefined}
+          description={showInput ? "Analyze all 8 races in a V85 day with advanced RAW time normalization and intelligent caching" : undefined}
+          icon={showInput ? <Trophy className="h-6 w-6" /> : undefined}
         >
           {/* Date Selection / Summary */}
           {showInput ? (
@@ -92,66 +148,7 @@ const V75Analyzer: React.FC = () => {
               onAnalyze={handleAnalyzeV75}
               loading={loading}
             />
-          ) : (
-            v75Results.length > 0 && (
-              <div className="flex items-center justify-between gap-3 px-2 sm:px-0">
-                <div className="text-xs sm:text-sm text-muted-foreground">
-                  {analysisDate ? format(new Date(analysisDate), 'PPP') : (selectedDate ? format(selectedDate, 'PPP') : '')} • {v75Results.length} races
-                </div>
-                <button
-                  onClick={() => setShowInput(true)}
-                  className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 underline touch-manipulation"
-                >
-                  Change date
-                </button>
-              </div>
-            )
-          )}
-
-          {/* Tools (collapsed) */}
-          <div className="mt-2">
-            <div className="sm:hidden h-px bg-border my-1" />
-            <div className="flex items-center justify-between">
-              <details className="w-full">
-                <summary className="cursor-pointer text-xs sm:text-sm text-muted-foreground">Tools</summary>
-                <div className="mt-2 flex justify-end gap-4">
-                  <button
-                    onClick={() => setShowCacheManager(!showCacheManager)}
-                    className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 underline touch-manipulation py-2"
-                  >
-                    {showCacheManager ? 'Hide' : 'Show'} Cache Manager
-                  </button>
-                  <button
-                    onClick={() => setShowWeights(!showWeights)}
-                    className="text-xs sm:text-sm text-purple-600 hover:text-purple-800 underline touch-manipulation py-2"
-                  >
-                    {showWeights ? 'Hide' : 'Show'} Weights
-                  </button>
-                  {isAutoDebugging && (
-                    <div className="flex gap-4">
-                      <button
-                        onClick={exportRockSolidReport}
-                        className="text-xs sm:text-sm text-green-600 hover:text-green-800 underline touch-manipulation py-2"
-                      >
-                        Export Debug Report
-                      </button>
-                      <button
-                        onClick={startFresh}
-                        className="text-xs sm:text-sm text-rose-600 hover:text-rose-800 underline touch-manipulation py-2"
-                      >
-                        Start fresh debug
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </details>
-            </div>
-          </div>
-
-          {/* Progress */}
-          {loading && (
-            <ProgressIndicator progress={progress} currentTask={currentTask} />
-          )}
+          ) : null}
 
           {/* Error */}
           {error && (

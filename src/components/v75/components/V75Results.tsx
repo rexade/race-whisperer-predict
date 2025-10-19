@@ -2,6 +2,7 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Trophy } from "lucide-react";
 import V75RaceDetails from "../V75RaceDetails";
 
@@ -39,9 +40,28 @@ const V75Results: React.FC<V75ResultsProps> = ({
         </CardHeader>
         
         <CardContent className="p-0">
+          {/* Race chip row - sticky */}
+          <div className="sticky top-[52px] z-20 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b mb-4">
+            <div className="overflow-x-auto no-scrollbar py-2 px-1">
+              <div className="flex gap-2">
+                {races.map((r) => (
+                  <Badge
+                    key={r.raceNumber}
+                    variant={activeTab === `race-${r.raceNumber}` ? "default" : "secondary"}
+                    className="cursor-pointer select-none hover:opacity-80 transition-opacity whitespace-nowrap"
+                    onClick={() => onTabChange(`race-${r.raceNumber}`)}
+                    title={`Press ${r.raceNumber} to jump here`}
+                  >
+                    Race {r.raceNumber}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </div>
+
           <Tabs value={activeTab} onValueChange={onTabChange}>
             {/* Dynamic grid tabs based on race count */}
-            <div className="">
+            <div className="sticky top-[100px] z-10 bg-background border-b mb-4">
               <TabsList 
                 className="bg-transparent p-0 gap-1 w-full h-9 sm:h-10"
                 style={{ display: 'grid', gridTemplateColumns: `repeat(${races.length}, 1fr)` }}
@@ -52,7 +72,7 @@ const V75Results: React.FC<V75ResultsProps> = ({
                     value={`race-${race.raceNumber}`}
                     aria-label={`Race ${race.raceNumber}`}
                     title={`Race ${race.raceNumber}`}
-                    className="text-center rounded-md text-xs sm:text-sm px-0 py-2 h-9 sm:h-10 whitespace-nowrap bg-atg-gray-100 text-atg-navy focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:bg-atg-blue data-[state=active]:text-white"
+                    className="text-center rounded-md text-xs sm:text-sm px-0 py-2 h-9 sm:h-10 whitespace-nowrap bg-muted text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                   >
                     R{race.raceNumber}
                   </TabsTrigger>

@@ -23,10 +23,11 @@ const V75Input: React.FC<V75InputProps> = ({
     <div className="space-y-3">
       {/* Mobile-first date selection */}
       <div>
-        <h3 className="text-base sm:text-lg font-semibold mb-3 flex items-center gap-2">
+        <h3 className="text-base sm:text-lg font-semibold mb-1 flex items-center gap-2">
           <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
-          Select Date
+          Pick a date to analyze V85
         </h3>
+        <p className="text-sm text-muted-foreground mb-3">We'll auto-detect the 8 races for the selected day.</p>
         <V75DatePicker
           selectedDate={selectedDate}
           onDateSelect={onDateSelect}
@@ -84,11 +85,11 @@ const V75Input: React.FC<V75InputProps> = ({
         <Button 
           onClick={onAnalyze}
           disabled={loading || !selectedDate}
-          className="w-full bg-purple-600 hover:bg-purple-700 touch-manipulation"
+          className="w-full touch-manipulation"
           size="lg"
         >
           <TrendingUp className="h-4 w-4 mr-2" />
-          {loading ? "Analyzing V85..." : "Analyze V85 Races"}
+          {loading ? "Analyzing V85…" : "Analyze V85 Races"}
         </Button>
       </div>
     </div>

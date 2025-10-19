@@ -51,10 +51,10 @@ export const useV75Analysis = () => {
       const gameInfo = await fetchV75GameInfo(date);
       
       if (!gameInfo) {
-        const errorMsg = `No V75 games found for ${date}. Please select a different date with V75 races.`;
+        const errorMsg = `No V85 games found for ${date}. Please select a different date with V85 races.`;
         setErrorState(errorMsg);
         toast({
-          title: "No V75 Games Found",
+          title: "No V85 Games Found",
           description: errorMsg,
           variant: "destructive",
         });
@@ -69,10 +69,10 @@ export const useV75Analysis = () => {
       let v75Races = await fetchV75RaceData(date);
       
       if (v75Races.length === 0) {
-        const errorMsg = `Failed to fetch race data for V75 game ${gameInfo.gameId}`;
+        const errorMsg = `Failed to fetch race data for V85 game ${gameInfo.gameId}`;
         setErrorState(errorMsg);
         toast({
-          title: "Race Data Error",
+          title: "V85 Data Error",
           description: errorMsg,
           variant: "destructive",
         });
@@ -133,19 +133,19 @@ export const useV75Analysis = () => {
       
       
       toast({
-        title: "V75 Analysis Complete",
-        description: `Successfully analyzed ${successfulRaces} races with ${totalHorses} horses using optimized caching.`,
+        title: "V85 Analysis Complete",
+        description: `Processed ${successfulRaces}/${results.length} races • ${totalHorses} horses`,
       });
       
     } catch (err) {
-      console.error("Error during V75 analysis:", err);
+      console.error("Error during V85 analysis:", err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       
-      setErrorState(`V75 analysis failed: ${errorMessage}`);
+      setErrorState(`V85 analysis failed: ${errorMessage}`);
       
       toast({
-        title: "V75 Analysis Error",
-        description: "Failed to complete V75 analysis. Check console for details.",
+        title: "V85 Analysis Error",
+        description: "Check console for details.",
         variant: "destructive",
       });
     }
