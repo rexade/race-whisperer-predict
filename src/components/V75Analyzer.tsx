@@ -80,8 +80,8 @@ const V75Analyzer: React.FC = () => {
       <AnalyzerLayout>
         {/* Header */}
         <AnalyzerCard
-          title="V75 Multi-Race Analyzer"
-          description="Analyze all 7 races in a V75 day with advanced RAW time normalization and intelligent caching"
+          title="V85 Multi-Race Analyzer"
+          description="Analyze all 8 races in a V85 day with advanced RAW time normalization and intelligent caching"
           icon={<Trophy className="h-6 w-6" />}
         >
           {/* Date Selection / Summary */}

@@ -50,7 +50,7 @@ const V75Input: React.FC<V75InputProps> = ({
                 <div>
                   <div className="font-medium">{format(selectedDate, 'MMM d, yyyy')}</div>
                   <div className="text-xs text-blue-600 mt-1">
-                    Tap "Analyze V75" to check for races
+                    Tap "Analyze V85" to check for races
                   </div>
                 </div>
               </div>
@@ -69,7 +69,7 @@ const V75Input: React.FC<V75InputProps> = ({
               <div>
                 <div className="font-medium">{format(selectedDate, 'PPP')}</div>
                 <div className="text-xs text-purple-600 mt-1">
-                  System will auto-detect V75 races for this date
+                  System will auto-detect V85 races for this date
                 </div>
               </div>
             ) : (
@@ -88,7 +88,7 @@ const V75Input: React.FC<V75InputProps> = ({
           size="lg"
         >
           <TrendingUp className="h-4 w-4 mr-2" />
-          {loading ? "Analyzing V75..." : "Analyze V75 Races"}
+          {loading ? "Analyzing V85..." : "Analyze V85 Races"}
         </Button>
       </div>
     </div>

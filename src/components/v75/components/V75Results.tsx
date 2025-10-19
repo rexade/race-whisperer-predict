@@ -34,15 +34,18 @@ const V75Results: React.FC<V75ResultsProps> = ({
         <CardHeader className="hidden sm:block">
           <CardTitle className="flex items-center gap-2">
             <Trophy className="h-5 w-5" />
-            V75 Race Results
+            Race Results
           </CardTitle>
         </CardHeader>
         
         <CardContent className="p-0">
           <Tabs value={activeTab} onValueChange={onTabChange}>
-            {/* Non-scrollable grid tabs */}
+            {/* Dynamic grid tabs based on race count */}
             <div className="">
-              <TabsList className="bg-transparent p-0 grid grid-cols-7 gap-1 w-full h-9 sm:h-10">
+              <TabsList 
+                className="bg-transparent p-0 gap-1 w-full h-9 sm:h-10"
+                style={{ display: 'grid', gridTemplateColumns: `repeat(${races.length}, 1fr)` }}
+              >
                 {races.map(race => (
                   <TabsTrigger 
                     key={race.raceNumber} 

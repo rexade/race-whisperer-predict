@@ -1,3 +1,5 @@
+// Target game type - change to 'V75', 'V86', 'V65' etc. as needed
+const TARGET_GAME = 'V85';
 
 import { V75ActualResult } from '../types/postRaceAnalysisTypes';
 import { formatKmTime } from '../utils/postRaceUtils';
@@ -5,11 +7,11 @@ import { parseActualTime, findBestTime } from '../utils/timeAnalysisUtils';
 
 export class V75ResultsFetcher {
   static async fetchActualResults(date: string): Promise<V75ActualResult[]> {
-    console.log(`🏁 Fetching actual V75 results for ${date}`);
+    console.log(`🏁 Fetching actual ${TARGET_GAME} results for ${date}`);
     
     try {
-      // Step 1: Get V75 games for the date using the correct calendar endpoint
-      console.log(`📅 Step 1: Fetching V75 games for date ${date}`);
+      // Step 1: Get games for the date using the correct calendar endpoint
+      console.log(`📅 Step 1: Fetching ${TARGET_GAME} games for date ${date}`);
       const calendarResponse = await fetch(`https://www.atg.se/services/racinginfo/v1/api/calendar/day/${date}`);
       
       if (!calendarResponse.ok) {
@@ -20,25 +22,25 @@ export class V75ResultsFetcher {
       console.log('📅 Calendar response received:', {
         date: calendarData.date,
         hasGames: !!calendarData.games,
-        v75Count: calendarData.games?.V75?.length || 0
+        targetCount: calendarData.games?.[TARGET_GAME]?.length || 0
       });
       
-      // Find V75 games
-      const v75Games = calendarData.games?.V75 || [];
+      // Find target games
+      const v75Games = calendarData.games?.[TARGET_GAME] || [];
       
       if (v75Games.length === 0) {
-        throw new Error('No V75 games found for this date');
+        throw new Error(`No ${TARGET_GAME} games found for this date`);
       }
       
       const v75Game = v75Games[0];
-      console.log('🎯 V75 Game found:', {
+      console.log(`🎯 ${TARGET_GAME} Game found:`, {
         gameId: v75Game.id,
         raceCount: v75Game.races?.length || 0,
         raceIds: v75Game.races
       });
       
       if (!v75Game.races || v75Game.races.length === 0) {
-        throw new Error('No races found in V75 game');
+        throw new Error(`No races found in ${TARGET_GAME} game`);
       }
       
       // Step 2: Fetch results for each race

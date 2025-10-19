@@ -17,7 +17,7 @@ const V75Summary: React.FC<V75SummaryProps> = ({ races, analysisDate }) => {
   const successfulRaces = races.filter(r => r.analysisComplete).length;
 
   return (
-    <StatusCard type="success" title="V75 Analysis Complete">
+    <StatusCard type="success" title="V85 Analysis Complete">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
         <div>
           <strong>Date:</strong> {analysisDate}

@@ -1,3 +1,6 @@
+// Target game type - change to 'V75', 'V86', 'V65' etc. as needed
+const TARGET_GAME = 'V85';
+
 export interface V75CalendarDate {
   date: string; // YYYY-MM-DD format
   eventName: string;
@@ -105,21 +108,21 @@ export const fetchV75GameInfo = async (date: string): Promise<V75GameInfo | null
     const data = await response.json();
     console.log('📅 Calendar API response received:', {
       date: data.date,
-      v75Games: data.games?.V75?.length || 0
+      targetGames: data.games?.[TARGET_GAME]?.length || 0
     });
     
-    // Look for V75 games in the response
-    const v75Games = data.games?.V75;
+    // Look for target games in the response
+    const v75Games = data.games?.[TARGET_GAME];
     
     if (!v75Games || v75Games.length === 0) {
-      console.log(`❌ No V75 games found for ${date}`);
+      console.log(`❌ No ${TARGET_GAME} games found for ${date}`);
       return null;
     }
     
-    // Take the first V75 game (there should typically be only one per day)
+    // Take the first game (there should typically be only one per day)
     const v75Game = v75Games[0];
     
-    console.log('🎯 V75 Game found:', {
+    console.log(`🎯 ${TARGET_GAME} Game found:`, {
       gameId: v75Game.id,
       raceCount: v75Game.races?.length || 0,
       raceIds: v75Game.races,
@@ -366,7 +369,7 @@ export const fetchV75CalendarDates = async (year: number, month: number): Promis
     if (data.calendarDays) {
       for (const day of data.calendarDays) {
         const v75Events = day.events?.filter((event: any) => 
-          event.eventType === 'V75' || event.name?.includes('V75')
+          event.eventType === TARGET_GAME || event.name?.includes(TARGET_GAME)
         );
         
         if (v75Events && v75Events.length > 0) {
@@ -379,7 +382,7 @@ export const fetchV75CalendarDates = async (year: number, month: number): Promis
               startMethod: race.startMethod,
               track: race.track?.name || 'Unknown',
               name: race.name,
-              prize: race.terms?.pools?.find((p: any) => p.betType === 'V75')?.prize || 0
+              prize: race.terms?.pools?.find((p: any) => p.betType === TARGET_GAME)?.prize || 0
             })) || [];
             
             v75Dates.push({
