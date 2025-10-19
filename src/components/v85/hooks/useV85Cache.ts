@@ -1,5 +1,5 @@
 
-import { V75CacheService } from '../../../services/v75CacheService';
+import { V85CacheService } from '../../../services/v85CacheService';
 import { calculateRawKmTimesForRaceWithId } from '../../../services/kmTimeProcessor';
 import { HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 
@@ -8,7 +8,7 @@ export interface CacheResult {
   wasFromCache: boolean;
 }
 
-export const useV75Cache = () => {
+export const useV85Cache = () => {
   const getOrCalculateRawTimes = async (
     race: any,
     gameInfo: { gameId: string },
@@ -17,7 +17,7 @@ export const useV75Cache = () => {
   ): Promise<CacheResult> => {
     // Check for cached raw times FIRST
     console.log(`🔍 [V75Cache] Checking cache for race ${race.raceId}`);
-    const cachedRawTimes = await V75CacheService.getRawTimes(race.raceId);
+    const cachedRawTimes = await V85CacheService.getRawTimes(race.raceId);
     
     if (cachedRawTimes) {
       console.log(`✅ [V75Cache] Found cached data for race ${race.raceId}:`, {
