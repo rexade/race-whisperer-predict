@@ -3,6 +3,7 @@ import { V75HorseResult } from '../types/raceResultTypes';
 import { ExtractedHorseData } from './horseDataExtractor';
 import { HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 import { RaceAnalysisCache } from '../../../services/v75Cache/raceAnalysisCache';
+import { analyzeHistorySource } from './confidenceCalculator';
 
 export const buildHorseResult = (
   horse: any,
@@ -13,6 +14,9 @@ export const buildHorseResult = (
   safeRaceTrack: string,
   rawTimeData?: HorseRawKmTime
 ): V75HorseResult => {
+  // Analyze history source and calculate confidence
+  const confidenceAnalysis = analyzeHistorySource(horse, rawTimeData);
+  
   const horseResult: V75HorseResult = {
     raceNumber: race.raceNumber,
     raceId: race.raceId,
@@ -40,7 +44,12 @@ export const buildHorseResult = (
     isNotifiee: rawTimeData?.isNotifiee || false,
     dataSource: rawTimeData?.dataSource || 'recent',
     oldestRecordDate: rawTimeData?.oldestRecordDate,
-    newestRecordDate: rawTimeData?.newestRecordDate
+    newestRecordDate: rawTimeData?.newestRecordDate,
+    // Confidence metrics
+    hasLocalHistory: confidenceAnalysis.hasLocalHistory,
+    hasAnyHistory: confidenceAnalysis.hasAnyHistory,
+    confidence: confidenceAnalysis.confidence,
+    historySource: confidenceAnalysis.historySource
   };
 
   return horseResult;

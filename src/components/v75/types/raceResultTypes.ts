@@ -29,6 +29,11 @@ export interface V75HorseResult {
   dataSource?: 'recent' | 'fallback';
   oldestRecordDate?: string;
   newestRecordDate?: string;
+  // Confidence tracking
+  hasLocalHistory?: boolean;
+  hasAnyHistory?: boolean;
+  confidence?: number;
+  historySource?: "local" | "abroad" | "none";
 }
 
 export interface V75RaceResult {

@@ -4,6 +4,7 @@ import { V75HorseResult } from '../types/raceResultTypes';
 export class RaceScoreCalculator {
   /**
    * Calculate final scores and ranks for horses in a race
+   * Now includes confidence-based tie-breaking
    */
   static calculateScoresAndRanks(horses: V75HorseResult[]): V75HorseResult[] {
     // Calculate final scores for horses
@@ -16,8 +17,21 @@ export class RaceScoreCalculator {
       rank: index + 1
     }));
 
-    // Sort by final score and update ranks
-    horsesWithScores.sort((a, b) => a.finalScore - b.finalScore);
+    // Sort by final score, then by confidence (higher confidence wins ties)
+    horsesWithScores.sort((a, b) => {
+      const scoreA = a.finalScore;
+      const scoreB = b.finalScore;
+      
+      if (scoreA !== scoreB) {
+        return scoreA - scoreB;
+      }
+      
+      // Tie-breaker: higher confidence wins
+      const confA = a.confidence ?? 0;
+      const confB = b.confidence ?? 0;
+      return confB - confA;
+    });
+    
     horsesWithScores.forEach((horse, index) => {
       horse.rank = index + 1;
     });

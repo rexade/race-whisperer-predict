@@ -55,7 +55,19 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
       <TableCell>
         <div className="space-y-1 min-w-0">
           <div className="flex items-center gap-2">
-            <div className="font-medium text-foreground text-xs sm:text-sm truncate flex-1 min-w-0">{safeHorseName}</div>
+            <div className="flex-1 min-w-0 flex items-center gap-1.5">
+              <div className="font-medium text-foreground text-xs sm:text-sm truncate">{safeHorseName}</div>
+              {/* History source badge */}
+              {horse.historySource === "local" && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary whitespace-nowrap">Local</span>
+              )}
+              {horse.historySource === "abroad" && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground whitespace-nowrap">Abroad</span>
+              )}
+              {horse.historySource === "none" && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground whitespace-nowrap">No data</span>
+              )}
+            </div>
             <Button
               variant="ghost"
               size="sm"
@@ -69,7 +81,23 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
               )}
             </Button>
           </div>
-          <div className="text-xs text-muted-foreground truncate">{safeDriverName}</div>
+          <div className="flex items-center gap-1.5">
+            <div className="text-xs text-muted-foreground truncate">{safeDriverName}</div>
+            {/* Confidence indicator */}
+            {horse.confidence !== undefined && (
+              <div 
+                className="text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1"
+                title={`Confidence ${horse.confidence}%`}
+              >
+                <span className={
+                  horse.confidence >= 80 ? "text-success" 
+                  : horse.confidence >= 50 ? "text-warning" 
+                  : "text-destructive"
+                }>●</span>
+                <span className="text-muted-foreground">{horse.confidence}%</span>
+              </div>
+            )}
+          </div>
         </div>
       </TableCell>
       

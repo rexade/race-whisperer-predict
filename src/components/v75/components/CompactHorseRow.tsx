@@ -67,8 +67,36 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
           <div className="flex-1 min-w-0">
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
-                <div className="font-semibold text-sm leading-tight truncate">{safeHorseName}</div>
-                <div className="text-xs text-muted-foreground leading-tight mt-0.5 truncate">{safeDriverName}</div>
+                <div className="flex items-center gap-1.5">
+                  <div className="font-semibold text-sm leading-tight truncate">{safeHorseName}</div>
+                  {/* History source badge */}
+                  {horse.historySource === "local" && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary whitespace-nowrap">Local</span>
+                  )}
+                  {horse.historySource === "abroad" && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground whitespace-nowrap">Abroad</span>
+                  )}
+                  {horse.historySource === "none" && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground whitespace-nowrap">No data</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="text-xs text-muted-foreground leading-tight truncate">{safeDriverName}</div>
+                  {/* Confidence indicator */}
+                  {horse.confidence !== undefined && (
+                    <div 
+                      className="text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1"
+                      title={`Confidence ${horse.confidence}%`}
+                    >
+                      <span className={
+                        horse.confidence >= 80 ? "text-success" 
+                        : horse.confidence >= 50 ? "text-warning" 
+                        : "text-destructive"
+                      }>●</span>
+                      <span className="text-muted-foreground">{horse.confidence}%</span>
+                    </div>
+                  )}
+                </div>
               </div>
               <Button
                 variant="ghost"
