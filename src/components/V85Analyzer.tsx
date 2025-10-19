@@ -7,21 +7,21 @@ import { PostPositionCurves, getDefaultPostPositionCurves } from "./PostPosition
 import ProgressIndicator from "./modernAnalyzer/ProgressIndicator";
 import ErrorDisplay from "./modernAnalyzer/ErrorDisplay";
 import DebugErrorBoundary from "./DebugErrorBoundary";
-import { useV75Analysis } from "./v75/hooks/useV75Analysis";
-import { useRockSolidDebugger } from "./v75/hooks/useRockSolidDebugger";
+import { useV85Analysis } from "./v85/hooks/useV85Analysis";
+import { useRockSolidDebugger } from "./v85/hooks/useRockSolidDebugger";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
 
 // Shared components
 import AnalyzerLayout from "./shared/analyzer/AnalyzerLayout";
 import AnalyzerCard from "./shared/analyzer/AnalyzerCard";
 
-// V75-specific components
-import V75Input from "./v75/components/V75Input";
-import V75Summary from "./v75/components/V75Summary";
-import V75Results from "./v75/components/V75Results";
-import V75CacheManager from "./v75/components/V75CacheManager";
+// V85-specific components
+import V85Input from "./v85/components/V85Input";
+import V85Summary from "./v85/components/V85Summary";
+import V85Results from "./v85/components/V85Results";
+import V85CacheManager from "./v85/components/V85CacheManager";
 
-const V75Analyzer: React.FC = () => {
+const V85Analyzer: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [weights, setWeights] = useState<NormalizationWeights>(getDefaultWeights());
   const [postPositionCurves, setPostPositionCurves] = useState<PostPositionCurves>(getDefaultPostPositionCurves());
@@ -35,45 +35,45 @@ const V75Analyzer: React.FC = () => {
     progress,
     currentTask,
     error,
-    v75Results,
+    v85Results,
     analysisDate,
-    analyzeV75Date,
+    analyzeV85Date,
     reanalyzeWithNewWeights,
     clearError
-  } = useV75Analysis();
+  } = useV85Analysis();
   
   const { isAutoDebugging, exportRockSolidReport, startFresh } = useRockSolidDebugger();
 
-  const handleAnalyzeV75 = () => {
+  const handleAnalyzeV85 = () => {
     if (!selectedDate) return;
     clearError(); // Clear any previous errors
     setShowInput(false);
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    analyzeV75Date(dateStr, weights, postPositionCurves);
+    analyzeV85Date(dateStr, weights, postPositionCurves);
   };
 
   // Recalculate when weights or post position curves change
   useEffect(() => {
-    if (v75Results.length > 0) {
+    if (v85Results.length > 0) {
       reanalyzeWithNewWeights(weights, postPositionCurves);
     }
   }, [weights, postPositionCurves]);
 
   // Update active tab when results are loaded
   useEffect(() => {
-    if (v75Results.length > 0) {
-      setActiveTab(`race-${v75Results[0].raceNumber}`);
+    if (v85Results.length > 0) {
+      setActiveTab(`race-${v85Results[0].raceNumber}`);
     }
-  }, [v75Results]);
+  }, [v85Results]);
 
   // Collapse input when results are available
   useEffect(() => {
-    if (v75Results.length > 0) {
+    if (v85Results.length > 0) {
       setShowInput(false);
     } else {
       setShowInput(true);
     }
-  }, [v75Results]);
+  }, [v85Results]);
 
   return (
     <DebugErrorBoundary>
@@ -86,17 +86,17 @@ const V75Analyzer: React.FC = () => {
         >
           {/* Date Selection / Summary */}
           {showInput ? (
-            <V75Input
+            <V85Input
               selectedDate={selectedDate}
               onDateSelect={setSelectedDate}
-              onAnalyze={handleAnalyzeV75}
+              onAnalyze={handleAnalyzeV85}
               loading={loading}
             />
           ) : (
-            v75Results.length > 0 && (
+            v85Results.length > 0 && (
               <div className="flex items-center justify-between gap-3 px-2 sm:px-0">
                 <div className="text-xs sm:text-sm text-muted-foreground">
-                  {analysisDate ? format(new Date(analysisDate), 'PPP') : (selectedDate ? format(selectedDate, 'PPP') : '')} • {v75Results.length} races
+                  {analysisDate ? format(new Date(analysisDate), 'PPP') : (selectedDate ? format(selectedDate, 'PPP') : '')} • {v85Results.length} races
                 </div>
                 <button
                   onClick={() => setShowInput(true)}
@@ -172,20 +172,20 @@ const V75Analyzer: React.FC = () => {
           )}
 
           {/* Results Summary */}
-          {v75Results.length > 0 && (
-            <V75Summary races={v75Results} analysisDate={analysisDate} />
+          {v85Results.length > 0 && (
+            <V85Summary races={v85Results} analysisDate={analysisDate} />
           )}
         </AnalyzerCard>
 
         {/* Cache Manager */}
         {showCacheManager && (
           <DebugErrorBoundary>
-            <V75CacheManager />
+            <V85CacheManager />
           </DebugErrorBoundary>
         )}
 
         {/* Weight Manager */}
-        {v75Results.length > 0 && showWeights && (
+        {v85Results.length > 0 && showWeights && (
           <DebugErrorBoundary>
             <WeightManager 
               weights={weights} 
@@ -197,9 +197,9 @@ const V75Analyzer: React.FC = () => {
         )}
 
         {/* Results */}
-        {v75Results.length > 0 && (
-          <V75Results
-            races={v75Results}
+        {v85Results.length > 0 && (
+          <V85Results
+            races={v85Results}
             activeTab={activeTab}
             onTabChange={setActiveTab}
           />
@@ -209,4 +209,4 @@ const V75Analyzer: React.FC = () => {
   );
 };
 
-export default V75Analyzer;
+export default V85Analyzer;
