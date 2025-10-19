@@ -113,8 +113,23 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
           <div className="flex flex-col gap-1 min-w-0">
             {/* Predicted Time - Most prominent */}
             <div className="text-center">
-              <div className={`font-mono text-base sm:text-lg font-bold ${isTopPerformer ? 'text-primary' : 'text-foreground'}`}>
+              <div className={`font-mono text-base sm:text-lg font-bold ${isTopPerformer ? 'text-primary' : 'text-foreground'} flex items-center justify-center gap-1`}>
+                {horse.uncertain && <span className="text-warning" title="Approximation">≈</span>}
                 {formatKmTime(result.modernNormalizedTime)}
+                {horse.uncertain && (
+                  <span
+                    className="text-[9px] px-1 py-0.5 rounded bg-warning/10 text-warning border border-warning/20 whitespace-nowrap"
+                    title={
+                      horse.uncertaintyReason === "best_only"
+                        ? "Best raw time used (no valid normalized samples)"
+                        : horse.uncertaintyReason === "no_valid_samples"
+                        ? "Fallback used (no valid samples)"
+                        : "Approximation"
+                    }
+                  >
+                    uncertain
+                  </span>
+                )}
               </div>
               <div className="text-xs text-primary font-medium">Pred</div>
             </div>

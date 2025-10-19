@@ -70,7 +70,7 @@ export function analyzeHistorySource(
   const hasAny = hasLocal || hasForeign;
   
   const hasRawKmTime = !!rawTimeData?.best3Average;
-  const samplesSpeed = rawTimeData?.validRaces?.length || 0;
+  const samplesSpeed = rawTimeData?.validTimesCount || 0;
   
   // Calculate days since last start if available
   let daysSinceLastStart: number | undefined;

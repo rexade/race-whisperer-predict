@@ -1,4 +1,6 @@
 
+export type TimeSource = "normalized" | "best_raw" | "abroad" | "field_median" | "none";
+
 export interface V75HorseResult {
   raceNumber: number;
   raceId: string;
@@ -34,6 +36,10 @@ export interface V75HorseResult {
   hasAnyHistory?: boolean;
   confidence?: number;
   historySource?: "local" | "abroad" | "none";
+  // Prediction provenance
+  timeSource?: TimeSource;
+  uncertain?: boolean;
+  uncertaintyReason?: "no_valid_samples" | "best_only" | "abroad_only" | "other";
 }
 
 export interface V75RaceResult {

@@ -109,8 +109,25 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
       </TableCell>
       
       <TableCell className="text-center">
-        <div className={`font-mono text-xs sm:text-sm font-bold ${isTopPerformer ? 'text-atg-blue' : 'text-foreground'}`}>
-          <div>{formatKmTime(result.modernNormalizedTime)}</div>
+        <div className={`font-mono text-xs sm:text-sm font-bold ${isTopPerformer ? 'text-atg-blue' : 'text-foreground'} flex flex-col items-center gap-0.5`}>
+          <div className="flex items-center gap-1">
+            {horse.uncertain && <span className="text-warning" title="Approximation">≈</span>}
+            <div>{formatKmTime(result.modernNormalizedTime)}</div>
+            {horse.uncertain && (
+              <span
+                className="text-[9px] px-1 py-0.5 rounded bg-warning/10 text-warning border border-warning/20 whitespace-nowrap"
+                title={
+                  horse.uncertaintyReason === "best_only"
+                    ? "Best raw time used (no valid normalized samples)"
+                    : horse.uncertaintyReason === "no_valid_samples"
+                    ? "Fallback used (no valid samples)"
+                    : "Approximation"
+                }
+              >
+                uncertain
+              </span>
+            )}
+          </div>
           <div className="text-xs text-muted-foreground">Predicted</div>
         </div>
       </TableCell>

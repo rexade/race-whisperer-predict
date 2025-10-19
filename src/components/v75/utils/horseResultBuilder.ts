@@ -4,6 +4,8 @@ import { ExtractedHorseData } from './horseDataExtractor';
 import { HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 import { RaceAnalysisCache } from '../../../services/v75Cache/raceAnalysisCache';
 import { analyzeHistorySource } from './confidenceCalculator';
+import { partsToSeconds, secondsToParts, totalToKmSeconds } from './timeUtils';
+import type { TimeSource } from '../types/raceResultTypes';
 
 export const buildHorseResult = (
   horse: any,
@@ -17,6 +19,47 @@ export const buildHorseResult = (
   // Analyze history source and calculate confidence
   const confidenceAnalysis = analyzeHistorySource(horse, rawTimeData);
   
+  // Determine time source and uncertainty
+  let timeSource: TimeSource = "normalized";
+  let uncertain = false;
+  let uncertaintyReason: V75HorseResult["uncertaintyReason"] | undefined = undefined;
+  let finalConfidence = confidenceAnalysis.confidence;
+  
+  let shownTimeParts = modernNormalizedResult?.modernNormalizedTime ?? null;
+  let finalNormalizedResult = modernNormalizedResult;
+  
+  // If normalization failed or no valid samples → use best raw time as fallback
+  if (!shownTimeParts || (shownTimeParts.minutes === 0 && shownTimeParts.seconds === 0 && shownTimeParts.tenths === 0)) {
+    console.log(`🔄 No normalized time for ${extractedData.safeHorseName}, attempting fallback...`);
+    
+    // Try to derive km time from best record
+    const bestTotalSec = partsToSeconds(rawTimeData?.bestRecordTime);
+    const kmSec = totalToKmSeconds(bestTotalSec, race?.distance);
+    
+    if (kmSec && kmSec > 0) {
+      shownTimeParts = secondsToParts(kmSec);
+      timeSource = "best_raw";
+      uncertain = true;
+      uncertaintyReason = rawTimeData?.validTimesCount ? "best_only" : "no_valid_samples";
+      
+      // Cap confidence when using fallback
+      finalConfidence = Math.min(finalConfidence ?? 60, 60);
+      
+      // Create a synthetic normalized result with the fallback time
+      finalNormalizedResult = {
+        modernNormalizedTime: shownTimeParts,
+        rawTime: rawKmTime || shownTimeParts,
+        adjustments: { total: 0 },
+        isEstimated: true,
+        isFallback: true
+      };
+      
+      console.log(`✅ Fallback time created: ${shownTimeParts.minutes}:${shownTimeParts.seconds.toString().padStart(2, '0')}.${shownTimeParts.tenths}`);
+    } else {
+      console.log(`❌ No fallback time available for ${extractedData.safeHorseName}`);
+    }
+  }
+  
   const horseResult: V75HorseResult = {
     raceNumber: race.raceNumber,
     raceId: race.raceId,
@@ -24,7 +67,7 @@ export const buildHorseResult = (
     horseName: extractedData.safeHorseName,
     postPosition: horse.postPosition,
     rawKmTime,
-    modernNormalizedResult,
+    modernNormalizedResult: finalNormalizedResult,
     bestRecordTime: rawTimeData?.bestRecordTime,
     driverName: extractedData.safeDriverName,
     track: safeRaceTrack,
@@ -48,8 +91,12 @@ export const buildHorseResult = (
     // Confidence metrics
     hasLocalHistory: confidenceAnalysis.hasLocalHistory,
     hasAnyHistory: confidenceAnalysis.hasAnyHistory,
-    confidence: confidenceAnalysis.confidence,
-    historySource: confidenceAnalysis.historySource
+    confidence: finalConfidence,
+    historySource: confidenceAnalysis.historySource,
+    // Provenance tracking
+    timeSource,
+    uncertain,
+    uncertaintyReason
   };
 
   return horseResult;
