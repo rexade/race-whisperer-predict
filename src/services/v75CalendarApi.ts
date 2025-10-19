@@ -1,13 +1,13 @@
 // Target game type - change to 'V75', 'V86', 'V65' etc. as needed
 const TARGET_GAME = 'V85';
 
-export interface V85CalendarDate {
+export interface V75CalendarDate {
   date: string; // YYYY-MM-DD format
   eventName: string;
-  races: V85RaceInfo[];
+  races: V75RaceInfo[];
 }
 
-export interface V85RaceInfo {
+export interface V75RaceInfo {
   raceId: string;
   raceNumber: number;
   startTime: string;
@@ -18,7 +18,7 @@ export interface V85RaceInfo {
   prize: number;
 }
 
-export interface V85GameInfo {
+export interface V75GameInfo {
   gameId: string;
   raceIds: string[];
   startTime: string;
@@ -26,7 +26,7 @@ export interface V85GameInfo {
   track: string;
 }
 
-export interface V85RaceData {
+export interface V75RaceData {
   raceId: string;
   raceNumber: number;
   distance: number;
@@ -64,7 +64,7 @@ export interface V85RaceData {
   }>;
 }
 
-export interface V85HorseData {
+export interface V75HorseData {
   horseId: number;
   name: any; // Keep as any for now due to API inconsistency
   postPosition: number;

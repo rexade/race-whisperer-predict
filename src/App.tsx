@@ -1,6 +1,6 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import V85Analyzer from './components/V85Analyzer';
+import V75Analyzer from './components/V75Analyzer';
 import DebugErrorBoundary from './components/DebugErrorBoundary';
 import { Toaster } from './components/ui/toaster';
 import './App.css';
@@ -27,7 +27,7 @@ function App() {
             </div>
           </header>
           <main className="container mx-auto px-0 sm:px-4 py-4 sm:py-8">
-            <V85Analyzer />
+            <V75Analyzer />
           </main>
           <Toaster />
         </div>

@@ -1,5 +1,5 @@
 
-export interface V85HorseResult {
+export interface V75HorseResult {
   raceNumber: number;
   raceId: string;
   horseId: number;
@@ -31,7 +31,7 @@ export interface V85HorseResult {
   newestRecordDate?: string;
 }
 
-export interface V85RaceResult {
+export interface V75RaceResult {
   raceNumber: number;
   raceId: string;
   track: string;
@@ -40,7 +40,7 @@ export interface V85RaceResult {
   name: string;
   prize: number;
   date?: string;
-  horses: V85HorseResult[];
+  horses: V75HorseResult[];
   analysisComplete: boolean;
   dataQuality?: {
     hasValidPostPositions: boolean;

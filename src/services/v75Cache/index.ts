@@ -6,9 +6,9 @@ import { LegacyMethods } from './legacyMethods';
 export * from './types';
 
 /**
- * V85 Cache Service - Unified interface for all V85 caching operations
+ * V75 Cache Service - Unified interface for all V75 caching operations
  */
-export class V85CacheService {
+export class V75CacheService {
   // Raw Times Cache Methods
   static async storeRawTimes(
     date: string, 

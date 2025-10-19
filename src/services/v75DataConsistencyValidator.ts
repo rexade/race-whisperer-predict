@@ -1,5 +1,5 @@
 
-import { V85CacheService } from './v85CacheService';
+import { V75CacheService } from './v75CacheService';
 import { KmTime } from './types/kmTimeTypes';
 
 export interface ConsistencyReport {
@@ -13,7 +13,7 @@ export interface ConsistencyReport {
   missingTimes: number;
 }
 
-export class V85DataConsistencyValidator {
+export class V75DataConsistencyValidator {
   /**
    * Validate data consistency between raw times cache and race analysis cache
    */
@@ -24,7 +24,7 @@ export class V85DataConsistencyValidator {
     
     try {
       // Get all race analyses for the date
-      const allAnalyses = await V85CacheService.getAllRaceAnalyses();
+      const allAnalyses = await V75CacheService.getAllRaceAnalyses();
       const relevantAnalyses = allAnalyses.filter(analysis => analysis.analysisDate === analysisDate);
       
       console.log(`📋 Found ${relevantAnalyses.length} race analyses for ${analysisDate}`);
@@ -44,7 +44,7 @@ export class V85DataConsistencyValidator {
         console.log(`\n🏁 Validating race ${analysis.raceNumber} (${analysis.raceId})`);
         
         // Get the full race analysis data
-        const raceAnalysis = await V85CacheService.getRaceAnalysis(analysis.raceId);
+        const raceAnalysis = await V75CacheService.getRaceAnalysis(analysis.raceId);
         if (!raceAnalysis) {
           report.issues.push('Could not retrieve full race analysis data');
           reports.push(report);
@@ -52,7 +52,7 @@ export class V85DataConsistencyValidator {
         }
         
         // Check raw times cache
-        const rawTimesCache = await V85CacheService.getRawTimes(analysis.raceId);
+        const rawTimesCache = await V75CacheService.getRawTimes(analysis.raceId);
         if (!rawTimesCache) {
           report.issues.push('No raw times cache found');
         } else {
@@ -146,9 +146,9 @@ export class V85DataConsistencyValidator {
     availableDates: string[];
   }> {
     try {
-      const cacheInfo = V85CacheService.getCacheInfo();
-      const allAnalyses = await V85CacheService.getAllRaceAnalyses();
-      const availableDates: string[] = [...new Set(allAnalyses.map(a => a.analysisDate))].sort().reverse();
+      const cacheInfo = V75CacheService.getCacheInfo();
+      const allAnalyses = await V75CacheService.getAllRaceAnalyses();
+      const availableDates = [...new Set(allAnalyses.map(a => a.analysisDate))].sort().reverse();
       
       return {
         rawTimesCount: cacheInfo.raceIds.length,
