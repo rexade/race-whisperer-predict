@@ -40,28 +40,10 @@ const V75Results: React.FC<V75ResultsProps> = ({
         </CardHeader>
         
         <CardContent className="p-0">
-          {/* Race chip row - sticky */}
-          <div className="sticky top-[52px] z-20 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b mb-4">
-            <div className="overflow-x-auto no-scrollbar py-2 px-1">
-              <div className="flex gap-2">
-                {races.map((r) => (
-                  <Badge
-                    key={r.raceNumber}
-                    variant={activeTab === `race-${r.raceNumber}` ? "default" : "secondary"}
-                    className="cursor-pointer select-none hover:opacity-80 transition-opacity whitespace-nowrap"
-                    onClick={() => onTabChange(`race-${r.raceNumber}`)}
-                    title={`Press ${r.raceNumber} to jump here`}
-                  >
-                    Race {r.raceNumber}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          </div>
 
           <Tabs value={activeTab} onValueChange={onTabChange}>
             {/* Dynamic grid tabs based on race count */}
-            <div className="sticky top-[100px] z-10 bg-background border-b mb-4">
+            <div className="sticky top-[52px] z-10 bg-background border-b mb-4">
               <TabsList 
                 className="bg-transparent p-0 gap-1 w-full h-9 sm:h-10"
                 style={{ display: 'grid', gridTemplateColumns: `repeat(${races.length}, 1fr)` }}

@@ -20,7 +20,9 @@ export const ensureStringForDisplay = (value: any): string => {
   return String(value || 'Unknown Horse');
 };
 
-export const formatKmTime = (time: { minutes: number; seconds: number; tenths: number }) => {
+export const formatKmTime = (time: { minutes: number; seconds: number; tenths: number } | null | undefined) => {
+  if (!time) return '—';
+  if (time.minutes === 0 && time.seconds === 0 && time.tenths === 0) return '—';
   return `${time.minutes}:${time.seconds.toString().padStart(2, '0')}.${time.tenths}`;
 };
 
