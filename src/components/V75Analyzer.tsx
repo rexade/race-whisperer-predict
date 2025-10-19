@@ -134,45 +134,47 @@ const V75Analyzer: React.FC = () => {
       )}
 
       <AnalyzerLayout>
-        {/* Header */}
-        <AnalyzerCard
-          title={showInput ? "V85 Multi-Race Analyzer" : undefined}
-          description={showInput ? "Analyze all 8 races in a V85 day with advanced RAW time normalization and intelligent caching" : undefined}
-          icon={showInput ? <Trophy className="h-6 w-6" /> : undefined}
-        >
-          {/* Date Selection / Summary */}
-          {showInput ? (
-            <V75Input
-              selectedDate={selectedDate}
-              onDateSelect={setSelectedDate}
-              onAnalyze={handleAnalyzeV75}
-              loading={loading}
-            />
-          ) : null}
+        {/* Header - only show full card when no results or showing input */}
+        {(showInput || error) && (
+          <AnalyzerCard
+            title={showInput ? "V85 Multi-Race Analyzer" : undefined}
+            description={showInput ? "Analyze all 8 races in a V85 day with advanced RAW time normalization and intelligent caching" : undefined}
+            icon={showInput ? <Trophy className="h-6 w-6" /> : undefined}
+          >
+            {/* Date Selection */}
+            {showInput ? (
+              <V75Input
+                selectedDate={selectedDate}
+                onDateSelect={setSelectedDate}
+                onAnalyze={handleAnalyzeV75}
+                loading={loading}
+              />
+            ) : null}
 
-          {/* Error */}
-          {error && (
-            <div className="space-y-3">
-              <ErrorDisplay error={error} />
-              <div className="flex justify-end">
-                <button
-                  onClick={() => {
-                    clearError();
-                    setShowInput(true);
-                  }}
-                  className="text-sm text-blue-600 hover:text-blue-800 underline px-3 py-1"
-                >
-                  Try Again
-                </button>
+            {/* Error */}
+            {error && (
+              <div className="space-y-3">
+                <ErrorDisplay error={error} />
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      clearError();
+                      setShowInput(true);
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-800 underline px-3 py-1"
+                  >
+                    Try Again
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </AnalyzerCard>
+        )}
 
-          {/* Results Summary */}
-          {v75Results.length > 0 && (
-            <V75Summary races={v75Results} analysisDate={analysisDate} />
-          )}
-        </AnalyzerCard>
+        {/* Results Summary - show as compact card when results exist */}
+        {v75Results.length > 0 && !showInput && (
+          <V75Summary races={v75Results} analysisDate={analysisDate} />
+        )}
 
         {/* Cache Manager */}
         {showCacheManager && (
