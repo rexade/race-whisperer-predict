@@ -89,6 +89,14 @@ export const buildHorseResult = (
               }
             : undefined;
   
+  if (synthesizedWarning) {
+    console.log(`⚠️ Warning synthesized for ${extractedData.safeHorseName}:`, synthesizedWarning, {
+      usedInvalidTimeFallback: rawTimeData?.usedInvalidTimeFallback,
+      confidenceMultiplier: rawTimeData?.confidenceMultiplier,
+      usedExtendedFallback: rawTimeData?.usedExtendedFallback,
+    });
+  }
+  
   const horseResult: V75HorseResult = {
     raceNumber: race.raceNumber,
     raceId: race.raceId,

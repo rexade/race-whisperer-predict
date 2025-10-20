@@ -21,9 +21,9 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
   const safeHorseName = ensureStringForDisplay(horse.horseName);
   const safeDriverName = ensureStringForDisplay(horse.driverName);
   
-  // Check for warning from result or horse (synthesized from provenance)
-  const hasWarning = !!(result?.warning || horse.warning);
-  const warningMessage = result?.warning?.message || horse.warning?.message;
+  // Check for warning from horse (synthesized from provenance in horseResultBuilder)
+  const hasWarning = !!horse.warning;
+  const warningMessage = horse.warning?.message;
   
   // Debug panel available for all horses
 
