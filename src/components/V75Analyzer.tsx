@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Trophy, CalendarIcon, Settings2, Trash2, Play } from "lucide-react";
+import { Trophy, CalendarIcon, Settings2, Trash2, Play, Download } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import WeightManager from "./WeightManager";
@@ -11,6 +11,7 @@ import DebugErrorBoundary from "./DebugErrorBoundary";
 import { useV75Analysis } from "./v75/hooks/useV75Analysis";
 import { useRockSolidDebugger } from "./v75/hooks/useRockSolidDebugger";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
+import { exportV75ToExcel } from '../utils/excelExport';
 
 // Shared components
 import AnalyzerLayout from "./shared/analyzer/AnalyzerLayout";
@@ -116,6 +117,16 @@ const V75Analyzer: React.FC = () => {
               <span className="hidden sm:inline">{loading ? "Analyzing…" : "Analyze"}</span>
               <span className="sm:hidden">Go</span>
             </Button>
+            {v75Results.length > 0 && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => exportV75ToExcel(v75Results, analysisDate)}
+                title="Export to Excel"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => setShowWeights((v) => !v)} title="Weights">
               <Settings2 className="h-4 w-4" />
             </Button>
