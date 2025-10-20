@@ -148,21 +148,22 @@ export const applyModernKmNormalization = (
   
   // STEP 4: Baseline performance adjustments
   // Use field-aware start points when field data is available (>=3 horses)
+  // Reduced impact: maxImpact halved to prevent over-rewarding high start points
   const spAdj =
     (factors.fieldStartPoints?.length ?? 0) >= 3
       ? calculateStartPointsAdjustmentFieldAware(
           factors.startPoints,
           factors.fieldStartPoints!,
-          { beta: 2.0, maxImpact: 0.50 }
+          { beta: 2.0, maxImpact: 0.25 }  // Reduced from 0.50
         )
       : calculateStartPointsAdjustment(
           factors.startPoints,
-          { baseline: 1200, alpha: 0.60, maxImpact: 0.60 }
+          { baseline: 1200, alpha: 0.60, maxImpact: 0.30 }  // Reduced from 0.60
         );
   
   // Apply weight and enforce hard cap on final weighted adjustment
   const spWeighted = spAdj * weights.startPoints;
-  const MAX_FINAL_SP_IMPACT = 0.60; // Absolute cap on final weighted adjustment
+  const MAX_FINAL_SP_IMPACT = 0.30; // Reduced from 0.60 - absolute cap on final weighted adjustment
   adjustments.startPoints = Math.max(
     Math.min(spWeighted, MAX_FINAL_SP_IMPACT),
     -MAX_FINAL_SP_IMPACT
