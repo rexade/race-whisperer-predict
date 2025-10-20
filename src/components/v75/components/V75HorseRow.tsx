@@ -21,6 +21,10 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
   const safeHorseName = ensureStringForDisplay(horse.horseName);
   const safeDriverName = ensureStringForDisplay(horse.driverName);
   
+  // Check for warning from result or horse (synthesized from provenance)
+  const hasWarning = !!(result?.warning || horse.warning);
+  const warningMessage = result?.warning?.message || horse.warning?.message;
+  
   // Debug panel available for all horses
 
   const getRankIcon = (rank: number) => {
@@ -109,21 +113,21 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
       </TableCell>
       
       <TableCell className="text-center">
-        <div className={`font-mono text-xs sm:text-sm font-bold ${isTopPerformer ? 'text-atg-blue' : 'text-foreground'} flex flex-col items-center gap-0.5`}>
+        <div className={`font-mono text-xs sm:text-sm font-bold ${isTopPerformer && !hasWarning ? 'text-atg-blue' : hasWarning ? 'text-destructive' : 'text-foreground'} flex flex-col items-center gap-0.5`}>
           <div className="flex items-center gap-1">
-            {(horse.uncertain || horse.warning) && <span className={horse.warning ? "text-destructive" : "text-warning"} title="Approximation">≈</span>}
-            <div className={horse.warning ? 'text-destructive' : undefined}>
+            {(horse.uncertain || hasWarning) && <span className={hasWarning ? "text-destructive" : "text-warning"} title="Approximation">≈</span>}
+            <div>
               {formatKmTime(result.modernNormalizedTime)}
             </div>
-            {horse.warning && (
+            {hasWarning && (
               <span
                 className="text-[9px] px-1 py-0.5 rounded bg-destructive/10 text-destructive border border-destructive/20 whitespace-nowrap"
-                title={horse.warning.message}
+                title={warningMessage}
               >
                 warning
               </span>
             )}
-            {horse.uncertain && !horse.warning && (
+            {horse.uncertain && !hasWarning && (
               <span
                 className="text-[9px] px-1 py-0.5 rounded bg-warning/10 text-warning border border-warning/20 whitespace-nowrap"
                 title={
@@ -138,7 +142,7 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
               </span>
             )}
           </div>
-          <div className="text-xs text-muted-foreground">Predicted</div>
+          <div className={`text-xs ${hasWarning ? 'text-destructive/70' : 'text-muted-foreground'}`}>Predicted</div>
         </div>
       </TableCell>
       

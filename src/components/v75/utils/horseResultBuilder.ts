@@ -72,6 +72,23 @@ export const buildHorseResult = (
     uncertaintyReason = undefined;
   }
   
+  // Synthesize warning from provenance flags if not explicitly set
+  const synthesizedWarning = rawTimeData?.warning
+    ? rawTimeData.warning
+    : rawTimeData?.usedInvalidTimeFallback
+        ? {
+            type: 'invalid-record' as const,
+            reason: 'fastest-invalid',
+            message: 'Used invalid result to avoid 0:00.0; prediction may be unreliable',
+          }
+        : (rawTimeData?.confidenceMultiplier !== undefined && rawTimeData.confidenceMultiplier <= 0.5 && rawTimeData.usedExtendedFallback)
+            ? {
+                type: 'invalid-record' as const,
+                reason: 'extended-single',
+                message: 'Used single record from extended; prediction may be unreliable',
+              }
+            : undefined;
+  
   const horseResult: V75HorseResult = {
     raceNumber: race.raceNumber,
     raceId: race.raceId,
@@ -109,8 +126,11 @@ export const buildHorseResult = (
     timeSource,
     uncertain,
     uncertaintyReason,
-    // Invalid-time fallback warning
-    warning: rawTimeData?.warning
+    // Invalid-time fallback warning (synthesized from provenance if needed)
+    warning: synthesizedWarning,
+    usedInvalidTimeFallback: rawTimeData?.usedInvalidTimeFallback,
+    usedExtendedFallback: rawTimeData?.usedExtendedFallback,
+    confidenceMultiplier: rawTimeData?.confidenceMultiplier
   };
 
   return horseResult;

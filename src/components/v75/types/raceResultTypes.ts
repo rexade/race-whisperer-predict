@@ -46,6 +46,9 @@ export interface V75HorseResult {
     message: string;
     reason: string;
   };
+  usedInvalidTimeFallback?: boolean;
+  usedExtendedFallback?: boolean;
+  confidenceMultiplier?: number;
 }
 
 export interface V75RaceResult {
