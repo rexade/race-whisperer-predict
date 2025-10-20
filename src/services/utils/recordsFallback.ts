@@ -42,9 +42,9 @@ export function extractRecordsFromStatistics(horse: any): ResultLikeRecord[] {
     // Skip non-times like "0", "it", "dist", "u", etc
     if (!r?.time || typeof r.time.minutes !== "number" || typeof r.time.seconds !== "number") return;
 
-    // Skip invalid codes - including qualifiers (gdk) and broken races (br)
+    // Skip invalid codes - including qualifiers (gdk), broken races (br), placed without time (p), and disqualified (dq)
     const code = (r.code ?? "").toLowerCase();
-    const badCodes = ["0", "it", "dist", "u", "gdk", "br"];
+    const badCodes = ["0", "it", "dist", "u", "gdk", "br", "p", "dq"];
     if (badCodes.includes(code)) return;
 
     // Map code -> startMethod/distance if missing
@@ -129,7 +129,42 @@ export function getSourceConfidenceMultiplier(records: ResultLikeRecord[]): numb
   const hasStatistics = originIncludesStatistics(records);
   const hasResults = records.some(r => r.meta?.source === 'results');
   
-  if (hasResults) return 1.0; // Normal confidence
+  if (hasResults) return 1.0; // Normal confidence - real race results present
   if (hasStatistics) return 0.7; // Reduced confidence for statistics-only
   return 1.0; // Default
+}
+
+/**
+ * Get statistics breakdown for telemetry
+ */
+export function getStatisticsBreakdown(records: ResultLikeRecord[]): {
+  totalRecords: number;
+  statisticsRecords: number;
+  resultsRecords: number;
+  distanceBreakdown: { short: number; medium: number; long: number; unknown: number };
+} {
+  const statisticsRecords = records.filter(r => r.meta?.source === 'statistics');
+  const resultsRecords = records.filter(r => r.meta?.source === 'results' || !r.meta?.source);
+  
+  const distanceBreakdown = {
+    short: 0,
+    medium: 0,
+    long: 0,
+    unknown: 0
+  };
+  
+  statisticsRecords.forEach(r => {
+    const dist = r.meta?.distance;
+    if (dist === 'short') distanceBreakdown.short++;
+    else if (dist === 'medium') distanceBreakdown.medium++;
+    else if (dist === 'long') distanceBreakdown.long++;
+    else distanceBreakdown.unknown++;
+  });
+  
+  return {
+    totalRecords: records.length,
+    statisticsRecords: statisticsRecords.length,
+    resultsRecords: resultsRecords.length,
+    distanceBreakdown
+  };
 }

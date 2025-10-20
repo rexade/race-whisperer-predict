@@ -4,7 +4,7 @@ import { convertToKmTime } from './utils/timeConversion';
 import { normalizeKmTimeSimplified } from './utils/kmTimeNormalization';
 import { HorseDebugger } from './debugging/horseDebugger';
 import { DataValidator } from './debugging/dataValidator';
-import { getSourceConfidenceMultiplier } from './utils/recordsFallback';
+import { getSourceConfidenceMultiplier, getStatisticsBreakdown } from './utils/recordsFallback';
 
 // Updated interface to match ATG API structure
 export interface ATGHistoricalRace {
@@ -201,15 +201,39 @@ export const processHorseKmTimes = async (
   // Enhanced debugging for final results
   HorseDebugger.logProcessedTimes(horseId, horseName, processedTimes, best3Average);
 
+  // Get telemetry breakdown for statistics fallback
+  const statsBreakdown = getStatisticsBreakdown(
+    historicalRaces.map(r => ({ meta: { source: (r as any).meta?.source || 'results', distance: (r as any).meta?.distance } } as any))
+  );
+  
+  const usedStatisticsFallback = statsBreakdown.statisticsRecords > 0;
+  
+  // Log telemetry for monitoring fallback usage
+  if (usedStatisticsFallback) {
+    console.log(`📊 [FALLBACK TELEMETRY] ${horseName}:`);
+    console.log(`   Statistics records: ${statsBreakdown.statisticsRecords}/${statsBreakdown.totalRecords}`);
+    console.log(`   Distance breakdown: K=${statsBreakdown.distanceBreakdown.short} M=${statsBreakdown.distanceBreakdown.medium} L=${statsBreakdown.distanceBreakdown.long}`);
+    
+    HorseDebugger.log(horseId, horseName, 'STATISTICS_FALLBACK_TELEMETRY', {
+      statisticsRecords: statsBreakdown.statisticsRecords,
+      resultsRecords: statsBreakdown.resultsRecords,
+      totalRecords: statsBreakdown.totalRecords,
+      distanceBreakdown: statsBreakdown.distanceBreakdown
+    });
+  }
+  
   // Apply confidence weighting for statistics-sourced records
   const confidenceMultiplier = getSourceConfidenceMultiplier(
     historicalRaces.map(r => ({ meta: { source: (r as any).meta?.source || 'results' } } as any))
   );
   
+  // Store raw average before penalty for transparency
+  const rawBest3Average = { ...best3Average };
+  
   if (confidenceMultiplier < 1.0) {
     console.log(`📊 [CONFIDENCE ADJUSTMENT] Applying ${confidenceMultiplier}x multiplier for statistics-only data`);
     // Apply confidence penalty to the average time
-    const avgSeconds = best3Average.minutes * 60 + best3Average.seconds + best3Average.tenths / 10;
+    const avgSeconds = best3Average.minutes * 60 + best3Average.seconds + (best3Average.tenths ?? 0) / 10;
     const penalizedSeconds = avgSeconds / confidenceMultiplier; // Slower time = less confident
     
     const minutes = Math.floor(penalizedSeconds / 60);
@@ -242,14 +266,16 @@ export const processHorseKmTimes = async (
     horseId,
     horseName,
     allTimes: processedTimes,
-    best3Average,
+    best3Average, // Penalized time (used for ranking)
+    rawBest3Average: confidenceMultiplier < 1.0 ? rawBest3Average : undefined, // Raw time (for transparency)
     bestRecordTime,
     validTimesCount: processedTimes.length,
     isNotifiee: metadata?.usedFallback || false,
     dataSource: metadata?.dataSource || 'recent',
     oldestRecordDate: metadata?.oldestRecordDate,
     newestRecordDate: metadata?.newestRecordDate,
-    confidenceMultiplier // Include confidence in result
+    confidenceMultiplier, // Include confidence in result
+    usedStatisticsFallback
   };
 };
 

@@ -19,7 +19,8 @@ export interface HorseRawKmTime {
   horseId: number;
   horseName: string;
   allTimes: ProcessedKmTime[];
-  best3Average: KmTime;
+  best3Average: KmTime; // After confidence penalty (used for ranking)
+  rawBest3Average?: KmTime; // Before confidence penalty (for transparency)
   bestRecordTime: KmTime;
   validTimesCount: number;
   isNotifiee?: boolean;
@@ -27,6 +28,7 @@ export interface HorseRawKmTime {
   oldestRecordDate?: string;
   newestRecordDate?: string;
   confidenceMultiplier?: number;
+  usedStatisticsFallback?: boolean;
 }
 
 export interface ModernKmNormalizedResult {

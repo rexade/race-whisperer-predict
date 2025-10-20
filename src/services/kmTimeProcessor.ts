@@ -188,22 +188,47 @@ export const calculateRawKmTimesForRaceWithId = async (
     }
   }
 
-  // Sort by RAW KM time (best first)
+  // Sort by RAW KM time (best first) with tie-breaker favoring results over statistics
   rawKmTimes.sort((a, b) => {
-    const aSeconds = a.best3Average.minutes * 60 + a.best3Average.seconds + a.best3Average.tenths / 10;
-    const bSeconds = b.best3Average.minutes * 60 + b.best3Average.seconds + b.best3Average.tenths / 10;
+    const aSeconds = a.best3Average.minutes * 60 + a.best3Average.seconds + (a.best3Average.tenths ?? 0) / 10;
+    const bSeconds = b.best3Average.minutes * 60 + b.best3Average.seconds + (b.best3Average.tenths ?? 0) / 10;
     
     if (aSeconds === 0 && bSeconds === 0) return 0;
     if (aSeconds === 0) return 1;
     if (bSeconds === 0) return -1;
-    return aSeconds - bSeconds;
+    
+    // Primary sort: by time
+    if (Math.abs(aSeconds - bSeconds) > 0.001) {
+      return aSeconds - bSeconds;
+    }
+    
+    // Tie-breaker: prefer results over statistics fallback
+    const aUsesStats = a.usedStatisticsFallback ?? false;
+    const bUsesStats = b.usedStatisticsFallback ?? false;
+    if (aUsesStats !== bUsesStats) {
+      return aUsesStats ? 1 : -1; // Results come first
+    }
+    
+    return 0;
   });
+
+  // Telemetry: Log fallback usage summary
+  const totalHorses = rawKmTimes.length;
+  const horsesUsingFallback = rawKmTimes.filter(h => h.usedStatisticsFallback).length;
+  if (horsesUsingFallback > 0) {
+    console.log(`📊 [RACE FALLBACK SUMMARY] ${horsesUsingFallback}/${totalHorses} horses used statistics fallback`);
+  }
 
   console.log(`Final RAW KM Time Rankings:`);
   rawKmTimes.forEach((horse, index) => {
     const kmTime = horse.best3Average;
+    const dataSourceTag = horse.usedStatisticsFallback ? ' [STATS]' : '';
+    const confidenceTag = horse.confidenceMultiplier && horse.confidenceMultiplier < 1.0 
+      ? ` (confidence: ${(horse.confidenceMultiplier * 100).toFixed(0)}%)` 
+      : '';
+    
     if (kmTime.minutes > 0 || kmTime.seconds > 0 || kmTime.tenths > 0) {
-      console.log(`${index + 1}. ${horse.horseName}: ${kmTime.minutes}:${kmTime.seconds.toString().padStart(2, '0')}.${kmTime.tenths} (${horse.validTimesCount} races)`);
+      console.log(`${index + 1}. ${horse.horseName}: ${kmTime.minutes}:${kmTime.seconds.toString().padStart(2, '0')}.${kmTime.tenths} (${horse.validTimesCount} races)${dataSourceTag}${confidenceTag}`);
     } else {
       console.log(`${index + 1}. ${horse.horseName}: No valid times`);
     }
