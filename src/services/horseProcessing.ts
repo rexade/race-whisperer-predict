@@ -69,31 +69,53 @@ export const processHorseKmTimes = async (
   console.log(`✅ Historical records validation passed: ${historicalRaces.length} races found`);
   HorseDebugger.logHistoricalData(horseId, horseName, historicalRaces);
 
+  // Track why records are dropped - for debugging
+  const dropReasons = {
+    noKmTime: 0,
+    badCode: 0,
+    dqOrGallop: 0,
+    invalidShape: 0,
+    validProcessed: 0
+  };
+
   for (const race of historicalRaces) {
-    // Validate and debug each race
-    const raceValidation = DataValidator.validateKmTime(race.kmTime, `${horseName} race ${race.date}`);
+    const isStatsSource = (race as any).meta?.source === 'statistics';
     
-    // Track validation statistics
-    if (!race.kmTime) {
-      missingKmTimes++;
-      console.log(`Skipping race ${race.date} - no km time`);
+    // Check for valid kmTime structure
+    if (!race.kmTime || typeof race.kmTime.minutes !== 'number' || typeof race.kmTime.seconds !== 'number') {
+      dropReasons.noKmTime++;
+      console.log(`Skipping race ${race.date} - no valid km time structure`);
+      continue;
+    }
+    
+    // Check for bad codes in kmTime
+    const code = String((race.kmTime as any).code ?? (race as any).meta?.code ?? '').toLowerCase();
+    const badCodes = ['0', 'it', 'dist', 'u', 'gdk', 'br', 'p', 'dq'];
+    if (badCodes.includes(code)) {
+      dropReasons.badCode++;
+      console.log(`Skipping race ${race.date} - bad code: ${code}`);
       continue;
     }
 
     // Skip disqualified or galloped races
     if (race.disqualified) {
       disqualified++;
+      dropReasons.dqOrGallop++;
       console.log(`Skipping race ${race.date} - disqualified`);
       continue;
     }
     
     if (race.galloped) {
       galloped++;
+      dropReasons.dqOrGallop++;
       console.log(`Skipping race ${race.date} - galloped`);
       continue;
     }
     
-    if (!raceValidation.isValid) {
+    // Validate KM time (but be lenient for stats-sourced records)
+    const raceValidation = DataValidator.validateKmTime(race.kmTime, `${horseName} race ${race.date}`);
+    if (!raceValidation.isValid && !isStatsSource) {
+      dropReasons.invalidShape++;
       console.error(`Invalid KM time for ${horseName} race ${race.date}:`, raceValidation.errors);
       HorseDebugger.log(horseId, horseName, 'INVALID_RACE_DATA', {
         date: race.date,
@@ -126,6 +148,9 @@ export const processHorseKmTimes = async (
         disqualified: race.disqualified
       }, normalizedKmTime);
 
+      // Calculate total seconds for sorting (guard against missing tenths)
+      const totalSec = normalizedKmTime.minutes * 60 + normalizedKmTime.seconds + (normalizedKmTime.tenths ?? 0) / 10;
+
       processedTimes.push({
         originalTime: originalKmTime,
         normalizedTime: normalizedKmTime,
@@ -136,6 +161,7 @@ export const processHorseKmTimes = async (
         valid: true
       });
       
+      dropReasons.validProcessed++;
       validRecords++;
     } catch (error) {
       console.error(`Error processing race ${race.date} for ${horseName}:`, error);
@@ -143,28 +169,29 @@ export const processHorseKmTimes = async (
     }
   }
 
-  // Sort by normalized time (best/fastest first) - compare by converting to seconds
+  // Log drop reasons for debugging
+  console.log(`📊 [DROP REASONS] ${horseName}:`, dropReasons);
+
+  // Sort by normalized time (best/fastest first) - guard against missing tenths
   processedTimes.sort((a, b) => {
-    const aSeconds = a.normalizedTime.minutes * 60 + a.normalizedTime.seconds + a.normalizedTime.tenths / 10;
-    const bSeconds = b.normalizedTime.minutes * 60 + b.normalizedTime.seconds + b.normalizedTime.tenths / 10;
+    const aSeconds = a.normalizedTime.minutes * 60 + a.normalizedTime.seconds + (a.normalizedTime.tenths ?? 0) / 10;
+    const bSeconds = b.normalizedTime.minutes * 60 + b.normalizedTime.seconds + (b.normalizedTime.tenths ?? 0) / 10;
     return aSeconds - bSeconds;
   });
 
-  // Calculate best 3 average (RAW TIME) in KM format
-  const best3Times = processedTimes.slice(0, 3);
+  // Calculate average over what we have (1, 2, or 3+ times)
+  // DON'T require exactly 3 times - work with what's available
+  const bestN = Math.min(3, processedTimes.length);
   let best3Average: KmTime = { minutes: 0, seconds: 0, tenths: 0 };
-  
-  // Find the best single record time (fastest ever)
   let bestRecordTime: KmTime = { minutes: 0, seconds: 0, tenths: 0 };
-  if (processedTimes.length > 0) {
-    bestRecordTime = { ...processedTimes[0].normalizedTime };
-  }
   
-  if (best3Times.length > 0) {
-    // Standard calculation
-    const totalSeconds = best3Times.reduce((sum, time) => {
-      return sum + (time.normalizedTime.minutes * 60 + time.normalizedTime.seconds + time.normalizedTime.tenths / 10);
-    }, 0) / best3Times.length;
+  if (bestN > 0) {
+    const bestNtimes = processedTimes.slice(0, bestN);
+    
+    // Calculate average (guard against missing tenths with ?? 0)
+    const totalSeconds = bestNtimes.reduce((sum, time) => {
+      return sum + (time.normalizedTime.minutes * 60 + time.normalizedTime.seconds + (time.normalizedTime.tenths ?? 0) / 10);
+    }, 0) / bestN;
     
     // Convert back to KM time format
     const minutes = Math.floor(totalSeconds / 60);
@@ -173,6 +200,11 @@ export const processHorseKmTimes = async (
     const tenths = Math.round((remainingSeconds - seconds) * 10);
     
     best3Average = { minutes, seconds, tenths };
+    bestRecordTime = { ...processedTimes[0].normalizedTime }; // Fastest time
+    
+    console.log(`✅ Calculated best-${bestN} average for ${horseName}: ${minutes}:${seconds.toString().padStart(2, '0')}.${tenths}`);
+  } else {
+    console.warn(`⚠️ No valid times to average for ${horseName}`);
   }
 
   // Log validation statistics
@@ -187,15 +219,16 @@ export const processHorseKmTimes = async (
   HorseDebugger.logValidationStats(horseId, horseName, validationStats);
 
   console.log(`Processed ${processedTimes.length} valid times for ${horseName}`);
-  if (best3Times.length > 0) {
-    console.log(`Best 3 times: ${best3Times.map(t => `${t.normalizedTime.minutes}:${t.normalizedTime.seconds.toString().padStart(2, '0')}.${t.normalizedTime.tenths}`).join(', ')}`);
-    console.log(`RAW Time (Best 3 Average): ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
+  if (bestN > 0) {
+    const bestNtimes = processedTimes.slice(0, bestN);
+    console.log(`Best ${bestN} times: ${bestNtimes.map(t => `${t.normalizedTime.minutes}:${t.normalizedTime.seconds.toString().padStart(2, '0')}.${t.normalizedTime.tenths}`).join(', ')}`);
+    console.log(`RAW Time (Best ${bestN} Average): ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
   } else {
     console.warn(`❌ NO VALID TIMES - Horse ${horseName}:`);
     console.warn(`  📊 Historical races provided: ${historicalRaces.length}`);
     console.warn(`  ✅ Valid processed times: ${processedTimes.length}`);
-    console.warn(`  🔍 All historical records were filtered out during processing`);
-    console.warn(`  💡 Possible reasons: disqualified/galloped races, invalid KM times, distance filters`);
+    console.warn(`  🔍 Drop reasons:`, dropReasons);
+    console.warn(`  💡 Check the drop reasons above to see why records were filtered out`);
   }
   
   // Enhanced debugging for final results
@@ -249,17 +282,19 @@ export const processHorseKmTimes = async (
     console.log(`🐎 [DETAILED TIME CALCULATION] ${horseName}:`);
     console.log(`   📊 Historical Records Processed: ${historicalRaces.length}`);
     console.log(`   ✅ Valid Times Found: ${processedTimes.length}`);
-    console.log(`   📈 Calculation Method: Average of best 3 normalized times`);
+    console.log(`   📈 Calculation Method: Average of best ${bestN} normalized times`);
     console.log(`   🎯 Confidence Multiplier: ${confidenceMultiplier}x`);
+    console.log(`   📉 Drop Reasons:`, dropReasons);
     
-    if (best3Times.length >= 3) {
-      console.log(`   🏆 Top 3 Times Used:`);
-      best3Times.forEach((time, i) => {
-        console.log(`     ${i+1}. ${time.normalizedTime.minutes}:${time.normalizedTime.seconds.toString().padStart(2, '0')}.${time.normalizedTime.tenths} (from ${time.raceDate}, ${time.distance}m ${time.startMethod})`);
+    if (bestN > 0) {
+      const bestNtimes = processedTimes.slice(0, bestN);
+      console.log(`   🏆 Top ${bestN} Times Used:`);
+      bestNtimes.forEach((time, i) => {
+        console.log(`     ${i+1}. ${time.normalizedTime.minutes}:${time.normalizedTime.seconds.toString().padStart(2, '0')}.${time.normalizedTime.tenths ?? 0} (from ${time.raceDate}, ${time.distance}m ${time.startMethod})`);
       });
     }
     
-    console.log(`   🎯 Final Best 3 Average: ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
+    console.log(`   🎯 Final Best ${bestN} Average: ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
   }
 
   return {
