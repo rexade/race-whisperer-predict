@@ -5,6 +5,7 @@ import { normalizeKmTimeSimplified } from './utils/kmTimeNormalization';
 import { HorseDebugger } from './debugging/horseDebugger';
 import { DataValidator } from './debugging/dataValidator';
 import { getSourceConfidenceMultiplier, getStatisticsBreakdown } from './utils/recordsFallback';
+import { toSeconds, secondsToKmParts, isOutlierTime, createRecordKey } from './utils/robustTimeConversion';
 
 // Updated interface to match ATG API structure
 export interface ATGHistoricalRace {
@@ -35,7 +36,7 @@ export const processHorseKmTimes = async (
     newestRecordDate?: string;
   }
 ): Promise<HorseRawKmTime> => {
-  const processedTimes: ProcessedKmTime[] = [];
+  let processedTimes: ProcessedKmTime[] = [];
   let totalRecords = historicalRaces.length;
   let validRecords = 0;
   let disqualified = 0;
@@ -148,8 +149,11 @@ export const processHorseKmTimes = async (
         disqualified: race.disqualified
       }, normalizedKmTime);
 
-      // Calculate total seconds for sorting (guard against missing tenths)
-      const totalSec = normalizedKmTime.minutes * 60 + normalizedKmTime.seconds + (normalizedKmTime.tenths ?? 0) / 10;
+      // Check for outliers (warn but don't drop)
+      const outlierCheck = isOutlierTime(normalizedKmTime);
+      if (outlierCheck.isOutlier) {
+        console.warn(`⚠️ Outlier time detected for ${horseName} on ${race.date}: ${normalizedKmTime.minutes}:${normalizedKmTime.seconds}.${normalizedKmTime.tenths} (${outlierCheck.reason})`);
+      }
 
       processedTimes.push({
         originalTime: originalKmTime,
@@ -158,8 +162,10 @@ export const processHorseKmTimes = async (
         distance: race.distance,
         startMethod: race.startMethod,
         finishOrder: race.finishOrder,
-        valid: true
-      });
+        valid: true,
+        outlier: outlierCheck.isOutlier ? outlierCheck.reason : undefined,
+        raceId: race.raceId
+      } as any);
       
       dropReasons.validProcessed++;
       validRecords++;
@@ -172,12 +178,27 @@ export const processHorseKmTimes = async (
   // Log drop reasons for debugging
   console.log(`📊 [DROP REASONS] ${horseName}:`, dropReasons);
 
-  // Sort by normalized time (best/fastest first) - guard against missing tenths
-  processedTimes.sort((a, b) => {
-    const aSeconds = a.normalizedTime.minutes * 60 + a.normalizedTime.seconds + (a.normalizedTime.tenths ?? 0) / 10;
-    const bSeconds = b.normalizedTime.minutes * 60 + b.normalizedTime.seconds + (b.normalizedTime.tenths ?? 0) / 10;
-    return aSeconds - bSeconds;
+  // Deduplicate records (same race + similar time = duplicate)
+  const seen = new Set<string>();
+  processedTimes = processedTimes.filter(r => {
+    const key = createRecordKey(r as any);
+    if (seen.has(key)) {
+      console.log(`🔄 Duplicate record detected and removed: ${r.raceDate} ${r.normalizedTime.minutes}:${r.normalizedTime.seconds}.${r.normalizedTime.tenths}`);
+      return false;
+    }
+    seen.add(key);
+    return true;
   });
+
+  // Stable sort by normalized time (best/fastest first)
+  processedTimes = processedTimes
+    .map((r, i) => ({ ...r, _sortIndex: i }))
+    .sort((a, b) => {
+      const da = toSeconds(a.normalizedTime.minutes, a.normalizedTime.seconds, a.normalizedTime.tenths ?? 0);
+      const db = toSeconds(b.normalizedTime.minutes, b.normalizedTime.seconds, b.normalizedTime.tenths ?? 0);
+      if (da !== db) return da - db;
+      return (a as any)._sortIndex - (b as any)._sortIndex; // Stable fallback
+    });
 
   // Calculate average over what we have (1, 2, or 3+ times)
   // DON'T require exactly 3 times - work with what's available
@@ -188,21 +209,16 @@ export const processHorseKmTimes = async (
   if (bestN > 0) {
     const bestNtimes = processedTimes.slice(0, bestN);
     
-    // Calculate average (guard against missing tenths with ?? 0)
+    // Calculate average using robust conversion
     const totalSeconds = bestNtimes.reduce((sum, time) => {
-      return sum + (time.normalizedTime.minutes * 60 + time.normalizedTime.seconds + (time.normalizedTime.tenths ?? 0) / 10);
+      return sum + toSeconds(time.normalizedTime.minutes, time.normalizedTime.seconds, time.normalizedTime.tenths ?? 0);
     }, 0) / bestN;
     
-    // Convert back to KM time format
-    const minutes = Math.floor(totalSeconds / 60);
-    const remainingSeconds = totalSeconds % 60;
-    const seconds = Math.floor(remainingSeconds);
-    const tenths = Math.round((remainingSeconds - seconds) * 10);
-    
-    best3Average = { minutes, seconds, tenths };
+    // Convert back to KM time format with overflow guards
+    best3Average = secondsToKmParts(totalSeconds);
     bestRecordTime = { ...processedTimes[0].normalizedTime }; // Fastest time
     
-    console.log(`✅ Calculated best-${bestN} average for ${horseName}: ${minutes}:${seconds.toString().padStart(2, '0')}.${tenths}`);
+    console.log(`✅ Calculated best-${bestN} average for ${horseName}: ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
   } else {
     console.warn(`⚠️ No valid times to average for ${horseName}`);
   }
@@ -265,16 +281,15 @@ export const processHorseKmTimes = async (
   
   if (confidenceMultiplier < 1.0) {
     console.log(`📊 [CONFIDENCE ADJUSTMENT] Applying ${confidenceMultiplier}x multiplier for statistics-only data`);
-    // Apply confidence penalty to the average time
-    const avgSeconds = best3Average.minutes * 60 + best3Average.seconds + (best3Average.tenths ?? 0) / 10;
-    const penalizedSeconds = avgSeconds / confidenceMultiplier; // Slower time = less confident
+    // Apply confidence penalty to the average time using robust conversion
+    const rawAvgSec = toSeconds(best3Average.minutes, best3Average.seconds, best3Average.tenths ?? 0);
+    const penalizedSec = rawAvgSec / confidenceMultiplier; // Slower time = less confident
     
-    const minutes = Math.floor(penalizedSeconds / 60);
-    const remainingSeconds = penalizedSeconds % 60;
-    const seconds = Math.floor(remainingSeconds);
-    const tenths = Math.round((remainingSeconds - seconds) * 10);
+    // Convert back with overflow guards
+    best3Average = secondsToKmParts(penalizedSec);
     
-    best3Average = { minutes, seconds, tenths };
+    console.log(`   Raw average: ${rawBest3Average.minutes}:${rawBest3Average.seconds.toString().padStart(2, '0')}.${rawBest3Average.tenths}`);
+    console.log(`   Penalized: ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
   }
 
   // Enhanced logging for time calculation transparency

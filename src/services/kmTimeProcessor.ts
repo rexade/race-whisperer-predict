@@ -5,6 +5,7 @@ import { fetchHorseHistoricalData, processHistoricalRecords, ATGHistoricalRecord
 import { HorseDebugger } from './debugging/horseDebugger';
 import { DataValidator } from './debugging/dataValidator';
 import { extractRecordsFromStatistics, originIncludesStatistics } from './utils/recordsFallback';
+import { toSeconds } from './utils/robustTimeConversion';
 
 export const calculateRawKmTimesForRaceWithId = async (
   raceId: string,
@@ -188,25 +189,34 @@ export const calculateRawKmTimesForRaceWithId = async (
     }
   }
 
-  // Sort by RAW KM time (best first) with tie-breaker favoring results over statistics
+  // Sort by RAW KM time (best first) with tie-breakers
   rawKmTimes.sort((a, b) => {
-    const aSeconds = a.best3Average.minutes * 60 + a.best3Average.seconds + (a.best3Average.tenths ?? 0) / 10;
-    const bSeconds = b.best3Average.minutes * 60 + b.best3Average.seconds + (b.best3Average.tenths ?? 0) / 10;
+    const aSeconds = toSeconds(a.best3Average.minutes, a.best3Average.seconds, a.best3Average.tenths ?? 0);
+    const bSeconds = toSeconds(b.best3Average.minutes, b.best3Average.seconds, b.best3Average.tenths ?? 0);
     
     if (aSeconds === 0 && bSeconds === 0) return 0;
     if (aSeconds === 0) return 1;
     if (bSeconds === 0) return -1;
     
-    // Primary sort: by time
-    if (Math.abs(aSeconds - bSeconds) > 0.001) {
+    // Primary sort: by time (with small epsilon for float comparison)
+    if (Math.abs(aSeconds - bSeconds) > 0.01) {
       return aSeconds - bSeconds;
     }
     
-    // Tie-breaker: prefer results over statistics fallback
+    // Tie-breaker #1: prefer results over statistics fallback
     const aUsesStats = a.usedStatisticsFallback ?? false;
     const bUsesStats = b.usedStatisticsFallback ?? false;
     if (aUsesStats !== bUsesStats) {
       return aUsesStats ? 1 : -1; // Results come first
+    }
+    
+    // Tie-breaker #2: prefer newer data (when both use results)
+    if (!aUsesStats && !bUsesStats && a.newestRecordDate && b.newestRecordDate) {
+      const aDate = new Date(a.newestRecordDate).getTime();
+      const bDate = new Date(b.newestRecordDate).getTime();
+      if (aDate !== bDate) {
+        return bDate - aDate; // Newer first
+      }
     }
     
     return 0;
