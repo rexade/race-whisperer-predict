@@ -30,13 +30,15 @@ export class DataValidator {
       result.errors.push(`${context}: Invalid seconds value: ${kmTime.seconds}`);
     }
 
-    if (typeof kmTime.tenths !== 'number' || kmTime.tenths < 0 || kmTime.tenths >= 10) {
+    // Tenths can be missing - default to 0
+    const tenths = kmTime.tenths ?? 0;
+    if (typeof tenths !== 'number' || tenths < 0 || tenths >= 10) {
       result.isValid = false;
       result.errors.push(`${context}: Invalid tenths value: ${kmTime.tenths}`);
     }
 
-    // Check for suspicious times
-    const totalSeconds = kmTime.minutes * 60 + kmTime.seconds + kmTime.tenths / 10;
+    // Check for suspicious times (guard against NaN with tenths fallback)
+    const totalSeconds = kmTime.minutes * 60 + kmTime.seconds + tenths / 10;
     if (totalSeconds === 0) {
       result.warnings.push(`${context}: Zero time detected`);
     } else if (totalSeconds < 60) {
@@ -56,6 +58,7 @@ export class DataValidator {
     };
 
     const context = `Record ${index + 1}`;
+    const isStatisticsSource = record.meta?.source === 'statistics';
 
     if (!record) {
       result.isValid = false;
@@ -63,9 +66,11 @@ export class DataValidator {
       return result;
     }
 
-    // Check required fields
-    if (!record.date) {
+    // Relax date requirement for statistics records
+    if (!record.date && !isStatisticsSource) {
       result.errors.push(`${context}: Missing date`);
+    } else if (!record.date && isStatisticsSource) {
+      result.warnings.push(`${context}: Statistics record without date (acceptable)`);
     }
 
     if (!record.kmTime) {
@@ -79,13 +84,19 @@ export class DataValidator {
       }
     }
 
-    if (!record.start?.distance) {
+    // Relax distance requirement for statistics records (use meta.distance instead)
+    if (!record.start?.distance && !isStatisticsSource) {
       result.warnings.push(`${context}: Missing distance`);
-    } else if (record.start.distance < 1000 || record.start.distance > 3000) {
+    } else if (!record.start?.distance && isStatisticsSource && record.meta?.distance) {
+      // Statistics records have distance category in meta, not meters
+      result.warnings.push(`${context}: Statistics record with distance category: ${record.meta.distance}`);
+    } else if (record.start?.distance && (record.start.distance < 1000 || record.start.distance > 3000)) {
       result.warnings.push(`${context}: Unusual distance: ${record.start.distance}m`);
     }
 
-    if (!record.race?.startMethod) {
+    // Check for startMethod in both locations (race.startMethod or meta.startMethod)
+    const hasStartMethod = record.race?.startMethod || record.meta?.startMethod;
+    if (!hasStartMethod) {
       result.warnings.push(`${context}: Missing start method`);
     }
 

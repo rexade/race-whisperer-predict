@@ -4,6 +4,7 @@ import { convertToKmTime } from './utils/timeConversion';
 import { normalizeKmTimeSimplified } from './utils/kmTimeNormalization';
 import { HorseDebugger } from './debugging/horseDebugger';
 import { DataValidator } from './debugging/dataValidator';
+import { getSourceConfidenceMultiplier } from './utils/recordsFallback';
 
 // Updated interface to match ATG API structure
 export interface ATGHistoricalRace {
@@ -200,12 +201,32 @@ export const processHorseKmTimes = async (
   // Enhanced debugging for final results
   HorseDebugger.logProcessedTimes(horseId, horseName, processedTimes, best3Average);
 
+  // Apply confidence weighting for statistics-sourced records
+  const confidenceMultiplier = getSourceConfidenceMultiplier(
+    historicalRaces.map(r => ({ meta: { source: (r as any).meta?.source || 'results' } } as any))
+  );
+  
+  if (confidenceMultiplier < 1.0) {
+    console.log(`📊 [CONFIDENCE ADJUSTMENT] Applying ${confidenceMultiplier}x multiplier for statistics-only data`);
+    // Apply confidence penalty to the average time
+    const avgSeconds = best3Average.minutes * 60 + best3Average.seconds + best3Average.tenths / 10;
+    const penalizedSeconds = avgSeconds / confidenceMultiplier; // Slower time = less confident
+    
+    const minutes = Math.floor(penalizedSeconds / 60);
+    const remainingSeconds = penalizedSeconds % 60;
+    const seconds = Math.floor(remainingSeconds);
+    const tenths = Math.round((remainingSeconds - seconds) * 10);
+    
+    best3Average = { minutes, seconds, tenths };
+  }
+
   // Enhanced logging for time calculation transparency
   if (HorseDebugger.shouldDebugHorse(horseName)) {
     console.log(`🐎 [DETAILED TIME CALCULATION] ${horseName}:`);
     console.log(`   📊 Historical Records Processed: ${historicalRaces.length}`);
     console.log(`   ✅ Valid Times Found: ${processedTimes.length}`);
     console.log(`   📈 Calculation Method: Average of best 3 normalized times`);
+    console.log(`   🎯 Confidence Multiplier: ${confidenceMultiplier}x`);
     
     if (best3Times.length >= 3) {
       console.log(`   🏆 Top 3 Times Used:`);
@@ -227,7 +248,8 @@ export const processHorseKmTimes = async (
     isNotifiee: metadata?.usedFallback || false,
     dataSource: metadata?.dataSource || 'recent',
     oldestRecordDate: metadata?.oldestRecordDate,
-    newestRecordDate: metadata?.newestRecordDate
+    newestRecordDate: metadata?.newestRecordDate,
+    confidenceMultiplier // Include confidence in result
   };
 };
 

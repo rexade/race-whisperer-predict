@@ -103,8 +103,14 @@ export const processHistoricalRecords = (
     const isXanderDebug = debugHorseName?.toLowerCase().includes('xander');
     
     const validRecords = records.filter(record => {
-      // Check date filter (skip in fallback mode)
-      if (!ignoreTimeWindow) {
+      const isStatisticsSource = (record as any).meta?.source === 'statistics';
+      
+      // Check date filter (skip in fallback mode OR for statistics without dates)
+      if (!ignoreTimeWindow && !isStatisticsSource) {
+        if (!record.date) {
+          filteringStats.outsideTimeWindow++;
+          return false;
+        }
         const raceDate = new Date(record.date);
         const isWithin12Months = raceDate >= twelveMonthsAgo;
         if (!isWithin12Months) {
@@ -113,6 +119,11 @@ export const processHistoricalRecords = (
             console.log(`🕵️ FILTERED OUT - Outside 12 months: ${record.date}`);
           }
           return false;
+        }
+      } else if (isStatisticsSource && !record.date) {
+        // Statistics records without dates bypass time window (e.g., 'life' records)
+        if (isXanderDebug) {
+          console.log(`📊 STATISTICS RECORD - Bypassing time window check`);
         }
       }
       
@@ -166,11 +177,16 @@ export const processHistoricalRecords = (
         return false;
       }
       
-      // Check required fields
-      const hasRequiredFields = record.start?.distance && 
-        record.race?.startMethod && 
-        record.track?.name &&
-        record.start?.postPosition;
+      // Check required fields (relax for statistics records)
+      const hasStartMethod = record.race?.startMethod || (record as any).meta?.startMethod;
+      const hasDistance = record.start?.distance || (record as any).meta?.distance;
+      
+      const hasRequiredFields = isStatisticsSource
+        ? hasStartMethod && hasDistance // Statistics records need less
+        : record.start?.distance && 
+          record.race?.startMethod && 
+          record.track?.name &&
+          record.start?.postPosition;
         
       if (!hasRequiredFields) {
         filteringStats.missingFields++;

@@ -26,6 +26,7 @@ export interface HorseRawKmTime {
   dataSource?: 'recent' | 'fallback';
   oldestRecordDate?: string;
   newestRecordDate?: string;
+  confidenceMultiplier?: number;
 }
 
 export interface ModernKmNormalizedResult {
