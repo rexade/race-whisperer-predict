@@ -29,6 +29,13 @@ export interface HorseRawKmTime {
   newestRecordDate?: string;
   confidenceMultiplier?: number;
   usedStatisticsFallback?: boolean;
+  usedExtendedFallback?: boolean;
+  usedInvalidTimeFallback?: boolean;
+  warning?: {
+    type: 'invalid-record';
+    message: string;
+    reason: string;
+  };
 }
 
 export interface ModernKmNormalizedResult {

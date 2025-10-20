@@ -40,6 +40,12 @@ export interface V75HorseResult {
   timeSource?: TimeSource;
   uncertain?: boolean;
   uncertaintyReason?: "no_valid_samples" | "best_only" | "abroad_only" | "other";
+  // Invalid-time fallback warning
+  warning?: {
+    type: 'invalid-record';
+    message: string;
+    reason: string;
+  };
 }
 
 export interface V75RaceResult {

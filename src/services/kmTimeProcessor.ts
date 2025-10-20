@@ -1,12 +1,13 @@
 import { ATGStartInfo } from './atgApi';
-import { HorseRawKmTime, KmTime } from './types/kmTimeTypes';
+import { HorseRawKmTime, KmTime, ProcessedKmTime } from './types/kmTimeTypes';
 import { processHorseKmTimes } from './horseProcessing';
 import { fetchHorseHistoricalData, processHistoricalRecords, ATGHistoricalRecord } from './atgHistoricalApi';
 import { HorseDebugger } from './debugging/horseDebugger';
 import { DataValidator } from './debugging/dataValidator';
 import { extractRecordsFromStatistics, originIncludesStatistics, getSourceConfidenceMultiplier } from './utils/recordsFallback';
-import { toSeconds } from './utils/robustTimeConversion';
+import { toSeconds, secondsToKmParts } from './utils/robustTimeConversion';
 import { fetchExtendedRaceData, extractRecordsFromExtended, isExtendedFallback, logExtendedFallbackUsage, getExtendedConfidenceMultiplier } from './utils/extendedFallbackHandler';
+import { hasNumericKmTime } from './utils/kmTimeUtils';
 
 export const calculateRawKmTimesForRaceWithId = async (
   raceId: string,
@@ -22,6 +23,8 @@ export const calculateRawKmTimesForRaceWithId = async (
   let extendedDataFetched = false;
 
   for (let i = 0; i < starts.length; i++) {
+    // Track invalid candidates with numeric times (4th tier fallback)
+    let invalidCandidates: Array<ProcessedKmTime & { dropReason?: string }> = [];
     const start = starts[i];
     const postPosition = start.postPosition;
     progressCallback?.(i + 1, starts.length);
@@ -54,6 +57,8 @@ export const calculateRawKmTimesForRaceWithId = async (
       let records = historicalData?.horse?.results?.records;
       let usingStatisticsFallback = false;
       let usingExtendedFallback = false;
+      let perHorseWarning: { type: 'invalid-record'; message: string; reason: string } | undefined;
+      let pendingConfidenceOverride: number | undefined;
       
       // ❷ If missing/empty, try statistics fallback
       if (!records || records.length === 0) {
@@ -98,7 +103,66 @@ export const calculateRawKmTimesForRaceWithId = async (
         }
       }
       
-      // ❹ If still nothing after all fallbacks, mark zero and continue
+      // ❹ LAST-DITCH: Try invalid-time fallback before giving up
+      if ((!records || records.length === 0) && invalidCandidates.length > 0) {
+        // Pick fastest invalid candidate
+        invalidCandidates.sort((a, b) =>
+          toSeconds(a.normalizedTime.minutes, a.normalizedTime.seconds, a.normalizedTime.tenths ?? 0)
+          - toSeconds(b.normalizedTime.minutes, b.normalizedTime.seconds, b.normalizedTime.tenths ?? 0)
+        );
+
+        const bestInvalid = invalidCandidates[0];
+        const invalidSec = toSeconds(
+          bestInvalid.normalizedTime.minutes,
+          bestInvalid.normalizedTime.seconds,
+          bestInvalid.normalizedTime.tenths ?? 0
+        );
+
+        console.warn(`🔴 [INVALID-TIME FALLBACK] Using fastest invalid record for ${horseName}: `
+          + `${bestInvalid.normalizedTime.minutes}:${bestInvalid.normalizedTime.seconds.toString().padStart(2,'0')}.`
+          + `${bestInvalid.normalizedTime.tenths} (reason: ${bestInvalid.dropReason ?? 'unknown'})`);
+
+        const best3Average = secondsToKmParts(invalidSec);
+        const bestRecordTime = { ...best3Average };
+
+        // Mark provenance + confidence
+        usingStatisticsFallback = true;
+        const WARNING_CONFIDENCE = 0.4;
+        const warningMessage = bestInvalid.dropReason
+          ? `Used invalid record (${bestInvalid.dropReason}); prediction may be unreliable`
+          : `Used invalid record; prediction may be unreliable`;
+
+        perHorseWarning = {
+          type: 'invalid-record',
+          message: warningMessage,
+          reason: bestInvalid.dropReason ?? 'invalid',
+        };
+
+        pendingConfidenceOverride = WARNING_CONFIDENCE;
+
+        HorseDebugger.log(horseId, horseName, 'INVALID_TIME_FALLBACK_USED', {
+          reason: bestInvalid.dropReason ?? 'invalid',
+          time: best3Average,
+          confidence: WARNING_CONFIDENCE,
+        });
+
+        rawKmTimes.push({
+          horseId: start.horse.id,
+          horseName: start.horse.name,
+          allTimes: [],
+          best3Average,
+          bestRecordTime,
+          validTimesCount: 0,
+          usedStatisticsFallback: true,
+          usedExtendedFallback: false,
+          usedInvalidTimeFallback: true,
+          warning: perHorseWarning,
+          confidenceMultiplier: WARNING_CONFIDENCE
+        });
+        continue;
+      }
+      
+      // ❺ If still nothing after ALL fallbacks, mark zero and continue
       if (!records || records.length === 0) {
         console.warn(`❌ [KmTimeProcessor] NO HISTORICAL DATA - Horse ${horseName} (Post ${postPosition})`);
         console.warn(`  📊 Data check: historicalData=${!!historicalData}, horse=${!!historicalData?.horse}, results=${!!historicalData?.horse?.results}, records=${!!historicalData?.horse?.results?.records}`);
@@ -148,7 +212,11 @@ export const calculateRawKmTimesForRaceWithId = async (
       // Calculate combined confidence multiplier (most conservative, apply once)
       const sourceConfidenceMultiplier = getSourceConfidenceMultiplier(records as any);
       const extendedConfidenceMultiplier = getExtendedConfidenceMultiplier(records as any);
-      const combinedConfidence = Math.min(sourceConfidenceMultiplier, extendedConfidenceMultiplier || 1);
+      const baseConfidence = Math.min(sourceConfidenceMultiplier, extendedConfidenceMultiplier || 1);
+      
+      const combinedConfidence = pendingConfidenceOverride !== undefined
+        ? Math.min(baseConfidence, pendingConfidenceOverride)
+        : baseConfidence;
       
       const metadata = {
         ...processingResult.metadata,
@@ -272,7 +340,8 @@ export const calculateRawKmTimesForRaceWithId = async (
   const horsesUsingFallback = rawKmTimes.filter(h => h.usedStatisticsFallback).length;
   const horsesWithLowConfidence = rawKmTimes.filter(h => h.confidenceMultiplier && h.confidenceMultiplier < 0.7).length;
   const horsesViaExtended = rawKmTimes.filter(h => h.confidenceMultiplier && h.confidenceMultiplier < 1.0 && h.confidenceMultiplier >= 0.7).length;
-  const horsesLastResort = rawKmTimes.filter(h => h.confidenceMultiplier && h.confidenceMultiplier <= 0.5).length;
+  const horsesLastResort = rawKmTimes.filter(h => h.confidenceMultiplier && h.confidenceMultiplier <= 0.5 && !h.usedInvalidTimeFallback).length;
+  const horsesWarn = rawKmTimes.filter(h => h.usedInvalidTimeFallback).length;
   
   if (horsesUsingFallback > 0) {
     console.log(`📊 [RACE FALLBACK SUMMARY] ${horsesUsingFallback}/${totalHorses} horses used fallback data`);
@@ -281,6 +350,9 @@ export const calculateRawKmTimesForRaceWithId = async (
     }
     if (horsesLastResort > 0) {
       console.log(`   🔴 ${horsesLastResort} last-resort records (confidence: 0.5)`);
+    }
+    if (horsesWarn > 0) {
+      console.log(`   🟥 ${horsesWarn} used invalid-time fallback (confidence: 0.4)`);
     }
     if (horsesWithLowConfidence > 0) {
       console.log(`⚠️ [CONFIDENCE WARNING] ${horsesWithLowConfidence} horses have confidence < 0.7`);
@@ -314,11 +386,13 @@ export const calculateRawKmTimesForRaceWithId = async (
     const kmTime = horse.best3Average;
     
     // Use provenance flags directly for accurate tagging
-    const isExtendedSource = horse.confidenceMultiplier && horse.confidenceMultiplier < 1.0;
-    const isLastResort = horse.confidenceMultiplier && horse.confidenceMultiplier <= 0.5;
-    const dataSourceTag = horse.usedStatisticsFallback 
-      ? (isLastResort ? ' [EXT-LAST]' : isExtendedSource ? ' [EXT]' : ' [STATS]')
-      : '';
+    const isWarn = horse.usedInvalidTimeFallback === true;
+    const isLastResort = horse.confidenceMultiplier && horse.confidenceMultiplier <= 0.5 && !isWarn;
+    const isExtendedSource = horse.confidenceMultiplier && horse.confidenceMultiplier < 1.0 && horse.confidenceMultiplier > 0.5;
+    const dataSourceTag = isWarn ? ' [WARN]' :
+      (horse.usedStatisticsFallback 
+        ? (isLastResort ? ' [EXT-LAST]' : isExtendedSource ? ' [EXT]' : ' [STATS]')
+        : '');
     const confidenceTag = horse.confidenceMultiplier && horse.confidenceMultiplier < 1.0 
       ? ` (confidence: ${(horse.confidenceMultiplier * 100).toFixed(0)}%)` 
       : '';

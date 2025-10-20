@@ -112,8 +112,18 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
         <div className={`font-mono text-xs sm:text-sm font-bold ${isTopPerformer ? 'text-atg-blue' : 'text-foreground'} flex flex-col items-center gap-0.5`}>
           <div className="flex items-center gap-1">
             {horse.uncertain && <span className="text-warning" title="Approximation">≈</span>}
-            <div>{formatKmTime(result.modernNormalizedTime)}</div>
-            {horse.uncertain && (
+            <div className={horse.warning ? 'text-destructive' : undefined}>
+              {formatKmTime(result.modernNormalizedTime)}
+            </div>
+            {horse.warning && (
+              <span
+                className="text-[9px] px-1 py-0.5 rounded bg-destructive/10 text-destructive border border-destructive/20 whitespace-nowrap"
+                title={horse.warning.message}
+              >
+                warning
+              </span>
+            )}
+            {horse.uncertain && !horse.warning && (
               <span
                 className="text-[9px] px-1 py-0.5 rounded bg-warning/10 text-warning border border-warning/20 whitespace-nowrap"
                 title={

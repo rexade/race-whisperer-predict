@@ -128,3 +128,12 @@ export const cloneKmTime = (kmTime: KmTime): KmTime => {
     tenths: kmTime.tenths
   };
 };
+
+/**
+ * Checks if a record has numeric km time values
+ */
+export const hasNumericKmTime = (r: any): boolean => {
+  return Number.isFinite(r?.kmTime?.minutes) &&
+    Number.isFinite(r?.kmTime?.seconds) &&
+    Number.isFinite(r?.kmTime?.tenths);
+};

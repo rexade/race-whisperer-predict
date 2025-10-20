@@ -108,7 +108,9 @@ export const buildHorseResult = (
     // Provenance tracking
     timeSource,
     uncertain,
-    uncertaintyReason
+    uncertaintyReason,
+    // Invalid-time fallback warning
+    warning: rawTimeData?.warning
   };
 
   return horseResult;
