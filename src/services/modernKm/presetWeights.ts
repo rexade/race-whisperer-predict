@@ -9,6 +9,26 @@ export interface WeightPreset {
 
 export const WEIGHT_PRESETS: WeightPreset[] = [
   {
+    name: 'Realistic Balanced (2025)',
+    description: 'Saturated start points, de-duplicated form, realistic caps',
+    category: 'balanced',
+    weights: {
+      postPosition: 0.9,
+      shoeType: 0.4,
+      sulkyType: 0.5,
+      driverPerformance: 1.4,
+      trackFamiliarity: 0.6,
+      form: 1.0,
+      distanceAdjustment: 0.8,
+      raceDistanceAdjustment: 1.0,
+      volteStartDistancePenalty: 1.1,
+      startPoints: 0.5,
+      placePercentage: 0.6,
+      horseWinPercentage: 0.4,
+      earningsPerStart: 0.2
+    }
+  },
+  {
     name: 'Conservative',
     description: 'Minimal adjustments, focus on core factors only',
     category: 'conservative',

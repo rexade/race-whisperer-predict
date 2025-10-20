@@ -1,16 +1,95 @@
 
 /**
- * Calculate start points baseline adjustment
- * Higher start points = better form = faster times
+ * Start points → time adjustment (robust & capped).
+ * 
+ * Uses log scale + tanh saturation to prevent extreme bonuses for very high start points.
+ * - Log scale compresses very large values (16000+ pts doesn't blow up the model)
+ * - tanh caps extreme impact at ±maxImpact seconds
+ * - Negative adjustment = faster (bonus), Positive = slower (penalty)
+ *
+ * Tunables:
+ *   baseline: field-neutral level (≈ 1200 by observation)
+ *   alpha:    how quickly it saturates (higher = softer curve)
+ *   maxImpact: absolute cap in seconds (|adj| ≤ maxImpact)
+ * 
+ * Examples with defaults:
+ *   900 pts  → +0.267 s (penalty)
+ *   1200 pts → 0.000 s (neutral)
+ *   2000 pts → −0.415 s (bonus)
+ *   5000 pts → ≈ −0.590 s
+ *   16000 pts → ≈ −0.600 s (capped, no runaway bonuses)
  */
-export const calculateStartPointsAdjustment = (startPoints: number): number => {
-  // Baseline: 500 start points = 0 adjustment
-  // Every 100 points above/below baseline = -/+ 0.01s (increased 10x from 0.001s)
-  const baseline = 500;
-  const adjustment = (baseline - startPoints) * 0.0001;
+export const calculateStartPointsAdjustment = (
+  startPoints: number,
+  opts?: { baseline?: number; alpha?: number; maxImpact?: number }
+): number => {
+  if (!Number.isFinite(startPoints) || startPoints <= 0) {
+    console.log(`Start Points adjustment: ${startPoints} points → 0.000s (invalid)`);
+    return 0;
+  }
+
+  const baseline  = opts?.baseline  ?? 1200;  // typical median
+  const alpha     = opts?.alpha     ?? 0.60;  // curve tightness
+  const maxImpact = opts?.maxImpact ?? 0.60;  // cap in seconds
+
+  // log1p to avoid log(0) and compress scale
+  const delta = Math.log1p(startPoints) - Math.log1p(baseline);
+
+  // Saturated, signed adjustment (negative means faster)
+  const adj = -maxImpact * Math.tanh(delta / alpha);
+
+  // Sanity check
+  if (!Number.isFinite(adj)) {
+    console.log(`Start Points adjustment: ${startPoints} points → 0.000s (calculation error)`);
+    return 0;
+  }
   
-  console.log(`Start Points adjustment: ${startPoints} points (baseline: ${baseline}) → ${adjustment.toFixed(3)}s`);
-  return adjustment;
+  console.log(`Start Points adjustment: ${startPoints} points (baseline: ${baseline}) → ${adj.toFixed(3)}s [log+tanh saturated]`);
+  return adj;
+};
+
+/**
+ * Field-aware start points adjustment (optional, more sophisticated).
+ * 
+ * Normalizes to the race field's median/IQR so adjustment measures
+ * advantage *within today's race* rather than against a fixed baseline.
+ * 
+ * Falls back to the log/tanh method if field data is insufficient.
+ */
+export const calculateStartPointsAdjustmentFieldAware = (
+  startPoints: number,
+  fieldStartPoints: number[],
+  opts?: { beta?: number; maxImpact?: number }
+): number => {
+  if (!Number.isFinite(startPoints) || !Array.isArray(fieldStartPoints) || fieldStartPoints.length < 3) {
+    // Fallback to standard method
+    return calculateStartPointsAdjustment(startPoints, { baseline: 1200, alpha: 0.60, maxImpact: 0.60 });
+  }
+
+  const sorted = fieldStartPoints.filter(n => Number.isFinite(n) && n > 0).sort((a,b)=>a-b);
+  if (sorted.length < 3) {
+    return calculateStartPointsAdjustment(startPoints, { baseline: 1200, alpha: 0.60, maxImpact: 0.60 });
+  }
+
+  // Quantile function
+  const q = (p: number) => {
+    const idx = (sorted.length - 1) * p;
+    const lo = Math.floor(idx), hi = Math.ceil(idx);
+    const w = idx - lo;
+    return (1 - w) * sorted[lo] + w * sorted[hi];
+  };
+  
+  const median = q(0.5);
+  const iqr = Math.max(1, q(0.75) - q(0.25)); // avoid division by 0
+
+  const beta = opts?.beta ?? 2.0;            // scaling in "IQR units"
+  const maxImpact = opts?.maxImpact ?? 0.50; // cap a bit lower when field-aware
+
+  const z_iqr = (startPoints - median) / iqr;
+  const adj = -maxImpact * Math.tanh(z_iqr / beta);
+  
+  console.log(`Start Points adjustment (field-aware): ${startPoints} points (median: ${median.toFixed(0)}, IQR: ${iqr.toFixed(0)}) → ${adj.toFixed(3)}s`);
+  return adj;
 };
 
 /**
