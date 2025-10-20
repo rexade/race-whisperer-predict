@@ -168,6 +168,14 @@ export const applyModernKmNormalization = (
     Math.min(spWeighted, MAX_FINAL_SP_IMPACT),
     -MAX_FINAL_SP_IMPACT
   );
+  
+  console.log(`🔍 START POINTS DEBUG for ${factors.horseName}:`, {
+    startPoints: factors.startPoints,
+    rawAdj: spAdj.toFixed(3),
+    weight: weights.startPoints,
+    weighted: spWeighted.toFixed(3),
+    capped: adjustments.startPoints.toFixed(3)
+  });
   adjustments.placePercentage = calculatePlacePercentageAdjustment(factors.placePercentage) * weights.placePercentage;
   adjustments.horseWinPercentage = calculateHorseWinPercentageAdjustment(factors.horseWinPercentage) * weights.horseWinPercentage;
   const epsRaw = calculateEarningsPerStartAdjustment(factors.earningsPerStart);
