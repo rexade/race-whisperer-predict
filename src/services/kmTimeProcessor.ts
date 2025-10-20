@@ -1,9 +1,10 @@
 import { ATGStartInfo } from './atgApi';
 import { HorseRawKmTime, KmTime } from './types/kmTimeTypes';
 import { processHorseKmTimes } from './horseProcessing';
-import { fetchHorseHistoricalData, processHistoricalRecords } from './atgHistoricalApi';
+import { fetchHorseHistoricalData, processHistoricalRecords, ATGHistoricalRecord } from './atgHistoricalApi';
 import { HorseDebugger } from './debugging/horseDebugger';
 import { DataValidator } from './debugging/dataValidator';
+import { extractRecordsFromStatistics, originIncludesStatistics } from './utils/recordsFallback';
 
 export const calculateRawKmTimesForRaceWithId = async (
   raceId: string,
@@ -43,10 +44,33 @@ export const calculateRawKmTimesForRaceWithId = async (
         recordsCount: historicalData?.horse?.results?.records?.length || 0
       });
       
-      if (!historicalData || !historicalData.horse.results?.records) {
-        console.warn(`❌ [KmTimeProcessor] NO HISTORICAL DATA - Horse ${start.horse.name} (Post ${postPosition})`);
+      // ❶ Try primary source (results.records)
+      let records = historicalData?.horse?.results?.records;
+      let usingStatisticsFallback = false;
+      
+      // ❷ If missing/empty, try statistics fallback
+      if (!records || records.length === 0) {
+        console.log(`📊 [KmTimeProcessor] No results.records found for ${horseName}, trying statistics fallback...`);
+        const statsFallback = extractRecordsFromStatistics(historicalData?.horse);
+        
+        if (statsFallback.length > 0) {
+          console.log(`✅ [KmTimeProcessor] Statistics fallback successful for ${horseName}: ${statsFallback.length} records found`);
+          records = statsFallback as any;
+          usingStatisticsFallback = true;
+          
+          HorseDebugger.log(horseId, horseName, 'STATISTICS_FALLBACK_USED', {
+            statisticsRecordsFound: statsFallback.length,
+            sampleRecord: statsFallback[0]
+          });
+        }
+      }
+      
+      // ❸ If still nothing, mark zero and continue
+      if (!records || records.length === 0) {
+        console.warn(`❌ [KmTimeProcessor] NO HISTORICAL DATA - Horse ${horseName} (Post ${postPosition})`);
         console.warn(`  📊 Data check: historicalData=${!!historicalData}, horse=${!!historicalData?.horse}, results=${!!historicalData?.horse?.results}, records=${!!historicalData?.horse?.results?.records}`);
         console.warn(`  📈 Records length: ${historicalData?.horse?.results?.records?.length || 0}`);
+        console.warn(`  📊 Statistics fallback attempted: yes, found: 0 records`);
         console.warn(`  🚫 This horse will get zero time and be excluded from analysis`);
         
         HorseDebugger.log(horseId, horseName, 'NO_HISTORICAL_DATA', {
@@ -54,7 +78,9 @@ export const calculateRawKmTimesForRaceWithId = async (
           hasHorse: !!historicalData?.horse,
           hasResults: !!historicalData?.horse?.results,
           hasRecords: !!historicalData?.horse?.results?.records,
-          recordsLength: historicalData?.horse?.results?.records?.length || 0
+          recordsLength: historicalData?.horse?.results?.records?.length || 0,
+          statisticsFallbackAttempted: true,
+          statisticsRecordsFound: 0
         });
         
         rawKmTimes.push({
@@ -68,29 +94,36 @@ export const calculateRawKmTimesForRaceWithId = async (
         continue;
       }
       
-      console.log(`✅ [KmTimeProcessor] Historical data found for ${horseName}: ${historicalData.horse.results.records.length} records`);
+      console.log(`✅ [KmTimeProcessor] Historical data found for ${horseName}: ${records.length} records ${usingStatisticsFallback ? '(from statistics)' : ''}`);
       
       // Enhanced debugging for historical data
-      HorseDebugger.logHistoricalData(horseId, horseName, historicalData.horse.results.records);
+      HorseDebugger.logHistoricalData(horseId, horseName, records);
       
       // Validate historical records
-      const rawRecords = historicalData.horse.results.records;
+      const rawRecords = records;
       const validationResults = rawRecords.map((record, index) => 
         DataValidator.validateHistoricalRecord(record, index)
       );
       DataValidator.logValidationResults(validationResults, `${horseName} Historical Records`);
       
-      const processingResult = processHistoricalRecords(historicalData.horse.results.records, horseName);
+      const processingResult = processHistoricalRecords(records, horseName);
       const validRecords = processingResult.records;
-      const metadata = processingResult.metadata;
+      const metadata = {
+        ...processingResult.metadata,
+        usingStatisticsFallback,
+        dataSource: usingStatisticsFallback ? 'fallback' as const : processingResult.metadata.dataSource
+      };
       
       console.log(`📊 [KmTimeProcessor] Historical records processing for ${horseName}:`);
       console.log(`   - Raw records from API: ${rawRecords.length}`);
       console.log(`   - Valid records after filtering: ${validRecords.length}`);
       console.log(`   - Filtered out: ${rawRecords.length - validRecords.length}`);
       console.log(`   - Data source: ${metadata.dataSource.toUpperCase()}`);
+      if (usingStatisticsFallback) {
+        console.log(`   📊 STATISTICS FALLBACK: Using statistics.records data (limited race details)`);
+      }
       if (metadata.usedFallback) {
-        console.log(`   🚨 FALLBACK MODE: Using historical data (${metadata.oldestRecordDate} to ${metadata.newestRecordDate})`);
+        console.log(`   🚨 TIME WINDOW FALLBACK: Using historical data (${metadata.oldestRecordDate} to ${metadata.newestRecordDate})`);
       }
       
       HorseDebugger.log(horseId, horseName, 'PROCESSED_HISTORICAL_RECORDS', {
