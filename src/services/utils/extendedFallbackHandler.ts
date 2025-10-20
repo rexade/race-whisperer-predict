@@ -47,13 +47,22 @@ interface ExtendedRaceData {
   distance?: number;
 }
 
+// Cache for extended race data (per race run)
+const extendedRaceCache = new Map<string, ExtendedRaceData | null>();
+
 /**
  * Fetch extended race data from ATG API as ultimate fallback
- * Tries both www.atg.se and api.atg.se domains
+ * Tries both www.atg.se and api.atg.se domains with retry + timeout
+ * Caches result per raceId to avoid duplicate fetches
  */
 export async function fetchExtendedRaceData(
   raceId: string
 ): Promise<ExtendedRaceData | null> {
+  // Check cache first
+  if (extendedRaceCache.has(raceId)) {
+    return extendedRaceCache.get(raceId) ?? null;
+  }
+
   try {
     const [date, track, raceNum] = raceId.split('_');
     const path = `${date}_${track}_${raceNum}/extended`;
@@ -65,24 +74,49 @@ export async function fetchExtendedRaceData(
     for (const url of candidates) {
       try {
         console.log(`📡 [Extended Fallback] Trying: ${url}`);
-        const response = await fetch(url, { headers: { accept: 'application/json' } });
         
-        if (response.ok) {
-          console.log(`✅ [Extended Fallback] Success: ${url}`);
-          const data = await response.json();
-          return data;
+        // Add timeout and retry logic
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4000);
+        
+        try {
+          const response = await fetch(url, { 
+            signal: controller.signal,
+            headers: { accept: 'application/json' } 
+          });
+          
+          if (response.ok) {
+            console.log(`✅ [Extended Fallback] Success: ${url}`);
+            const data = await response.json();
+            
+            // Cache the result
+            extendedRaceCache.set(raceId, data);
+            return data;
+          }
+          console.warn(`⚠️ [Extended Fallback] ${url} -> ${response.status}`);
+        } finally {
+          clearTimeout(timeout);
         }
-        console.warn(`⚠️ [Extended Fallback] ${url} -> ${response.status}`);
       } catch (err) {
         console.warn(`⚠️ [Extended Fallback] ${url} failed:`, err);
       }
     }
     
+    // Cache null result to avoid retry
+    extendedRaceCache.set(raceId, null);
     return null;
   } catch (error) {
     console.error('❌ [Extended Fallback] Error fetching extended race data:', error);
+    extendedRaceCache.set(raceId, null);
     return null;
   }
+}
+
+/**
+ * Clear the extended race cache (call between races)
+ */
+export function clearExtendedRaceCache(): void {
+  extendedRaceCache.clear();
 }
 
 /**

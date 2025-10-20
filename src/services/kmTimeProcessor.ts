@@ -80,7 +80,8 @@ export const calculateRawKmTimesForRaceWithId = async (
           extendedDataFetched = true;
         }
         
-        if (extendedRaceData) {
+        // Guard against nullish extended payloads
+        if (extendedRaceData?.starts?.length) {
           const extendedHorse = extendedRaceData.starts.find(s => s.horse.id === horseId)?.horse;
           if (extendedHorse) {
             console.log(`📡 [KmTimeProcessor] Trying extended API fallback for ${horseName}...`);
@@ -144,18 +145,16 @@ export const calculateRawKmTimesForRaceWithId = async (
       const processingResult = processHistoricalRecords(records, horseName);
       const validRecords = processingResult.records;
       
-      // Calculate combined confidence multiplier (most conservative)
+      // Calculate combined confidence multiplier (most conservative, apply once)
       const sourceConfidenceMultiplier = getSourceConfidenceMultiplier(records as any);
       const extendedConfidenceMultiplier = getExtendedConfidenceMultiplier(records as any);
+      const combinedConfidence = Math.min(sourceConfidenceMultiplier, extendedConfidenceMultiplier || 1);
       
       const metadata = {
         ...processingResult.metadata,
         usingStatisticsFallback: usingStatisticsFallback || usingExtendedFallback,
         dataSource: (usingStatisticsFallback || usingExtendedFallback) ? 'fallback' as const : processingResult.metadata.dataSource,
-        confidenceMultiplier: Math.min(
-          sourceConfidenceMultiplier,
-          extendedConfidenceMultiplier
-        )
+        confidenceMultiplier: combinedConfidence
       };
       
       console.log(`📊 [KmTimeProcessor] Historical records processing for ${horseName}:`);
@@ -268,15 +267,23 @@ export const calculateRawKmTimesForRaceWithId = async (
     return 0;
   });
 
-  // Telemetry: Log fallback usage summary
+  // Telemetry: Log fallback usage summary with extended breakdown
   const totalHorses = rawKmTimes.length;
   const horsesUsingFallback = rawKmTimes.filter(h => h.usedStatisticsFallback).length;
   const horsesWithLowConfidence = rawKmTimes.filter(h => h.confidenceMultiplier && h.confidenceMultiplier < 0.7).length;
+  const horsesViaExtended = rawKmTimes.filter(h => h.confidenceMultiplier && h.confidenceMultiplier < 1.0 && h.confidenceMultiplier >= 0.7).length;
+  const horsesLastResort = rawKmTimes.filter(h => h.confidenceMultiplier && h.confidenceMultiplier <= 0.5).length;
   
   if (horsesUsingFallback > 0) {
     console.log(`📊 [RACE FALLBACK SUMMARY] ${horsesUsingFallback}/${totalHorses} horses used fallback data`);
+    if (horsesViaExtended > 0) {
+      console.log(`   📡 ${horsesViaExtended} via extended API statistics (confidence: 0.7)`);
+    }
+    if (horsesLastResort > 0) {
+      console.log(`   🔴 ${horsesLastResort} last-resort records (confidence: 0.5)`);
+    }
     if (horsesWithLowConfidence > 0) {
-      console.log(`⚠️ [CONFIDENCE WARNING] ${horsesWithLowConfidence} horses have confidence < 0.7 (extended fallback used)`);
+      console.log(`⚠️ [CONFIDENCE WARNING] ${horsesWithLowConfidence} horses have confidence < 0.7`);
     }
     
     // Emit race-level telemetry for monitoring data drift
@@ -305,8 +312,12 @@ export const calculateRawKmTimesForRaceWithId = async (
   console.log(`Final RAW KM Time Rankings:`);
   rawKmTimes.forEach((horse, index) => {
     const kmTime = horse.best3Average;
+    
+    // Use provenance flags directly for accurate tagging
+    const isExtendedSource = horse.confidenceMultiplier && horse.confidenceMultiplier < 1.0;
+    const isLastResort = horse.confidenceMultiplier && horse.confidenceMultiplier <= 0.5;
     const dataSourceTag = horse.usedStatisticsFallback 
-      ? (horse.confidenceMultiplier && horse.confidenceMultiplier < 0.7 ? ' [EXT]' : ' [STATS]')
+      ? (isLastResort ? ' [EXT-LAST]' : isExtendedSource ? ' [EXT]' : ' [STATS]')
       : '';
     const confidenceTag = horse.confidenceMultiplier && horse.confidenceMultiplier < 1.0 
       ? ` (confidence: ${(horse.confidenceMultiplier * 100).toFixed(0)}%)` 
