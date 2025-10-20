@@ -1,4 +1,6 @@
 
+import { hasNumericKmTime } from './utils/kmTimeUtils';
+
 export interface ATGHistoricalRecord {
   date: string;
   kmTime?: {
@@ -110,18 +112,7 @@ export const processHistoricalRecords = (
     const isXanderDebug = debugHorseName?.toLowerCase().includes('xander');
     const invalidCandidates: InvalidCandidate[] = [];
     
-    // Helper to check if record has numeric kmTime
-    const hasNumericKmTime = (r: ATGHistoricalRecord) =>
-      r.kmTime && 
-      typeof r.kmTime === 'object' && 
-      'minutes' in r.kmTime && 
-      'seconds' in r.kmTime && 
-      'tenths' in r.kmTime &&
-      typeof r.kmTime.minutes === 'number' &&
-      typeof r.kmTime.seconds === 'number' &&
-      typeof r.kmTime.tenths === 'number';
-    
-    // Helper to reject a record and capture it if it has a numeric time
+    // Helper to reject a record and capture it if it has a numeric time (excluding 0:00.0)
     const rejectRecord = (record: ATGHistoricalRecord, reason: string, source: 'results' | 'stats' | 'extended' | 'extended-last') => {
       if (hasNumericKmTime(record) && 'minutes' in record.kmTime!) {
         invalidCandidates.push({

@@ -130,10 +130,18 @@ export const cloneKmTime = (kmTime: KmTime): KmTime => {
 };
 
 /**
- * Checks if a record has numeric km time values
+ * Checks if a time is 0:00.0 (treat as "no time")
+ */
+export const isZeroTime = (t: { minutes: number; seconds: number; tenths: number }): boolean => {
+  return t.minutes === 0 && t.seconds === 0 && (t.tenths ?? 0) === 0;
+};
+
+/**
+ * Checks if a record has numeric km time values (excluding 0:00.0)
  */
 export const hasNumericKmTime = (r: any): boolean => {
-  return Number.isFinite(r?.kmTime?.minutes) &&
+  const ok = Number.isFinite(r?.kmTime?.minutes) &&
     Number.isFinite(r?.kmTime?.seconds) &&
     Number.isFinite(r?.kmTime?.tenths);
+  return ok && !isZeroTime(r.kmTime);
 };

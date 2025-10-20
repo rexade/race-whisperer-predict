@@ -111,7 +111,7 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
       <TableCell className="text-center">
         <div className={`font-mono text-xs sm:text-sm font-bold ${isTopPerformer ? 'text-atg-blue' : 'text-foreground'} flex flex-col items-center gap-0.5`}>
           <div className="flex items-center gap-1">
-            {horse.uncertain && <span className="text-warning" title="Approximation">≈</span>}
+            {(horse.uncertain || horse.warning) && <span className={horse.warning ? "text-destructive" : "text-warning"} title="Approximation">≈</span>}
             <div className={horse.warning ? 'text-destructive' : undefined}>
               {formatKmTime(result.modernNormalizedTime)}
             </div>

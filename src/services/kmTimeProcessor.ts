@@ -7,7 +7,7 @@ import { DataValidator } from './debugging/dataValidator';
 import { extractRecordsFromStatistics, originIncludesStatistics, getSourceConfidenceMultiplier } from './utils/recordsFallback';
 import { toSeconds, secondsToKmParts } from './utils/robustTimeConversion';
 import { fetchExtendedRaceData, extractRecordsFromExtended, isExtendedFallback, logExtendedFallbackUsage, getExtendedConfidenceMultiplier } from './utils/extendedFallbackHandler';
-import { hasNumericKmTime } from './utils/kmTimeUtils';
+import { hasNumericKmTime, isZeroTime } from './utils/kmTimeUtils';
 
 export const calculateRawKmTimesForRaceWithId = async (
   raceId: string,
@@ -167,11 +167,14 @@ export const calculateRawKmTimesForRaceWithId = async (
           bestInvalid.normalizedTime.tenths ?? 0
         );
 
+        // Optional: Add conservative penalty (+0.5s) for questionable data
+        const penalizedSec = invalidSec + 0.5;
+        
         console.warn(`🔴 [INVALID-TIME FALLBACK] Using fastest invalid record for ${horseName}: `
           + `${bestInvalid.normalizedTime.minutes}:${bestInvalid.normalizedTime.seconds.toString().padStart(2,'0')}.`
-          + `${bestInvalid.normalizedTime.tenths} (reason: ${bestInvalid.dropReason ?? 'unknown'})`);
+          + `${bestInvalid.normalizedTime.tenths} +0.5s penalty (reason: ${bestInvalid.dropReason ?? 'unknown'})`);
 
-        const best3Average = secondsToKmParts(invalidSec);
+        const best3Average = secondsToKmParts(penalizedSec);
         const bestRecordTime = { ...best3Average };
 
         // Mark provenance + confidence
@@ -223,14 +226,20 @@ export const calculateRawKmTimesForRaceWithId = async (
           const extendedHorse = extendedRaceData.starts.find(s => s.horse.id === horseId)?.horse;
           const rt = extendedHorse?.record?.time;
 
-          if (rt && Number.isFinite(rt.minutes) && Number.isFinite(rt.seconds) && Number.isFinite(rt.tenths)) {
-            const sec = toSeconds(rt.minutes, rt.seconds, rt.tenths ?? 0);
+          if (rt 
+            && Number.isFinite(rt.minutes) 
+            && Number.isFinite(rt.seconds) 
+            && Number.isFinite(rt.tenths)
+            && !isZeroTime(rt)) {  // Reject 0:00.0 as "no time"
+            
+            // Optional: Add conservative penalty (+0.5s) for questionable data
+            const sec = toSeconds(rt.minutes, rt.seconds, rt.tenths ?? 0) + 0.5;
             const best3Average = secondsToKmParts(sec);
             const bestRecordTime = { ...best3Average };
             const CONF = 0.5;
 
             console.warn(`🔴 [EXTENDED SINGLE RECORD] Using horse.record.time for ${horseName}: `
-              + `${best3Average.minutes}:${best3Average.seconds.toString().padStart(2,'0')}.${best3Average.tenths}`);
+              + `${best3Average.minutes}:${best3Average.seconds.toString().padStart(2,'0')}.${best3Average.tenths} (+0.5s penalty)`);
 
             rawKmTimes.push({
               horseId: start.horse.id,
