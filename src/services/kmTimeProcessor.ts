@@ -23,8 +23,6 @@ export const calculateRawKmTimesForRaceWithId = async (
   let extendedDataFetched = false;
 
   for (let i = 0; i < starts.length; i++) {
-    // Track invalid candidates with numeric times (4th tier fallback)
-    let invalidCandidates: Array<ProcessedKmTime & { dropReason?: string }> = [];
     const start = starts[i];
     const postPosition = start.postPosition;
     progressCallback?.(i + 1, starts.length);
@@ -55,6 +53,7 @@ export const calculateRawKmTimesForRaceWithId = async (
       
       // ❶ Try primary source (results.records)
       let records = historicalData?.horse?.results?.records;
+      let invalidCandidates: Array<{ normalizedTime: { minutes: number; seconds: number; tenths: number }; dropReason?: string; source?: 'results' | 'stats' | 'extended' | 'extended-last' }> = [];
       let usingStatisticsFallback = false;
       let usingExtendedFallback = false;
       let perHorseWarning: { type: 'invalid-record'; message: string; reason: string } | undefined;
@@ -103,8 +102,58 @@ export const calculateRawKmTimesForRaceWithId = async (
         }
       }
       
-      // ❹ LAST-DITCH: Try invalid-time fallback before giving up
-      if ((!records || records.length === 0) && invalidCandidates.length > 0) {
+      // ❺ If still nothing after ALL fallbacks, mark zero and continue
+      if (!records || records.length === 0) {
+        console.warn(`❌ [KmTimeProcessor] NO HISTORICAL DATA - Horse ${horseName} (Post ${postPosition})`);
+        console.warn(`  📊 Data check: historicalData=${!!historicalData}, horse=${!!historicalData?.horse}, results=${!!historicalData?.horse?.results}, records=${!!historicalData?.horse?.results?.records}`);
+        console.warn(`  📈 Records length: ${historicalData?.horse?.results?.records?.length || 0}`);
+        console.warn(`  📊 Statistics fallback attempted: yes`);
+        console.warn(`  📡 Extended fallback attempted: ${extendedDataFetched ? 'yes' : 'no'}`);
+        console.warn(`  🚫 This horse will get zero time and be excluded from analysis`);
+        
+        HorseDebugger.log(horseId, horseName, 'NO_HISTORICAL_DATA', {
+          historicalDataExists: !!historicalData,
+          hasHorse: !!historicalData?.horse,
+          hasResults: !!historicalData?.horse?.results,
+          hasRecords: !!historicalData?.horse?.results?.records,
+          recordsLength: historicalData?.horse?.results?.records?.length || 0,
+          statisticsFallbackAttempted: true,
+          extendedFallbackAttempted: extendedDataFetched,
+          statisticsRecordsFound: 0
+        });
+        
+        rawKmTimes.push({
+          horseId: start.horse.id,
+          horseName: start.horse.name,
+          allTimes: [],
+          best3Average: { minutes: 0, seconds: 0, tenths: 0 },
+          bestRecordTime: { minutes: 0, seconds: 0, tenths: 0 },
+          validTimesCount: 0
+        });
+        continue;
+      }
+      
+      const dataSourceLabel = usingExtendedFallback ? '(from extended API)' : usingStatisticsFallback ? '(from statistics)' : '';
+      console.log(`✅ [KmTimeProcessor] Historical data found for ${horseName}: ${records.length} records ${dataSourceLabel}`);
+      
+      // Enhanced debugging for historical data
+      HorseDebugger.logHistoricalData(horseId, horseName, records);
+      
+      // Validate historical records
+      const rawRecords = records;
+      const validationResults = rawRecords.map((record, index) => 
+        DataValidator.validateHistoricalRecord(record, index)
+      );
+      DataValidator.logValidationResults(validationResults, `${horseName} Historical Records`);
+      
+      const processingResult = processHistoricalRecords(records, horseName);
+      const validRecords = processingResult.records;
+      
+      // Collect invalid candidates from processing
+      invalidCandidates.push(...processingResult.invalidCandidates);
+      
+      // ❹ INVALID-TIME fallback: Use fastest dropped-but-timed record
+      if (validRecords.length === 0 && invalidCandidates.length > 0) {
         // Pick fastest invalid candidate
         invalidCandidates.sort((a, b) =>
           toSeconds(a.normalizedTime.minutes, a.normalizedTime.seconds, a.normalizedTime.tenths ?? 0)
@@ -154,7 +203,7 @@ export const calculateRawKmTimesForRaceWithId = async (
           bestRecordTime,
           validTimesCount: 0,
           usedStatisticsFallback: true,
-          usedExtendedFallback: false,
+          usedExtendedFallback: bestInvalid.source === 'extended' || bestInvalid.source === 'extended-last',
           usedInvalidTimeFallback: true,
           warning: perHorseWarning,
           confidenceMultiplier: WARNING_CONFIDENCE
@@ -162,52 +211,54 @@ export const calculateRawKmTimesForRaceWithId = async (
         continue;
       }
       
-      // ❺ If still nothing after ALL fallbacks, mark zero and continue
-      if (!records || records.length === 0) {
-        console.warn(`❌ [KmTimeProcessor] NO HISTORICAL DATA - Horse ${horseName} (Post ${postPosition})`);
-        console.warn(`  📊 Data check: historicalData=${!!historicalData}, horse=${!!historicalData?.horse}, results=${!!historicalData?.horse?.results}, records=${!!historicalData?.horse?.results?.records}`);
-        console.warn(`  📈 Records length: ${historicalData?.horse?.results?.records?.length || 0}`);
-        console.warn(`  📊 Statistics fallback attempted: yes`);
-        console.warn(`  📡 Extended fallback attempted: ${extendedDataFetched ? 'yes' : 'no'}`);
-        console.warn(`  🚫 This horse will get zero time and be excluded from analysis`);
+      // ❺ EXTENDED single-record fallback: Use horse.record.time if available
+      if (validRecords.length === 0 && !invalidCandidates.length) {
+        if (!extendedDataFetched) {
+          console.log(`📡 [KmTimeProcessor] No data anywhere, fetching extended race data for single record...`);
+          extendedRaceData = await fetchExtendedRaceData(raceId);
+          extendedDataFetched = true;
+        }
         
-        HorseDebugger.log(horseId, horseName, 'NO_HISTORICAL_DATA', {
-          historicalDataExists: !!historicalData,
-          hasHorse: !!historicalData?.horse,
-          hasResults: !!historicalData?.horse?.results,
-          hasRecords: !!historicalData?.horse?.results?.records,
-          recordsLength: historicalData?.horse?.results?.records?.length || 0,
-          statisticsFallbackAttempted: true,
-          extendedFallbackAttempted: extendedDataFetched,
-          statisticsRecordsFound: 0
-        });
-        
-        rawKmTimes.push({
-          horseId: start.horse.id,
-          horseName: start.horse.name,
-          allTimes: [],
-          best3Average: { minutes: 0, seconds: 0, tenths: 0 },
-          bestRecordTime: { minutes: 0, seconds: 0, tenths: 0 },
-          validTimesCount: 0
-        });
-        continue;
+        if (extendedRaceData?.starts?.length) {
+          const extendedHorse = extendedRaceData.starts.find(s => s.horse.id === horseId)?.horse;
+          const rt = extendedHorse?.record?.time;
+
+          if (rt && Number.isFinite(rt.minutes) && Number.isFinite(rt.seconds) && Number.isFinite(rt.tenths)) {
+            const sec = toSeconds(rt.minutes, rt.seconds, rt.tenths ?? 0);
+            const best3Average = secondsToKmParts(sec);
+            const bestRecordTime = { ...best3Average };
+            const CONF = 0.5;
+
+            console.warn(`🔴 [EXTENDED SINGLE RECORD] Using horse.record.time for ${horseName}: `
+              + `${best3Average.minutes}:${best3Average.seconds.toString().padStart(2,'0')}.${best3Average.tenths}`);
+
+            rawKmTimes.push({
+              horseId: start.horse.id,
+              horseName: start.horse.name,
+              allTimes: [],
+              best3Average,
+              bestRecordTime,
+              validTimesCount: 0,
+              usedStatisticsFallback: true,
+              usedExtendedFallback: true,
+              usedInvalidTimeFallback: false,
+              warning: {
+                type: 'invalid-record',
+                message: 'Used single best record from extended; prediction may be unreliable',
+                reason: 'extended-single',
+              },
+              confidenceMultiplier: CONF,
+            });
+
+            HorseDebugger.log(horseId, horseName, 'EXTENDED_SINGLE_RECORD_USED', {
+              time: best3Average,
+              confidence: CONF,
+            });
+
+            continue;
+          }
+        }
       }
-      
-      const dataSourceLabel = usingExtendedFallback ? '(from extended API)' : usingStatisticsFallback ? '(from statistics)' : '';
-      console.log(`✅ [KmTimeProcessor] Historical data found for ${horseName}: ${records.length} records ${dataSourceLabel}`);
-      
-      // Enhanced debugging for historical data
-      HorseDebugger.logHistoricalData(horseId, horseName, records);
-      
-      // Validate historical records
-      const rawRecords = records;
-      const validationResults = rawRecords.map((record, index) => 
-        DataValidator.validateHistoricalRecord(record, index)
-      );
-      DataValidator.logValidationResults(validationResults, `${horseName} Historical Records`);
-      
-      const processingResult = processHistoricalRecords(records, horseName);
-      const validRecords = processingResult.records;
       
       // Calculate combined confidence multiplier (most conservative, apply once)
       const sourceConfidenceMultiplier = getSourceConfidenceMultiplier(records as any);

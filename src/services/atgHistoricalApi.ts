@@ -58,8 +58,15 @@ export const fetchHorseHistoricalData = async (raceId: string, startNumber: numb
   }
 };
 
+export interface InvalidCandidate {
+  normalizedTime: { minutes: number; seconds: number; tenths: number };
+  dropReason?: string;
+  source?: 'results' | 'stats' | 'extended' | 'extended-last';
+}
+
 export interface HistoricalProcessingResult {
   records: ATGHistoricalRecord[];
+  invalidCandidates: InvalidCandidate[];
   metadata: {
     usedFallback: boolean;
     dataSource: 'recent' | 'fallback';
@@ -101,8 +108,36 @@ export const processHistoricalRecords = (
     };
     
     const isXanderDebug = debugHorseName?.toLowerCase().includes('xander');
+    const invalidCandidates: InvalidCandidate[] = [];
+    
+    // Helper to check if record has numeric kmTime
+    const hasNumericKmTime = (r: ATGHistoricalRecord) =>
+      r.kmTime && 
+      typeof r.kmTime === 'object' && 
+      'minutes' in r.kmTime && 
+      'seconds' in r.kmTime && 
+      'tenths' in r.kmTime &&
+      typeof r.kmTime.minutes === 'number' &&
+      typeof r.kmTime.seconds === 'number' &&
+      typeof r.kmTime.tenths === 'number';
+    
+    // Helper to reject a record and capture it if it has a numeric time
+    const rejectRecord = (record: ATGHistoricalRecord, reason: string, source: 'results' | 'stats' | 'extended' | 'extended-last') => {
+      if (hasNumericKmTime(record) && 'minutes' in record.kmTime!) {
+        invalidCandidates.push({
+          normalizedTime: {
+            minutes: (record.kmTime as any).minutes,
+            seconds: (record.kmTime as any).seconds,
+            tenths: (record.kmTime as any).tenths ?? 0,
+          },
+          dropReason: reason,
+          source
+        });
+      }
+    };
     
     const validRecords = records.filter(record => {
+      const source = ((record as any).meta?.source as 'results' | 'stats' | 'extended') || 'results';
       const isStatisticsSource = (record as any).meta?.source === 'statistics';
       
       // IMPORTANT: Check statistics bypass FIRST before any date parsing
@@ -117,12 +152,14 @@ export const processHistoricalRecords = (
         // Only check date window for non-statistics records or statistics with dates
         if (!record.date) {
           filteringStats.outsideTimeWindow++;
+          rejectRecord(record, 'no-date', source);
           return false;
         }
         const raceDate = new Date(record.date);
         const isWithin12Months = raceDate >= twelveMonthsAgo;
         if (!isWithin12Months) {
           filteringStats.outsideTimeWindow++;
+          rejectRecord(record, 'outside-12-months', source);
           if (isXanderDebug) {
             console.log(`🕵️ FILTERED OUT - Outside 12 months: ${record.date}`);
           }
@@ -131,14 +168,7 @@ export const processHistoricalRecords = (
       }
       
       // Check time validity
-      const hasValidTime = record.kmTime && 
-        typeof record.kmTime === 'object' && 
-        'minutes' in record.kmTime && 
-        'seconds' in record.kmTime && 
-        'tenths' in record.kmTime &&
-        typeof record.kmTime.minutes === 'number' &&
-        typeof record.kmTime.seconds === 'number' &&
-        typeof record.kmTime.tenths === 'number';
+      const hasValidTime = hasNumericKmTime(record);
       
       if (!hasValidTime) {
         filteringStats.noTime++;
@@ -151,6 +181,7 @@ export const processHistoricalRecords = (
       // Check if disqualified
       if (record.disqualified) {
         filteringStats.disqualified++;
+        rejectRecord(record, 'disqualified', source);
         if (isXanderDebug) {
           console.log(`🕵️ FILTERED OUT - Disqualified: ${record.date}`);
         }
@@ -160,6 +191,7 @@ export const processHistoricalRecords = (
       // Check if galloped
       if (record.galloped) {
         filteringStats.galloped++;
+        rejectRecord(record, 'galloped', source);
         if (isXanderDebug) {
           console.log(`🕵️ FILTERED OUT - Galloped: ${record.date}`);
         }
@@ -177,6 +209,7 @@ export const processHistoricalRecords = (
         // Only log if place exists but is truly invalid (not just "0")
         if (isNaN(placeNum) || placeNum < 0) {
           filteringStats.invalidPlace++;
+          rejectRecord(record, 'invalid-place', source);
           if (isXanderDebug) {
             console.log(`🕵️ FILTERED OUT - Malformed place: ${record.date} (place: ${record.place})`);
           }
@@ -198,6 +231,7 @@ export const processHistoricalRecords = (
         
       if (!hasRequiredFields) {
         filteringStats.missingFields++;
+        rejectRecord(record, 'missing-fields', source);
         if (isXanderDebug) {
           console.log(`🕵️ FILTERED OUT - Missing fields: ${record.date}`);
         }
@@ -215,14 +249,15 @@ export const processHistoricalRecords = (
       return true;
     });
     
-    return { validRecords, filteringStats };
+    return { validRecords, invalidCandidates, filteringStats };
   };
   
   // First pass: Try with 12-month constraint
   console.log(`🔍 [${debugHorseName || 'Horse'}] Starting historical record processing with ${records.length} total records`);
-  const { validRecords: recentRecords, filteringStats: recentStats } = filterRecords(records, false);
+  const { validRecords: recentRecords, invalidCandidates: recentInvalid, filteringStats: recentStats } = filterRecords(records, false);
   
   let finalRecords = recentRecords;
+  let finalInvalidCandidates = recentInvalid;
   let usedFallback = false;
   let dataSource: 'recent' | 'fallback' = 'recent';
   let finalStats = recentStats;
@@ -230,10 +265,11 @@ export const processHistoricalRecords = (
   // Second pass: If no recent records, use fallback (all-time)
   if (recentRecords.length === 0) {
     console.log(`⚠️ [${debugHorseName || 'Horse'}] No recent records found, attempting fallback to all historical data`);
-    const { validRecords: fallbackRecords, filteringStats: fallbackStats } = filterRecords(records, true);
+    const { validRecords: fallbackRecords, invalidCandidates: fallbackInvalid, filteringStats: fallbackStats } = filterRecords(records, true);
     
     if (fallbackRecords.length > 0) {
       finalRecords = fallbackRecords;
+      finalInvalidCandidates = fallbackInvalid;
       usedFallback = true;
       dataSource = 'fallback';
       finalStats = fallbackStats;
@@ -274,6 +310,7 @@ export const processHistoricalRecords = (
   
   return {
     records: finalRecords,
+    invalidCandidates: finalInvalidCandidates,
     metadata: {
       usedFallback,
       dataSource,
