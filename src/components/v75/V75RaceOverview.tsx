@@ -29,6 +29,10 @@ const ensureStringForDisplay = (value: any): string => {
 };
 
 const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
+  // Calculate fallback usage across all races
+  const allHorsesFlat = races.flatMap(race => race.horses);
+  const fallbackCount = allHorsesFlat.filter(h => h.timeSource && h.timeSource !== "normalized").length;
+  const normalizedCount = allHorsesFlat.filter(h => h.timeSource === "normalized" || !h.timeSource).length;
   
   const getTopNormalizedTimes = () => {
     const allHorses = races.flatMap(race => 
@@ -58,6 +62,21 @@ const V75RaceOverview: React.FC<V75RaceOverviewProps> = ({ races }) => {
 
   return (
     <div className="space-y-6">
+      {/* Legend for time symbols */}
+      {fallbackCount > 0 && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Clock className="h-4 w-4 text-blue-600" />
+              <span className="font-medium text-blue-900">Time Legend:</span>
+              <span className="text-blue-700">
+                <span className="font-mono">≈</span> indicates a fallback time (best raw/derived) which may be less reliable than normalized predictions
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Enhanced Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
