@@ -144,11 +144,9 @@ export const calculateRawKmTimesForRaceWithId = async (
       const processingResult = processHistoricalRecords(records, horseName);
       const validRecords = processingResult.records;
       
-      // Calculate combined confidence multiplier (statistics + extended fallback)
+      // Calculate combined confidence multiplier (most conservative)
       const sourceConfidenceMultiplier = getSourceConfidenceMultiplier(records as any);
-      const extendedConfidenceMultiplier = isExtendedFallback(records as any) 
-        ? getExtendedConfidenceMultiplier(records as any)
-        : 1.0;
+      const extendedConfidenceMultiplier = getExtendedConfidenceMultiplier(records as any);
       
       const metadata = {
         ...processingResult.metadata,
@@ -307,7 +305,9 @@ export const calculateRawKmTimesForRaceWithId = async (
   console.log(`Final RAW KM Time Rankings:`);
   rawKmTimes.forEach((horse, index) => {
     const kmTime = horse.best3Average;
-    const dataSourceTag = horse.usedStatisticsFallback ? ' [STATS]' : '';
+    const dataSourceTag = horse.usedStatisticsFallback 
+      ? (horse.confidenceMultiplier && horse.confidenceMultiplier < 0.7 ? ' [EXT]' : ' [STATS]')
+      : '';
     const confidenceTag = horse.confidenceMultiplier && horse.confidenceMultiplier < 1.0 
       ? ` (confidence: ${(horse.confidenceMultiplier * 100).toFixed(0)}%)` 
       : '';

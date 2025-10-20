@@ -1,4 +1,4 @@
-import { ResultLikeRecord, StartMethod } from './recordsFallback';
+import { ResultLikeRecord, StartMethod, Distance } from './recordsFallback';
 import { HorseDebugger } from '../debugging/horseDebugger';
 
 /**
@@ -34,8 +34,9 @@ interface ExtendedHorseData {
 }
 
 interface ExtendedRaceStart {
+  number: number;
+  postPosition?: number;
   horse: ExtendedHorseData;
-  startNumber: number;
 }
 
 interface ExtendedRaceData {
@@ -48,24 +49,36 @@ interface ExtendedRaceData {
 
 /**
  * Fetch extended race data from ATG API as ultimate fallback
+ * Tries both www.atg.se and api.atg.se domains
  */
 export async function fetchExtendedRaceData(
   raceId: string
 ): Promise<ExtendedRaceData | null> {
   try {
     const [date, track, raceNum] = raceId.split('_');
-    const url = `https://api.atg.se/v1/races/${date}_${track}_${raceNum}/extended`;
+    const path = `${date}_${track}_${raceNum}/extended`;
+    const candidates = [
+      `https://www.atg.se/services/racinginfo/v1/api/races/${path}`,
+      `https://api.atg.se/v1/races/${path}`
+    ];
     
-    console.log(`📡 [Extended Fallback] Fetching: ${url}`);
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      console.warn(`⚠️ [Extended Fallback] Failed to fetch: ${response.status}`);
-      return null;
+    for (const url of candidates) {
+      try {
+        console.log(`📡 [Extended Fallback] Trying: ${url}`);
+        const response = await fetch(url, { headers: { accept: 'application/json' } });
+        
+        if (response.ok) {
+          console.log(`✅ [Extended Fallback] Success: ${url}`);
+          const data = await response.json();
+          return data;
+        }
+        console.warn(`⚠️ [Extended Fallback] ${url} -> ${response.status}`);
+      } catch (err) {
+        console.warn(`⚠️ [Extended Fallback] ${url} failed:`, err);
+      }
     }
     
-    const data = await response.json();
-    return data;
+    return null;
   } catch (error) {
     console.error('❌ [Extended Fallback] Error fetching extended race data:', error);
     return null;
@@ -82,13 +95,14 @@ export function extractRecordsFromExtended(
   const records: ResultLikeRecord[] = [];
   
   // 1️⃣ Try standard results.records (same as /horse/{id})
+  // Normalize to 'results' source for 1.0 confidence (these are real race results)
   if (horse.results?.records?.length) {
     if (debugLog) {
       console.log(`📄 [Extended] Found ${horse.results.records.length} results.records for ${horse.name}`);
     }
     return horse.results.records.map(r => ({
       ...r,
-      meta: { source: 'extended-results' }
+      meta: { source: 'results' as const }
     }));
   }
   
@@ -123,7 +137,10 @@ export function extractRecordsFromExtended(
       console.log(`🔴 [Extended] Using horse.record.time fallback for ${horse.name}`);
     }
     
-    const hasWin = horse.statistics?.life?.placement?.['1'] > 0;
+    // Guard against missing statistics
+    const wins = Number(horse.statistics?.life?.placement?.['1'] ?? 0);
+    const hasWin = Number.isFinite(wins) && wins > 0;
+    
     const startMethod = horse.record.startMethod as StartMethod | undefined;
     
     records.push({
@@ -140,7 +157,8 @@ export function extractRecordsFromExtended(
       },
       track: { name: 'Unknown' },
       start: {
-        distance: horse.record.distance
+        // Leave distance (meters) undefined - use meta.distance for category
+        postPosition: 1
       },
       galloped: false,
       disqualified: false,
@@ -148,7 +166,8 @@ export function extractRecordsFromExtended(
         source: 'extended-fallback-record',
         isLastResort: true,
         code: horse.record.code,
-        startMethod: startMethod
+        startMethod: startMethod,
+        distance: undefined // Can't reliably map meters to category from single record
       }
     });
   }
@@ -168,21 +187,27 @@ export function isExtendedFallback(records: ResultLikeRecord[]): boolean {
 
 /**
  * Get confidence multiplier based on extended fallback usage
+ * Treats extended-results as real results (1.0 confidence)
  */
 export function getExtendedConfidenceMultiplier(records: ResultLikeRecord[]): number {
   if (records.length === 0) return 0;
   
-  const hasLastResort = records.some(r => r.meta?.isLastResort === true);
-  if (hasLastResort) {
-    return 0.5; // Single record fallback = lowest confidence
+  // Real results from extended endpoint = full confidence
+  if (records.some(r => r.meta?.source === 'results')) {
+    return 1.0;
   }
   
-  const hasExtended = isExtendedFallback(records);
-  if (hasExtended) {
-    return 0.7; // Extended API data = medium confidence
+  // Last resort (single horse.record.time) = lowest confidence
+  if (records.some(r => r.meta?.isLastResort === true)) {
+    return 0.5;
   }
   
-  return 1.0; // Normal confidence
+  // Extended statistics data = medium confidence
+  if (records.some(r => r.meta?.source?.startsWith('extended-statistics'))) {
+    return 0.7;
+  }
+  
+  return 1.0; // Default
 }
 
 /**
