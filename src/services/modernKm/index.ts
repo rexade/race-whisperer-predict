@@ -159,7 +159,14 @@ export const applyModernKmNormalization = (
           factors.startPoints,
           { baseline: 1200, alpha: 0.60, maxImpact: 0.60 }
         );
-  adjustments.startPoints = spAdj * weights.startPoints;
+  
+  // Apply weight and enforce hard cap on final weighted adjustment
+  const spWeighted = spAdj * weights.startPoints;
+  const MAX_FINAL_SP_IMPACT = 0.60; // Absolute cap on final weighted adjustment
+  adjustments.startPoints = Math.max(
+    Math.min(spWeighted, MAX_FINAL_SP_IMPACT),
+    -MAX_FINAL_SP_IMPACT
+  );
   adjustments.placePercentage = calculatePlacePercentageAdjustment(factors.placePercentage) * weights.placePercentage;
   adjustments.horseWinPercentage = calculateHorseWinPercentageAdjustment(factors.horseWinPercentage) * weights.horseWinPercentage;
   const epsRaw = calculateEarningsPerStartAdjustment(factors.earningsPerStart);
