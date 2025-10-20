@@ -105,8 +105,16 @@ export const processHistoricalRecords = (
     const validRecords = records.filter(record => {
       const isStatisticsSource = (record as any).meta?.source === 'statistics';
       
-      // Check date filter (skip in fallback mode OR for statistics without dates)
-      if (!ignoreTimeWindow && !isStatisticsSource) {
+      // IMPORTANT: Check statistics bypass FIRST before any date parsing
+      // This prevents statistics records from being incorrectly dropped
+      if (isStatisticsSource && !record.date) {
+        // Statistics records without dates bypass time window (e.g., 'life' records)
+        if (isXanderDebug) {
+          console.log(`📊 STATISTICS RECORD - Bypassing time window check`);
+        }
+        // Skip to next filter - don't check date window for stats
+      } else if (!ignoreTimeWindow) {
+        // Only check date window for non-statistics records or statistics with dates
         if (!record.date) {
           filteringStats.outsideTimeWindow++;
           return false;
@@ -119,11 +127,6 @@ export const processHistoricalRecords = (
             console.log(`🕵️ FILTERED OUT - Outside 12 months: ${record.date}`);
           }
           return false;
-        }
-      } else if (isStatisticsSource && !record.date) {
-        // Statistics records without dates bypass time window (e.g., 'life' records)
-        if (isXanderDebug) {
-          console.log(`📊 STATISTICS RECORD - Bypassing time window check`);
         }
       }
       
@@ -163,19 +166,24 @@ export const processHistoricalRecords = (
         return false;
       }
       
-      // Check place validity
-      const hasValidPlace = record.place && 
-        record.place !== "0" && 
-        record.place !== "" && 
-        !isNaN(parseInt(record.place));
-        
-      if (!hasValidPlace) {
-        filteringStats.invalidPlace++;
-        if (isXanderDebug) {
-          console.log(`🕵️ FILTERED OUT - Invalid place: ${record.date} (place: ${record.place})`);
+      // Check place validity - IMPORTANT: Place is NOT required for time evaluation
+      // We only filter out if place is present but malformed (for data quality)
+      // Records with no place or place="0" are still valid for time calculations
+      const placeStr = String(record.place ?? "");
+      const hasPlaceData = placeStr && placeStr !== "";
+      
+      if (hasPlaceData) {
+        const placeNum = parseInt(placeStr, 10);
+        // Only log if place exists but is truly invalid (not just "0")
+        if (isNaN(placeNum) || placeNum < 0) {
+          filteringStats.invalidPlace++;
+          if (isXanderDebug) {
+            console.log(`🕵️ FILTERED OUT - Malformed place: ${record.date} (place: ${record.place})`);
+          }
+          return false;
         }
-        return false;
       }
+      // NOTE: We don't filter on place=0 or missing place - time is still valid!
       
       // Check required fields (relax for statistics records)
       const hasStartMethod = record.race?.startMethod || (record as any).meta?.startMethod;

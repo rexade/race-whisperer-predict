@@ -5,6 +5,7 @@ import { HorseRawTime } from './types/timeProcessorTypes';
 import { processHorseTimes } from './horseProcessing';
 import { fetchHorseHistoricalData, processHistoricalRecords } from './atgHistoricalApi';
 import { kmTimeToSeconds } from './utils/kmTimeUtils';
+import { extractRecordsFromStatistics } from './utils/recordsFallback';
 
 // Re-export types and utilities for backward compatibility
 export type { ProcessedTime, HorseRawTime } from './types/timeProcessorTypes';
@@ -58,7 +59,23 @@ export const calculateRawTimesForRace = async (
       // Fetch historical data for this horse using POST POSITION
       const historicalData = await fetchHorseHistoricalData(raceId, start.postPosition);
       
-      if (!historicalData.horse.results?.records) {
+      // Try primary source (results.records)
+      let records = historicalData?.horse?.results?.records;
+      let usingStatisticsFallback = false;
+      
+      // If missing/empty, try statistics fallback
+      if (!records || records.length === 0) {
+        console.log(`📊 [TimeProcessor] No results.records found for ${start.horse.name}, trying statistics fallback...`);
+        const statsFallback = extractRecordsFromStatistics(historicalData?.horse);
+        
+        if (statsFallback.length > 0) {
+          console.log(`✅ [TimeProcessor] Statistics fallback successful for ${start.horse.name}: ${statsFallback.length} records found`);
+          records = statsFallback as any;
+          usingStatisticsFallback = true;
+        }
+      }
+      
+      if (!records || records.length === 0) {
         console.warn(`No historical records found for horse ${start.horse.name}`);
         rawTimes.push({
           horseId: start.horse.id,
@@ -71,7 +88,7 @@ export const calculateRawTimesForRace = async (
       }
       
       // Process and filter historical records - ONLY FOR RAW TIME CALCULATION
-      const processingResult = processHistoricalRecords(historicalData.horse.results.records);
+      const processingResult = processHistoricalRecords(records, start.horse.name);
       const validRecords = processingResult.records;
       console.log(`Found ${validRecords.length} valid historical races for ${start.horse.name}`);
       
@@ -159,7 +176,23 @@ export const calculateRawTimesForRaceWithId = async (
       // Fetch historical data using POST POSITION - ONLY FOR RAW TIME CALCULATION
       const historicalData = await fetchHorseHistoricalData(raceId, postPosition);
       
-      if (!historicalData.horse.results?.records) {
+      // Try primary source (results.records)
+      let records = historicalData?.horse?.results?.records;
+      let usingStatisticsFallback = false;
+      
+      // If missing/empty, try statistics fallback
+      if (!records || records.length === 0) {
+        console.log(`📊 [TimeProcessor] No results.records found for ${start.horse.name}, trying statistics fallback...`);
+        const statsFallback = extractRecordsFromStatistics(historicalData?.horse);
+        
+        if (statsFallback.length > 0) {
+          console.log(`✅ [TimeProcessor] Statistics fallback successful for ${start.horse.name}: ${statsFallback.length} records found`);
+          records = statsFallback as any;
+          usingStatisticsFallback = true;
+        }
+      }
+      
+      if (!records || records.length === 0) {
         console.warn(`No historical records found for horse ${start.horse.name}`);
         rawTimes.push({
           horseId: start.horse.id,
@@ -172,7 +205,7 @@ export const calculateRawTimesForRaceWithId = async (
       }
       
       // Process and filter historical records - ONLY FOR RAW TIME CALCULATION
-      const processingResult = processHistoricalRecords(historicalData.horse.results.records);
+      const processingResult = processHistoricalRecords(records, start.horse.name);
       const validRecords = processingResult.records;
       console.log(`Found ${validRecords.length} valid historical races for ${start.horse.name}`);
       

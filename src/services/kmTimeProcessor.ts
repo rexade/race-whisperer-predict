@@ -222,11 +222,34 @@ export const calculateRawKmTimesForRaceWithId = async (
     return 0;
   });
 
-  // Telemetry: Log fallback usage summary
+  // Telemetry: Log fallback usage summary with distance breakdown
   const totalHorses = rawKmTimes.length;
   const horsesUsingFallback = rawKmTimes.filter(h => h.usedStatisticsFallback).length;
+  
   if (horsesUsingFallback > 0) {
     console.log(`📊 [RACE FALLBACK SUMMARY] ${horsesUsingFallback}/${totalHorses} horses used statistics fallback`);
+    
+    // Emit race-level telemetry for monitoring data drift
+    console.log(`[FALLBACK_RATE] ${horsesUsingFallback}/${totalHorses} used stats (${Math.round(horsesUsingFallback/totalHorses*100)}%)`);
+  }
+  
+  // Invariant: Assert no horse has times but shows 0:00.0
+  for (const h of rawKmTimes) {
+    const hasAny = h.validTimesCount > 0;
+    const isZero = (h.best3Average.minutes | h.best3Average.seconds | h.best3Average.tenths) === 0;
+    
+    if (hasAny && !isZero) {
+      // Expected: has times and has non-zero average ✓
+    } else if (!hasAny && isZero) {
+      // Expected: no times and zero average ✓
+    } else if (hasAny && isZero) {
+      // ERROR: Has valid times but average is 0 - this should never happen!
+      console.error(`❌ [ASSERTION FAILED] ${h.horseName} has ${h.validTimesCount} valid times but best3Average is 0:00.0`);
+      console.error(`   This indicates a bug in the averaging logic or confidence penalty calculation`);
+      console.error(`   Raw average: ${h.rawBest3Average ? `${h.rawBest3Average.minutes}:${h.rawBest3Average.seconds}.${h.rawBest3Average.tenths}` : 'undefined'}`);
+      console.error(`   Confidence: ${h.confidenceMultiplier ?? 'undefined'}`);
+      console.error(`   Data source: ${h.dataSource ?? 'undefined'}`);
+    }
   }
 
   console.log(`Final RAW KM Time Rankings:`);
