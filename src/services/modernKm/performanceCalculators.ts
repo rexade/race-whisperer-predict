@@ -23,8 +23,10 @@ export const calculateStartPointsAdjustment = (
   startPoints: number,
   opts?: { baseline?: number; alpha?: number; maxImpact?: number }
 ): number => {
+  const DEBUG = process.env.MODERNKM_DEBUG === '1';
+  
   if (!Number.isFinite(startPoints) || startPoints <= 0) {
-    console.log(`Start Points adjustment: ${startPoints} points → 0.000s (invalid)`);
+    if (DEBUG) console.log(`Start Points adjustment: ${startPoints} points → 0.000s (invalid)`);
     return 0;
   }
 
@@ -40,11 +42,11 @@ export const calculateStartPointsAdjustment = (
 
   // Sanity check
   if (!Number.isFinite(adj)) {
-    console.log(`Start Points adjustment: ${startPoints} points → 0.000s (calculation error)`);
+    if (DEBUG) console.log(`Start Points adjustment: ${startPoints} points → 0.000s (calculation error)`);
     return 0;
   }
   
-  console.log(`Start Points adjustment: ${startPoints} points (baseline: ${baseline}) → ${adj.toFixed(3)}s [log+tanh saturated]`);
+  if (DEBUG) console.log(`Start Points adjustment: ${startPoints} points (baseline: ${baseline}) → ${adj.toFixed(3)}s [log+tanh saturated]`);
   return adj;
 };
 
@@ -61,6 +63,8 @@ export const calculateStartPointsAdjustmentFieldAware = (
   fieldStartPoints: number[],
   opts?: { beta?: number; maxImpact?: number }
 ): number => {
+  const DEBUG = process.env.MODERNKM_DEBUG === '1';
+  
   if (!Number.isFinite(startPoints) || !Array.isArray(fieldStartPoints) || fieldStartPoints.length < 3) {
     // Fallback to standard method
     return calculateStartPointsAdjustment(startPoints, { baseline: 1200, alpha: 0.60, maxImpact: 0.60 });
@@ -88,7 +92,7 @@ export const calculateStartPointsAdjustmentFieldAware = (
   const z_iqr = (startPoints - median) / iqr;
   const adj = -maxImpact * Math.tanh(z_iqr / beta);
   
-  console.log(`Start Points adjustment (field-aware): ${startPoints} points (median: ${median.toFixed(0)}, IQR: ${iqr.toFixed(0)}) → ${adj.toFixed(3)}s`);
+  if (DEBUG) console.log(`Start Points adjustment (field-aware): ${startPoints} points (median: ${median.toFixed(0)}, IQR: ${iqr.toFixed(0)}) → ${adj.toFixed(3)}s`);
   return adj;
 };
 

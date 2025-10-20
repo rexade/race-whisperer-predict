@@ -17,6 +17,7 @@ import { EquipmentDebugger } from '../debugging/equipmentDebugger';
 import { calculateDriverAdjustment } from './driverCalculators';
 import { 
   calculateStartPointsAdjustment,
+  calculateStartPointsAdjustmentFieldAware,
   calculatePlacePercentageAdjustment,
   calculateHorseWinPercentageAdjustment,
   calculateEarningsPerStartAdjustment
@@ -146,7 +147,19 @@ export const applyModernKmNormalization = (
   ) * weights.volteStartDistancePenalty;
   
   // STEP 4: Baseline performance adjustments
-  adjustments.startPoints = calculateStartPointsAdjustment(factors.startPoints) * weights.startPoints;
+  // Use field-aware start points when field data is available (>=3 horses)
+  const spAdj =
+    (factors.fieldStartPoints?.length ?? 0) >= 3
+      ? calculateStartPointsAdjustmentFieldAware(
+          factors.startPoints,
+          factors.fieldStartPoints!,
+          { beta: 2.0, maxImpact: 0.50 }
+        )
+      : calculateStartPointsAdjustment(
+          factors.startPoints,
+          { baseline: 1200, alpha: 0.60, maxImpact: 0.60 }
+        );
+  adjustments.startPoints = spAdj * weights.startPoints;
   adjustments.placePercentage = calculatePlacePercentageAdjustment(factors.placePercentage) * weights.placePercentage;
   adjustments.horseWinPercentage = calculateHorseWinPercentageAdjustment(factors.horseWinPercentage) * weights.horseWinPercentage;
   const epsRaw = calculateEarningsPerStartAdjustment(factors.earningsPerStart);

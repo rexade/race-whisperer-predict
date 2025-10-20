@@ -43,6 +43,8 @@ export interface ModernNormalizationFactors {
   horseName?: string;
   horseWinPercentage: number;
   earningsPerStart: number;
+  // Field-aware adjustment support
+  fieldStartPoints?: number[];
 }
 
 export interface NormalizationWeights {
