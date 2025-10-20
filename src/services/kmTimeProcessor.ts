@@ -4,8 +4,9 @@ import { processHorseKmTimes } from './horseProcessing';
 import { fetchHorseHistoricalData, processHistoricalRecords, ATGHistoricalRecord } from './atgHistoricalApi';
 import { HorseDebugger } from './debugging/horseDebugger';
 import { DataValidator } from './debugging/dataValidator';
-import { extractRecordsFromStatistics, originIncludesStatistics } from './utils/recordsFallback';
+import { extractRecordsFromStatistics, originIncludesStatistics, getSourceConfidenceMultiplier } from './utils/recordsFallback';
 import { toSeconds } from './utils/robustTimeConversion';
+import { fetchExtendedRaceData, extractRecordsFromExtended, isExtendedFallback, logExtendedFallbackUsage, getExtendedConfidenceMultiplier } from './utils/extendedFallbackHandler';
 
 export const calculateRawKmTimesForRaceWithId = async (
   raceId: string,
@@ -15,6 +16,10 @@ export const calculateRawKmTimesForRaceWithId = async (
   const rawKmTimes: HorseRawKmTime[] = [];
 
   console.log(`Calculating RAW KM times for race ${raceId} with ${starts.length} horses`);
+  
+  // Fetch extended race data once for all horses (3rd tier fallback)
+  let extendedRaceData: Awaited<ReturnType<typeof fetchExtendedRaceData>> = null;
+  let extendedDataFetched = false;
 
   for (let i = 0; i < starts.length; i++) {
     const start = starts[i];
@@ -48,6 +53,7 @@ export const calculateRawKmTimesForRaceWithId = async (
       // ❶ Try primary source (results.records)
       let records = historicalData?.horse?.results?.records;
       let usingStatisticsFallback = false;
+      let usingExtendedFallback = false;
       
       // ❷ If missing/empty, try statistics fallback
       if (!records || records.length === 0) {
@@ -66,12 +72,38 @@ export const calculateRawKmTimesForRaceWithId = async (
         }
       }
       
-      // ❸ If still nothing, mark zero and continue
+      // ❸ If still nothing, try extended API fallback (last resort)
+      if (!records || records.length === 0) {
+        if (!extendedDataFetched) {
+          console.log(`📡 [KmTimeProcessor] No data from primary/statistics sources, fetching extended race data...`);
+          extendedRaceData = await fetchExtendedRaceData(raceId);
+          extendedDataFetched = true;
+        }
+        
+        if (extendedRaceData) {
+          const extendedHorse = extendedRaceData.starts.find(s => s.horse.id === horseId)?.horse;
+          if (extendedHorse) {
+            console.log(`📡 [KmTimeProcessor] Trying extended API fallback for ${horseName}...`);
+            const extendedRecords = extractRecordsFromExtended(extendedHorse, true);
+            
+            if (extendedRecords.length > 0) {
+              console.log(`✅ [KmTimeProcessor] Extended fallback successful for ${horseName}: ${extendedRecords.length} records found`);
+              records = extendedRecords as any;
+              usingExtendedFallback = true;
+              
+              logExtendedFallbackUsage(horseId, horseName, extendedRecords);
+            }
+          }
+        }
+      }
+      
+      // ❹ If still nothing after all fallbacks, mark zero and continue
       if (!records || records.length === 0) {
         console.warn(`❌ [KmTimeProcessor] NO HISTORICAL DATA - Horse ${horseName} (Post ${postPosition})`);
         console.warn(`  📊 Data check: historicalData=${!!historicalData}, horse=${!!historicalData?.horse}, results=${!!historicalData?.horse?.results}, records=${!!historicalData?.horse?.results?.records}`);
         console.warn(`  📈 Records length: ${historicalData?.horse?.results?.records?.length || 0}`);
-        console.warn(`  📊 Statistics fallback attempted: yes, found: 0 records`);
+        console.warn(`  📊 Statistics fallback attempted: yes`);
+        console.warn(`  📡 Extended fallback attempted: ${extendedDataFetched ? 'yes' : 'no'}`);
         console.warn(`  🚫 This horse will get zero time and be excluded from analysis`);
         
         HorseDebugger.log(horseId, horseName, 'NO_HISTORICAL_DATA', {
@@ -81,6 +113,7 @@ export const calculateRawKmTimesForRaceWithId = async (
           hasRecords: !!historicalData?.horse?.results?.records,
           recordsLength: historicalData?.horse?.results?.records?.length || 0,
           statisticsFallbackAttempted: true,
+          extendedFallbackAttempted: extendedDataFetched,
           statisticsRecordsFound: 0
         });
         
@@ -95,7 +128,8 @@ export const calculateRawKmTimesForRaceWithId = async (
         continue;
       }
       
-      console.log(`✅ [KmTimeProcessor] Historical data found for ${horseName}: ${records.length} records ${usingStatisticsFallback ? '(from statistics)' : ''}`);
+      const dataSourceLabel = usingExtendedFallback ? '(from extended API)' : usingStatisticsFallback ? '(from statistics)' : '';
+      console.log(`✅ [KmTimeProcessor] Historical data found for ${horseName}: ${records.length} records ${dataSourceLabel}`);
       
       // Enhanced debugging for historical data
       HorseDebugger.logHistoricalData(horseId, horseName, records);
@@ -109,10 +143,21 @@ export const calculateRawKmTimesForRaceWithId = async (
       
       const processingResult = processHistoricalRecords(records, horseName);
       const validRecords = processingResult.records;
+      
+      // Calculate combined confidence multiplier (statistics + extended fallback)
+      const sourceConfidenceMultiplier = getSourceConfidenceMultiplier(records as any);
+      const extendedConfidenceMultiplier = isExtendedFallback(records as any) 
+        ? getExtendedConfidenceMultiplier(records as any)
+        : 1.0;
+      
       const metadata = {
         ...processingResult.metadata,
-        usingStatisticsFallback,
-        dataSource: usingStatisticsFallback ? 'fallback' as const : processingResult.metadata.dataSource
+        usingStatisticsFallback: usingStatisticsFallback || usingExtendedFallback,
+        dataSource: (usingStatisticsFallback || usingExtendedFallback) ? 'fallback' as const : processingResult.metadata.dataSource,
+        confidenceMultiplier: Math.min(
+          sourceConfidenceMultiplier,
+          extendedConfidenceMultiplier
+        )
       };
       
       console.log(`📊 [KmTimeProcessor] Historical records processing for ${horseName}:`);
@@ -122,6 +167,9 @@ export const calculateRawKmTimesForRaceWithId = async (
       console.log(`   - Data source: ${metadata.dataSource.toUpperCase()}`);
       if (usingStatisticsFallback) {
         console.log(`   📊 STATISTICS FALLBACK: Using statistics.records data (limited race details)`);
+      }
+      if (usingExtendedFallback) {
+        console.log(`   📡 EXTENDED API FALLBACK: Using extended race endpoint data (confidence: ${extendedConfidenceMultiplier})`);
       }
       if (metadata.usedFallback) {
         console.log(`   🚨 TIME WINDOW FALLBACK: Using historical data (${metadata.oldestRecordDate} to ${metadata.newestRecordDate})`);
@@ -222,15 +270,19 @@ export const calculateRawKmTimesForRaceWithId = async (
     return 0;
   });
 
-  // Telemetry: Log fallback usage summary with distance breakdown
+  // Telemetry: Log fallback usage summary
   const totalHorses = rawKmTimes.length;
   const horsesUsingFallback = rawKmTimes.filter(h => h.usedStatisticsFallback).length;
+  const horsesWithLowConfidence = rawKmTimes.filter(h => h.confidenceMultiplier && h.confidenceMultiplier < 0.7).length;
   
   if (horsesUsingFallback > 0) {
-    console.log(`📊 [RACE FALLBACK SUMMARY] ${horsesUsingFallback}/${totalHorses} horses used statistics fallback`);
+    console.log(`📊 [RACE FALLBACK SUMMARY] ${horsesUsingFallback}/${totalHorses} horses used fallback data`);
+    if (horsesWithLowConfidence > 0) {
+      console.log(`⚠️ [CONFIDENCE WARNING] ${horsesWithLowConfidence} horses have confidence < 0.7 (extended fallback used)`);
+    }
     
     // Emit race-level telemetry for monitoring data drift
-    console.log(`[FALLBACK_RATE] ${horsesUsingFallback}/${totalHorses} used stats (${Math.round(horsesUsingFallback/totalHorses*100)}%)`);
+    console.log(`[FALLBACK_RATE] ${horsesUsingFallback}/${totalHorses} used fallback (${Math.round(horsesUsingFallback/totalHorses*100)}%)`);
   }
   
   // Invariant: Assert no horse has times but shows 0:00.0

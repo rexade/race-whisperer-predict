@@ -16,7 +16,8 @@ export interface ResultLikeRecord {
     distance?: Distance; 
     startMethod?: StartMethod; 
     year?: string;
-    source: 'statistics' | 'results';
+    source: 'statistics' | 'results' | 'extended-results' | 'extended-statistics-life' | 'extended-statistics-years' | 'extended-fallback-record';
+    isLastResort?: boolean;
   };
 }
 
