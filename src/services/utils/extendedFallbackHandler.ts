@@ -96,13 +96,14 @@ export function extractRecordsFromExtended(
   
   // 1️⃣ Try standard results.records (same as /horse/{id})
   // Normalize to 'results' source for 1.0 confidence (these are real race results)
+  // Keep provenance flag for telemetry
   if (horse.results?.records?.length) {
     if (debugLog) {
       console.log(`📄 [Extended] Found ${horse.results.records.length} results.records for ${horse.name}`);
     }
     return horse.results.records.map(r => ({
       ...r,
-      meta: { source: 'results' as const }
+      meta: { source: 'results' as const, extended: true }
     }));
   }
   
@@ -157,8 +158,7 @@ export function extractRecordsFromExtended(
       },
       track: { name: 'Unknown' },
       start: {
-        // Leave distance (meters) undefined - use meta.distance for category
-        postPosition: 1
+        // Leave empty - no reliable position data from single record
       },
       galloped: false,
       disqualified: false,
@@ -167,7 +167,8 @@ export function extractRecordsFromExtended(
         isLastResort: true,
         code: horse.record.code,
         startMethod: startMethod,
-        distance: undefined // Can't reliably map meters to category from single record
+        distance: undefined, // Can't reliably map meters to category from single record
+        extended: true
       }
     });
   }
@@ -180,6 +181,7 @@ export function extractRecordsFromExtended(
  */
 export function isExtendedFallback(records: ResultLikeRecord[]): boolean {
   return records.some(r => 
+    r.meta?.extended === true ||
     r.meta?.source?.startsWith('extended-') || 
     r.meta?.isLastResort === true
   );
@@ -220,6 +222,7 @@ export function logExtendedFallbackUsage(
 ): void {
   if (isExtendedFallback(records)) {
     const isLastResort = records.some(r => r.meta?.isLastResort === true);
+    const hasRealResults = records.some(r => r.meta?.source === 'results' && r.meta?.extended === true);
     
     if (isLastResort) {
       HorseDebugger.log(
@@ -229,10 +232,24 @@ export function logExtendedFallbackUsage(
         {
           recordCount: records.length,
           source: 'horse.record.time',
-          confidence: 0.5
+          confidence: 0.5,
+          fallbackType: 'last-resort'
         }
       );
       console.log(`📡 [EXTENDED Fallback] ${horseName}: used horse.record.time (confidence: 0.5)`);
+    } else if (hasRealResults) {
+      HorseDebugger.log(
+        horseId,
+        horseName,
+        'EXTENDED_API_USED',
+        {
+          recordCount: records.length,
+          source: 'extended.results.records',
+          confidence: 1.0,
+          fallbackType: 'real-results-via-extended'
+        }
+      );
+      console.log(`📡 [EXTENDED Source] ${horseName}: used real results from extended endpoint (confidence: 1.0)`);
     } else {
       HorseDebugger.log(
         horseId,
@@ -241,10 +258,11 @@ export function logExtendedFallbackUsage(
         {
           recordCount: records.length,
           sources: records.map(r => r.meta?.source).filter(Boolean),
-          confidence: 0.7
+          confidence: 0.7,
+          fallbackType: 'statistics-via-extended'
         }
       );
-      console.log(`📡 [EXTENDED Fallback] ${horseName}: used extended API data (confidence: 0.7)`);
+      console.log(`📡 [EXTENDED Fallback] ${horseName}: used extended API statistics (confidence: 0.7)`);
     }
   }
 }
@@ -257,11 +275,13 @@ export function getExtendedBreakdown(records: ResultLikeRecord[]): {
   extendedRecords: number;
   lastResortRecords: number;
   regularRecords: number;
+  realResultsViaExtended: number;
 } {
   return {
     totalRecords: records.length,
-    extendedRecords: records.filter(r => r.meta?.source?.startsWith('extended-')).length,
+    extendedRecords: records.filter(r => r.meta?.extended === true).length,
     lastResortRecords: records.filter(r => r.meta?.isLastResort === true).length,
-    regularRecords: records.filter(r => !r.meta?.source?.startsWith('extended-')).length
+    regularRecords: records.filter(r => !r.meta?.extended).length,
+    realResultsViaExtended: records.filter(r => r.meta?.source === 'results' && r.meta?.extended === true).length
   };
 }

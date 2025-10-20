@@ -18,6 +18,7 @@ export interface ResultLikeRecord {
     year?: string;
     source: 'statistics' | 'results' | 'extended-results' | 'extended-statistics-life' | 'extended-statistics-years' | 'extended-fallback-record';
     isLastResort?: boolean;
+    extended?: boolean; // Provenance flag: came from extended endpoint
   };
 }
 
