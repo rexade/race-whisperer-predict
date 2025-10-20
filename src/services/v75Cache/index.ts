@@ -1,7 +1,6 @@
 
 import { RawTimesCache } from './rawTimesCache';
 import { RaceAnalysisCache } from './raceAnalysisCache';
-import { LegacyMethods } from './legacyMethods';
 
 export * from './types';
 
@@ -75,18 +74,5 @@ export class V75CacheService {
 
   static async hasPredictionsForDate(date: string): Promise<boolean> {
     return RaceAnalysisCache.hasPredictionsForDate(date);
-  }
-
-  // Legacy Methods (Deprecated)
-  static async storeAnalysis(): Promise<void> {
-    return LegacyMethods.storeAnalysis();
-  }
-
-  static async getAnalysis(): Promise<null> {
-    return LegacyMethods.getAnalysis();
-  }
-
-  static clearAnalysis(date: string): void {
-    return LegacyMethods.clearAnalysis(date);
   }
 }
