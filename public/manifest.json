@@ -1,0 +1,40 @@
+{
+  "name": "TrotAnalyzer - V75 Race Analysis",
+  "short_name": "TrotAnalyzer",
+  "description": "Advanced V75 race analysis with intelligent caching and modern normalization algorithms",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#8b5cf6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/placeholder.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/placeholder.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["sports", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Analyze Today",
+      "short_name": "Today",
+      "description": "Analyze today's V75 races",
+      "url": "/?date=today",
+      "icons": [{ "src": "/placeholder.svg", "sizes": "96x96" }]
+    }
+  ]
+}
+
