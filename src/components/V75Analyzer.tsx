@@ -102,20 +102,35 @@ const V75Analyzer: React.FC = () => {
   return (
     <DebugErrorBoundary>
       {/* Sticky top bar */}
-      <div className="sticky top-0 z-30 bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-        <div className="mx-auto max-w-7xl px-3 sm:px-4 py-2 flex items-center gap-2">
-          <div className="flex items-center gap-2">
-            <Trophy className="h-5 w-5" />
-            <div className="text-sm sm:text-base font-medium">V85 Analyzer</div>
+      <div className="sticky top-0 z-30 bg-card/70 backdrop-blur-xl supports-[backdrop-filter]:bg-card/50 border-b border-border/50 shadow-sm animate-fade-in">
+        <div className="mx-auto max-w-7xl px-3 sm:px-4 py-3 flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="relative">
+              <Trophy className="h-5 w-5 text-primary" />
+              <div className="absolute inset-0 bg-primary/20 blur-md -z-10" />
+            </div>
+            <div className="text-sm sm:text-base font-semibold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+              V85 Analyzer
+            </div>
           </div>
-          <div className="ml-auto flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowInput(true)}>
-              <CalendarIcon className="h-4 w-4 mr-1" />
+          <div className="ml-auto flex items-center gap-2 flex-wrap">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowInput(true)}
+              className="shadow-sm hover:shadow-md"
+            >
+              <CalendarIcon className="h-4 w-4" />
               <span className="hidden sm:inline">{selectedDate ? format(selectedDate, "MMM d") : "Select date"}</span>
               <span className="sm:hidden">{selectedDate ? format(selectedDate, "d/M") : "Date"}</span>
             </Button>
-            <Button size="sm" onClick={handleAnalyzeV75} disabled={!selectedDate || loading}>
-              <Play className="h-4 w-4 mr-1" />
+            <Button 
+              size="sm" 
+              onClick={handleAnalyzeV75} 
+              disabled={!selectedDate || loading}
+              className="relative overflow-hidden"
+            >
+              <Play className="h-4 w-4" />
               <span className="hidden sm:inline">{loading ? "Analyzing…" : "Analyze"}</span>
               <span className="sm:hidden">Go</span>
             </Button>
@@ -125,14 +140,27 @@ const V75Analyzer: React.FC = () => {
                 size="sm" 
                 onClick={() => exportV75ToExcel(v75Results, analysisDate)}
                 title="Export to Excel"
+                className="shadow-sm hover:shadow-md"
               >
                 <Download className="h-4 w-4" />
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => setShowWeights((v) => !v)} title="Weights">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowWeights((v) => !v)} 
+              title="Weights"
+              className="shadow-sm hover:shadow-md"
+            >
               <Settings2 className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => setShowCacheManager((v) => !v)} title="Cache">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setShowCacheManager((v) => !v)} 
+              title="Cache"
+              className="hover:bg-accent/50"
+            >
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
@@ -141,7 +169,7 @@ const V75Analyzer: React.FC = () => {
 
       {/* Progress strip */}
       {loading && (
-        <div className="mx-auto max-w-7xl px-3 sm:px-4 py-2 border-b">
+        <div className="mx-auto max-w-7xl px-3 sm:px-4 py-3 border-b border-border/50 bg-muted/30 animate-slide-in">
           <ProgressStrip progress={progress} label={currentTask || "Analyzing…"} />
         </div>
       )}
