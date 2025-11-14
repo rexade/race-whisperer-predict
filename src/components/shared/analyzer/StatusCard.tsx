@@ -13,27 +13,27 @@ const StatusCard: React.FC<StatusCardProps> = ({ type, title, children }) => {
     switch (type) {
       case 'success':
         return {
-          bg: 'bg-green-50 border-green-200',
-          icon: <CheckCircle className="h-5 w-5 text-green-600" />,
-          titleColor: 'text-green-800'
+          bg: 'bg-success/10 dark:bg-success/20 border-success/30 dark:border-success/40',
+          icon: <CheckCircle className="h-5 w-5 text-success" />,
+          titleColor: 'text-success dark:text-success'
         };
       case 'warning':
         return {
-          bg: 'bg-yellow-50 border-yellow-200',
-          icon: <AlertCircle className="h-5 w-5 text-yellow-600" />,
-          titleColor: 'text-yellow-800'
+          bg: 'bg-warning/10 dark:bg-warning/20 border-warning/30 dark:border-warning/40',
+          icon: <AlertCircle className="h-5 w-5 text-warning" />,
+          titleColor: 'text-warning dark:text-warning'
         };
       case 'error':
         return {
-          bg: 'bg-red-50 border-red-200',
-          icon: <XCircle className="h-5 w-5 text-red-600" />,
-          titleColor: 'text-red-800'
+          bg: 'bg-destructive/10 dark:bg-destructive/20 border-destructive/30 dark:border-destructive/40',
+          icon: <XCircle className="h-5 w-5 text-destructive" />,
+          titleColor: 'text-destructive dark:text-destructive'
         };
       case 'info':
         return {
-          bg: 'bg-blue-50 border-blue-200',
-          icon: <AlertCircle className="h-5 w-5 text-blue-600" />,
-          titleColor: 'text-blue-800'
+          bg: 'bg-primary/10 dark:bg-primary/20 border-primary/30 dark:border-primary/40',
+          icon: <AlertCircle className="h-5 w-5 text-primary" />,
+          titleColor: 'text-primary dark:text-primary'
         };
     }
   };
@@ -46,7 +46,9 @@ const StatusCard: React.FC<StatusCardProps> = ({ type, title, children }) => {
         {styles.icon}
         <h3 className={`font-semibold ${styles.titleColor}`}>{title}</h3>
       </div>
-      {children}
+      <div className="text-foreground dark:text-foreground">
+        {children}
+      </div>
     </div>
   );
 };

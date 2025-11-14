@@ -18,20 +18,20 @@ const V75Summary: React.FC<V75SummaryProps> = ({ races, analysisDate }) => {
 
   return (
     <StatusCard type="success" title="V85 Analysis Complete">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-foreground">
         <div>
-          <strong>Date:</strong> {analysisDate}
+          <strong className="font-medium">Date:</strong> <span className="text-muted-foreground">{analysisDate}</span>
         </div>
         <div>
-          <strong>Races:</strong> {successfulRaces}/{races.length}
+          <strong className="font-medium">Races:</strong> <span className="text-muted-foreground">{successfulRaces}/{races.length}</span>
         </div>
         <div>
-          <strong>Horses:</strong> {totalHorsesAnalyzed}
+          <strong className="font-medium">Horses:</strong> <span className="text-muted-foreground">{totalHorsesAnalyzed}</span>
         </div>
         <div>
-          <strong>Status:</strong> 
-          <span className={successfulRaces === races.length ? "text-green-600" : "text-yellow-600"}>
-            {" "}{successfulRaces === races.length ? "Complete" : "Partial"}
+          <strong className="font-medium">Status:</strong> 
+          <span className={successfulRaces === races.length ? "text-success ml-1" : "text-warning ml-1"}>
+            {successfulRaces === races.length ? "Complete" : "Partial"}
           </span>
         </div>
       </div>
