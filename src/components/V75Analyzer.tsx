@@ -7,6 +7,7 @@ import { PostPositionCurves, getDefaultPostPositionCurves } from "./PostPosition
 import ProgressIndicator from "./modernAnalyzer/ProgressIndicator";
 import ErrorDisplay from "./modernAnalyzer/ErrorDisplay";
 import DebugErrorBoundary from "./DebugErrorBoundary";
+import ThemeToggle from "./ThemeToggle";
 import { useV75Analysis } from "./v75/hooks/useV75Analysis";
 import { useRockSolidDebugger } from "./v75/hooks/useRockSolidDebugger";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
@@ -101,76 +102,83 @@ const V75Analyzer: React.FC = () => {
 
   return (
     <DebugErrorBoundary>
-      {/* Sticky top bar */}
-      <div className="sticky top-0 z-30 bg-card/70 backdrop-blur-xl supports-[backdrop-filter]:bg-card/50 border-b border-border/50 shadow-sm animate-fade-in">
-        <div className="mx-auto max-w-7xl px-3 sm:px-4 py-3 flex items-center gap-2">
-          <div className="flex items-center gap-2.5">
-            <div className="relative">
+      {/* Clean minimal toolbar */}
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border/50">
+        <div className="container mx-auto px-4 sm:px-6">
+          <div className="flex items-center justify-between h-14 gap-2 sm:gap-4">
+            {/* Left: Minimal branding */}
+            <div className="flex items-center gap-2 flex-shrink-0">
               <Trophy className="h-5 w-5 text-primary" />
-              <div className="absolute inset-0 bg-primary/20 blur-md -z-10" />
+              <span className="text-sm font-medium text-foreground hidden sm:inline">TrotAnalyzer</span>
             </div>
-            <div className="text-sm sm:text-base font-semibold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-              V85 Analyzer
-            </div>
-          </div>
-          <div className="ml-auto flex items-center gap-2 flex-wrap">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setShowInput(true)}
-              className="shadow-sm hover:shadow-md"
-            >
-              <CalendarIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">{selectedDate ? format(selectedDate, "MMM d") : "Select date"}</span>
-              <span className="sm:hidden">{selectedDate ? format(selectedDate, "d/M") : "Date"}</span>
-            </Button>
-            <Button 
-              size="sm" 
-              onClick={handleAnalyzeV75} 
-              disabled={!selectedDate || loading}
-              className="relative overflow-hidden"
-            >
-              <Play className="h-4 w-4" />
-              <span className="hidden sm:inline">{loading ? "Analyzing…" : "Analyze"}</span>
-              <span className="sm:hidden">Go</span>
-            </Button>
-            {v75Results.length > 0 && (
+
+            {/* Center: Main actions */}
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-1 justify-center max-w-2xl min-w-0">
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => exportV75ToExcel(v75Results, analysisDate)}
-                title="Export to Excel"
-                className="shadow-sm hover:shadow-md"
+                onClick={() => setShowInput(true)}
+                className="flex-shrink-0 h-8 sm:h-9"
               >
-                <Download className="h-4 w-4" />
+                <CalendarIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">{selectedDate ? format(selectedDate, "MMM d") : "Select date"}</span>
+                <span className="sm:hidden text-xs">{selectedDate ? format(selectedDate, "d/M") : "Date"}</span>
               </Button>
-            )}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setShowWeights((v) => !v)} 
-              title="Weights"
-              className="shadow-sm hover:shadow-md"
-            >
-              <Settings2 className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={() => setShowCacheManager((v) => !v)} 
-              title="Cache"
-              className="hover:bg-accent/50"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+              <Button 
+                size="sm" 
+                onClick={handleAnalyzeV75} 
+                disabled={!selectedDate || loading}
+                className="flex-shrink-0 h-8 sm:h-9"
+              >
+                <Play className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline text-sm">{loading ? "Analyzing…" : "Analyze"}</span>
+                <span className="sm:hidden text-xs">Go</span>
+              </Button>
+              {v75Results.length > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => exportV75ToExcel(v75Results, analysisDate)}
+                  title="Export to Excel"
+                  className="flex-shrink-0 h-8 sm:h-9"
+                >
+                  <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                </Button>
+              )}
+            </div>
+
+            {/* Right: Settings & Theme */}
+            <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setShowWeights((v) => !v)} 
+                title="Weights"
+                className="h-8 w-8 sm:h-9 sm:w-9"
+              >
+                <Settings2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setShowCacheManager((v) => !v)} 
+                title="Cache"
+                className="h-8 w-8 sm:h-9 sm:w-9"
+              >
+                <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </Button>
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </div>
 
       {/* Progress strip */}
       {loading && (
-        <div className="mx-auto max-w-7xl px-3 sm:px-4 py-3 border-b border-border/50 bg-muted/30 animate-slide-in">
-          <ProgressStrip progress={progress} label={currentTask || "Analyzing…"} />
+        <div className="border-b border-border/50 bg-muted/30">
+          <div className="container mx-auto px-4 sm:px-6 py-2">
+            <ProgressStrip progress={progress} label={currentTask || "Analyzing…"} />
+          </div>
         </div>
       )}
 
