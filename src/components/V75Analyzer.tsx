@@ -3,6 +3,7 @@ import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Trophy, CalendarIcon, Settings2, Trash2, Play, Download } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
+import V75DatePicker from "./v75/V75DatePicker";
 import { PostPositionCurves, getDefaultPostPositionCurves } from "./PostPositionCurveEditor";
 import ProgressIndicator from "./modernAnalyzer/ProgressIndicator";
 import ErrorDisplay from "./modernAnalyzer/ErrorDisplay";
@@ -114,16 +115,12 @@ const V75Analyzer: React.FC = () => {
 
             {/* Center: Main actions */}
             <div className="flex items-center gap-1.5 sm:gap-2 flex-1 justify-center max-w-2xl min-w-0">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setShowInput(true)}
-                className="flex-shrink-0 h-8 sm:h-9"
-              >
-                <CalendarIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">{selectedDate ? format(selectedDate, "MMM d") : "Select date"}</span>
-                <span className="sm:hidden text-xs">{selectedDate ? format(selectedDate, "d/M") : "Date"}</span>
-              </Button>
+              <div className="flex-shrink-0">
+                <V75DatePicker
+                  selectedDate={selectedDate}
+                  onDateSelect={setSelectedDate}
+                />
+              </div>
               <Button 
                 size="sm" 
                 onClick={handleAnalyzeV75} 
