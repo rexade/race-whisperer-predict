@@ -20,7 +20,8 @@ import {
   calculateStartPointsAdjustmentFieldAware,
   calculatePlacePercentageAdjustment,
   calculateHorseWinPercentageAdjustment,
-  calculateEarningsPerStartAdjustment
+  calculateEarningsPerStartAdjustment,
+  calculateFormAdjustment
 } from './performanceCalculators';
 import {
   calculateDistanceAdjustment,
@@ -130,7 +131,12 @@ export const applyModernKmNormalization = (
     factors.raceTrack
   ) * weights.trackFamiliarity;
   
-  adjustments.form = 0 * weights.form; // Placeholder
+  // Calculate form adjustment based on recent race performance
+  const rawFormAdjustment = calculateFormAdjustment(
+    factors.recentRaces,
+    factors.horseWinPercentage
+  );
+  adjustments.form = rawFormAdjustment * weights.form;
   
   adjustments.distance = calculateDistanceAdjustment(
     factors.distance,
@@ -198,6 +204,7 @@ export const applyModernKmNormalization = (
   console.log(`  Race Distance Adjustment (${factors.raceDistance}m): ${adjustments.raceDistanceAdjustment.toFixed(3)}s`);
   console.log(`  Track Familiarity: ${adjustments.track.toFixed(3)}s`);
   console.log(`  Volte Start Penalty: ${adjustments.volteStartDistancePenalty.toFixed(3)}s`);
+  console.log(`  Form (Recent): ${adjustments.form.toFixed(3)}s`);
   console.log(`  Start Points: ${adjustments.startPoints.toFixed(3)}s`);
   console.log(`  Place %: ${adjustments.placePercentage.toFixed(3)}s`);
   console.log(`  Horse Win %: ${adjustments.horseWinPercentage.toFixed(3)}s`);

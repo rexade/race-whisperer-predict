@@ -45,6 +45,8 @@ export interface ModernNormalizationFactors {
   earningsPerStart: number;
   // Field-aware adjustment support
   fieldStartPoints?: number[];
+  // Recent race results for form calculation
+  recentRaces?: Array<{ place: number; date: string }>;
 }
 
 export interface NormalizationWeights {
