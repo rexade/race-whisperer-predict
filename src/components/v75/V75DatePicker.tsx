@@ -28,17 +28,15 @@ const V75DatePicker: React.FC<V75DatePickerProps> = ({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
+          size="sm"
           className={cn(
-            "w-full justify-start text-left font-normal",
+            "h-8 sm:h-9 justify-start text-left font-normal flex-shrink-0",
             !selectedDate && "text-muted-foreground"
           )}
         >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {selectedDate ? (
-            format(selectedDate, "PPP")
-          ) : (
-            <span>Select date</span>
-          )}
+          <CalendarIcon className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          <span className="hidden sm:inline">{selectedDate ? format(selectedDate, "MMM d") : "Select date"}</span>
+          <span className="sm:hidden text-xs">{selectedDate ? format(selectedDate, "d/M") : "Date"}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
