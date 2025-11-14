@@ -39,7 +39,8 @@ export const processHorseResults = async (
       rawKmTime,
       extractedData,
       weights,
-      postPositionCurves
+      postPositionCurves,
+      rawTimeData // Pass raw time data for form calculation
     );
 
     console.log(`  - Generated normalized result: ${!!modernNormalizedResult}`);

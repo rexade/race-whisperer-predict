@@ -72,7 +72,8 @@ export const applyHorseNormalization = (
   rawKmTime: KmTime | undefined,
   extractedData: ExtractedHorseData,
   weights: NormalizationWeights,
-  postPositionCurves?: PostPositionCurves
+  postPositionCurves?: PostPositionCurves,
+  rawTimeData?: { allTimes?: Array<{ raceDate: string; finishOrder?: number }> }
 ) => {
   console.log(`🔍 STRICT NORMALIZATION - Horse ${horse.horseId} (${extractedData.safeHorseName}):`);
   console.log(`  - Has raw KM time: ${!!rawKmTime}`);
@@ -129,6 +130,19 @@ export const applyHorseNormalization = (
     
     const fallbackTime = createFallbackKmTime(horse, race, extractedData);
     
+    // Extract recent races for form calculation (even for fallback, though it may be empty)
+    let recentRaces: Array<{ place: number; date: string }> | undefined;
+    if (rawTimeData?.allTimes && rawTimeData.allTimes.length > 0) {
+      recentRaces = rawTimeData.allTimes
+        .filter(t => t.finishOrder !== undefined && t.finishOrder > 0 && t.raceDate)
+        .map(t => ({
+          place: t.finishOrder!,
+          date: t.raceDate
+        }))
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 10);
+    }
+
     const factors: ModernNormalizationFactors = {
       postPosition: horse.postPosition,
       distance: horse.distance,
@@ -147,7 +161,8 @@ export const applyHorseNormalization = (
       horseWinPercentage: horse.statistics.winPercentage,
       earningsPerStart: horse.statistics.earningsPerStart,
       horseId: horse.horseId,
-      horseName: extractedData.safeHorseName
+      horseName: extractedData.safeHorseName,
+      recentRaces // Add recent races for form calculation
     };
 
     const result = applyModernKmNormalization(fallbackTime, factors, weights, postPositionCurves);
@@ -162,6 +177,23 @@ export const applyHorseNormalization = (
 
   // Process horses with actual raw KM times
   console.log(`  ✅ Processing with raw KM time: ${rawKmTime.minutes}:${rawKmTime.seconds.toString().padStart(2, '0')}.${rawKmTime.tenths}`);
+
+  // Extract recent races for form calculation
+  let recentRaces: Array<{ place: number; date: string }> | undefined;
+  if (rawTimeData?.allTimes && rawTimeData.allTimes.length > 0) {
+    recentRaces = rawTimeData.allTimes
+      .filter(t => t.finishOrder !== undefined && t.finishOrder > 0 && t.raceDate)
+      .map(t => ({
+        place: t.finishOrder!,
+        date: t.raceDate
+      }))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 10); // Take up to 10 most recent races
+    
+    if (recentRaces.length > 0) {
+      console.log(`  📊 Found ${recentRaces.length} recent races for form calculation`);
+    }
+  }
 
   const factors: ModernNormalizationFactors = {
     postPosition: horse.postPosition,
@@ -182,7 +214,8 @@ export const applyHorseNormalization = (
     horseWinPercentage: horse.statistics.winPercentage,
     earningsPerStart: horse.statistics.earningsPerStart,
     horseId: horse.horseId,
-    horseName: extractedData.safeHorseName
+    horseName: extractedData.safeHorseName,
+    recentRaces // Add recent races for form calculation
   };
 
   const result = applyModernKmNormalization(rawKmTime, factors, weights, postPositionCurves);
