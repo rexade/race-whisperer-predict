@@ -75,7 +75,7 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   sulkyType: 0.5,
   driverPerformance: 1.4,     // driver matters, especially in starts/trips
   trackFamiliarity: 0.6,
-  form: 1.0,                  // recent raw form (but keep moderate)
+  form: 0.5,                  // recent raw form - reduced to prevent extreme adjustments
   distanceAdjustment: 0.8,    // horse's preferred distance vs race distance
   raceDistanceAdjustment: 1.0,// global course length effect from 2140 reference
   volteStartDistancePenalty: 1.1, // standing start/extra distance hurts

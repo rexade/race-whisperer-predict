@@ -213,10 +213,10 @@ export const calculateFormAdjustment = (
     const averageForm = totalWeight > 0 ? formScore / totalWeight : 0;
     
     // Convert form score to time adjustment
-    // -1.0 (perfect recent form) → -0.15s (faster)
+    // -1.0 (perfect recent form) → -0.05s (faster) - reduced from -0.15s
     // 0.0 (neutral form) → 0s
-    // +0.6 (poor recent form) → +0.10s (slower)
-    const adjustment = averageForm * 0.15; // Scale factor
+    // +0.6 (poor recent form) → +0.03s (slower) - reduced from +0.10s
+    const adjustment = averageForm * 0.05; // Reduced scale factor from 0.15 to 0.05
     
     console.log(`📊 Form adjustment (recent races): ${sortedRaces.length} races analyzed → ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(3)}s`);
     if (sortedRaces.length > 0) {

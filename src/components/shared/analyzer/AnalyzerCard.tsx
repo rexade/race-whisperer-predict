@@ -7,7 +7,7 @@ interface AnalyzerCardProps {
   title?: string;
   description?: string;
   icon?: React.ReactNode;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   className?: string;
 }
 
@@ -18,13 +18,17 @@ const AnalyzerCard: React.FC<AnalyzerCardProps> = ({
   children, 
   className = "" 
 }) => {
+  const hasChildren = children && React.Children.count(children) > 0;
+  
   return (
     <Card className={`border-0 shadow-none sm:border sm:shadow-lg hover:shadow-xl transition-all duration-300 animate-fade-in ${className}`}>
       <SectionHeader title={title} subtitle={description} icon={icon} />
       
-      <CardContent className="px-0 py-3 sm:px-6 sm:py-6 space-y-3 sm:space-y-6">
-        {children}
-      </CardContent>
+      {hasChildren && (
+        <CardContent className="px-0 py-3 sm:px-6 sm:py-6 space-y-3 sm:space-y-6">
+          {children}
+        </CardContent>
+      )}
     </Card>
   );
 };

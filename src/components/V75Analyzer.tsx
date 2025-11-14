@@ -20,7 +20,6 @@ import AnalyzerCard from "./shared/analyzer/AnalyzerCard";
 import ProgressStrip from "./shared/ProgressStrip";
 
 // V75-specific components
-import V75Input from "./v75/components/V75Input";
 import V75Summary from "./v75/components/V75Summary";
 
 // Lazy load heavy components for better performance
@@ -180,40 +179,32 @@ const V75Analyzer: React.FC = () => {
       )}
 
       <AnalyzerLayout>
-        {/* Header - only show full card when no results or showing input */}
-        {(showInput || error) && (
+        {/* Welcome card - only show when no results and no error */}
+        {showInput && !error && v75Results.length === 0 && (
           <AnalyzerCard
-            title={showInput ? "V85 Multi-Race Analyzer" : undefined}
-            description={showInput ? "Analyze all 8 races in a V85 day with advanced RAW time normalization and intelligent caching" : undefined}
-            icon={showInput ? <Trophy className="h-6 w-6" /> : undefined}
-          >
-            {/* Date Selection */}
-            {showInput ? (
-              <V75Input
-                selectedDate={selectedDate}
-                onDateSelect={setSelectedDate}
-                onAnalyze={handleAnalyzeV75}
-                loading={loading}
-              />
-            ) : null}
+            title="V85 Multi-Race Analyzer"
+            description="Analyze all 8 races in a V85 day with advanced RAW time normalization and intelligent caching. Select a date in the toolbar above to get started."
+            icon={<Trophy className="h-6 w-6" />}
+          />
+        )}
 
-            {/* Error */}
-            {error && (
-              <div className="space-y-3">
-                <ErrorDisplay error={error} />
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => {
-                      clearError();
-                      setShowInput(true);
-                    }}
-                    className="text-sm text-blue-600 hover:text-blue-800 underline px-3 py-1"
-                  >
-                    Try Again
-                  </button>
-                </div>
+        {/* Error display */}
+        {error && (
+          <AnalyzerCard>
+            <div className="space-y-3">
+              <ErrorDisplay error={error} />
+              <div className="flex justify-end">
+                <button
+                  onClick={() => {
+                    clearError();
+                    setShowInput(true);
+                  }}
+                  className="text-sm text-primary hover:text-primary/80 underline px-3 py-1"
+                >
+                  Try Again
+                </button>
               </div>
-            )}
+            </div>
           </AnalyzerCard>
         )}
 
