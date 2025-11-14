@@ -289,17 +289,17 @@ const WeightManager: React.FC<WeightManagerProps> = ({
   ];
 
   return (
-    <Card className="border-blue-200">
+    <Card className="border-primary/20 dark:border-primary/30">
       <CardHeader 
-        className="cursor-pointer bg-gradient-to-r from-blue-50 to-indigo-50"
+        className="cursor-pointer bg-gradient-to-r from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/20"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <CardTitle className="flex items-center justify-between text-blue-800">
+        <CardTitle className="flex items-center justify-between text-foreground">
           <div className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
+            <Settings className="h-5 w-5 text-primary" />
             Enhanced Normalization Weights
           </div>
-          <Badge variant="outline" className="border-blue-300">
+          <Badge variant="outline" className="border-border">
             {isExpanded ? 'Collapse' : 'Expand'}
           </Badge>
         </CardTitle>
@@ -318,9 +318,9 @@ const WeightManager: React.FC<WeightManagerProps> = ({
             
             <TabsContent value="weights" className="space-y-6 mt-6">
               <div className="flex justify-between items-start gap-4">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Adjust the weights to control how much each factor affects the final normalized time. 
-                  <span className="font-medium text-blue-600">New: Performance metrics baseline adjustments!</span>
+                  <span className="font-medium text-primary">New: Performance metrics baseline adjustments!</span>
                 </p>
                 <div className="flex flex-col gap-2">
                   <div className="flex gap-2">
@@ -383,10 +383,10 @@ const WeightManager: React.FC<WeightManagerProps> = ({
                     onOpenChange={() => toggleCategory(category.id)}
                   >
                     <CollapsibleTrigger className="w-full">
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors">
                         <div className="text-left">
-                          <h3 className="font-medium text-gray-900">{category.title}</h3>
-                          <p className="text-sm text-gray-500">{category.description}</p>
+                          <h3 className="font-medium text-foreground">{category.title}</h3>
+                          <p className="text-sm text-muted-foreground">{category.description}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-xs">
@@ -401,21 +401,21 @@ const WeightManager: React.FC<WeightManagerProps> = ({
                       </div>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="mt-3">
-                      <div className="space-y-4 pl-4 border-l-2 border-gray-200">
+                      <div className="space-y-4 pl-4 border-l-2 border-border">
                         {category.factors.map((factor) => (
-                          <div key={factor.key} className="space-y-3 bg-white p-4 rounded-lg border border-gray-100">
+                          <div key={factor.key} className="space-y-3 bg-card p-4 rounded-lg border border-border">
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
                                 <Label className="font-medium flex items-center gap-2">
                                   {factor.label}
                                   {factor.isNew && (
-                                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">NEW</Badge>
+                                    <Badge variant="secondary" className="text-xs bg-green-500/20 text-green-700 dark:text-green-400">NEW</Badge>
                                   )}
                                 </Label>
-                                <p className="text-xs text-gray-500 mt-1">{factor.description}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{factor.description}</p>
                                 <div className="flex items-center gap-2 mt-1">
-                                  <Info className="h-3 w-3 text-blue-500" />
-                                  <span className="text-xs text-blue-600">{factor.baseEffect}</span>
+                                  <Info className="h-3 w-3 text-primary" />
+                                  <span className="text-xs text-primary">{factor.baseEffect}</span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
@@ -441,7 +441,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({
                               step={0.1}
                               className="w-full"
                             />
-                            <div className="flex justify-between text-xs text-gray-400">
+                            <div className="flex justify-between text-xs text-muted-foreground">
                               <span>0.0 (No impact)</span>
                               <span>2.0 (Max impact)</span>
                             </div>
@@ -453,13 +453,13 @@ const WeightManager: React.FC<WeightManagerProps> = ({
                 ))}
               </div>
               
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="font-medium text-blue-800 mb-2">Enhanced Weight Summary</h4>
+              <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30 rounded-lg p-4">
+                <h4 className="font-medium text-foreground mb-2">Enhanced Weight Summary</h4>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   {weightCategories.flatMap(category => category.factors).map((factor) => (
                     <div key={factor.key} className="flex justify-between">
-                      <span className="text-blue-700">{factor.label}:</span>
-                      <span className="font-mono font-medium">{weights[factor.key].toFixed(1)}</span>
+                      <span className="text-foreground">{factor.label}:</span>
+                      <span className="font-mono font-medium text-primary">{weights[factor.key].toFixed(1)}</span>
                     </div>
                   ))}
                 </div>
@@ -473,8 +473,8 @@ const WeightManager: React.FC<WeightManagerProps> = ({
                   onCurvesChange={onPostPositionCurvesChange}
                 />
               ) : (
-                <div className="text-center p-8 text-gray-500">
-                  <TrendingUp className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <div className="text-center p-8 text-muted-foreground">
+                  <TrendingUp className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
                   <p>Post position curve editing not available.</p>
                   <p className="text-sm mt-2">This feature requires additional configuration.</p>
                 </div>
