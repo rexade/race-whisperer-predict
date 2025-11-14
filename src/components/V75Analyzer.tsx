@@ -1,9 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Trophy, CalendarIcon, Settings2, Trash2, Play, Download } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import WeightManager from "./WeightManager";
 import { PostPositionCurves, getDefaultPostPositionCurves } from "./PostPositionCurveEditor";
 import ProgressIndicator from "./modernAnalyzer/ProgressIndicator";
 import ErrorDisplay from "./modernAnalyzer/ErrorDisplay";
@@ -21,8 +20,11 @@ import ProgressStrip from "./shared/ProgressStrip";
 // V75-specific components
 import V75Input from "./v75/components/V75Input";
 import V75Summary from "./v75/components/V75Summary";
-import V75Results from "./v75/components/V75Results";
-import V75CacheManager from "./v75/components/V75CacheManager";
+
+// Lazy load heavy components for better performance
+const V75Results = lazy(() => import("./v75/components/V75Results"));
+const V75CacheManager = lazy(() => import("./v75/components/V75CacheManager"));
+const WeightManager = lazy(() => import("./WeightManager"));
 
 const V75Analyzer: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
@@ -190,29 +192,35 @@ const V75Analyzer: React.FC = () => {
         {/* Cache Manager */}
         {showCacheManager && (
           <DebugErrorBoundary>
-            <V75CacheManager />
+            <Suspense fallback={<div className="p-4 text-center text-muted-foreground">Loading cache manager...</div>}>
+              <V75CacheManager />
+            </Suspense>
           </DebugErrorBoundary>
         )}
 
         {/* Weight Manager */}
         {v75Results.length > 0 && showWeights && (
           <DebugErrorBoundary>
-            <WeightManager 
-              weights={weights} 
-              onWeightsChange={setWeights}
-              postPositionCurves={postPositionCurves}
-              onPostPositionCurvesChange={setPostPositionCurves}
-            />
+            <Suspense fallback={<div className="p-4 text-center text-muted-foreground">Loading weights...</div>}>
+              <WeightManager 
+                weights={weights} 
+                onWeightsChange={setWeights}
+                postPositionCurves={postPositionCurves}
+                onPostPositionCurvesChange={setPostPositionCurves}
+              />
+            </Suspense>
           </DebugErrorBoundary>
         )}
 
         {/* Results */}
         {v75Results.length > 0 && (
-          <V75Results
-            races={v75Results}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-          />
+          <Suspense fallback={<div className="p-4 text-center text-muted-foreground">Loading results...</div>}>
+            <V75Results
+              races={v75Results}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+            />
+          </Suspense>
         )}
       </AnalyzerLayout>
     </DebugErrorBoundary>
