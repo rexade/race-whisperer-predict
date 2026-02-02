@@ -249,27 +249,7 @@ export const fetchRaceDataForGame = async (
   return v75Races.sort((a, b) => a.raceNumber - b.raceNumber);
 };
 
-/**
- * Fetch V75 race data using the game info and individual race endpoints
- * Kept for backward compatibility but now uses fetchRaceDataForGame
- */
-export const fetchV75RaceData = async (date: string): Promise<V75RaceData[]> => {
-  try {
-    // First, get the V75 game info to identify the race IDs
-    const gameInfo = await fetchV75GameInfo(date);
 
-    if (!gameInfo) {
-      log.debug(`❌ No ${TARGET_GAME} game found for ${date}`);
-      return [];
-    }
-
-    return fetchRaceDataForGame(date, gameInfo);
-
-  } catch (error) {
-    log.error('❌ Error in fetchV75RaceData:', error);
-    return [];
-  }
-};
 
 /**
  * Fetch available V75 dates for a given month

@@ -13,6 +13,7 @@ import { useV75Analysis } from "./v75/hooks/useV75Analysis";
 import { useRockSolidDebugger } from "./v75/hooks/useRockSolidDebugger";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
 import { exportV75ToExcel } from '../utils/excelExport';
+import { useGameInfo, useRaceData } from '@/queries/v75';
 
 // Shared components
 import AnalyzerLayout from "./shared/analyzer/AnalyzerLayout";
@@ -36,14 +37,22 @@ const V75Analyzer: React.FC = () => {
   const [showWeights, setShowWeights] = useState(false);
   const [showInput, setShowInput] = useState(true);
 
+  // React Query Data Fetching
+  const dateStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null;
+  const { data: gameInfo, isLoading: isLoadingGame } = useGameInfo(dateStr);
+  const { data: races, isLoading: isLoadingRaces } = useRaceData(dateStr, gameInfo);
+
+  const isDataReady = !!races && races.length > 0;
+  const isFetching = isLoadingGame || isLoadingRaces;
+
   const {
-    loading,
+    loading: isAnalyzing,
     progress,
     currentTask,
     error,
     v75Results,
     analysisDate,
-    analyzeV75Date,
+    runAnalysis,
     reanalyzeWithNewWeights,
     clearError
   } = useV75Analysis();
@@ -51,11 +60,11 @@ const V75Analyzer: React.FC = () => {
   const { isAutoDebugging, exportRockSolidReport, startFresh } = useRockSolidDebugger();
 
   const handleAnalyzeV75 = () => {
-    if (!selectedDate) return;
+    if (!selectedDate || !races || !gameInfo) return;
     clearError(); // Clear any previous errors
     setShowInput(false);
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    analyzeV75Date(dateStr, weights, postPositionCurves);
+    // Use the fetched data for analysis
+    runAnalysis(races, dateStr!, gameInfo.gameId, weights, postPositionCurves);
   };
 
   // Recalculate when weights or post position curves change
@@ -98,13 +107,13 @@ const V75Analyzer: React.FC = () => {
         }
       }
       // A to analyze
-      if (e.key.toLowerCase() === "a" && !loading && selectedDate) {
+      if (e.key.toLowerCase() === "a" && !isAnalyzing && selectedDate && isDataReady) {
         handleAnalyzeV75();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [v75Results, loading, selectedDate]);
+  }, [v75Results, isAnalyzing, selectedDate, isDataReady, races, gameInfo]);
 
   return (
     <DebugErrorBoundary>
@@ -129,11 +138,13 @@ const V75Analyzer: React.FC = () => {
               <Button
                 size="sm"
                 onClick={handleAnalyzeV75}
-                disabled={!selectedDate || loading}
+                disabled={!selectedDate || isAnalyzing || !isDataReady}
                 className="flex-shrink-0 h-8 sm:h-9"
               >
                 <Play className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline text-sm">{loading ? "Analyzing…" : "Analyze"}</span>
+                <span className="hidden sm:inline text-sm">
+                  {isAnalyzing ? "Analyzing…" : isFetching ? "Loading Data..." : "Analyze"}
+                </span>
                 <span className="sm:hidden text-xs">Go</span>
               </Button>
               {v75Results.length > 0 && (
@@ -176,7 +187,7 @@ const V75Analyzer: React.FC = () => {
       </div>
 
       {/* Progress strip */}
-      {loading && (
+      {isAnalyzing && (
         <div className="border-b border-border/50 bg-muted/30">
           <div className="container mx-auto px-4 sm:px-6 py-2">
             <ProgressStrip progress={progress} label={currentTask || "Analyzing…"} />
