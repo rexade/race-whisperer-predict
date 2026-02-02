@@ -35,7 +35,7 @@ const V75Analyzer: React.FC = () => {
   const [showCacheManager, setShowCacheManager] = useState(false);
   const [showWeights, setShowWeights] = useState(false);
   const [showInput, setShowInput] = useState(true);
-  
+
   const {
     loading,
     progress,
@@ -47,7 +47,7 @@ const V75Analyzer: React.FC = () => {
     reanalyzeWithNewWeights,
     clearError
   } = useV75Analysis();
-  
+
   const { isAutoDebugging, exportRockSolidReport, startFresh } = useRockSolidDebugger();
 
   const handleAnalyzeV75 = () => {
@@ -84,6 +84,12 @@ const V75Analyzer: React.FC = () => {
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Guard: Don't trigger if user is typing in an input
+      const target = e.target as HTMLElement;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
       // 1-8 to jump between races if results present
       if (v75Results.length > 0) {
         const n = Number(e.key);
@@ -120,9 +126,9 @@ const V75Analyzer: React.FC = () => {
                   onDateSelect={setSelectedDate}
                 />
               </div>
-              <Button 
-                size="sm" 
-                onClick={handleAnalyzeV75} 
+              <Button
+                size="sm"
+                onClick={handleAnalyzeV75}
                 disabled={!selectedDate || loading}
                 className="flex-shrink-0 h-8 sm:h-9"
               >
@@ -131,9 +137,9 @@ const V75Analyzer: React.FC = () => {
                 <span className="sm:hidden text-xs">Go</span>
               </Button>
               {v75Results.length > 0 && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => exportV75ToExcel(v75Results, analysisDate)}
                   title="Export to Excel"
                   className="flex-shrink-0 h-8 sm:h-9"
@@ -145,19 +151,19 @@ const V75Analyzer: React.FC = () => {
 
             {/* Right: Settings & Theme */}
             <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setShowWeights((v) => !v)} 
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowWeights((v) => !v)}
                 title="Weights"
                 className="h-8 w-8 sm:h-9 sm:w-9"
               >
                 <Settings2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={() => setShowCacheManager((v) => !v)} 
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowCacheManager((v) => !v)}
                 title="Cache"
                 className="h-8 w-8 sm:h-9 sm:w-9"
               >
@@ -226,8 +232,8 @@ const V75Analyzer: React.FC = () => {
         {v75Results.length > 0 && showWeights && (
           <DebugErrorBoundary>
             <Suspense fallback={<div className="p-4 text-center text-muted-foreground">Loading weights...</div>}>
-              <WeightManager 
-                weights={weights} 
+              <WeightManager
+                weights={weights}
                 onWeightsChange={setWeights}
                 postPositionCurves={postPositionCurves}
                 onPostPositionCurvesChange={setPostPositionCurves}

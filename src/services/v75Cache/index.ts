@@ -10,11 +10,11 @@ export * from './types';
 export class V75CacheService {
   // Raw Times Cache Methods
   static async storeRawTimes(
-    date: string, 
-    gameId: string, 
-    raceId: string, 
+    date: string,
+    gameId: string,
+    raceId: string,
     raceNumber: number,
-    rawTimes: Array<{ horseId: number; postPosition: number; best3Average?: any }>
+    rawTimes: Array<{ horseId: number; horseName: string; postPosition: number; best3Average?: any; validTimesCount: number }>
   ): Promise<void> {
     return RawTimesCache.storeRawTimes(date, gameId, raceId, raceNumber, rawTimes);
   }

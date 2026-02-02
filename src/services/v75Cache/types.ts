@@ -1,13 +1,15 @@
 
 export interface CachedRawTime {
   horseId: number;
+  horseName: string;
   postPosition: number;
   rawKmTime?: {
     minutes: number;
     seconds: number;
     tenths: number;
   };
-  cachedAt: string;
+  validTimesCount: number;
+  updatedAt: string;
 }
 
 export interface CachedV75RawTimes {
@@ -17,6 +19,7 @@ export interface CachedV75RawTimes {
   raceNumber: number;
   rawTimes: CachedRawTime[];
   cachedAt: string;
+  schemaVersion: number;
 }
 
 export interface RaceAnalysisData {
