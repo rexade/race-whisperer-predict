@@ -14,6 +14,8 @@ import type { WorkerResponse } from '@/workers/analysis.worker';
 // @ts-ignore - Vite handles worker imports
 import AnalysisWorker from '@/workers/analysis.worker?worker';
 
+import { useAnalysisWorker } from './useAnalysisWorker';
+
 // Re-export types using 'export type'
 export type { V75HorseResult, V75RaceResult };
 
@@ -22,6 +24,7 @@ export const useV75Analysis = () => {
   const { toast } = useToast();
   const { validateAndFixRaces } = useV75DataValidation();
   const { getOrCalculateRawTimes } = useV75Cache();
+  const { start: startWorker, stop: stopWorker, run: runWorker } = useAnalysisWorker();
 
   const {
     loading,
