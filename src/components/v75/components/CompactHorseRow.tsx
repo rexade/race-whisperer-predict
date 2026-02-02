@@ -6,6 +6,7 @@ import { V75HorseResult } from '../hooks/useV75Analysis';
 import { ensureStringForDisplay, formatKmTime, formatEarnings, getShoesDisplay, getShoesColor, getSulkyDisplay } from '../utils/v75DisplayUtils';
 import { V75TimeCalculationDebug } from './V75TimeCalculationDebug';
 import { useIsMobile } from '../../../hooks/use-mobile';
+import { getLatestKmTimeDisplay } from '../../../services/kmTimeRecords';
 
 interface CompactHorseRowProps {
   horse: V75HorseResult;
@@ -19,6 +20,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
   const isTopPerformer = rank <= 3;
   const safeHorseName = ensureStringForDisplay(horse.horseName);
   const safeDriverName = ensureStringForDisplay(horse.driverName);
+  const latestKmTime = horse.kmTimeRecords?.length ? getLatestKmTimeDisplay(horse.kmTimeRecords) : null;
 
   const getRankIcon = (rank: number) => {
     if (rank === 1) return <Medal className="h-4 w-4 text-warning" />;
@@ -187,6 +189,33 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
                 {horse.statistics?.earningsPerStart > 0 ? formatEarnings(horse.statistics.earningsPerStart) : '-'}
               </span>
             </div>
+
+            {/* Km time data from Kmtime folder: show when we have any record */}
+            {latestKmTime && (latestKmTime.first200 != null || latestKmTime.last200 != null || latestKmTime.best100 != null || latestKmTime.actualKMTime != null || latestKmTime.slipstreamDistance != null) && (
+              <div
+                className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground"
+                title={`Km time: ${latestKmTime.date}${latestKmTime.raceName ? ` — ${latestKmTime.raceName}` : ''}${horse.kmTimeRecords && horse.kmTimeRecords.length > 1 ? ` (${horse.kmTimeRecords.length} races)` : ''}`}
+              >
+                {latestKmTime.first200 != null && (
+                  <span><span className="font-medium text-foreground/90">First 200:</span> {latestKmTime.first200}</span>
+                )}
+                {latestKmTime.last200 != null && (
+                  <span><span className="font-medium text-foreground/90">Last 200:</span> {latestKmTime.last200}</span>
+                )}
+                {latestKmTime.best100 != null && latestKmTime.best100 !== 'x' && (
+                  <span><span className="font-medium text-foreground/90">Best 100:</span> {latestKmTime.best100}{latestKmTime.best100start != null && latestKmTime.best100stop != null ? ` (${latestKmTime.best100start}–${latestKmTime.best100stop}m)` : ''}</span>
+                )}
+                {latestKmTime.actualKMTime != null && latestKmTime.actualKMTime !== 'N/A' && (
+                  <span><span className="font-medium text-foreground/90">Km:</span> {latestKmTime.actualKMTime}</span>
+                )}
+                {latestKmTime.actualDistanceRan != null && typeof latestKmTime.actualDistanceRan === 'number' && (
+                  <span><span className="font-medium text-foreground/90">Dist:</span> {latestKmTime.actualDistanceRan}m</span>
+                )}
+                {latestKmTime.slipstreamDistance != null && latestKmTime.slipstreamDistance !== 'N/A' && typeof latestKmTime.slipstreamDistance === 'number' && (
+                  <span><span className="font-medium text-foreground/90">Slip:</span> {latestKmTime.slipstreamDistance}m</span>
+                )}
+              </div>
+            )}
 
             {/* Home Track - Only show if different from race track */}
             {horse.homeTrack && horse.homeTrack !== horse.track && (

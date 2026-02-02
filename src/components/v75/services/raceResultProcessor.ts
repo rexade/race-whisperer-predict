@@ -1,10 +1,10 @@
-
 import { NormalizationWeights, PostPositionCurves } from '../../../services/modernKm/index';
 import { processHorseResults } from '../utils/horseResultProcessor';
 import { extractTrackNameAsString } from '../utils/dataExtraction';
 import { V75RaceResult } from '../types/raceResultTypes';
 import { HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 import { RaceScoreCalculator } from './raceScoreCalculator';
+import { loadKmTimeRecords, getKmTimeRecordsForHorse } from '../../../services/kmTimeRecords';
 
 export class RaceResultProcessor {
   /**
@@ -24,8 +24,15 @@ export class RaceResultProcessor {
     try {
       const horseResults = await processHorseResults(race, rawKmTimes, weights, analysisDate, postPositionCurves);
 
+      // Enrich with km time records (first 200m / last 200m from Kmtime folder) when horse name matches
+      const kmTimeData = await loadKmTimeRecords();
+      const horseResultsWithKmTime = horseResults.map((h) => ({
+        ...h,
+        kmTimeRecords: getKmTimeRecordsForHorse(kmTimeData, h.horseName),
+      }));
+
       // Calculate final scores and ranks for horses
-      const horsesWithScores = RaceScoreCalculator.calculateScoresAndRanks(horseResults);
+      const horsesWithScores = RaceScoreCalculator.calculateScoresAndRanks(horseResultsWithKmTime);
 
       // Calculate final scores and ranks for horses
       const analysisHorses = RaceScoreCalculator.prepareAnalysisData(horsesWithScores);

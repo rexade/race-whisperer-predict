@@ -73,7 +73,7 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   postPosition: 0.9,          // meaningful, but not decisive alone
   shoeType: 0.4,              // equipment helps, but rarely game-breaking
   sulkyType: 0.5,
-  driverPerformance: 1.4,     // driver matters, especially in starts/trips
+  driverPerformance: 1.0,     // kusk tabell ±0.30 s/km; 1.0 = visa exakt tabellvärde
   trackFamiliarity: 0.6,
   form: 0.5,                  // recent raw form - reduced to prevent extreme adjustments
   distanceAdjustment: 0.8,    // horse's preferred distance vs race distance

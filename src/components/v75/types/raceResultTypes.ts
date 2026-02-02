@@ -1,4 +1,5 @@
 import type { KmtidPerStartAnalytics } from './postRaceAnalysisTypes';
+import type { KmTimeRecordEntry } from '../../../services/kmTimeRecords';
 
 export type TimeSource = "normalized" | "best_raw" | "abroad" | "field_median" | "none";
 
@@ -57,6 +58,8 @@ export interface V75HorseResult {
   };
   /** Historical kmtid.atgx.se analytics (~2 weeks old) when available; matched by horseId for prediction view. */
   kmtidAnalytics?: KmtidPerStartAnalytics;
+  /** Km time records (first 200m / last 200m) from Kmtime folder when horse name matches. */
+  kmTimeRecords?: KmTimeRecordEntry[];
 }
 
 export interface V75RaceResult {

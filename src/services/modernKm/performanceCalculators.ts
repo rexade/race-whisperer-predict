@@ -227,16 +227,16 @@ export const calculateFormAdjustment = (
     return adjustment;
   }
   
-  // Fallback: Use win percentage as a proxy for form
+  // Fallback: Use win percentage as a proxy for form (when no recent race places available)
   if (winPercentageBasisPoints !== undefined && Number.isFinite(winPercentageBasisPoints)) {
-    const actualPercentage = winPercentageBasisPoints / 100;
-    
+    // Accept both 0–100 (e.g. 15) and basis points (e.g. 1500)
+    const actualPercentage =
+      winPercentageBasisPoints > 100 ? winPercentageBasisPoints / 100 : winPercentageBasisPoints;
+
     // Baseline: 10% win rate = neutral form
-    // Higher win % = better recent form = negative adjustment (faster)
-    // Lower win % = worse recent form = positive adjustment (slower)
     const baseline = 10;
-    const adjustment = (baseline - actualPercentage) * 0.01; // Scale: 10% above baseline = -0.1s
-    
+    const adjustment = (baseline - actualPercentage) * 0.01;
+
     console.log(`📊 Form adjustment (win % fallback): ${actualPercentage.toFixed(1)}% (baseline: ${baseline}%) → ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(3)}s`);
     return adjustment;
   }

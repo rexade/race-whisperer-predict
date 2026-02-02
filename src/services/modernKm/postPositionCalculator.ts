@@ -39,23 +39,24 @@ export const calculatePostPositionAdjustment = (
     console.log(`AUTO start position ${postPosition}: ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(3)}s adjustment${customCurves ? ' (CUSTOM)' : ' (DEFAULT)'}`);
     return adjustment;
   } else {
-    // Use custom curves if provided, otherwise use default volte adjustments
+    // Use custom curves if provided, otherwise use default VOLTE adjustments
+    // Spår 6–10: +0.10 s; spår 11–15: +0.15 s (lägg på vs inner positions)
     const volteAdjustments = customCurves?.volte || {
       1: -0.25,  // Front-line advantage
       2: -0.20,  // Good position
       3: -0.10,  // Favourable in volt start
       4: 0.00,   // Neutral
       5: 0.05,   // Slight disadvantage
-      6: 0.10,   // Wider position
-      7: 0.15,   // Outside position
-      8: 0.20,   // Widest first-line
-      9: 0.40,   // Second row start
-      10: 0.50,  // Second row start
-      11: 0.60,  // Third row start
-      12: 0.70,  // Third row start
-      13: 0.75,  // Fourth row start
-      14: 0.80,  // Fourth row start
-      15: 0.85   // Fourth row start
+      6: 0.20,   // Wider position (+0.10)
+      7: 0.25,   // Outside position (+0.10)
+      8: 0.30,   // Widest first-line (+0.10)
+      9: 0.50,   // Second row start (+0.10)
+      10: 0.60,  // Second row start (+0.10)
+      11: 0.75,  // Third row start (+0.15)
+      12: 0.85,  // Third row start (+0.15)
+      13: 0.90,  // Fourth row start (+0.15)
+      14: 0.95,  // Fourth row start (+0.15)
+      15: 1.00   // Fourth row start (+0.15)
     };
     
     const adjustment = volteAdjustments[postPosition] ?? 1.00; // Default for positions beyond 15
