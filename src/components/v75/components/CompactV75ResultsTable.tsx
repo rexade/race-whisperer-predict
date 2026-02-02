@@ -3,15 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { V75RaceResult } from '../hooks/useV75Analysis';
 import CompactHorseRow from './CompactHorseRow';
-import type { KmtidPerStartAnalytics } from '../types/postRaceAnalysisTypes';
 
 interface CompactV75ResultsTableProps {
   race: V75RaceResult;
-  /** Historical kmtid (~2 weeks old) keyed by horseId for matching upcoming-race horses */
-  kmtidByHorse?: Map<number, KmtidPerStartAnalytics> | null;
 }
 
-const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race, kmtidByHorse }) => {
+const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race }) => {
   // Sort horses by normalized time (fastest first)
   const sortedHorses = race.horses
     .filter(horse => horse.modernNormalizedResult)
@@ -57,11 +54,10 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race, k
       <CardContent className="p-0">
         <div className="space-y-1">
           {sortedHorses.map((horse, index) => (
-            <CompactHorseRow 
+            <CompactHorseRow
               key={horse.horseId}
               horse={horse}
               rank={index + 1}
-              kmtidAnalytics={kmtidByHorse?.get(horse.horseId)}
             />
           ))}
           
