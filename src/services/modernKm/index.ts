@@ -69,17 +69,16 @@ export const applyModernKmNormalization = (
     total: 0
   };
 
-  // STEP 1: The rawKmTime is already normalized to 2140m AUTO start
-  // No additional volte penalty needed - it's already applied in historical normalization
+  // STEP 1: Raw time is ALWAYS 2140m AUTO equivalent.
+  // Historical→2140m (distance + volte) is applied ONLY in horseProcessing (normalizeKmTimeSimplified).
+  // We never "normalize to 2140m" or re-apply volte here — only adjust FROM 2140m TO current race.
   let baseTime = cloneKmTime(rawKmTime);
-  
-  console.log(`Base time (already normalized to 2140m auto): ${baseTime.minutes}:${baseTime.seconds.toString().padStart(2, '0')}.${baseTime.tenths}`);
-  console.log(`Current race start method: ${factors.startMethod} (no additional volte penalty needed)`);
-  
-  // NOTE: Volte penalty was already applied during historical RAW time normalization
-  // The rawKmTime represents the horse's ability on a 2140m auto start baseline
 
-  // STEP 2: Calculate race distance adjustment (FROM 2140m reference TO actual race distance)
+  console.log(`Base time (already 2140m auto from raw): ${baseTime.minutes}:${baseTime.seconds.toString().padStart(2, '0')}.${baseTime.tenths}`);
+  console.log(`Current race: ${factors.raceDistance}m ${factors.startMethod} (no re-apply of 2140m/volte)`);
+
+  // STEP 2: Race distance adjustment FROM 2140m TO current race distance only.
+  // When current race is 2140m (±tolerance) this is 0 — raw is already 2140m.
   const raceDistanceAdjustmentValue = calculateRaceDistanceAdjustment(factors.raceDistance);
   adjustments.raceDistanceAdjustment = raceDistanceAdjustmentValue * weights.raceDistanceAdjustment;
 

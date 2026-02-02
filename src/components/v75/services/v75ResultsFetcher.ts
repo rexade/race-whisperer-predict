@@ -6,50 +6,59 @@ import { formatKmTime } from '../utils/postRaceUtils';
 import { parseActualTime, findBestTime } from '../utils/timeAnalysisUtils';
 import { log } from '@/lib/logger';
 import { IS_DEBUG } from '@/config/game';
+import type { V75GameInfo } from '@/services/v75CalendarApi';
+import { fetchRaceById } from '@/services/raceDataCache';
 
 export class V75ResultsFetcher {
-  static async fetchActualResults(date: string): Promise<V75ActualResult[]> {
+  /**
+   * Fetch actual race results for a date.
+   * When gameInfo is provided, skips calendar/day to avoid duplicate request.
+   */
+  static async fetchActualResults(
+    date: string,
+    gameInfo?: V75GameInfo | null
+  ): Promise<V75ActualResult[]> {
     log.debug(`🏁 Fetching actual ${TARGET_GAME} results for ${date}`);
 
     try {
-      // Step 1: Get games for the date using the correct calendar endpoint
-      log.debug(`📅 Step 1: Fetching ${TARGET_GAME} games for date ${date}`);
-      const calendarResponse = await fetch(`https://www.atg.se/services/racinginfo/v1/api/calendar/day/${date}`);
+      let raceIds: string[];
 
-      if (!calendarResponse.ok) {
-        throw new Error(`Failed to fetch calendar: ${calendarResponse.statusText}`);
+      if (gameInfo?.raceIds?.length) {
+        log.debug(`📅 Using provided game info (${gameInfo.raceIds.length} races), skipping calendar/day`);
+        raceIds = gameInfo.raceIds;
+      } else {
+        // Step 1: Get games for the date using the correct calendar endpoint
+        log.debug(`📅 Step 1: Fetching ${TARGET_GAME} games for date ${date}`);
+        const calendarResponse = await fetch(`https://www.atg.se/services/racinginfo/v1/api/calendar/day/${date}`);
+
+        if (!calendarResponse.ok) {
+          throw new Error(`Failed to fetch calendar: ${calendarResponse.statusText}`);
+        }
+
+        const calendarData = await calendarResponse.json();
+        log.debug('📅 Calendar response received:', {
+          date: calendarData.date,
+          hasGames: !!calendarData.games,
+          targetCount: calendarData.games?.[TARGET_GAME]?.length || 0
+        });
+
+        const v75Games = calendarData.games?.[TARGET_GAME] || [];
+        if (v75Games.length === 0) {
+          throw new Error(`No ${TARGET_GAME} games found for this date`);
+        }
+
+        const v75Game = v75Games[0];
+        if (!v75Game.races || v75Game.races.length === 0) {
+          throw new Error(`No races found in ${TARGET_GAME} game`);
+        }
+        raceIds = v75Game.races;
       }
 
-      const calendarData = await calendarResponse.json();
-      log.debug('📅 Calendar response received:', {
-        date: calendarData.date,
-        hasGames: !!calendarData.games,
-        targetCount: calendarData.games?.[TARGET_GAME]?.length || 0
-      });
-
-      // Find target games
-      const v75Games = calendarData.games?.[TARGET_GAME] || [];
-
-      if (v75Games.length === 0) {
-        throw new Error(`No ${TARGET_GAME} games found for this date`);
-      }
-
-      const v75Game = v75Games[0];
-      log.debug(`🎯 ${TARGET_GAME} Game found:`, {
-        gameId: v75Game.id,
-        raceCount: v75Game.races?.length || 0,
-        raceIds: v75Game.races
-      });
-
-      if (!v75Game.races || v75Game.races.length === 0) {
-        throw new Error(`No races found in ${TARGET_GAME} game`);
-      }
-
-      // Step 2: Fetch results for each race
+      // Step 2: Fetch results for each race (uses centralized race cache)
       const results: V75ActualResult[] = [];
 
-      for (let i = 0; i < v75Game.races.length; i++) {
-        const raceId = v75Game.races[i];
+      for (let i = 0; i < raceIds.length; i++) {
+        const raceId = raceIds[i];
         log.debug(`🏇 Step 2.${i + 1}: Fetching results for race ${raceId}`);
 
         try {
@@ -63,7 +72,7 @@ export class V75ResultsFetcher {
         }
       }
 
-      log.debug(`🏁 Results fetch complete: ${results.length}/${v75Game.races.length} races processed`);
+      log.debug(`🏁 Results fetch complete: ${results.length}/${raceIds.length} races processed`);
       return results;
 
     } catch (error) {
@@ -73,15 +82,15 @@ export class V75ResultsFetcher {
   }
 
   private static async fetchRaceResult(raceId: string, raceIndex: number): Promise<V75ActualResult | null> {
-    // First get race info to determine if results are available
-    const raceInfoResponse = await fetch(`https://www.atg.se/services/racinginfo/v1/api/races/${raceId}`);
-
-    if (!raceInfoResponse.ok) {
-      log.warn(`Failed to fetch race info for ${raceId}: ${raceInfoResponse.statusText}`);
+    // Use centralized race cache
+    let raceInfo: any;
+    try {
+      raceInfo = await fetchRaceById(raceId);
+    } catch {
+      log.warn(`Failed to fetch race info for ${raceId}`);
       return null;
     }
 
-    const raceInfo = await raceInfoResponse.json();
     log.debug(`📋 Race ${raceId} info:`, {
       status: raceInfo.status,
       number: raceInfo.number,
@@ -90,7 +99,6 @@ export class V75ResultsFetcher {
       hasStarts: !!raceInfo.starts
     });
 
-    // FIXED: Case-insensitive status check and broader acceptance criteria
     const raceStatus = (raceInfo.status || '').toLowerCase();
     const isRaceFinished = raceStatus === 'finished' ||
       raceStatus === 'results' ||
@@ -103,62 +111,59 @@ export class V75ResultsFetcher {
       isFinished: isRaceFinished
     });
 
-    // Check if race has finished and has results
     if (!isRaceFinished) {
       log.warn(`Race ${raceId} not finished yet (status: ${raceInfo.status})`);
       return null;
     }
 
-    // ENHANCED: Multiple strategies for finding results data
-    let raceResults = null;
+    // Use in-race results FIRST to avoid extra result endpoint calls
+    let raceResults: { results?: unknown[]; starts?: unknown[]; raceTime?: string; weather?: string } | null = null;
     let resultsSource = '';
 
-    // Strategy 1: Try dedicated results endpoints
-    const resultEndpoints = [
-      `https://www.atg.se/services/racinginfo/v1/api/races/${raceId}/results`,
-      `https://www.atg.se/services/racinginfo/v1/api/races/${raceId}/result`,
-      `https://www.atg.se/services/racinginfo/v1/api/results/${raceId}`
-    ];
-
-    for (const endpoint of resultEndpoints) {
-      try {
-        log.debug(`🔍 Trying results endpoint: ${endpoint}`);
-        const resultResponse = await fetch(endpoint);
-
-        if (resultResponse.ok) {
-          const endpointData = await resultResponse.json();
-          if (endpointData && (endpointData.results || endpointData.starts)) {
-            raceResults = endpointData;
-            resultsSource = endpoint;
-            log.debug(`✅ Results found at ${endpoint}`);
-            break;
-          }
-        } else {
-          log.debug(`❌ Failed at ${endpoint}: ${resultResponse.statusText}`);
-        }
-      } catch (endpointError) {
-        log.debug(`❌ Error at ${endpoint}:`, endpointError);
-      }
-    }
-
-    // Strategy 2: Extract from race info if available
-    if (!raceResults && raceInfo.results && Array.isArray(raceInfo.results) && raceInfo.results.length > 0) {
+    // Strategy 1: Extract from race info results (already have race payload)
+    if (raceInfo.results && Array.isArray(raceInfo.results) && raceInfo.results.length > 0) {
       log.debug(`📊 Using results from race info (${raceInfo.results.length} horses)`);
-      raceResults = { results: raceInfo.results };
+      raceResults = { results: raceInfo.results, raceTime: raceInfo.startTime, weather: raceInfo.weather };
       resultsSource = 'race info results';
     }
 
-    // Strategy 3: Extract from starts in race info (for live results)
+    // Strategy 2: Extract from starts in race info (for live results)
     if (!raceResults && raceInfo.starts && Array.isArray(raceInfo.starts) && raceInfo.starts.length > 0) {
-      // Check if starts have result data (finish positions)
       const startsWithResults = raceInfo.starts.filter((start: any) =>
         start.result && (start.result.finalPosition || start.result.finishOrder)
       );
-
       if (startsWithResults.length > 0) {
         log.debug(`📊 Using results from race starts (${startsWithResults.length} horses with results)`);
-        raceResults = { results: raceInfo.starts };
+        raceResults = { results: raceInfo.starts, raceTime: raceInfo.startTime, weather: raceInfo.weather };
         resultsSource = 'race info starts';
+      }
+    }
+
+    // Strategy 3: Try dedicated results endpoints only if in-race data not available
+    if (!raceResults) {
+      const resultEndpoints = [
+        `https://www.atg.se/services/racinginfo/v1/api/races/${raceId}/results`,
+        `https://www.atg.se/services/racinginfo/v1/api/races/${raceId}/result`,
+        `https://www.atg.se/services/racinginfo/v1/api/results/${raceId}`
+      ];
+      for (const endpoint of resultEndpoints) {
+        try {
+          log.debug(`🔍 Trying results endpoint: ${endpoint}`);
+          const resultResponse = await fetch(endpoint);
+          if (resultResponse.ok) {
+            const endpointData = await resultResponse.json();
+            if (endpointData && (endpointData.results || endpointData.starts)) {
+              raceResults = endpointData;
+              resultsSource = endpoint;
+              log.debug(`✅ Results found at ${endpoint}`);
+              break;
+            }
+          } else {
+            log.debug(`❌ Failed at ${endpoint}: ${resultResponse.statusText}`);
+          }
+        } catch (endpointError) {
+          log.debug(`❌ Error at ${endpoint}:`, endpointError);
+        }
       }
     }
 

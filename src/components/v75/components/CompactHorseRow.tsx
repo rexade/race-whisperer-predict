@@ -1,18 +1,24 @@
 import React, { useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Medal, ChevronDown, ChevronUp, Zap, Banknote, Award } from "lucide-react";
+import { Medal, ChevronDown, ChevronUp, Zap, Banknote, Award, BarChart2 } from "lucide-react";
 import { V75HorseResult } from '../hooks/useV75Analysis';
 import { ensureStringForDisplay, formatKmTime, formatEarnings, getShoesDisplay, getShoesColor, getSulkyDisplay } from '../utils/v75DisplayUtils';
 import { V75TimeCalculationDebug } from './V75TimeCalculationDebug';
 import { useIsMobile } from '../../../hooks/use-mobile';
+import KmtidAnalyticsCard from './postRace/KmtidAnalyticsCard';
+import type { KmtidPerStartAnalytics } from '../types/postRaceAnalysisTypes';
+
 interface CompactHorseRowProps {
   horse: V75HorseResult;
   rank: number;
+  /** Historical kmtid (~2 weeks old) for this horse when available; matched by horseId */
+  kmtidAnalytics?: KmtidPerStartAnalytics | null;
 }
 
-const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
+const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, kmtidAnalytics }) => {
   const [showDebug, setShowDebug] = useState(false);
+  const [showKmtid, setShowKmtid] = useState(false);
   const isMobile = useIsMobile();
   const result = horse.modernNormalizedResult!;
   const isTopPerformer = rank <= 3;
@@ -150,6 +156,27 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
               </div>
             </div>
           </div>
+
+          {/* Historical (2w) - always visible column; kmtid data is ~2 weeks old, matched by horseId */}
+          <div className="flex flex-col items-center min-w-[72px] sm:min-w-[80px] flex-shrink-0 border-l border-border/60 pl-2">
+            <div className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-0.5">
+              <BarChart2 className="h-3 w-3" />
+              <span>2w</span>
+            </div>
+            {kmtidAnalytics ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-6 px-1 mt-0.5"
+                onClick={(e) => { e.stopPropagation(); setShowKmtid(!showKmtid); }}
+              >
+                {showKmtid ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                <span className="ml-0.5">{showKmtid ? 'Hide' : 'Show'}</span>
+              </Button>
+            ) : (
+              <span className="text-xs text-muted-foreground mt-0.5">—</span>
+            )}
+          </div>
         </div>
 
         {/* Secondary info row - Compact single line */}
@@ -211,6 +238,16 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
       {showDebug && (
         <div id={`debug-${horse.horseId}`} className="bg-muted/50 sm:border-b sm:border-border/50">
           <V75TimeCalculationDebug horse={horse} />
+        </div>
+      )}
+
+      {showKmtid && kmtidAnalytics && (
+        <div className="bg-muted/30 sm:border-b sm:border-border/50 p-2 sm:p-3">
+          <KmtidAnalyticsCard
+            horseName={safeHorseName}
+            driver={safeDriverName}
+            kmtidAnalytics={kmtidAnalytics}
+          />
         </div>
       )}
     </>

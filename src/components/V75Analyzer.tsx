@@ -281,6 +281,7 @@ const V75Analyzer: React.FC = () => {
           <Suspense fallback={<div className="p-4 text-center text-muted-foreground">Loading results...</div>}>
             <V75Results
               races={v75Results}
+              analysisDate={analysisDate}
               activeTab={activeTab}
               onTabChange={setActiveTab}
             />

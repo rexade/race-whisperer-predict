@@ -39,7 +39,20 @@ export interface ATGHorseHistoricalData {
   postPosition: number;
 }
 
+const START_CACHE = new Map<string, { data: ATGHorseHistoricalData; fetchedAt: number }>();
+const START_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function isStartCacheExpired(entry: { fetchedAt: number }): boolean {
+  return Date.now() - entry.fetchedAt > START_CACHE_TTL_MS;
+}
+
 export const fetchHorseHistoricalData = async (raceId: string, startNumber: number): Promise<ATGHorseHistoricalData> => {
+  const cacheKey = `${raceId}:${startNumber}`;
+  const cached = START_CACHE.get(cacheKey);
+  if (cached && !isStartCacheExpired(cached)) {
+    return cached.data;
+  }
+
   console.log(`Fetching historical data for race ${raceId}, start ${startNumber}`);
   
   try {
@@ -50,6 +63,7 @@ export const fetchHorseHistoricalData = async (raceId: string, startNumber: numb
     }
     
     const data = await response.json();
+    START_CACHE.set(cacheKey, { data, fetchedAt: Date.now() });
     console.log(`Historical data fetched for horse ${data.horse?.name || 'Unknown'}`);
     
     return data;
@@ -59,6 +73,10 @@ export const fetchHorseHistoricalData = async (raceId: string, startNumber: numb
     throw error;
   }
 };
+
+export function clearStartCache(): void {
+  START_CACHE.clear();
+}
 
 export interface InvalidCandidate {
   normalizedTime: { minutes: number; seconds: number; tenths: number };
@@ -89,13 +107,16 @@ export interface HistoricalProcessingResult {
   };
 }
 
+/** Only allow historical records from the last 5 months (user requirement: 4–5 months). */
+const HISTORICAL_RECORD_MAX_MONTHS = 5;
+
 export const processHistoricalRecords = (
   records: ATGHistoricalRecord[], 
   debugHorseName?: string
 ): HistoricalProcessingResult => {
-  const twelveMonthsAgo = new Date();
-  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-  
+  const cutoffDate = new Date();
+  cutoffDate.setMonth(cutoffDate.getMonth() - HISTORICAL_RECORD_MAX_MONTHS);
+
   // Helper function to filter records by date and other criteria
   const filterRecords = (records: ATGHistoricalRecord[], ignoreTimeWindow = false) => {
     const filteringStats = {
@@ -147,12 +168,12 @@ export const processHistoricalRecords = (
           return false;
         }
         const raceDate = new Date(record.date);
-        const isWithin12Months = raceDate >= twelveMonthsAgo;
-        if (!isWithin12Months) {
+        const isWithinWindow = raceDate >= cutoffDate;
+        if (!isWithinWindow) {
           filteringStats.outsideTimeWindow++;
-          rejectRecord(record, 'outside-12-months', source);
+          rejectRecord(record, `outside-${HISTORICAL_RECORD_MAX_MONTHS}-months`, source);
           if (isXanderDebug) {
-            console.log(`🕵️ FILTERED OUT - Outside 12 months: ${record.date}`);
+            console.log(`🕵️ FILTERED OUT - Outside ${HISTORICAL_RECORD_MAX_MONTHS} months: ${record.date}`);
           }
           return false;
         }
@@ -243,7 +264,7 @@ export const processHistoricalRecords = (
     return { validRecords, invalidCandidates, filteringStats };
   };
   
-  // First pass: Try with 12-month constraint
+  // First pass: Try with 5-month constraint (only allow records from last 4–5 months)
   console.log(`🔍 [${debugHorseName || 'Horse'}] Starting historical record processing with ${records.length} total records`);
   const { validRecords: recentRecords, invalidCandidates: recentInvalid, filteringStats: recentStats } = filterRecords(records, false);
   

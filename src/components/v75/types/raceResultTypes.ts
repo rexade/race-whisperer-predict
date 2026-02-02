@@ -1,3 +1,4 @@
+import type { KmtidPerStartAnalytics } from './postRaceAnalysisTypes';
 
 export type TimeSource = "normalized" | "best_raw" | "abroad" | "field_median" | "none";
 
@@ -54,6 +55,8 @@ export interface V75HorseResult {
     seconds: number;
     tenths: number;
   };
+  /** Historical kmtid.atgx.se analytics (~2 weeks old) when available; matched by horseId for prediction view. */
+  kmtidAnalytics?: KmtidPerStartAnalytics;
 }
 
 export interface V75RaceResult {

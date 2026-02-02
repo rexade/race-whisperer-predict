@@ -42,7 +42,7 @@ export const useRockSolidDebugger = () => {
         return {
           rawKmTime: finalLog?.data?.rawKmTime || null,
           historicalRecordsUsed: processedLog?.data?.length || 0,
-          calculationMethod: "Average of best 3 normalized times"
+          calculationMethod: "Best single time (≤5 months)"
         };
       })(),
       logs: rockSolidLogs

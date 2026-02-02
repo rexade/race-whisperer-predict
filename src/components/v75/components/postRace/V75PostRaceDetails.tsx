@@ -1,17 +1,20 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Target, Clock } from "lucide-react";
+import { CheckCircle, Target, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import { V75PostRaceAnalysis } from '../../types/postRaceAnalysisTypes';
 import { KmTime } from '../../../../services/types/kmTimeTypes';
 import { formatKmTime } from '../../utils/v75DisplayUtils';
+import KmtidAnalyticsCard from './KmtidAnalyticsCard';
 
 interface V75PostRaceDetailsProps {
   analysis: V75PostRaceAnalysis;
 }
 
 const V75PostRaceDetails: React.FC<V75PostRaceDetailsProps> = ({ analysis }) => {
+  const [expandedKmtidHorse, setExpandedKmtidHorse] = useState<{ raceId: string; horseId: number } | null>(null);
+
   const getAccuracyBadge = (accuracy: number) => {
     if (accuracy >= 0.7) return "bg-green-100 text-green-800";
     if (accuracy >= 0.5) return "bg-yellow-100 text-yellow-800";
@@ -87,47 +90,91 @@ const V75PostRaceDetails: React.FC<V75PostRaceDetailsProps> = ({ analysis }) => 
                     <th className="text-left p-2">Actual Time</th>
                     <th className="text-left p-2">Time Diff</th>
                     <th className="text-left p-2">Status</th>
+                    <th className="text-left p-2 w-20">Analytics</th>
                   </tr>
                 </thead>
                 <tbody>
                   {race.predictionAccuracy
                     .sort((a, b) => a.actualFinishPosition - b.actualFinishPosition)
-                    .map(horse => (
-                    <tr key={horse.horseId} className="border-b hover:bg-gray-50">
-                      <td className="p-2 font-medium">#{horse.actualFinishPosition}</td>
-                      <td className="p-2">{horse.horseName}</td>
-                      <td className="p-2">{horse.postPosition}</td>
-                      <td className="p-2">#{horse.predictedRank}</td>
-                      <td className={`p-2 ${horse.rankDifference === 0 ? 'text-green-600 font-bold' : 
-                        Math.abs(horse.rankDifference) <= 2 ? 'text-yellow-600' : 'text-red-600'}`}>
-                        {horse.rankDifference > 0 ? '+' : ''}{horse.rankDifference}
-                      </td>
-                      <td className="p-2 text-xs">
-                        {formatKmTime(horse.predictedTime)}
-                      </td>
-                      <td className="p-2 text-xs">
-                        {formatKmTime(horse.actualTime)}
-                      </td>
-                      <td className={`p-2 text-xs ${horse.timeDifference !== undefined ? 
-                        (horse.timeDifference <= 2 ? 'text-green-600' : 
-                         horse.timeDifference <= 5 ? 'text-yellow-600' : 'text-red-600') : ''}`}>
-                        {horse.timeDifference !== undefined ? `${horse.timeDifference.toFixed(1)}s` : 'N/A'}
-                      </td>
-                      <td className="p-2">
-                        <div className="flex gap-1">
-                          {horse.wasTopPick && (
-                            <Badge variant="outline" className="text-xs">Top Pick</Badge>
+                    .map(horse => {
+                      const finishEntry = race.actualResults.finishOrder.find(
+                        (f) => f.horseId === horse.horseId
+                      );
+                      const hasKmtid = finishEntry?.kmtidAnalytics != null;
+                      const isExpanded =
+                        expandedKmtidHorse?.raceId === race.raceId &&
+                        expandedKmtidHorse?.horseId === horse.horseId;
+                      return (
+                        <React.Fragment key={horse.horseId}>
+                          <tr className="border-b hover:bg-gray-50">
+                            <td className="p-2 font-medium">#{horse.actualFinishPosition}</td>
+                            <td className="p-2">{horse.horseName}</td>
+                            <td className="p-2">{horse.postPosition}</td>
+                            <td className="p-2">#{horse.predictedRank}</td>
+                            <td className={`p-2 ${horse.rankDifference === 0 ? 'text-green-600 font-bold' : 
+                              Math.abs(horse.rankDifference) <= 2 ? 'text-yellow-600' : 'text-red-600'}`}>
+                              {horse.rankDifference > 0 ? '+' : ''}{horse.rankDifference}
+                            </td>
+                            <td className="p-2 text-xs">
+                              {formatKmTime(horse.predictedTime)}
+                            </td>
+                            <td className="p-2 text-xs">
+                              {formatKmTime(horse.actualTime)}
+                            </td>
+                            <td className={`p-2 text-xs ${horse.timeDifference !== undefined ? 
+                              (horse.timeDifference <= 2 ? 'text-green-600' : 
+                               horse.timeDifference <= 5 ? 'text-yellow-600' : 'text-red-600') : ''}`}>
+                              {horse.timeDifference !== undefined ? `${horse.timeDifference.toFixed(1)}s` : 'N/A'}
+                            </td>
+                            <td className="p-2">
+                              <div className="flex gap-1">
+                                {horse.wasTopPick && (
+                                  <Badge variant="outline" className="text-xs">Top Pick</Badge>
+                                )}
+                                {horse.actuallyPlaced && (
+                                  <Badge variant="outline" className="text-xs bg-green-50">Placed</Badge>
+                                )}
+                                {horse.correctPrediction && (
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-2 text-muted-foreground">
+                              {hasKmtid ? (
+                                <button
+                                  type="button"
+                                  className="text-xs text-primary hover:underline flex items-center gap-0.5"
+                                  onClick={() =>
+                                    setExpandedKmtidHorse(
+                                      isExpanded ? null : { raceId: race.raceId, horseId: horse.horseId }
+                                    )
+                                  }
+                                >
+                                  {isExpanded ? (
+                                    <>Hide {<ChevronUp className="h-3 w-3" />}</>
+                                  ) : (
+                                    <>Show {<ChevronDown className="h-3 w-3" />}</>
+                                  )}
+                                </button>
+                              ) : (
+                                <span className="text-xs">—</span>
+                              )}
+                            </td>
+                          </tr>
+                          {hasKmtid && isExpanded && finishEntry?.kmtidAnalytics && (
+                            <tr>
+                              <td colSpan={10} className="p-2 bg-muted/30 align-top">
+                                <KmtidAnalyticsCard
+                                  horseName={horse.horseName}
+                                  driver={finishEntry.driver}
+                                  kmtidAnalytics={finishEntry.kmtidAnalytics}
+                                />
+                              </td>
+                            </tr>
                           )}
-                          {horse.actuallyPlaced && (
-                            <Badge variant="outline" className="text-xs bg-green-50">Placed</Badge>
-                          )}
-                          {horse.correctPrediction && (
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </React.Fragment>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>

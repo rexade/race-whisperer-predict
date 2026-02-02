@@ -30,16 +30,18 @@ export const useV75Cache = () => {
         });
       }
 
-      // Convert cached raw times to expected format with fallback for missing fields
+      // Convert cached raw times to expected format with fallback for missing fields.
+      // Cache stores un-penalized time so normalization gets base + adjustment (e.g. 1:11.5 + 0.04).
       const rawKmTimes = cachedRawTimes.rawTimes.map(cached => ({
         horseId: cached.horseId,
         horseName: cached.horseName || `Horse ${cached.horseId}`,
         allTimes: [], // Empty array for cached data
         best3Average: cached.rawKmTime,
-        bestRecordTime: cached.rawKmTime, // Use same as best3Average for cached data
+        rawBest3Average: undefined, // Cache stores un-penalized; use same for both
+        bestRecordTime: cached.rawKmTime,
         validTimesCount: cached.validTimesCount || 3,
-        isNotifiee: false, // Default for cached data
-        dataSource: 'recent' as const, // Default for cached data
+        isNotifiee: false,
+        dataSource: 'recent' as const,
         oldestRecordDate: cached.updatedAt,
         newestRecordDate: cached.updatedAt
       }));
@@ -82,15 +84,16 @@ export const useV75Cache = () => {
 
     // Convert HorseRawKmTime[] to the format expected by cache service
     // We need to match horses with their post positions from the race data
+    // Store un-penalized time in cache so normalization always gets base + adjustment (e.g. 1:11.5 + 0.04).
     const rawTimesForCache = rawKmTimes.map(rawTime => {
-      // Find the corresponding horse in the race to get postPosition
       const horseInRace = race.horses.find((horse: any) => horse.horseId === rawTime.horseId);
+      const timeToCache = rawTime.rawBest3Average ?? rawTime.best3Average;
 
       return {
         horseId: rawTime.horseId,
         horseName: rawTime.horseName,
-        postPosition: horseInRace?.postPosition || 1, // fallback to 1 if not found
-        best3Average: rawTime.best3Average,
+        postPosition: horseInRace?.postPosition || 1,
+        best3Average: timeToCache,
         validTimesCount: rawTime.validTimesCount
       };
     });

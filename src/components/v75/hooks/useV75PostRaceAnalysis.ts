@@ -7,6 +7,8 @@ import { V75PredictionComparator } from '../services/v75PredictionComparator';
 import { validateDateFormat, checkDateNotInFuture } from '../utils/postRaceUtils';
 import { V75CacheService } from '../../../services/v75CacheService';
 import { V75DataConsistencyValidator } from '../../../services/v75DataConsistencyValidator';
+import { fetchV75GameInfo } from '@/services/v75CalendarApi';
+import { fetchKmtidDataForDate, mergeKmtidIntoResults } from '@/services/kmtid';
 
 export const useV75PostRaceAnalysis = () => {
   const [loading, setLoading] = useState(false);
@@ -35,12 +37,17 @@ export const useV75PostRaceAnalysis = () => {
         throw new Error(errorMsg);
       }
       
-      // Step 4: Fetch actual race results
-      const actualResults = await V75ResultsFetcher.fetchActualResults(date);
+      // Step 4: Fetch game info once, then results (avoids duplicate calendar/day)
+      const gameInfo = await fetchV75GameInfo(date);
+      let actualResults = await V75ResultsFetcher.fetchActualResults(date, gameInfo ?? undefined);
       
       if (actualResults.length === 0) {
         throw new Error('No completed V75 races found for this date. The races may not have finished yet or no V75 was held.');
       }
+
+      // Step 4b: Optionally merge kmtid.atgx.se analytics (first/last 200m, slipstream, graph)
+      const kmtidMap = await fetchKmtidDataForDate(date);
+      actualResults = mergeKmtidIntoResults(actualResults, kmtidMap);
       
       // Step 5: Compare with predictions (STRICT MODE - no fallback regeneration)
       const postRaceAnalysis = await V75PredictionComparator.compareWithPredictions(date, actualResults);

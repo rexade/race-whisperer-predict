@@ -12,29 +12,35 @@ export const calculateDistanceAdjustment = (horseDistance: number, raceDistance:
   return adjustment;
 };
 
+/** Reference distance (m). Raw times are ALWAYS normalized to this in horseProcessing only. */
+export const REFERENCE_DISTANCE_M = 2140;
+/** When current race is within this (m) of reference, apply 0 — raw is already 2140m, do not re-apply. */
+const RACE_DISTANCE_TOLERANCE_M = 10;
+
 /**
- * Calculate non-linear race distance adjustment FROM 2140m reference TO actual race distance
- * RAW times are normalized to 2140m reference, so we need to adjust TO the actual race distance
+ * Calculate non-linear race distance adjustment FROM 2140m reference TO actual race distance.
+ * RAW times are ALWAYS 2140m equivalent (historical→2140m is done ONLY in horseProcessing).
+ * We only adjust FROM 2140m TO current race distance — we never "normalize to 2140m" here.
  */
 export const calculateRaceDistanceAdjustment = (raceDistance: number): number => {
-  const referenceDistance = 2140; // Standard reference distance in meters
-  
-  if (raceDistance === referenceDistance) {
-    console.log(`Race distance adjustment: ${raceDistance}m = reference distance → 0.000s`);
+  const ref = REFERENCE_DISTANCE_M;
+  const tolerance = RACE_DISTANCE_TOLERANCE_M;
+  if (Math.abs(raceDistance - ref) <= tolerance) {
+    console.log(`Race distance adjustment: ${raceDistance}m ≈ reference ${ref}m → 0.000s (raw already 2140m)`);
     return 0;
   }
-  
+
   // Calculate adjustment from 2140m reference TO actual race distance using non-linear rates
   let adjustment = 0;
-  const distanceDifferenceM = Math.abs(raceDistance - referenceDistance);
+  const distanceDifferenceM = Math.abs(raceDistance - ref);
   const distanceDifferenceKm = distanceDifferenceM / 1000;
-  
-  console.log(`\n--- Race Distance Adjustment Calculation ---`);
-  console.log(`Reference distance: ${referenceDistance}m`);
+
+  console.log(`\n--- Race Distance Adjustment (FROM 2140m TO race, never TO 2140m) ---`);
+  console.log(`Reference distance: ${ref}m`);
   console.log(`Actual race distance: ${raceDistance}m`);
   console.log(`Distance difference: ${distanceDifferenceM}m (${distanceDifferenceKm.toFixed(3)}km)`);
-  
-  if (raceDistance < referenceDistance) {
+
+  if (raceDistance < ref) {
     // Shorter distances: use 3.2s per 1000m rate
     // When going FROM 2140m TO shorter distance, we need to subtract time
     adjustment = -(distanceDifferenceKm * 3.2);

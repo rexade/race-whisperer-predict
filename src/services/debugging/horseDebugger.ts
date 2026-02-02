@@ -124,7 +124,7 @@ export class HorseDebugger {
     console.log(`🐎 [XANDER DEBUG] PROCESSED_TIMES_RESULT`);
     console.log(`   Horse: ${horseName} (ID: ${horseId})`);
     console.log(`   Valid processed times: ${processedTimes.length}`);
-    console.log(`   Best 3 average: ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
+    console.log(`   Best time: ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
     
     if (processedTimes.length > 0) {
       console.log(`   All processed times:`);
@@ -215,7 +215,7 @@ export class HorseDebugger {
     console.log(`   Disqualified: ${stats.disqualified}`);
     console.log(`   Galloped: ${stats.galloped}`);
     console.log(`   Missing KM Times: ${stats.missingKmTimes}`);
-    console.log(`   Best 3 Times Used: ${stats.best3TimesUsed}`);
+    console.log(`   Best time used: ${stats.best3TimesUsed}`);
     
     this.debugLogs.push({
       horseId,

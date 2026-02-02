@@ -2,6 +2,16 @@
 import { NormalizationWeights } from '../../../services/modernKm/index';
 import { KmTime } from '../../../services/types/kmTimeTypes';
 
+/** Per-start post-race analytics from kmtid.atgx.se (optional; not in primary ATG API) */
+export interface KmtidPerStartAnalytics {
+  first200mPace?: string; // e.g. "1.28,1 min/km"
+  last200mPace?: string;
+  metersRun?: number;
+  calculatedKmTime?: string;
+  slipstreamMeters?: number;
+  performanceGraphData?: Array<{ x: number; y: number } | { distance: number; value: number }>;
+}
+
 export interface V75ActualResult {
   raceId: string;
   raceNumber: number;
@@ -13,6 +23,8 @@ export interface V75ActualResult {
     time: string; // Actual race time
     kmTime?: KmTime; // Parsed KM time object
     driver: string;
+    /** Post-race analytics from kmtid.atgx.se when available */
+    kmtidAnalytics?: KmtidPerStartAnalytics;
   }>;
   raceTime: string;
   weather?: string;

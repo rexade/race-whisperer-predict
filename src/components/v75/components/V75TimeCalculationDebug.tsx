@@ -24,19 +24,23 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
   const getTimeCalculationData = () => {
     const historicalDataLog = horseLogs.find(log => log.stage === 'HISTORICAL_DATA_RECEIVED');
 
-    // Get detailed processed times for breakdown
-    const processedTimesDetailLog = horseLogs.find(log => 
+    // Get detailed processed times for breakdown (single best time, ≤5 months)
+    const processedTimesDetailLog = horseLogs.find(log =>
       log.stage === 'PROCESSED_TIMES' && log.data?.processedTimes
     );
     const historicalRaces = processedTimesDetailLog?.data?.processedTimes || [];
-    const best3Average = processedTimesDetailLog?.data?.best3Average || horse.rawKmTime;
+    // Value actually used for ranking and normalization (may include confidence penalty)
+    const rawKmTimeUsed = horse.rawKmTime;
+    // Best from history before any confidence adjustment (from log)
+    const bestFromHistory = historicalRaces[0]?.normalizedTime ?? processedTimesDetailLog?.data?.best3Average;
 
     return {
       historicalRecords: historicalDataLog?.data?.length || 0,
       processedTimes: historicalRaces,
       historicalRaces,
-      best3Average,
-      rawKmTime: horse.rawKmTime,
+      best3Average: rawKmTimeUsed,
+      rawKmTime: rawKmTimeUsed,
+      bestFromHistory,
       modernNormalizedTime: horse.modernNormalizedResult?.modernNormalizedTime,
       adjustments: horse.modernNormalizedResult?.adjustments
     };
@@ -96,11 +100,30 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
           <div>
             <h4 className="font-medium text-sm mb-2">Time Calculation Flow</h4>
             <div className="space-y-3">
-              {/* Raw KM Time */}
+              {/* Best from history vs used: show when confidence adjustment was applied */}
+              {data.bestFromHistory && data.rawKmTime && (() => {
+                const same = data.bestFromHistory.minutes === data.rawKmTime.minutes
+                  && data.bestFromHistory.seconds === data.rawKmTime.seconds
+                  && (data.bestFromHistory.tenths ?? 0) === (data.rawKmTime.tenths ?? 0);
+                if (!same) {
+                  return (
+                    <div className="flex flex-wrap items-center gap-2 p-2 bg-amber-50 dark:bg-amber-950/20 rounded border border-amber-200">
+                      <span className="text-xs text-muted-foreground">Best from history:</span>
+                      <Badge variant="outline" className="font-mono text-xs">{formatKmTime(data.bestFromHistory)}</Badge>
+                      <span className="text-xs text-muted-foreground">→ After confidence (used):</span>
+                      <Badge variant="secondary" className="font-mono text-xs">{formatKmTime(data.rawKmTime)}</Badge>
+                      <span className="text-[11px] text-muted-foreground italic">(statistics-sourced data)</span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              {/* Raw KM Time: value actually used for normalization and ranking */}
               <div className="flex items-center justify-between p-2 bg-secondary/20 rounded">
-                <span className="text-sm text-muted-foreground">Raw KM Time (Best 3 Avg):</span>
+                <span className="text-sm text-muted-foreground">Raw KM Time (used):</span>
                 <Badge variant="secondary" className="font-mono">
-                  {formatKmTime(data.rawKmTime)}
+                  {data.rawKmTime ? formatKmTime(data.rawKmTime) : '—'}
                 </Badge>
               </div>
 
@@ -130,10 +153,15 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
                       <div>Horse Win %: {data.adjustments.horseWinPercentage?.toFixed(2)}s</div>
                       <div>Earnings/Start: {data.adjustments.earningsPerStart?.toFixed(2)}s</div>
                     </div>
-                    <div className="mt-2 pt-2 border-t border-border/50">
+                    <div className="mt-2 pt-2 border-t border-border/50 space-y-1">
                       <div className="text-xs font-medium">
                         Total Adjustment: {data.adjustments.total?.toFixed(2)}s
                       </div>
+                      {data.rawKmTime && data.modernNormalizedTime && (
+                        <div className="text-[11px] text-muted-foreground">
+                          Raw + Adjustment → Final (same value used for ranking)
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>
@@ -143,7 +171,7 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
               <div className="flex items-center justify-between p-2 bg-primary/10 rounded border border-primary/20">
                 <span className="text-sm font-medium">Final Predicted Time:</span>
                 <Badge className="font-mono">
-                  {formatKmTime(data.modernNormalizedTime)}
+                  {data.modernNormalizedTime ? formatKmTime(data.modernNormalizedTime) : '—'}
                 </Badge>
               </div>
             </div>

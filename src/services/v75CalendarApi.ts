@@ -1,5 +1,6 @@
 import { GAME_TYPE, IS_DEBUG } from "@/config/game";
 import { log } from "@/lib/logger";
+import { fetchRaceById } from "@/services/raceDataCache";
 
 const TARGET_GAME = GAME_TYPE;
 
@@ -175,15 +176,11 @@ export const fetchRaceDataForGame = async (
 
   const v75Races: V75RaceData[] = [];
 
-  // Fetch races in parallel
+  // Fetch races in parallel (uses centralized race cache)
   const results = await Promise.allSettled(
     gameInfo.raceIds.map(async (raceId, index) => {
       log.debug(`\n--- 🔍 Fetching race ${index + 1}/${gameInfo.raceIds.length}: ${raceId} ---`);
-      const response = await fetch(`https://www.atg.se/services/racinginfo/v1/api/races/${raceId}`);
-      if (!response.ok) {
-        throw new Error(`Race ${raceId} fetch failed: ${response.statusText}`);
-      }
-      return response.json();
+      return fetchRaceById(raceId) as Promise<any>;
     })
   );
 

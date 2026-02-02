@@ -30,7 +30,12 @@ export const calculateRawKmTimesForRaceWithId = async (
     try {
       const horseName = start.horse?.name || 'Unknown';
       const horseId = start.horse?.id || 0;
-      
+
+      // Data integrity: each iteration uses only this start's postPosition and horseId.
+      // fetchHorseHistoricalData(raceId, postPosition) is cached by (raceId, postPosition);
+      // downstream matching is by horseId (processHorseResults finds rawKmTimes by horseId).
+      // No data leaks between horses as long as post positions are unique per race.
+
       console.log(`Processing horse ${i + 1}/${starts.length}: ${horseName} (ID: ${horseId})`);
       
       // Enhanced debugging for target horses

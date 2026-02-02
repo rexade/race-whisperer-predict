@@ -24,8 +24,11 @@ export const processHorseResults = async (
   log.debug(`  - Raw KM times available: ${rawKmTimes.length}`);
 
   for (const horse of race.horses) {
+    // Match by horseId only (no index) so each horse gets its own raw time; no cross-horse leak.
     const rawTimeData = rawKmTimes.find(rt => rt.horseId === horse.horseId);
-    const rawKmTime = rawTimeData?.best3Average;
+    // Use un-penalized best time for normalization so final = raw + totalAdjustment (e.g. 1:11.5 + 0.04 = 1:11.54).
+    // Confidence penalty is for transparency only; we do not feed penalized time into normalization.
+    const rawKmTime = rawTimeData?.rawBest3Average ?? rawTimeData?.best3Average;
 
     // Extract and validate horse data
     const extractedData = extractAndValidateHorseData(horse);

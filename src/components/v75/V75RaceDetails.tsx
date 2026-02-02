@@ -5,12 +5,19 @@ import { Trophy } from "lucide-react";
 import { V75RaceResult } from './hooks/useV75Analysis';
 import V75RaceHeader from './components/V75RaceHeader';
 import CompactV75ResultsTable from './components/CompactV75ResultsTable';
+import { useKmtidByHorse } from './hooks/useKmtidByHorse';
 
 interface V75RaceDetailsProps {
   race: V75RaceResult;
+  analysisDate: string;
 }
 
-const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
+const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race, analysisDate }) => {
+  const horses = race.horses.map((h) => ({
+    horseId: h.horseId,
+    horseName: typeof h.horseName === 'string' ? h.horseName : String(h.horseName ?? ''),
+  }));
+  const { kmtidByHorse } = useKmtidByHorse(analysisDate, horses);
 
   if (!race.analysisComplete) {
     return (
@@ -32,8 +39,8 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
 
   return (
     <div className="space-y-4">
-      {/* Compact Results Table with integrated race info */}
-      <CompactV75ResultsTable race={race} />
+      {/* Compact Results Table with integrated race info and historical kmtid (2w) column */}
+      <CompactV75ResultsTable race={race} kmtidByHorse={kmtidByHorse} />
     </div>
   );
 };

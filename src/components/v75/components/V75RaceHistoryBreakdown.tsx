@@ -16,8 +16,8 @@ const V75RaceHistoryBreakdown: React.FC<V75RaceHistoryBreakdownProps> = ({
   historicalRaces, 
   best3Average 
 }) => {
-  // Get the best 3 times (already sorted by normalized time in processing)
-  const best3Times = historicalRaces.slice(0, 3);
+  // Best time only (already sorted by normalized time in processing; we use single best, ≤5 months)
+  const bestTimes = historicalRaces.slice(0, 1);
   
   return (
     <Card className="border-blue-200 bg-blue-50/30">
@@ -38,11 +38,11 @@ const V75RaceHistoryBreakdown: React.FC<V75RaceHistoryBreakdownProps> = ({
                 <Badge variant="outline" className="text-xs">{historicalRaces.length}</Badge>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Best 3 Used:</span>
-                <Badge variant="outline" className="text-xs">{best3Times.length}</Badge>
+                <span className="text-gray-600">Best time used:</span>
+                <Badge variant="outline" className="text-xs">{bestTimes.length}</Badge>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Final Average:</span>
+                <span className="text-gray-600">Best time:</span>
                 <Badge className="bg-blue-600 text-white text-xs font-mono">
                   {formatKmTime(best3Average)}
                 </Badge>
@@ -50,11 +50,23 @@ const V75RaceHistoryBreakdown: React.FC<V75RaceHistoryBreakdownProps> = ({
             </div>
           </div>
 
-          {/* Best 3 Times */}
+          {/* Best time */}
           <div className="space-y-2">
-            <h4 className="font-semibold text-sm text-gray-700">Best 3 Times Used</h4>
+            <h4 className="font-semibold text-sm text-gray-700">Best Time Used (≤5 months)</h4>
+            {bestTimes.length > 0 && best3Average && (() => {
+              const fromRace = bestTimes[0].normalizedTime;
+              const differs = fromRace.minutes !== best3Average.minutes || fromRace.seconds !== best3Average.seconds || (fromRace.tenths ?? 0) !== (best3Average.tenths ?? 0);
+              if (differs) {
+                return (
+                  <p className="text-[11px] text-amber-700 dark:text-amber-400 italic">
+                    Time below is from history; value used for ranking is after confidence adjustment (see above).
+                  </p>
+                );
+              }
+              return null;
+            })()}
             <div className="space-y-2">
-              {best3Times.map((time, index) => (
+              {bestTimes.map((time, index) => (
                 <div 
                   key={`${time.raceDate}-${index}`}
                   className="flex items-center justify-between p-2 bg-white rounded border border-gray-200"

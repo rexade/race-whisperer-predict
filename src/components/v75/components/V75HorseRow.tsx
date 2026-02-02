@@ -108,7 +108,7 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
       <TableCell className="text-center">
         <div className="font-mono text-xs sm:text-sm text-muted-foreground">
           <div>{formatKmTime(result.rawTime)}</div>
-          <div className="text-xs text-muted-foreground">Best 3 Avg</div>
+          <div className="text-xs text-muted-foreground">Best</div>
         </div>
       </TableCell>
       
