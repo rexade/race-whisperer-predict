@@ -9,6 +9,10 @@ import { useV75ResultsProcessor } from './useV75ResultsProcessor';
 import type { V75HorseResult, V75RaceResult } from '../types/raceResultTypes';
 import { GAME_TYPE } from '@/config/game';
 import { log } from '@/lib/logger';
+import { V75CacheService } from '@/services/v75CacheService';
+import type { WorkerResponse } from '@/workers/analysis.worker';
+// @ts-ignore - Vite handles worker imports
+import AnalysisWorker from '@/workers/analysis.worker?worker';
 
 // Re-export types using 'export type'
 export type { V75HorseResult, V75RaceResult };
@@ -39,7 +43,52 @@ export const useV75Analysis = () => {
   } = useV75ResultsProcessor();
 
   /**
+   * Process a single race using Web Worker
+   */
+  const processRaceWithWorker = (
+    race: any,
+    rawKmTimes: any[],
+    weights: NormalizationWeights,
+    analysisDate: string,
+    postPositionCurves?: PostPositionCurves
+  ): Promise<V75RaceResult> => {
+    return new Promise((resolve, reject) => {
+      const worker = new AnalysisWorker();
+
+      worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
+        const message = event.data;
+
+        if (message.type === 'RESULT') {
+          worker.terminate();
+          resolve(message.payload.raceResult);
+        } else if (message.type === 'ERROR') {
+          worker.terminate();
+          reject(new Error(message.payload.message));
+        }
+      };
+
+      worker.onerror = (error) => {
+        worker.terminate();
+        reject(error);
+      };
+
+      // Send analysis request to worker
+      worker.postMessage({
+        type: 'ANALYZE_RACE',
+        payload: {
+          race,
+          rawKmTimes,
+          weights,
+          analysisDate,
+          postPositionCurves
+        }
+      });
+    });
+  };
+
+  /**
    * Run the heavy analysis on already fetched race data
+   * Now uses Web Workers to keep UI responsive
    */
   const runAnalysis = async (
     races: V75RaceData[],
@@ -91,10 +140,31 @@ export const useV75Analysis = () => {
           updateProgress(20 + raceProgress + (70 / validatedRaces.length), `Race ${race.raceNumber}: Caching raw times...`);
         }
 
-        // Process horse results with FRESH race data and cached/calculated raw times
-        updateProgress(20 + raceProgress + (70 / validatedRaces.length), `Race ${race.raceNumber}: Processing results with fresh data...`);
-        const raceResult = await processRaceResult(race, rawKmTimes, weights, date, postPositionCurves);
+        // Process race in Web Worker (keeps UI responsive)
+        updateProgress(20 + raceProgress + (70 / validatedRaces.length), `Race ${race.raceNumber}: Processing results...`);
+
+        const raceResult = await processRaceWithWorker(race, rawKmTimes, weights, date, postPositionCurves);
         results.push(raceResult);
+
+        // Cache the analysis result on main thread (after worker completes)
+        const cacheDate = date || race.date || new Date().toISOString().split('T')[0];
+        const analysisHorses = raceResult.horses.map(h => ({
+          horseId: h.horseId,
+          horseName: h.horseName,
+          postPosition: h.postPosition,
+          finalScore: h.finalScore,
+          rank: h.rank,
+          predictedTime: h.predictedTime
+        }));
+
+        V75CacheService.storeRaceAnalysis(
+          race.raceId,
+          race.raceNumber,
+          cacheDate,
+          analysisHorses
+        ).catch(() => {
+          // Silently ignore cache storage errors
+        });
       }
 
       setV75Results(results);

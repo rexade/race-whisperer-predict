@@ -49,6 +49,11 @@ export interface V75HorseResult {
   usedInvalidTimeFallback?: boolean;
   usedExtendedFallback?: boolean;
   confidenceMultiplier?: number;
+  predictedTime?: {
+    minutes: number;
+    seconds: number;
+    tenths: number;
+  };
 }
 
 export interface V75RaceResult {
