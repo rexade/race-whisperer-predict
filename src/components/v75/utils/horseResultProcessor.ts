@@ -28,7 +28,7 @@ export const processHorseResults = async (
     const rawTimeData = rawKmTimes.find(rt => rt.horseId === horse.horseId);
     // Use un-penalized best time for normalization so final = raw + totalAdjustment (e.g. 1:11.5 + 0.04 = 1:11.54).
     // Confidence penalty is for transparency only; we do not feed penalized time into normalization.
-    const rawKmTime = rawTimeData?.rawBest3Average ?? rawTimeData?.best3Average;
+    const rawKmTime = rawTimeData?.rawBestTime ?? rawTimeData?.bestTime;
 
     // Extract and validate horse data
     const extractedData = extractAndValidateHorseData(horse);

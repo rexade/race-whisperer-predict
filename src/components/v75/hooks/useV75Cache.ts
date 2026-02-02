@@ -36,9 +36,9 @@ export const useV75Cache = () => {
         horseId: cached.horseId,
         horseName: cached.horseName || `Horse ${cached.horseId}`,
         allTimes: [], // Empty array for cached data
-        best3Average: cached.rawKmTime,
-        rawBest3Average: undefined, // Cache stores un-penalized; use same for both
-        bestRecordTime: cached.rawKmTime,
+        bestTime: cached.rawKmTime || { minutes: 0, seconds: 0, tenths: 0 },
+        rawBestTime: undefined, // Cache stores un-penalized; use same for both
+        bestRecordTime: cached.rawKmTime || { minutes: 0, seconds: 0, tenths: 0 },
         validTimesCount: cached.validTimesCount || 3,
         isNotifiee: false,
         dataSource: 'recent' as const,
@@ -87,13 +87,13 @@ export const useV75Cache = () => {
     // Store un-penalized time in cache so normalization always gets base + adjustment (e.g. 1:11.5 + 0.04).
     const rawTimesForCache = rawKmTimes.map(rawTime => {
       const horseInRace = race.horses.find((horse: any) => horse.horseId === rawTime.horseId);
-      const timeToCache = rawTime.rawBest3Average ?? rawTime.best3Average;
+      const timeToCache = rawTime.rawBestTime ?? rawTime.bestTime;
 
       return {
         horseId: rawTime.horseId,
         horseName: rawTime.horseName,
         postPosition: horseInRace?.postPosition || 1,
-        best3Average: timeToCache,
+        bestTime: timeToCache,
         validTimesCount: rawTime.validTimesCount
       };
     });

@@ -15,7 +15,7 @@ export class RawTimesCache {
     gameId: string,
     raceId: string,
     raceNumber: number,
-    rawTimes: Array<{ horseId: number; horseName: string; postPosition: number; best3Average?: any; validTimesCount: number }>
+    rawTimes: Array<{ horseId: number; horseName: string; postPosition: number; bestTime?: any; validTimesCount: number }>
   ): Promise<void> {
     log.debug(`💾 [RawTimesCache] Storing raw KM times cache for race ${raceNumber} (${raceId})`);
 
@@ -23,7 +23,7 @@ export class RawTimesCache {
       horseId: rt.horseId,
       horseName: rt.horseName,
       postPosition: rt.postPosition,
-      rawKmTime: rt.best3Average,
+      rawKmTime: rt.bestTime,
       validTimesCount: rt.validTimesCount,
       updatedAt: new Date().toISOString()
     }));
@@ -35,7 +35,7 @@ export class RawTimesCache {
       raceNumber,
       rawTimes: cachedRawTimes,
       cachedAt: new Date().toISOString(),
-      schemaVersion: 3
+      schemaVersion: 4
     };
 
     try {
@@ -65,10 +65,9 @@ export class RawTimesCache {
 
       let rawTimesData: CachedV75RawTimes = JSON.parse(cachedData);
 
-      // Migration from schema version 1/2 to 3 (Force refresh to clear penalized times)
-      // We do NOT migrate v2 to v3 because v2 might contain penalized times which we want to recalculate.
-      if (!rawTimesData.schemaVersion || rawTimesData.schemaVersion < 3) {
-        log.warn(`🔄 [RawTimesCache] Cache schema v${rawTimesData.schemaVersion || 1} is outdated (v3 required). Invalidating to force fresh calculation.`);
+      // Migration from schema version 1/2/3 to 4 (Force refresh to clear penalized times and switch to Best Time logic)
+      if (!rawTimesData.schemaVersion || rawTimesData.schemaVersion < 4) {
+        log.warn(`🔄 [RawTimesCache] Cache schema v${rawTimesData.schemaVersion || 1} is outdated (v4 required). Invalidating to force fresh calculation.`);
         localStorage.removeItem(cacheKey);
         return null;
       }

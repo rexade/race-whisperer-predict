@@ -8,17 +8,17 @@ import { formatKmTime } from '../utils/v75DisplayUtils';
 interface V75RaceHistoryBreakdownProps {
   horseName: string;
   historicalRaces: ProcessedKmTime[];
-  best3Average: { minutes: number; seconds: number; tenths: number };
+  bestTime: { minutes: number; seconds: number; tenths: number };
 }
 
-const V75RaceHistoryBreakdown: React.FC<V75RaceHistoryBreakdownProps> = ({ 
-  horseName, 
-  historicalRaces, 
-  best3Average 
+const V75RaceHistoryBreakdown: React.FC<V75RaceHistoryBreakdownProps> = ({
+  horseName,
+  historicalRaces,
+  bestTime
 }) => {
   // Best time only (already sorted by normalized time in processing; we use single best, ≤5 months)
   const bestTimes = historicalRaces.slice(0, 1);
-  
+
   return (
     <Card className="border-blue-200 bg-blue-50/30">
       <CardHeader className="pb-3">
@@ -44,7 +44,7 @@ const V75RaceHistoryBreakdown: React.FC<V75RaceHistoryBreakdownProps> = ({
               <div className="flex justify-between">
                 <span className="text-gray-600">Best time:</span>
                 <Badge className="bg-blue-600 text-white text-xs font-mono">
-                  {formatKmTime(best3Average)}
+                  {formatKmTime(bestTime)}
                 </Badge>
               </div>
             </div>
@@ -53,9 +53,9 @@ const V75RaceHistoryBreakdown: React.FC<V75RaceHistoryBreakdownProps> = ({
           {/* Best time */}
           <div className="space-y-2">
             <h4 className="font-semibold text-sm text-gray-700">Best Time Used (≤5 months)</h4>
-            {bestTimes.length > 0 && best3Average && (() => {
+            {bestTimes.length > 0 && bestTime && (() => {
               const fromRace = bestTimes[0].normalizedTime;
-              const differs = fromRace.minutes !== best3Average.minutes || fromRace.seconds !== best3Average.seconds || (fromRace.tenths ?? 0) !== (best3Average.tenths ?? 0);
+              const differs = fromRace.minutes !== bestTime.minutes || fromRace.seconds !== bestTime.seconds || (fromRace.tenths ?? 0) !== (bestTime.tenths ?? 0);
               if (differs) {
                 return (
                   <p className="text-[11px] text-amber-700 dark:text-amber-400 italic">
@@ -67,16 +67,15 @@ const V75RaceHistoryBreakdown: React.FC<V75RaceHistoryBreakdownProps> = ({
             })()}
             <div className="space-y-2">
               {bestTimes.map((time, index) => (
-                <div 
+                <div
                   key={`${time.raceDate}-${index}`}
                   className="flex items-center justify-between p-2 bg-white rounded border border-gray-200"
                 >
                   <div className="flex items-center gap-2">
-                    <Badge className={`text-xs ${
-                      index === 0 ? 'bg-yellow-500' : 
-                      index === 1 ? 'bg-gray-400' : 
-                      'bg-amber-600'
-                    } text-white`}>
+                    <Badge className={`text-xs ${index === 0 ? 'bg-yellow-500' :
+                      index === 1 ? 'bg-gray-400' :
+                        'bg-amber-600'
+                      } text-white`}>
                       {index + 1}
                     </Badge>
                     <div className="flex items-center gap-1 text-xs text-gray-600">
@@ -84,7 +83,7 @@ const V75RaceHistoryBreakdown: React.FC<V75RaceHistoryBreakdownProps> = ({
                       {time.raceDate}
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1 text-xs text-gray-600">
                       <Ruler className="h-3 w-3" />
@@ -111,11 +110,10 @@ const V75RaceHistoryBreakdown: React.FC<V75RaceHistoryBreakdownProps> = ({
             </h4>
             <div className="max-h-32 overflow-y-auto space-y-1">
               {historicalRaces.map((time, index) => (
-                <div 
+                <div
                   key={`${time.raceDate}-${index}`}
-                  className={`flex items-center justify-between p-1 text-xs rounded ${
-                    index < 3 ? 'bg-blue-100 border border-blue-200' : 'bg-gray-50'
-                  }`}
+                  className={`flex items-center justify-between p-1 text-xs rounded ${index < 3 ? 'bg-blue-100 border border-blue-200' : 'bg-gray-50'
+                    }`}
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-gray-600">{time.raceDate}</span>
@@ -141,7 +139,7 @@ const V75RaceHistoryBreakdown: React.FC<V75RaceHistoryBreakdownProps> = ({
             </div>
           </div>
         )}
-        
+
         <div className="text-xs text-gray-500 italic">
           * Times are normalized to 2140m equivalent for fair comparison
         </div>

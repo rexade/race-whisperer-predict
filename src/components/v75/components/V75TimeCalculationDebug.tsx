@@ -16,8 +16,8 @@ interface V75TimeCalculationDebugProps {
 export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = ({ horse }) => {
   const { getLiveDebugLogs, exportDebugReport, clearLogs } = useXanderDebugger();
   // Get live debug logs for this specific horse
-  const horseLogs = getLiveDebugLogs().filter(log => 
-    log.horseId === horse.horseId || 
+  const horseLogs = getLiveDebugLogs().filter(log =>
+    log.horseId === horse.horseId ||
     log.horseName.toLowerCase().includes(horse.horseName.toLowerCase())
   );
 
@@ -32,13 +32,13 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
     // Value actually used for ranking and normalization (may include confidence penalty)
     const rawKmTimeUsed = horse.rawKmTime;
     // Best from history before any confidence adjustment (from log)
-    const bestFromHistory = historicalRaces[0]?.normalizedTime ?? processedTimesDetailLog?.data?.best3Average;
+    const bestFromHistory = historicalRaces[0]?.normalizedTime ?? processedTimesDetailLog?.data?.bestTime;
 
     return {
       historicalRecords: historicalDataLog?.data?.length || 0,
       processedTimes: historicalRaces,
       historicalRaces,
-      best3Average: rawKmTimeUsed,
+      bestTime: rawKmTimeUsed, // Changed from best3Average
       rawKmTime: rawKmTimeUsed,
       bestFromHistory,
       modernNormalizedTime: horse.modernNormalizedResult?.modernNormalizedTime,
@@ -77,7 +77,7 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        
+
         <div className="space-y-3 sm:space-y-4 mt-0">
           {/* Raw Data Summary */}
           <div>
@@ -182,17 +182,17 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
             <>
               <Separator />
               <div>
-                <V75RaceHistoryBreakdown 
+                <V75RaceHistoryBreakdown
                   horseName={horse.horseName}
                   historicalRaces={data.historicalRaces}
-                  best3Average={data.best3Average}
+                  bestTime={data.bestTime}
                 />
               </div>
             </>
           )}
 
         </div>
-        
+
       </CardContent>
     </Card>
   );

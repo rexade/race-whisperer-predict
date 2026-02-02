@@ -61,7 +61,7 @@ export const processHorseKmTimes = async (
       horseId,
       horseName,
       allTimes: [],
-      best3Average: { minutes: 0, seconds: 0, tenths: 0 },
+      bestTime: { minutes: 0, seconds: 0, tenths: 0 },
       bestRecordTime: { minutes: 0, seconds: 0, tenths: 0 },
       validTimesCount: 0
     };
@@ -201,15 +201,15 @@ export const processHorseKmTimes = async (
     });
 
   // Use single best (fastest) time only; records are already filtered to ≤5 months upstream
-  let best3Average: KmTime = { minutes: 0, seconds: 0, tenths: 0 };
+  let bestTime: KmTime = { minutes: 0, seconds: 0, tenths: 0 };
   let bestRecordTime: KmTime = { minutes: 0, seconds: 0, tenths: 0 };
   const hasBestTime = processedTimes.length > 0;
 
   if (hasBestTime) {
-    const bestTime = processedTimes[0].normalizedTime;
-    best3Average = { ...bestTime };
-    bestRecordTime = { ...bestTime };
-    console.log(`✅ Using best time for ${horseName}: ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
+    const fastestRecord = processedTimes[0].normalizedTime;
+    bestTime = { ...fastestRecord };
+    bestRecordTime = { ...fastestRecord };
+    console.log(`✅ Using best time for ${horseName}: ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
   } else {
     console.warn(`⚠️ No valid times for ${horseName}`);
   }
@@ -229,7 +229,7 @@ export const processHorseKmTimes = async (
   if (hasBestTime) {
     const t = processedTimes[0];
     console.log(`Best time: ${t.normalizedTime.minutes}:${t.normalizedTime.seconds.toString().padStart(2, '0')}.${t.normalizedTime.tenths} (from ${t.raceDate})`);
-    console.log(`RAW Time (Best): ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
+    console.log(`RAW Time (Best): ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
   } else {
     console.warn(`❌ NO VALID TIMES - Horse ${horseName}:`);
     console.warn(`  📊 Historical races provided: ${historicalRaces.length}`);
@@ -239,7 +239,7 @@ export const processHorseKmTimes = async (
   }
 
   // Enhanced debugging for final results
-  HorseDebugger.logProcessedTimes(horseId, horseName, processedTimes, best3Average);
+  HorseDebugger.logProcessedTimes(horseId, horseName, processedTimes, bestTime);
 
   // Get telemetry breakdown for statistics fallback
   const statsBreakdown = getStatisticsBreakdown(
@@ -268,15 +268,15 @@ export const processHorseKmTimes = async (
   );
 
   // Store raw average before penalty for transparency
-  const rawBest3Average = { ...best3Average };
+  const rawBestTime = { ...bestTime };
 
   if (confidenceMultiplier < 1.0) {
     console.log(`📊 [CONFIDENCE ADJUSTMENT] Applying ${confidenceMultiplier}x multiplier for statistics-only data`);
-    const rawSec = toSeconds(best3Average.minutes, best3Average.seconds, best3Average.tenths ?? 0);
+    const rawSec = toSeconds(bestTime.minutes, bestTime.seconds, bestTime.tenths ?? 0);
     const penalizedSec = rawSec / confidenceMultiplier; // Slower time = less confident
-    best3Average = secondsToKmParts(penalizedSec);
-    console.log(`   Raw best time: ${rawBest3Average.minutes}:${rawBest3Average.seconds.toString().padStart(2, '0')}.${rawBest3Average.tenths}`);
-    console.log(`   Penalized: ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
+    bestTime = secondsToKmParts(penalizedSec);
+    console.log(`   Raw best time: ${rawBestTime.minutes}:${rawBestTime.seconds.toString().padStart(2, '0')}.${rawBestTime.tenths}`);
+    console.log(`   Penalized: ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
   }
 
   // Enhanced logging for time calculation transparency
@@ -292,15 +292,15 @@ export const processHorseKmTimes = async (
       const t = processedTimes[0];
       console.log(`   🏆 Best Time: ${t.normalizedTime.minutes}:${t.normalizedTime.seconds.toString().padStart(2, '0')}.${t.normalizedTime.tenths ?? 0} (from ${t.raceDate}, ${t.distance}m ${t.startMethod})`);
     }
-    console.log(`   🎯 Final Best Time: ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
+    console.log(`   🎯 Final Best Time: ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
   }
 
   return {
     horseId,
     horseName,
     allTimes: processedTimes,
-    best3Average, // Penalized time (used for ranking/display)
-    rawBest3Average, // ALWAYS return un-penalized time for normalization
+    bestTime, // Penalized time (used for ranking/display)
+    rawBestTime, // ALWAYS return un-penalized time for normalization
     bestRecordTime,
     validTimesCount: processedTimes.length,
     isNotifiee: metadata?.usedFallback || false,
