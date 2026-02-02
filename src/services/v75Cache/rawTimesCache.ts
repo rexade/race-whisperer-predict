@@ -35,7 +35,7 @@ export class RawTimesCache {
       raceNumber,
       rawTimes: cachedRawTimes,
       cachedAt: new Date().toISOString(),
-      schemaVersion: 1
+      schemaVersion: 2
     };
 
     try {
@@ -63,7 +63,23 @@ export class RawTimesCache {
         return null;
       }
 
-      const rawTimesData: CachedV75RawTimes = JSON.parse(cachedData);
+      let rawTimesData: CachedV75RawTimes = JSON.parse(cachedData);
+
+      // Migration from schema version 1 (or missing) to version 2
+      if (!rawTimesData.schemaVersion || rawTimesData.schemaVersion < 2) {
+        log.info(`🔄 [RawTimesCache] Migrating cache for race ${raceId} to v2 schema`);
+
+        rawTimesData.rawTimes = rawTimesData.rawTimes.map(rt => ({
+          ...rt,
+          horseName: rt.horseName ?? `Horse ${rt.horseId}`,
+          validTimesCount: rt.validTimesCount ?? 0,
+          updatedAt: rt.updatedAt ?? rawTimesData.cachedAt
+        }));
+
+        rawTimesData.schemaVersion = 2;
+        localStorage.setItem(cacheKey, JSON.stringify(rawTimesData));
+      }
+
       log.debug(`🔍 [RawTimesCache] Found cached data:`, {
         raceNumber: rawTimesData.raceNumber,
         horseCount: rawTimesData.rawTimes.length,

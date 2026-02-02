@@ -42,12 +42,12 @@ export type WorkerMessage = AnalyzeRaceMessage;
 export type WorkerResponse = ProgressMessage | ResultMessage | ErrorMessage;
 
 // Worker message handler
-self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
-    const message = event.data;
+self.onmessage = async (event: MessageEvent<any>) => {
+    const { requestId, type, payload } = event.data;
 
-    if (message.type === 'ANALYZE_RACE') {
+    if (type === 'PROCESS_RACE') {
         try {
-            const { race, rawKmTimes, weights, analysisDate, postPositionCurves } = message.payload;
+            const { race, rawKmTimes, weights, analysisDate, postPositionCurves } = payload;
 
             // Process the race (pure computation, no side effects)
             const raceResult = await RaceResultProcessor.processRaceResult(
@@ -58,22 +58,26 @@ self.onmessage = async (event: MessageEvent<WorkerMessage>) => {
                 postPositionCurves
             );
 
-            // Send result back to main thread
-            const response: ResultMessage = {
-                type: 'RESULT',
+            // Send result back to main thread with requestId
+            (self as any).postMessage({
+                requestId,
+                type: 'DONE',
                 payload: { raceResult }
-            };
-            self.postMessage(response);
+            });
 
         } catch (error) {
             // Send error back to main thread
-            const response: ErrorMessage = {
+            (self as any).postMessage({
+                requestId,
                 type: 'ERROR',
-                payload: {
-                    message: error instanceof Error ? error.message : 'Unknown error in worker'
-                }
-            };
-            self.postMessage(response);
+                error: error instanceof Error ? error.message : 'Unknown error in worker'
+            });
         }
+    } else {
+        (self as any).postMessage({
+            requestId,
+            type: 'ERROR',
+            error: 'Unknown message type'
+        });
     }
 };
