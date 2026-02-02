@@ -6,6 +6,7 @@ import { RaceAnalysisCache } from '../../../services/v75Cache/raceAnalysisCache'
 import { analyzeHistorySource } from './confidenceCalculator';
 import { pickDisplayTime, isZeroParts } from './timeUtils';
 import type { TimeSource } from '../types/raceResultTypes';
+import { log } from '@/lib/logger';
 
 export const buildHorseResult = (
   horse: any,
@@ -18,14 +19,14 @@ export const buildHorseResult = (
 ): V75HorseResult => {
   // Analyze history source and calculate confidence
   const confidenceAnalysis = analyzeHistorySource(horse, rawTimeData);
-  
+
   // Determine time source and uncertainty
   let timeSource: TimeSource = "normalized";
   let uncertain = false;
   let uncertaintyReason: V75HorseResult["uncertaintyReason"] | undefined = undefined;
   let finalConfidence = confidenceAnalysis.confidence;
   let finalNormalizedResult = modernNormalizedResult;
-  
+
   // Use canonical picker to get the best available time
   const picked = pickDisplayTime({
     normalized: modernNormalizedResult?.modernNormalizedTime ?? null,
@@ -33,15 +34,15 @@ export const buildHorseResult = (
     rawKmTime: rawKmTime ?? null,
     distanceMeters: race?.distance,
   });
-  
-  console.log(`🎯 Time picker for ${extractedData.safeHorseName}:`, {
+
+  log.debug(`🎯 Time picker for ${extractedData.safeHorseName}:`, {
     source: picked.source,
     hasParts: !!picked.parts,
     normalized: modernNormalizedResult?.modernNormalizedTime,
     bestRecord: rawTimeData?.bestRecordTime,
     rawKm: rawKmTime,
   });
-  
+
   // If picker chose a non-normalized fallback, create synthetic result
   if (picked.source !== "normalized" && picked.parts) {
     finalNormalizedResult = {
@@ -52,51 +53,51 @@ export const buildHorseResult = (
       isEstimated: true,
       isFallback: true,
     };
-    
+
     timeSource = picked.source === "best_raw" ? "best_raw" : picked.source === "raw" ? "best_raw" : "none";
-    
+
     if (picked.source !== "none") {
       uncertain = true;
       uncertaintyReason = rawTimeData?.validTimesCount ? "best_only" : "no_valid_samples";
       finalConfidence = Math.min(finalConfidence ?? 60, 60);
-      console.log(`⚠️ Using fallback time for ${extractedData.safeHorseName}: ${picked.parts.minutes}:${picked.parts.seconds.toString().padStart(2, '0')}.${picked.parts.tenths}`);
+      log.debug(`⚠️ Using fallback time for ${extractedData.safeHorseName}: ${picked.parts.minutes}:${picked.parts.seconds.toString().padStart(2, '0')}.${picked.parts.tenths}`);
     }
   }
-  
+
   // CRITICAL: Never allow 0:00.0 to reach the UI
   if (isZeroParts(finalNormalizedResult?.modernNormalizedTime)) {
-    console.log(`🚫 Rejecting zero time for ${extractedData.safeHorseName}, will render as "—"`);
+    log.debug(`🚫 Rejecting zero time for ${extractedData.safeHorseName}, will render as "—"`);
     finalNormalizedResult = undefined as any;
     timeSource = "none";
     uncertain = false;
     uncertaintyReason = undefined;
   }
-  
+
   // Synthesize warning from provenance flags if not explicitly set
   const synthesizedWarning = rawTimeData?.warning
     ? rawTimeData.warning
     : rawTimeData?.usedInvalidTimeFallback
+      ? {
+        type: 'invalid-record' as const,
+        reason: 'fastest-invalid',
+        message: 'Used invalid result to avoid 0:00.0; prediction may be unreliable',
+      }
+      : (rawTimeData?.confidenceMultiplier !== undefined && rawTimeData.confidenceMultiplier <= 0.5 && rawTimeData.usedExtendedFallback)
         ? {
-            type: 'invalid-record' as const,
-            reason: 'fastest-invalid',
-            message: 'Used invalid result to avoid 0:00.0; prediction may be unreliable',
-          }
-        : (rawTimeData?.confidenceMultiplier !== undefined && rawTimeData.confidenceMultiplier <= 0.5 && rawTimeData.usedExtendedFallback)
-            ? {
-                type: 'invalid-record' as const,
-                reason: 'extended-single',
-                message: 'Used single record from extended; prediction may be unreliable',
-              }
-            : undefined;
-  
+          type: 'invalid-record' as const,
+          reason: 'extended-single',
+          message: 'Used single record from extended; prediction may be unreliable',
+        }
+        : undefined;
+
   if (synthesizedWarning) {
-    console.log(`⚠️ Warning synthesized for ${extractedData.safeHorseName}:`, synthesizedWarning, {
+    log.debug(`⚠️ Warning synthesized for ${extractedData.safeHorseName}:`, synthesizedWarning, {
       usedInvalidTimeFallback: rawTimeData?.usedInvalidTimeFallback,
       confidenceMultiplier: rawTimeData?.confidenceMultiplier,
       usedExtendedFallback: rawTimeData?.usedExtendedFallback,
     });
   }
-  
+
   const horseResult: V75HorseResult = {
     raceNumber: race.raceNumber,
     raceId: race.raceId,
@@ -153,43 +154,43 @@ export const storeRaceAnalysisData = async (
   analysisDate: string
 ): Promise<void> => {
   try {
-    console.log(`📊 STRICT CACHE STORAGE - Race ${race.raceNumber}:`);
-    
+    log.debug(`📊 STRICT CACHE STORAGE - Race ${race.raceNumber}:`);
+
     const analysisHorses = horses.map(horse => {
       // STRICT: Only use predicted times from actual modern normalization results
       const predictedTimeFromResult = horse.modernNormalizedResult?.modernNormalizedTime;
       const isEstimated = (horse.modernNormalizedResult as any)?.isEstimated || false;
-      
-      console.log(`  🐎 Horse ${horse.horseId} (${horse.horseName}):`);
-      console.log(`    - Has modernNormalizedResult: ${!!horse.modernNormalizedResult}`);
-      console.log(`    - Time source: ${isEstimated ? 'ESTIMATED' : 'RAW DATA'}`);
-      console.log(`    - Has raw KM time: ${!!horse.rawKmTime}`);
-      
+
+      log.debug(`  🐎 Horse ${horse.horseId} (${horse.horseName}):`);
+      log.debug(`    - Has modernNormalizedResult: ${!!horse.modernNormalizedResult}`);
+      log.debug(`    - Time source: ${isEstimated ? 'ESTIMATED' : 'RAW DATA'}`);
+      log.debug(`    - Has raw KM time: ${!!horse.rawKmTime}`);
+
       // STRICT VALIDATION: Only store predicted times from actual raw data (no estimates)
       let validPredictedTime = undefined;
-      if (predictedTimeFromResult && 
-          !isEstimated && // STRICT: Only store times from actual raw data
-          typeof predictedTimeFromResult === 'object' &&
-          typeof predictedTimeFromResult.minutes === 'number' &&
-          typeof predictedTimeFromResult.seconds === 'number' &&
-          typeof predictedTimeFromResult.tenths === 'number' &&
-          !isNaN(predictedTimeFromResult.minutes) &&
-          !isNaN(predictedTimeFromResult.seconds) &&
-          !isNaN(predictedTimeFromResult.tenths)) {
-        
+      if (predictedTimeFromResult &&
+        !isEstimated && // STRICT: Only store times from actual raw data
+        typeof predictedTimeFromResult === 'object' &&
+        typeof predictedTimeFromResult.minutes === 'number' &&
+        typeof predictedTimeFromResult.seconds === 'number' &&
+        typeof predictedTimeFromResult.tenths === 'number' &&
+        !isNaN(predictedTimeFromResult.minutes) &&
+        !isNaN(predictedTimeFromResult.seconds) &&
+        !isNaN(predictedTimeFromResult.tenths)) {
+
         validPredictedTime = {
           minutes: predictedTimeFromResult.minutes,
           seconds: predictedTimeFromResult.seconds,
           tenths: predictedTimeFromResult.tenths
         };
-        
-        console.log(`    ✅ VALID predicted time from RAW DATA:`, validPredictedTime);
-        console.log(`    📝 Format: ${validPredictedTime.minutes}:${validPredictedTime.seconds.toString().padStart(2, '0')}.${validPredictedTime.tenths}`);
+
+        log.debug(`    ✅ VALID predicted time from RAW DATA:`, validPredictedTime);
+        log.debug(`    📝 Format: ${validPredictedTime.minutes}:${validPredictedTime.seconds.toString().padStart(2, '0')}.${validPredictedTime.tenths}`);
       } else {
         if (isEstimated) {
-          console.log(`    🚫 REJECTED estimated time - only storing times from actual raw data`);
+          log.debug(`    🚫 REJECTED estimated time - only storing times from actual raw data`);
         } else {
-          console.log(`    ❌ INVALID predicted time - validation failed`);
+          log.debug(`    ❌ INVALID predicted time - validation failed`);
         }
       }
 
@@ -210,16 +211,16 @@ export const storeRaceAnalysisData = async (
     });
 
     const horsesWithPredictedTimes = analysisHorses.filter(h => h.predictedTime);
-    console.log(`📋 STRICT STORAGE SUMMARY - Race ${race.raceNumber}:`);
-    console.log(`  - Total horses: ${analysisHorses.length}`);
-    console.log(`  - Horses with VALID predicted times (RAW DATA ONLY): ${horsesWithPredictedTimes.length}`);
-    console.log(`  - Horses without predicted times: ${analysisHorses.length - horsesWithPredictedTimes.length}`);
-    
+    log.debug(`📋 STRICT STORAGE SUMMARY - Race ${race.raceNumber}:`);
+    log.debug(`  - Total horses: ${analysisHorses.length}`);
+    log.debug(`  - Horses with VALID predicted times (RAW DATA ONLY): ${horsesWithPredictedTimes.length}`);
+    log.debug(`  - Horses without predicted times: ${analysisHorses.length - horsesWithPredictedTimes.length}`);
+
     if (horsesWithPredictedTimes.length > 0) {
-      console.log(`  🎯 Valid predicted times being stored (RAW DATA ONLY):`);
+      log.debug(`  🎯 Valid predicted times being stored (RAW DATA ONLY):`);
       horsesWithPredictedTimes.slice(0, 3).forEach(horse => {
         if (horse.predictedTime) {
-          console.log(`    - ${horse.horseName}: ${horse.predictedTime.minutes}:${horse.predictedTime.seconds.toString().padStart(2, '0')}.${horse.predictedTime.tenths}`);
+          log.debug(`    - ${horse.horseName}: ${horse.predictedTime.minutes}:${horse.predictedTime.seconds.toString().padStart(2, '0')}.${horse.predictedTime.tenths}`);
         }
       });
     }
@@ -231,8 +232,8 @@ export const storeRaceAnalysisData = async (
       analysisHorses
     );
 
-    console.log(`📊 Successfully stored STRICT analysis data for race ${race.raceNumber} with ${horsesWithPredictedTimes.length} valid predicted times from raw data`);
+    log.debug(`📊 Successfully stored STRICT analysis data for race ${race.raceNumber} with ${horsesWithPredictedTimes.length} valid predicted times from raw data`);
   } catch (error) {
-    console.error('❌ Error storing race analysis data:', error);
+    log.error('❌ Error storing race analysis data:', error);
   }
 };

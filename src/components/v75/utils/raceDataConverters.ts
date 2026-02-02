@@ -2,12 +2,13 @@
 import { V75RaceData } from '../../../services/v75CalendarApi';
 import { EnhancedRaceData, EnhancedHorseData } from '../../../services/enhancedAtgApi';
 import { extractHorseNameAsString, extractTrackNameAsString } from './dataExtraction';
+import { log } from '@/lib/logger';
 
 // Convert V75RaceData to EnhancedRaceData format for validation
 export const convertV75ToEnhancedRaceData = (v75Race: V75RaceData): EnhancedRaceData => {
-  console.log(`🔄 Converting V75 race ${v75Race.raceNumber} to EnhancedRaceData format for validation`);
-  console.log(`  Race has ${v75Race.horses.length} horses with positions: ${v75Race.horses.map(h => h.postPosition).sort((a,b) => a-b).join(', ')}`);
-  
+  log.debug(`🔄 Converting V75 race ${v75Race.raceNumber} to EnhancedRaceData format for validation`);
+  log.debug(`  Race has ${v75Race.horses.length} horses with positions: ${v75Race.horses.map(h => h.postPosition).sort((a, b) => a - b).join(', ')}`);
+
   const enhancedHorses: EnhancedHorseData[] = v75Race.horses.map(horse => ({
     horseId: horse.horseId,
     name: extractHorseNameAsString(horse.name),
@@ -57,9 +58,9 @@ export const convertV75ToEnhancedRaceData = (v75Race: V75RaceData): EnhancedRace
 
 // Convert EnhancedRaceData back to V75RaceData format after validation
 export const convertEnhancedToV75RaceData = (enhancedRace: EnhancedRaceData): V75RaceData => {
-  console.log(`🔄 Converting enhanced race ${enhancedRace.raceNumber} back to V75RaceData format`);
-  console.log(`  Fixed race has ${enhancedRace.horses.length} horses with positions: ${enhancedRace.horses.map(h => h.postPosition).sort((a,b) => a-b).join(', ')}`);
-  
+  log.debug(`🔄 Converting enhanced race ${enhancedRace.raceNumber} back to V75RaceData format`);
+  log.debug(`  Fixed race has ${enhancedRace.horses.length} horses with positions: ${enhancedRace.horses.map(h => h.postPosition).sort((a, b) => a - b).join(', ')}`);
+
   return {
     raceId: enhancedRace.raceId,
     raceNumber: enhancedRace.raceNumber,

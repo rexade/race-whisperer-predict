@@ -7,6 +7,7 @@ import { extractTrackNameAsString } from './dataExtraction';
 import { extractAndValidateHorseData } from './horseDataExtractor';
 import { applyHorseNormalization } from './horseNormalizationProcessor';
 import { buildHorseResult, storeRaceAnalysisData } from './horseResultBuilder';
+import { log } from '@/lib/logger';
 
 export const processHorseResults = async (
   race: V75RaceData,
@@ -18,9 +19,9 @@ export const processHorseResults = async (
   const safeRaceTrack = extractTrackNameAsString(race.track);
   const horseResults: V75HorseResult[] = [];
 
-  console.log(`🔄 ENHANCED PROCESSING - Race ${race.raceNumber}:`);
-  console.log(`  - Total horses to process: ${race.horses.length}`);
-  console.log(`  - Raw KM times available: ${rawKmTimes.length}`);
+  log.debug(`🔄 ENHANCED PROCESSING - Race ${race.raceNumber}:`);
+  log.debug(`  - Total horses to process: ${race.horses.length}`);
+  log.debug(`  - Raw KM times available: ${rawKmTimes.length}`);
 
   for (const horse of race.horses) {
     const rawTimeData = rawKmTimes.find(rt => rt.horseId === horse.horseId);
@@ -30,9 +31,9 @@ export const processHorseResults = async (
     const extractedData = extractAndValidateHorseData(horse);
 
     // ENHANCED: Always apply normalization to ensure predicted times
-    console.log(`🎯 Processing horse ${horse.horseId} (${extractedData.safeHorseName})`);
-    console.log(`  - Has raw KM time: ${!!rawKmTime}`);
-    
+    log.debug(`🎯 Processing horse ${horse.horseId} (${extractedData.safeHorseName})`);
+    log.debug(`  - Has raw KM time: ${!!rawKmTime}`);
+
     const modernNormalizedResult = applyHorseNormalization(
       horse,
       race,
@@ -43,10 +44,10 @@ export const processHorseResults = async (
       rawTimeData // Pass raw time data for form calculation
     );
 
-    console.log(`  - Generated normalized result: ${!!modernNormalizedResult}`);
+    log.debug(`  - Generated normalized result: ${!!modernNormalizedResult}`);
     if (modernNormalizedResult?.modernNormalizedTime) {
       const time = modernNormalizedResult.modernNormalizedTime;
-      console.log(`  - Predicted time: ${time.minutes}:${time.seconds.toString().padStart(2, '0')}.${time.tenths} ${(modernNormalizedResult as any).isEstimated ? '(EST)' : '(RAW)'}`);
+      log.debug(`  - Predicted time: ${time.minutes}:${time.seconds.toString().padStart(2, '0')}.${time.tenths} ${(modernNormalizedResult as any).isEstimated ? '(EST)' : '(RAW)'}`);
     }
 
     // Build the final horse result with notifiee information
@@ -63,9 +64,9 @@ export const processHorseResults = async (
     horseResults.push(horseResult);
   }
 
-  console.log(`✅ ENHANCED PROCESSING COMPLETE - Race ${race.raceNumber}:`);
-  console.log(`  - Processed horses: ${horseResults.length}`);
-  console.log(`  - Horses with predicted times: ${horseResults.filter(h => h.modernNormalizedResult?.modernNormalizedTime).length}`);
+  log.debug(`✅ ENHANCED PROCESSING COMPLETE - Race ${race.raceNumber}:`);
+  log.debug(`  - Processed horses: ${horseResults.length}`);
+  log.debug(`  - Horses with predicted times: ${horseResults.filter(h => h.modernNormalizedResult?.modernNormalizedTime).length}`);
 
   // Store race analysis data for post-race comparison if analysis date is provided
   if (analysisDate) {
