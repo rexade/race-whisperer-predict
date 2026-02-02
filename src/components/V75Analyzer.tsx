@@ -14,6 +14,7 @@ import { useRockSolidDebugger } from "./v75/hooks/useRockSolidDebugger";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
 import { exportV75ToExcel } from '../utils/excelExport';
 import { useGameInfo, useRaceData } from '@/queries/v75';
+import { GAME_TYPE } from '@/config/game';
 
 // Shared components
 import AnalyzerLayout from "./shared/analyzer/AnalyzerLayout";
@@ -39,8 +40,8 @@ const V75Analyzer: React.FC = () => {
 
   // React Query Data Fetching
   const dateStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null;
-  const { data: gameInfo, isLoading: isLoadingGame } = useGameInfo(dateStr);
-  const { data: races, isLoading: isLoadingRaces } = useRaceData(dateStr, gameInfo);
+  const { data: gameInfo, isLoading: isLoadingGame, error: gameError } = useGameInfo(dateStr);
+  const { data: races, isLoading: isLoadingRaces, error: raceError } = useRaceData(dateStr, gameInfo);
 
   const isDataReady = !!races && races.length > 0;
   const isFetching = isLoadingGame || isLoadingRaces;
@@ -199,10 +200,32 @@ const V75Analyzer: React.FC = () => {
         {/* Welcome card - only show when no results and no error */}
         {showInput && !error && v75Results.length === 0 && (
           <AnalyzerCard
-            title="V85 Multi-Race Analyzer"
-            description="Analyze all 8 races in a V85 day with advanced RAW time normalization and intelligent caching. Select a date in the toolbar above to get started."
+            title={`${GAME_TYPE} Multi-Race Analyzer`}
+            description={`Analyze all races in a ${GAME_TYPE} day with advanced RAW time normalization and intelligent caching. Select a date in the toolbar above to get started.`}
             icon={<Trophy className="h-6 w-6" />}
           />
+        )}
+
+        {/* React Query error display */}
+        {(gameError || raceError) && (
+          <AnalyzerCard>
+            <div className="space-y-3">
+              <ErrorDisplay
+                error={gameError ? `Failed to fetch game info: ${gameError.message}` : `Failed to fetch race data: ${raceError?.message}`}
+              />
+              <div className="flex justify-end">
+                <button
+                  onClick={() => {
+                    setSelectedDate(null);
+                    setTimeout(() => setShowInput(true), 100);
+                  }}
+                  className="text-sm text-primary hover:text-primary/80 underline px-3 py-1"
+                >
+                  Try another date
+                </button>
+              </div>
+            </div>
+          </AnalyzerCard>
         )}
 
         {/* Error display */}
