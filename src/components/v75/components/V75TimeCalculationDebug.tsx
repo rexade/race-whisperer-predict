@@ -53,7 +53,7 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
       <CardHeader>
         <CardTitle className="text-sm flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span>Time Calculation Debug - {horse.horseName}</span>
+            <span>Normalization Breakdown — {horse.horseName}</span>
             <Badge variant="outline">ID: {horse.horseId}</Badge>
           </div>
           <div className="flex items-center gap-2">
@@ -109,9 +109,9 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
                   return (
                     <div className="flex flex-wrap items-center gap-2 p-2 bg-warning/10 dark:bg-warning/20 rounded border border-warning/30">
                       <span className="text-xs text-muted-foreground">Best from history:</span>
-                      <Badge variant="outline" className="font-mono text-xs">{formatKmTime(data.bestFromHistory)}</Badge>
+                      <Badge variant="outline" className="font-mono tabular-nums text-xs">{formatKmTime(data.bestFromHistory)}</Badge>
                       <span className="text-xs text-muted-foreground">→ After confidence (used):</span>
-                      <Badge variant="secondary" className="font-mono text-xs">{formatKmTime(data.rawKmTime)}</Badge>
+                      <Badge variant="secondary" className="font-mono tabular-nums text-xs">{formatKmTime(data.rawKmTime)}</Badge>
                       <span className="text-[11px] text-muted-foreground italic">(statistics-sourced data)</span>
                     </div>
                   );
@@ -122,7 +122,7 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
               {/* Raw KM Time: value actually used for normalization and ranking */}
               <div className="flex items-center justify-between p-2 bg-secondary/20 rounded">
                 <span className="text-sm text-muted-foreground">Raw KM Time (used):</span>
-                <Badge variant="secondary" className="font-mono">
+                <Badge variant="secondary" className="font-mono tabular-nums">
                   {data.rawKmTime ? formatKmTime(data.rawKmTime) : '—'}
                 </Badge>
               </div>
@@ -136,26 +136,52 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
 
                   {/* Adjustments */}
                   <div className="p-3 bg-primary/5 rounded border">
-                    <div className="text-xs text-muted-foreground mb-2">All Normalization Adjustments:</div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1 text-[11px] sm:text-xs">
-                      <div>Post Position: {data.adjustments.postPosition?.toFixed(2)}s</div>
-                      <div>Equipment: {data.adjustments.equipment?.toFixed(2)}s</div>
-                      <div>Driver: {data.adjustments.driver?.toFixed(2)}s</div>
-                      <div>Track: {data.adjustments.track?.toFixed(2)}s</div>
-                      <div>Form: {data.adjustments.form?.toFixed(2)}s</div>
-                      <div>Distance: {data.adjustments.distance?.toFixed(2)}s</div>
-                      <div>Race Distance: {data.adjustments.raceDistanceAdjustment?.toFixed(2)}s</div>
-                      <div>Race Type: {data.adjustments.raceType?.toFixed(2)}s</div>
-                      <div>Time of Day: {data.adjustments.timeOfDay?.toFixed(2)}s</div>
-                      <div>Volte Start Penalty: {data.adjustments.volteStartDistancePenalty?.toFixed(2)}s</div>
-                      <div>Start Points: {data.adjustments.startPoints?.toFixed(2)}s</div>
-                      <div>Place %: {data.adjustments.placePercentage?.toFixed(2)}s</div>
-                      <div>Horse Win %: {data.adjustments.horseWinPercentage?.toFixed(2)}s</div>
-                      <div>Earnings/Start: {data.adjustments.earningsPerStart?.toFixed(2)}s</div>
+                    <div className="text-xs text-muted-foreground mb-2">
+                      All Normalization Adjustments
+                      <span className="ml-2 text-[10px]">
+                        (<span className="text-success">green</span> = faster, <span className="text-destructive">red</span> = slower)
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 text-[11px] sm:text-xs">
+                      {(
+                        [
+                          ['Post Position',      data.adjustments.postPosition],
+                          ['Equipment',          data.adjustments.equipment],
+                          ['Driver',             data.adjustments.driver],
+                          ['Track',              data.adjustments.track],
+                          ['Form',               data.adjustments.form],
+                          ['Distance',           data.adjustments.distance],
+                          ['Race Distance',      data.adjustments.raceDistanceAdjustment],
+                          ['Volte Start',        data.adjustments.volteStartDistancePenalty],
+                          ['Start Points',       data.adjustments.startPoints],
+                          ['Place %',            data.adjustments.placePercentage],
+                          ['Horse Win %',        data.adjustments.horseWinPercentage],
+                          ['Earnings/Start',     data.adjustments.earningsPerStart],
+                        ] as [string, number | undefined][]
+                      ).map(([label, val]) => {
+                        const v = val ?? 0;
+                        const color = v < -0.005 ? 'text-success' : v > 0.005 ? 'text-destructive' : 'text-muted-foreground';
+                        const sign = v > 0.005 ? '+' : '';
+                        return (
+                          <div key={label} className="flex justify-between gap-1">
+                            <span className="text-muted-foreground">{label}</span>
+                            <span className={`font-mono tabular-nums font-medium ${color}`}>
+                              {sign}{v.toFixed(2)}s
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                     <div className="mt-2 pt-2 border-t border-border/50 space-y-1">
-                      <div className="text-xs font-medium">
-                        Total Adjustment: {data.adjustments.total?.toFixed(2)}s
+                      <div className="flex justify-between text-xs font-medium">
+                        <span>Total Adjustment</span>
+                        <span className={`font-mono tabular-nums ${
+                          (data.adjustments.total ?? 0) < -0.005 ? 'text-success'
+                          : (data.adjustments.total ?? 0) > 0.005 ? 'text-destructive'
+                          : 'text-muted-foreground'
+                        }`}>
+                          {(data.adjustments.total ?? 0) > 0.005 ? '+' : ''}{data.adjustments.total?.toFixed(2)}s
+                        </span>
                       </div>
                       {data.rawKmTime && data.modernNormalizedTime && (
                         <div className="text-[11px] text-muted-foreground">
@@ -170,7 +196,7 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
               {/* Final Predicted Time */}
               <div className="flex items-center justify-between p-2 bg-primary/10 rounded border border-primary/20">
                 <span className="text-sm font-medium">Final Predicted Time:</span>
-                <Badge className="font-mono">
+                <Badge className="font-mono tabular-nums">
                   {data.modernNormalizedTime ? formatKmTime(data.modernNormalizedTime) : '—'}
                 </Badge>
               </div>

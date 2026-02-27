@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Medal, ChevronDown, ChevronUp, Zap, Banknote, Award } from "lucide-react";
 import { V75HorseResult } from '../hooks/useV75Analysis';
 import { ensureStringForDisplay, formatKmTime, formatEarnings, getShoesDisplay, getShoesColor, getSulkyDisplay } from '../utils/v75DisplayUtils';
@@ -12,6 +13,11 @@ interface CompactHorseRowProps {
   horse: V75HorseResult;
   rank: number;
 }
+
+const uncertainLabel: Record<string, string> = {
+  best_only: "Best raw time used — no valid normalized samples available",
+  no_valid_samples: "Fallback estimate — no valid historical samples found",
+};
 
 const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
   const [showDebug, setShowDebug] = useState(false);
@@ -29,14 +35,20 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
     return null;
   };
 
-  const getRankBadgeStyle = () => {
-    return "bg-primary text-primary-foreground font-bold shadow-sm";
-  };
-
   const getRowStyle = (rank: number) => {
     if (rank <= 3) return "bg-transparent sm:bg-primary/5 sm:border-l-4 border-l-transparent sm:border-l-primary sm:shadow-sm";
     return "bg-transparent sm:bg-card sm:hover:bg-muted/30";
   };
+
+  const confidenceColor =
+    horse.confidence === undefined ? ''
+    : horse.confidence >= 80 ? 'text-success'
+    : horse.confidence >= 50 ? 'text-warning'
+    : 'text-destructive';
+
+  const kmTimeTooltip = latestKmTime
+    ? `Km time data from ${latestKmTime.date}${latestKmTime.raceName ? ` — ${latestKmTime.raceName}` : ''}${horse.kmTimeRecords && horse.kmTimeRecords.length > 1 ? ` (${horse.kmTimeRecords.length} races)` : ''}`
+    : '';
 
   return (
     <>
@@ -47,21 +59,28 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
         role={isMobile ? 'button' : undefined}
         tabIndex={isMobile ? 0 : -1}
         aria-expanded={showDebug}
-        aria-controls={`debug-${horse.horseId}`}
+        aria-controls={`breakdown-${horse.horseId}`}
       >
         {/* Main content - always visible */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Rank and Start Position */}
           <div className="flex flex-col items-center gap-1 w-[42px] sm:w-[50px] flex-shrink-0">
             <div className="flex items-center gap-1">
-              <span className="w-4 h-4 flex items-center justify-center">
+              <span className="w-4 h-4 flex items-center justify-center" aria-hidden="true">
                 {getRankIcon(rank)}
               </span>
-              <Badge className={`${getRankBadgeStyle()} text-xs h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0`}>
+              <Badge
+                className="bg-primary text-primary-foreground font-bold shadow-sm text-xs h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0 tabular-nums"
+                aria-label={`Rank ${rank}`}
+              >
                 {rank}
               </Badge>
             </div>
-            <Badge variant="secondary" className="text-xs font-bold h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0">
+            <Badge
+              variant="secondary"
+              className="text-xs font-bold h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0 tabular-nums"
+              aria-label={`Post position ${horse.postPosition}`}
+            >
               {horse.postPosition}
             </Badge>
           </div>
@@ -87,17 +106,23 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
                   <div className="text-xs text-muted-foreground leading-tight truncate">{safeDriverName}</div>
                   {/* Confidence indicator */}
                   {horse.confidence !== undefined && (
-                    <div 
-                      className="text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1"
-                      title={`Confidence ${horse.confidence}%`}
-                    >
-                      <span className={
-                        horse.confidence >= 80 ? "text-success" 
-                        : horse.confidence >= 50 ? "text-warning" 
-                        : "text-destructive"
-                      }>●</span>
-                      <span className="text-muted-foreground">{horse.confidence}%</span>
-                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div
+                          className="text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 cursor-default"
+                          aria-label={`Data confidence: ${horse.confidence}%`}
+                        >
+                          <span className={confidenceColor} aria-hidden="true">●</span>
+                          <span className="text-muted-foreground tabular-nums">{horse.confidence}%</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Data confidence: {horse.confidence}%
+                        {horse.confidence < 50 && ' — limited historical data'}
+                        {horse.confidence >= 50 && horse.confidence < 80 && ' — moderate data coverage'}
+                        {horse.confidence >= 80 && ' — strong data coverage'}
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </div>
               </div>
@@ -106,48 +131,54 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
                 size="sm"
                 onClick={(e) => { e.stopPropagation(); setShowDebug(!showDebug); }}
                 className="hidden sm:inline-flex h-5 w-5 p-0 opacity-60 hover:opacity-100 flex-shrink-0"
+                aria-label={showDebug ? 'Collapse normalization breakdown' : 'Expand normalization breakdown'}
+                aria-expanded={showDebug}
+                aria-controls={`breakdown-${horse.horseId}`}
               >
                 {showDebug ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               </Button>
             </div>
           </div>
 
-          {/* Times - Reordered with Pred as most prominent */}
+          {/* Times — Pred most prominent, Raw + Best secondary */}
           <div className="flex flex-col gap-1 min-w-0">
-            {/* Predicted Time - Most prominent */}
+            {/* Predicted Time */}
             <div className="text-center">
-              <div className={`font-mono text-base sm:text-lg font-bold ${isTopPerformer ? 'text-primary' : 'text-foreground'} flex items-center justify-center gap-1`}>
-                {horse.uncertain && <span className="text-warning" title="Approximation">≈</span>}
+              <div className={`font-mono tabular-nums text-base sm:text-lg font-bold ${isTopPerformer ? 'text-primary' : 'text-foreground'} flex items-center justify-center gap-1`}>
+                {horse.uncertain && (
+                  <span className="text-warning" aria-hidden="true">≈</span>
+                )}
                 {formatKmTime(result.modernNormalizedTime)}
                 {horse.uncertain && (
-                  <span
-                    className="text-[9px] px-1 py-0.5 rounded bg-warning/10 text-warning border border-warning/20 whitespace-nowrap"
-                    title={
-                      horse.uncertaintyReason === "best_only"
-                        ? "Best raw time used (no valid normalized samples)"
-                        : horse.uncertaintyReason === "no_valid_samples"
-                        ? "Fallback used (no valid samples)"
-                        : "Approximation"
-                    }
-                  >
-                    uncertain
-                  </span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        className="text-[9px] px-1 py-0.5 rounded bg-warning/10 text-warning border border-warning/20 whitespace-nowrap cursor-default"
+                        aria-label={uncertainLabel[horse.uncertaintyReason ?? ''] ?? 'Approximation'}
+                      >
+                        uncertain
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {uncertainLabel[horse.uncertaintyReason ?? ''] ?? 'Approximation'}
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
               <div className="text-xs text-primary font-medium">Pred</div>
             </div>
-            
-            {/* Raw and Best in smaller format */}
+
+            {/* Raw and Best */}
             <div className="flex gap-2 justify-center">
               <div className="text-center">
-                <div className="font-mono text-xs font-medium text-muted-foreground">
-                  {horse.rawKmTime ? formatKmTime(horse.rawKmTime) : '-'}
+                <div className="font-mono tabular-nums text-xs font-medium text-muted-foreground">
+                  {horse.rawKmTime ? formatKmTime(horse.rawKmTime) : '—'}
                 </div>
                 <div className="text-xs text-muted-foreground">Raw</div>
               </div>
               <div className="text-center">
-                <div className="font-mono text-xs font-medium text-muted-foreground">
-                  {horse.bestRecordTime ? formatKmTime(horse.bestRecordTime) : '-'}
+                <div className="font-mono tabular-nums text-xs font-medium text-muted-foreground">
+                  {horse.bestRecordTime ? formatKmTime(horse.bestRecordTime) : '—'}
                 </div>
                 <div className="text-xs text-muted-foreground">Best</div>
               </div>
@@ -155,91 +186,124 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
           </div>
         </div>
 
-        {/* Secondary info row - Compact single line */}
+        {/* Secondary info row */}
         <div className="flex items-center justify-between mt-1 sm:mt-2 gap-2">
           <div className="flex items-center gap-2 text-xs flex-wrap">
-            {/* Statistics */}
-            <div className="flex items-center gap-1">
-              <span className={`font-medium ${horse.statistics?.winPercentage > 0 ? 'text-success' : 'text-muted-foreground'}`}>
-                {horse.statistics?.winPercentage ? (horse.statistics.winPercentage / 100).toFixed(0) + '%' : '-'}
-              </span>
-              <span className="text-muted-foreground">win</span>
-            </div>
+            {/* Horse win % */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 cursor-default" aria-label={`Horse win rate: ${horse.statistics?.winPercentage ? (horse.statistics.winPercentage / 100).toFixed(0) : 0}%`}>
+                  <span className={`font-medium tabular-nums ${horse.statistics?.winPercentage > 0 ? 'text-success' : 'text-muted-foreground'}`}>
+                    {horse.statistics?.winPercentage ? (horse.statistics.winPercentage / 100).toFixed(0) + '%' : '—'}
+                  </span>
+                  <span className="text-muted-foreground">win</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Horse win rate (career)</TooltipContent>
+            </Tooltip>
 
-            {/* Driver Win % */}
-            <div className="flex items-center gap-1">
-              <Zap className="h-3 w-3 text-success" />
-              <span className={`font-medium ${horse.driver2025WinPercentage > 0 ? 'text-success' : 'text-muted-foreground'}`}>
-                {horse.driver2025WinPercentage ? (horse.driver2025WinPercentage / 100).toFixed(0) + '%' : '-'}
-              </span>
-            </div>
+            {/* Driver win % */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 cursor-default" aria-label={`Driver win rate: ${horse.driver2025WinPercentage ? (horse.driver2025WinPercentage / 100).toFixed(0) : 0}%`}>
+                  <Zap className="h-3 w-3 text-success" aria-hidden="true" />
+                  <span className={`font-medium tabular-nums ${horse.driver2025WinPercentage > 0 ? 'text-success' : 'text-muted-foreground'}`}>
+                    {horse.driver2025WinPercentage ? (horse.driver2025WinPercentage / 100).toFixed(0) + '%' : '—'}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Driver win rate (2025)</TooltipContent>
+            </Tooltip>
 
             {/* Start Points */}
-            <div className="flex items-center gap-1">
-              <Award className="h-3 w-3 text-primary" />
-              <span className={`font-medium ${horse.statistics?.startPoints > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
-                {horse.statistics?.startPoints ? horse.statistics.startPoints : '-'}
-              </span>
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 cursor-default" aria-label={`Start points: ${horse.statistics?.startPoints ?? '—'}`}>
+                  <Award className="h-3 w-3 text-primary" aria-hidden="true" />
+                  <span className={`font-medium tabular-nums ${horse.statistics?.startPoints > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
+                    {horse.statistics?.startPoints ? horse.statistics.startPoints : '—'}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Start points (form rating)</TooltipContent>
+            </Tooltip>
 
-            {/* Earnings */}
-            <div className="flex items-center gap-1">
-              <Banknote className="h-3 w-3 text-warning" />
-              <span className={`font-medium ${horse.statistics?.earningsPerStart > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
-                {horse.statistics?.earningsPerStart > 0 ? formatEarnings(horse.statistics.earningsPerStart) : '-'}
-              </span>
-            </div>
+            {/* Earnings per start */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 cursor-default" aria-label={`Earnings per start: ${horse.statistics?.earningsPerStart > 0 ? formatEarnings(horse.statistics.earningsPerStart) : '—'}`}>
+                  <Banknote className="h-3 w-3 text-warning" aria-hidden="true" />
+                  <span className={`font-medium tabular-nums ${horse.statistics?.earningsPerStart > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
+                    {horse.statistics?.earningsPerStart > 0 ? formatEarnings(horse.statistics.earningsPerStart) : '—'}
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Earnings per start (class indicator)</TooltipContent>
+            </Tooltip>
 
-            {/* Km time data from Kmtime folder: show when we have any record */}
+            {/* Km time detail from records */}
             {latestKmTime && (latestKmTime.first200 != null || latestKmTime.last200 != null || latestKmTime.best100 != null || latestKmTime.actualKMTime != null || latestKmTime.slipstreamDistance != null) && (
-              <div
-                className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground"
-                title={`Km time: ${latestKmTime.date}${latestKmTime.raceName ? ` — ${latestKmTime.raceName}` : ''}${horse.kmTimeRecords && horse.kmTimeRecords.length > 1 ? ` (${horse.kmTimeRecords.length} races)` : ''}`}
-              >
-                {latestKmTime.first200 != null && (
-                  <span><span className="font-medium text-foreground/90">First 200:</span> {latestKmTime.first200}</span>
-                )}
-                {latestKmTime.last200 != null && (
-                  <span><span className="font-medium text-foreground/90">Last 200:</span> {latestKmTime.last200}</span>
-                )}
-                {latestKmTime.best100 != null && latestKmTime.best100 !== 'x' && (
-                  <span><span className="font-medium text-foreground/90">Best 100:</span> {latestKmTime.best100}{latestKmTime.best100start != null && latestKmTime.best100stop != null ? ` (${latestKmTime.best100start}–${latestKmTime.best100stop}m)` : ''}</span>
-                )}
-                {latestKmTime.actualKMTime != null && latestKmTime.actualKMTime !== 'N/A' && (
-                  <span><span className="font-medium text-foreground/90">Km:</span> {latestKmTime.actualKMTime}</span>
-                )}
-                {latestKmTime.actualDistanceRan != null && typeof latestKmTime.actualDistanceRan === 'number' && (
-                  <span><span className="font-medium text-foreground/90">Dist:</span> {latestKmTime.actualDistanceRan}m</span>
-                )}
-                {latestKmTime.slipstreamDistance != null && latestKmTime.slipstreamDistance !== 'N/A' && typeof latestKmTime.slipstreamDistance === 'number' && (
-                  <span><span className="font-medium text-foreground/90">Slip:</span> {latestKmTime.slipstreamDistance}m</span>
-                )}
-              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground cursor-default"
+                    aria-label={kmTimeTooltip}
+                  >
+                    {latestKmTime.first200 != null && (
+                      <span><span className="font-medium text-foreground/90">First 200:</span> <span className="tabular-nums">{latestKmTime.first200}</span></span>
+                    )}
+                    {latestKmTime.last200 != null && (
+                      <span><span className="font-medium text-foreground/90">Last 200:</span> <span className="tabular-nums">{latestKmTime.last200}</span></span>
+                    )}
+                    {latestKmTime.best100 != null && latestKmTime.best100 !== 'x' && (
+                      <span><span className="font-medium text-foreground/90">Best 100:</span> <span className="tabular-nums">{latestKmTime.best100}</span>{latestKmTime.best100start != null && latestKmTime.best100stop != null ? ` (${latestKmTime.best100start}–${latestKmTime.best100stop}m)` : ''}</span>
+                    )}
+                    {latestKmTime.actualKMTime != null && latestKmTime.actualKMTime !== 'N/A' && (
+                      <span><span className="font-medium text-foreground/90">Km:</span> <span className="tabular-nums">{latestKmTime.actualKMTime}</span></span>
+                    )}
+                    {latestKmTime.actualDistanceRan != null && typeof latestKmTime.actualDistanceRan === 'number' && (
+                      <span><span className="font-medium text-foreground/90">Dist:</span> <span className="tabular-nums">{latestKmTime.actualDistanceRan}m</span></span>
+                    )}
+                    {latestKmTime.slipstreamDistance != null && latestKmTime.slipstreamDistance !== 'N/A' && typeof latestKmTime.slipstreamDistance === 'number' && (
+                      <span><span className="font-medium text-foreground/90">Slip:</span> <span className="tabular-nums">{latestKmTime.slipstreamDistance}m</span></span>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>{kmTimeTooltip}</TooltipContent>
+              </Tooltip>
             )}
 
-            {/* Home Track - Only show if different from race track */}
+            {/* Home Track — only if different from race track */}
             {horse.homeTrack && horse.homeTrack !== horse.track && (
               <div className="flex items-center gap-1">
-                <span className="text-muted-foreground">@</span>
-                <span className="font-medium text-accent">
-                  {horse.homeTrack}
-                </span>
+                <span className="text-muted-foreground" aria-hidden="true">@</span>
+                <span className="font-medium text-accent">{horse.homeTrack}</span>
               </div>
             )}
 
-            {/* Equipment info - Now inline with other stats */}
-            <Badge variant="secondary" className="text-xs h-4 px-1">
-              {getSulkyDisplay(horse.sulkyType)}
-            </Badge>
-            <span className={`font-medium text-xs ${getShoesColor(horse.shoesFront || false, horse.shoesBack || false)}`}>
-              {getShoesDisplay(horse.shoesFront || false, horse.shoesBack || false)}
-            </span>
+            {/* Equipment */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="secondary" className="text-xs h-4 px-1 cursor-default">
+                  {getSulkyDisplay(horse.sulkyType)}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>Sulky type</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className={`font-medium text-xs cursor-default ${getShoesColor(horse.shoesFront || false, horse.shoesBack || false)}`}>
+                  {getShoesDisplay(horse.shoesFront || false, horse.shoesBack || false)}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Shoe configuration (front / back)</TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </div>
-      
+
       {showDebug && (
-        <div id={`debug-${horse.horseId}`} className="bg-muted/50 sm:border-b sm:border-border/50">
+        <div id={`breakdown-${horse.horseId}`} className="bg-muted/50 sm:border-b sm:border-border/50">
           <V75TimeCalculationDebug horse={horse} />
         </div>
       )}

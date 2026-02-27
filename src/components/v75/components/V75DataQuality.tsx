@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { V75RaceResult } from '../hooks/useV75Analysis';
 
 interface V75DataQualityProps {
@@ -24,20 +25,47 @@ const V75DataQuality: React.FC<V75DataQualityProps> = ({ race }) => {
     return 'bg-destructive/10 border-destructive/20';
   };
 
+  const getProgressColor = (quality: number) => {
+    if (quality >= 80) return '[&>div]:bg-success';
+    if (quality >= 60) return '[&>div]:bg-warning';
+    return '[&>div]:bg-destructive';
+  };
+
+  const qualityLabel =
+    dataQuality >= 80 ? 'Good'
+    : dataQuality >= 60 ? 'Partial'
+    : 'Low';
+
   return (
-    <div className={`flex items-center justify-between p-4 rounded-lg border ${getQualityBg(dataQuality)}`}>
-      <div className="flex items-center gap-3">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${dataQuality >= 80 ? 'bg-success' : dataQuality >= 60 ? 'bg-warning' : 'bg-destructive'}`}>
-          <AlertTriangle className="h-4 w-4 text-white" />
+    <div className={`p-4 rounded-lg border ${getQualityBg(dataQuality)}`} role="status" aria-label={`Data quality: ${qualityLabel} (${dataQuality}%)`}>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${dataQuality >= 80 ? 'bg-success' : dataQuality >= 60 ? 'bg-warning' : 'bg-destructive'}`} aria-hidden="true">
+            {dataQuality >= 80
+              ? <CheckCircle className="h-4 w-4 text-white" />
+              : dataQuality >= 60
+              ? <AlertTriangle className="h-4 w-4 text-white" />
+              : <XCircle className="h-4 w-4 text-white" />
+            }
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Data Quality</p>
+            <div className="flex items-baseline gap-1.5">
+              <p className={`font-bold text-lg tabular-nums leading-none ${getQualityColor(dataQuality)}`}>{dataQuality}%</p>
+              <span className={`text-xs font-medium ${getQualityColor(dataQuality)}`}>{qualityLabel}</span>
+            </div>
+          </div>
         </div>
-        <div>
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Data Quality</p>
-          <p className={`font-bold text-lg ${getQualityColor(dataQuality)}`}>{dataQuality}%</p>
+        <div className="text-sm text-muted-foreground text-right">
+          <div><span className="font-medium tabular-nums">{horsesWithStartPoints}</span> / <span className="tabular-nums">{race.horses.length}</span> with start points</div>
+          <div><span className="font-medium tabular-nums">{horsesWithEarnings}</span> / <span className="tabular-nums">{race.horses.length}</span> with earnings</div>
         </div>
       </div>
-      <div className="text-sm text-muted-foreground">
-        <span className="font-medium">{horsesWithStartPoints}</span> with start points • <span className="font-medium">{horsesWithEarnings}</span> with earnings
-      </div>
+      <Progress
+        value={dataQuality}
+        className={`mt-3 h-1.5 ${getProgressColor(dataQuality)}`}
+        aria-hidden="true"
+      />
     </div>
   );
 };

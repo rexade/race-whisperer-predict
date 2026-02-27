@@ -2,11 +2,13 @@ import { ThemeProvider } from 'next-themes';
 import V75Analyzer from './components/V75Analyzer';
 import DebugErrorBoundary from './components/DebugErrorBoundary';
 import { Toaster } from './components/ui/toaster';
+import { TooltipProvider } from './components/ui/tooltip';
 import './App.css';
 
 function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <TooltipProvider delayDuration={300}>
       <DebugErrorBoundary>
         <div className="min-h-screen bg-background font-primary">
           <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md">
@@ -20,6 +22,7 @@ function App() {
           <Toaster />
         </div>
       </DebugErrorBoundary>
+      </TooltipProvider>
     </ThemeProvider>
   );
 }

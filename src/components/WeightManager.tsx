@@ -194,12 +194,12 @@ const WeightManager: React.FC<WeightManagerProps> = ({
       title: 'Performance Metrics',
       description: 'Horse performance and consistency indicators',
       factors: [
-        { 
-          key: 'form' as keyof NormalizationWeights, 
-          label: 'Recent Form', 
-          description: 'Current performance trend',
-          typicalRange: 'Currently 0s (placeholder)',
-          baseEffect: 'Not yet implemented'
+        {
+          key: 'form' as keyof NormalizationWeights,
+          label: 'Recent Form',
+          description: 'Recent race finish positions (last 8 races, recency-weighted)',
+          typicalRange: '-0.05s to +0.03s',
+          baseEffect: 'Win/place → faster; poor finishes → slower'
         },
         { 
           key: 'startPoints' as keyof NormalizationWeights, 
@@ -319,8 +319,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({
             <TabsContent value="weights" className="space-y-6 mt-6">
               <div className="flex justify-between items-start gap-4">
                 <p className="text-sm text-muted-foreground">
-                  Adjust the weights to control how much each factor affects the final normalized time. 
-                  <span className="font-medium text-primary">New: Performance metrics baseline adjustments!</span>
+                  Adjust the weights to control how much each factor affects the final normalized time.
                 </p>
                 <div className="flex flex-col gap-2">
                   <div className="flex gap-2">
