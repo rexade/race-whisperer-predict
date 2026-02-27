@@ -168,8 +168,8 @@ export const applyHorseNormalization = (
 
     const result = applyModernKmNormalization(fallbackTime, factors, weights, postPositionCurves);
 
-    // Mark as estimated - this will prevent storage for post-race comparison
-    (result as any).isEstimated = true;
+    // Mark as estimated — prevents storage for post-race comparison
+    result.isEstimated = true;
 
     log.debug(`  - Fallback normalized time: ${result.modernNormalizedTime.minutes}:${result.modernNormalizedTime.seconds.toString().padStart(2, '0')}.${result.modernNormalizedTime.tenths} (ESTIMATED - UI ONLY)`);
 
@@ -232,8 +232,8 @@ export const applyHorseNormalization = (
     );
   }
 
-  // Mark as from raw data - this will be stored for post-race comparison
-  (result as any).isEstimated = false;
+  // Mark as from raw data — will be stored for post-race comparison
+  result.isEstimated = false;
 
   log.debug(`  - Final normalized time: ${result.modernNormalizedTime.minutes}:${result.modernNormalizedTime.seconds.toString().padStart(2, '0')}.${result.modernNormalizedTime.tenths} (FROM RAW DATA - WILL BE CACHED)`);
 

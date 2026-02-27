@@ -1,247 +1,197 @@
+import {
+  START_POINTS_BASELINE,
+  START_POINTS_ALPHA,
+  START_POINTS_MAX_IMPACT_S,
+  START_POINTS_FIELD_AWARE_BETA,
+  START_POINTS_FIELD_AWARE_MAX_IMPACT_S,
+  PLACE_PCT_BASELINE,
+  PLACE_PCT_SCALE_S,
+  WIN_PCT_BASELINE,
+  WIN_PCT_SCALE_S,
+  EARNINGS_BASELINE_SEK,
+  EARNINGS_SCALE_S,
+  FORM_SCORE_WIN,
+  FORM_SCORE_PLACE,
+  FORM_SCORE_GOOD,
+  FORM_SCORE_MID,
+  FORM_SCORE_POOR,
+  FORM_SCALE_S,
+  FORM_MAX_RECENT_RACES,
+  FORM_FALLBACK_BASELINE_PCT,
+  FORM_FALLBACK_SCALE_S,
+} from './normalizationConstants';
+import { log } from '@/lib/logger';
 
 /**
- * Start points → time adjustment (robust & capped).
- * 
- * Uses log scale + tanh saturation to prevent extreme bonuses for very high start points.
- * - Log scale compresses very large values (16000+ pts doesn't blow up the model)
- * - tanh caps extreme impact at ±maxImpact seconds
- * - Negative adjustment = faster (bonus), Positive = slower (penalty)
+ * Start-points → time adjustment (seconds).
  *
- * Tunables:
- *   baseline: field-neutral level (≈ 1200 by observation)
- *   alpha:    how quickly it saturates (higher = softer curve)
- *   maxImpact: absolute cap in seconds (|adj| ≤ maxImpact)
- * 
- * Examples with defaults:
- *   900 pts  → +0.267 s (penalty)
- *   1200 pts → 0.000 s (neutral)
- *   2000 pts → −0.415 s (bonus)
- *   5000 pts → ≈ −0.590 s
- *   16000 pts → ≈ −0.600 s (capped, no runaway bonuses)
+ * Log-scale + tanh saturation prevents runaway bonuses for very high
+ * start-points values.  Negative adjustment = faster (bonus).
+ *
+ *   delta = log1p(startPoints) − log1p(baseline)
+ *   adj   = −maxImpact × tanh(delta / alpha)
+ *
+ * Examples (defaults — baseline 1 200, alpha 0.60, cap 0.60):
+ *    900 pts → +0.267 s (penalty)
+ *  1 200 pts →  0.000 s (neutral)
+ *  2 000 pts → −0.415 s (bonus)
+ *  5 000 pts → ≈ −0.590 s
+ * 16 000 pts → ≈ −0.600 s (capped)
  */
 export const calculateStartPointsAdjustment = (
   startPoints: number,
   opts?: { baseline?: number; alpha?: number; maxImpact?: number }
 ): number => {
-  if (!Number.isFinite(startPoints) || startPoints <= 0) {
-    return 0;
-  }
+  if (!Number.isFinite(startPoints) || startPoints <= 0) return 0;
 
-  const baseline  = opts?.baseline  ?? 1200;  // typical median
-  const alpha     = opts?.alpha     ?? 0.60;  // curve tightness
-  const maxImpact = opts?.maxImpact ?? 0.60;  // cap in seconds
+  const baseline  = opts?.baseline  ?? START_POINTS_BASELINE;
+  const alpha     = opts?.alpha     ?? START_POINTS_ALPHA;
+  const maxImpact = opts?.maxImpact ?? START_POINTS_MAX_IMPACT_S;
 
-  // log1p to avoid log(0) and compress scale
   const delta = Math.log1p(startPoints) - Math.log1p(baseline);
+  const adj   = -maxImpact * Math.tanh(delta / alpha);
 
-  // Saturated, signed adjustment (negative means faster)
-  const adj = -maxImpact * Math.tanh(delta / alpha);
-
-  // Sanity check
-  if (!Number.isFinite(adj)) {
-    return 0;
-  }
-  
-  console.log(`Start Points adjustment: ${startPoints} points (baseline: ${baseline}) → ${adj.toFixed(3)}s [log+tanh saturated]`);
+  if (!Number.isFinite(adj)) return 0;
+  log.debug(`[startPts] ${startPoints} pts (baseline ${baseline}) → ${adj.toFixed(3)}s`);
   return adj;
 };
 
 /**
- * Field-aware start points adjustment (optional, more sophisticated).
- * 
- * Normalizes to the race field's median/IQR so adjustment measures
- * advantage *within today's race* rather than against a fixed baseline.
- * 
- * Falls back to the log/tanh method if field data is insufficient.
+ * Field-aware start-points adjustment.
+ *
+ * Normalises the horse's start points to the race field's median/IQR, so
+ * the adjustment measures advantage *within today's race* rather than
+ * against a fixed historical baseline.
+ *
+ * Falls back to {@link calculateStartPointsAdjustment} when fewer than 3
+ * horses have valid start-points data.
  */
 export const calculateStartPointsAdjustmentFieldAware = (
   startPoints: number,
   fieldStartPoints: number[],
   opts?: { beta?: number; maxImpact?: number }
 ): number => {
-  if (!Number.isFinite(startPoints) || !Array.isArray(fieldStartPoints) || fieldStartPoints.length < 3) {
-    // Fallback to standard method
-    return calculateStartPointsAdjustment(startPoints, { baseline: 1200, alpha: 0.60, maxImpact: 0.60 });
+  const valid = fieldStartPoints.filter(n => Number.isFinite(n) && n > 0).sort((a, b) => a - b);
+  if (!Number.isFinite(startPoints) || valid.length < 3) {
+    return calculateStartPointsAdjustment(startPoints);
   }
 
-  const sorted = fieldStartPoints.filter(n => Number.isFinite(n) && n > 0).sort((a,b)=>a-b);
-  if (sorted.length < 3) {
-    return calculateStartPointsAdjustment(startPoints, { baseline: 1200, alpha: 0.60, maxImpact: 0.60 });
-  }
-
-  // Quantile function
   const q = (p: number) => {
-    const idx = (sorted.length - 1) * p;
+    const idx = (valid.length - 1) * p;
     const lo = Math.floor(idx), hi = Math.ceil(idx);
-    const w = idx - lo;
-    return (1 - w) * sorted[lo] + w * sorted[hi];
+    return (1 - (idx - lo)) * valid[lo] + (idx - lo) * valid[hi];
   };
-  
+
   const median = q(0.5);
-  const iqr = Math.max(1, q(0.75) - q(0.25)); // avoid division by 0
+  const iqr    = Math.max(1, q(0.75) - q(0.25));
+  const beta      = opts?.beta      ?? START_POINTS_FIELD_AWARE_BETA;
+  const maxImpact = opts?.maxImpact ?? START_POINTS_FIELD_AWARE_MAX_IMPACT_S;
 
-  const beta = opts?.beta ?? 2.0;            // scaling in "IQR units"
-  const maxImpact = opts?.maxImpact ?? 0.50; // cap a bit lower when field-aware
-
-  const z_iqr = (startPoints - median) / iqr;
-  const adj = -maxImpact * Math.tanh(z_iqr / beta);
-  
-  console.log(`Start Points adjustment (field-aware): ${startPoints} points (median: ${median.toFixed(0)}, IQR: ${iqr.toFixed(0)}) → ${adj.toFixed(3)}s`);
+  const adj = -maxImpact * Math.tanh((startPoints - median) / (iqr * beta));
+  log.debug(`[startPts/field] ${startPoints} pts (median ${median.toFixed(0)}, IQR ${iqr.toFixed(0)}) → ${adj.toFixed(3)}s`);
   return adj;
 };
 
 /**
- * Calculate place percentage baseline adjustment
- * Higher place % = better consistency = faster times
- * Input: percentage as basis points (e.g., 3478 for 34.78%)
+ * Place-percentage baseline adjustment.
+ *
+ * @param placePercentageBasisPoints  e.g. 3 478 = 34.78 %
  */
-export const calculatePlacePercentageAdjustment = (placePercentageBasisPoints: number): number => {
-  // Convert from basis points to actual percentage
-  const actualPercentage = placePercentageBasisPoints / 100;
-  
-  // Baseline: 50% place rate = 0 adjustment
-  // Every 10% above/below baseline = -/+ 0.01s (reduced from 0.1s)
-  const baseline = 50;
-  const adjustment = (baseline - actualPercentage) * 0.001;
-  
-  console.log(`Place % adjustment: ${actualPercentage.toFixed(1)}% (baseline: ${baseline}%) → ${adjustment.toFixed(3)}s`);
-  return adjustment;
+export const calculatePlacePercentageAdjustment = (
+  placePercentageBasisPoints: number
+): number => {
+  const pct = placePercentageBasisPoints / 100;
+  const adj = (PLACE_PCT_BASELINE - pct) * PLACE_PCT_SCALE_S;
+  log.debug(`[place%] ${pct.toFixed(1)}% (baseline ${PLACE_PCT_BASELINE}%) → ${adj.toFixed(3)}s`);
+  return adj;
 };
 
 /**
- * Calculate horse win percentage baseline adjustment
- * Higher win % = better quality = faster times
- * Input: percentage as basis points (e.g., 434 for 4.34%)
+ * Horse win-percentage baseline adjustment.
+ *
+ * @param winPercentageBasisPoints  e.g. 434 = 4.34 %
  */
-export const calculateHorseWinPercentageAdjustment = (winPercentageBasisPoints: number): number => {
-  // Convert from basis points to actual percentage
-  const actualPercentage = winPercentageBasisPoints / 100;
-  
-  // Baseline: 15% win rate = 0 adjustment
-  // Every 5% above/below baseline = -/+ 0.075s (halved from 0.15s)
-  const baseline = 15;
-  const adjustment = (baseline - actualPercentage) * 0.015;
-  
-  console.log(`Horse Win % adjustment: ${actualPercentage.toFixed(1)}% (baseline: ${baseline}%) → ${adjustment.toFixed(3)}s`);
-  return adjustment;
+export const calculateHorseWinPercentageAdjustment = (
+  winPercentageBasisPoints: number
+): number => {
+  const pct = winPercentageBasisPoints / 100;
+  const adj = (WIN_PCT_BASELINE - pct) * WIN_PCT_SCALE_S;
+  log.debug(`[win%] ${pct.toFixed(1)}% (baseline ${WIN_PCT_BASELINE}%) → ${adj.toFixed(3)}s`);
+  return adj;
 };
 
 /**
- * Calculate earnings per start baseline adjustment
- * Higher earnings = better quality = faster times
- * Input: earnings in öre (Swedish cents)
+ * Earnings-per-start baseline adjustment.
+ *
+ * @param earningsPerStartOre  Earnings in öre (Swedish cents); ÷100 → SEK.
  */
-export const calculateEarningsPerStartAdjustment = (earningsPerStartOre: number): number => {
-  // Convert from öre to SEK
-  const earningsInSek = earningsPerStartOre / 100;
-  
-  // Baseline: 3000 SEK per start = 0 adjustment
-  // Every 1000 SEK above/below baseline = -/+ 0.01s (halved from 0.02s)
-  const baseline = 3000;
-  const adjustment = (baseline - earningsInSek) * 0.00001;
-  
-  console.log(`💰 Earnings/Start adjustment: ${earningsPerStartOre} öre = ${earningsInSek.toFixed(0)} SEK (baseline: ${baseline} SEK) → ${adjustment.toFixed(3)}s`);
-  
-  // Additional validation logging
-  if (earningsInSek > 10000) {
-    console.warn(`⚠️  High earnings detected: ${earningsInSek} SEK/start - adjustment: ${adjustment.toFixed(3)}s`);
-  }
-  if (earningsInSek < 500) {
-    console.warn(`⚠️  Low earnings detected: ${earningsInSek} SEK/start - adjustment: ${adjustment.toFixed(3)}s`);
-  }
-  
-  return adjustment;
+export const calculateEarningsPerStartAdjustment = (
+  earningsPerStartOre: number
+): number => {
+  const sek = earningsPerStartOre / 100;
+  const adj = (EARNINGS_BASELINE_SEK - sek) * EARNINGS_SCALE_S;
+  log.debug(`[earnings] ${sek.toFixed(0)} SEK/start (baseline ${EARNINGS_BASELINE_SEK}) → ${adj.toFixed(3)}s`);
+  return adj;
 };
 
 /**
- * Calculate form adjustment based on recent race performance
- * If recent races are provided, uses actual results. Otherwise falls back to win percentage.
- * 
- * Recent form calculation:
- * - Looks at last 5-10 races (weighted towards most recent)
- * - Wins (place 1) = strong positive form
- * - Places (2-3) = moderate positive form
- * - Good finishes (4-5) = slight positive form
- * - Poor finishes (>5) = negative form
- * 
- * Adjustment: Negative = faster (better form), Positive = slower (worse form)
- * 
- * @param recentRaces Optional array of recent race results with place and date
- * @param winPercentageBasisPoints Fallback: win percentage in basis points
- * @param maxRecentRaces Number of recent races to consider (default: 8)
+ * Recent-form adjustment based on finish positions.
+ *
+ * Analyses the last {@link FORM_MAX_RECENT_RACES} races, weighted towards
+ * the most recent.  Falls back to a win-percentage proxy when no race
+ * results are available.
+ *
+ * Form scores per finish position:
+ *  1st          → {@link FORM_SCORE_WIN}   (strong positive form)
+ *  2nd–3rd      → {@link FORM_SCORE_PLACE} (good form)
+ *  4th–5th      → {@link FORM_SCORE_GOOD}  (slight positive)
+ *  6th–10th     → {@link FORM_SCORE_MID}   (mid-pack → negative form)
+ *  11th+        → {@link FORM_SCORE_POOR}  (poor finish)
+ *
+ * Adjustment range (with default scale {@link FORM_SCALE_S}):
+ *  ≈ −0.05 s (perfect recent form) … +0.03 s (poor recent form)
  */
 export const calculateFormAdjustment = (
   recentRaces?: Array<{ place: number; date: string }>,
   winPercentageBasisPoints?: number,
-  maxRecentRaces: number = 8
+  maxRecentRaces: number = FORM_MAX_RECENT_RACES
 ): number => {
-  // If we have recent race data, use actual form calculation
   if (recentRaces && recentRaces.length > 0) {
-    // Sort by date (most recent first) and take maxRecentRaces
-    const sortedRaces = [...recentRaces]
+    const sorted = [...recentRaces]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, maxRecentRaces);
-    
-    let formScore = 0;
+
+    let formScore   = 0;
     let totalWeight = 0;
-    
-    // Weight more recent races more heavily
-    sortedRaces.forEach((race, index) => {
-      const weight = maxRecentRaces - index; // Most recent race gets highest weight
-      const place = race.place;
-      
-      // Calculate form points based on finish position
-      // Place 1 = -1.0 (best form), Place 2-3 = -0.5, Place 4-5 = -0.2, Place 6-10 = +0.3, Place >10 = +0.6
-      let raceForm = 0;
-      if (place === 1) {
-        raceForm = -1.0; // Win = very good form
-      } else if (place >= 2 && place <= 3) {
-        raceForm = -0.5; // Place = good form
-      } else if (place >= 4 && place <= 5) {
-        raceForm = -0.2; // Good finish = slight positive
-      } else if (place >= 6 && place <= 10) {
-        raceForm = 0.3; // Mid-pack = negative form
-      } else {
-        raceForm = 0.6; // Poor finish = bad form
-      }
-      
-      formScore += raceForm * weight;
+
+    sorted.forEach((race, index) => {
+      const weight = maxRecentRaces - index;
+      let score: number;
+      if      (race.place === 1)                        score = FORM_SCORE_WIN;
+      else if (race.place >= 2 && race.place <= 3)      score = FORM_SCORE_PLACE;
+      else if (race.place >= 4 && race.place <= 5)      score = FORM_SCORE_GOOD;
+      else if (race.place >= 6 && race.place <= 10)     score = FORM_SCORE_MID;
+      else                                              score = FORM_SCORE_POOR;
+
+      formScore   += score * weight;
       totalWeight += weight;
     });
-    
-    // Normalize by total weight
-    const averageForm = totalWeight > 0 ? formScore / totalWeight : 0;
-    
-    // Convert form score to time adjustment
-    // -1.0 (perfect recent form) → -0.05s (faster) - reduced from -0.15s
-    // 0.0 (neutral form) → 0s
-    // +0.6 (poor recent form) → +0.03s (slower) - reduced from +0.10s
-    const adjustment = averageForm * 0.05; // Reduced scale factor from 0.15 to 0.05
-    
-    console.log(`📊 Form adjustment (recent races): ${sortedRaces.length} races analyzed → ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(3)}s`);
-    if (sortedRaces.length > 0) {
-      const recentPlaces = sortedRaces.slice(0, 5).map(r => r.place).join(', ');
-      console.log(`   Recent places: ${recentPlaces}${sortedRaces.length > 5 ? '...' : ''}`);
-    }
-    
-    return adjustment;
+
+    const avg = totalWeight > 0 ? formScore / totalWeight : 0;
+    const adj = avg * FORM_SCALE_S;
+    log.debug(`[form] ${sorted.length} races → avg score ${avg.toFixed(3)} → ${adj >= 0 ? '+' : ''}${adj.toFixed(3)}s`);
+    return adj;
   }
-  
-  // Fallback: Use win percentage as a proxy for form (when no recent race places available)
+
   if (winPercentageBasisPoints !== undefined && Number.isFinite(winPercentageBasisPoints)) {
-    // Accept both 0–100 (e.g. 15) and basis points (e.g. 1500)
-    const actualPercentage =
-      winPercentageBasisPoints > 100 ? winPercentageBasisPoints / 100 : winPercentageBasisPoints;
-
-    // Baseline: 10% win rate = neutral form
-    const baseline = 10;
-    const adjustment = (baseline - actualPercentage) * 0.01;
-
-    console.log(`📊 Form adjustment (win % fallback): ${actualPercentage.toFixed(1)}% (baseline: ${baseline}%) → ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(3)}s`);
-    return adjustment;
+    const pct = winPercentageBasisPoints > 100
+      ? winPercentageBasisPoints / 100
+      : winPercentageBasisPoints;
+    const adj = (FORM_FALLBACK_BASELINE_PCT - pct) * FORM_FALLBACK_SCALE_S;
+    log.debug(`[form/fallback] win% ${pct.toFixed(1)}% → ${adj >= 0 ? '+' : ''}${adj.toFixed(3)}s`);
+    return adj;
   }
-  
-  // No data available
-  console.log(`📊 Form adjustment: No recent race data or win % available → 0s`);
+
+  log.debug('[form] no data → 0.000s');
   return 0;
 };

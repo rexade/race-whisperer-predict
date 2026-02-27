@@ -1,112 +1,95 @@
+import {
+  REFERENCE_DISTANCE_M,
+  RACE_DISTANCE_TOLERANCE_M,
+  SHORTER_DISTANCE_RATE_S_PER_KM,
+  LONGER_DISTANCE_RATE_S_PER_KM,
+  HOME_TRACK_ADJ_S,
+  VOLTE_BACK_MARKER_PENALTY_S,
+} from './normalizationConstants';
+import { log } from '@/lib/logger';
 
 /**
- * Calculate distance-based adjustment for individual horse vs race distance
+ * Per-horse distance adjustment: penalty/bonus when the horse's preferred
+ * distance differs from the current race distance.
+ *
+ * Formula: (horseDistance − raceDistance) × 0.001 s/m
+ * e.g. horse runs 2500 m but race is 2140 m → +0.36 s (slightly slower).
  */
-export const calculateDistanceAdjustment = (horseDistance: number, raceDistance: number): number => {
-  const distanceDifference = horseDistance - raceDistance;
-  if (distanceDifference === 0) return 0;
-  
-  // 1 meter difference = 0.001s adjustment
-  const adjustment = distanceDifference * 0.001;
-  console.log(`Distance adjustment: Horse ${horseDistance}m vs Race ${raceDistance}m (diff: ${distanceDifference}m) → ${adjustment.toFixed(3)}s`);
+export const calculateDistanceAdjustment = (
+  horseDistance: number,
+  raceDistance: number
+): number => {
+  const diff = horseDistance - raceDistance;
+  if (diff === 0) return 0;
+  const adjustment = diff * 0.001;
+  log.debug(`[distAdj] horse ${horseDistance}m vs race ${raceDistance}m → ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(3)}s`);
   return adjustment;
 };
 
-/** Reference distance (m). Raw times are ALWAYS normalized to this in horseProcessing only. */
-export const REFERENCE_DISTANCE_M = 2140;
-/** When current race is within this (m) of reference, apply 0 — raw is already 2140m, do not re-apply. */
-const RACE_DISTANCE_TOLERANCE_M = 10;
-
 /**
- * Calculate non-linear race distance adjustment FROM 2140m reference TO actual race distance.
- * RAW times are ALWAYS 2140m equivalent (historical→2140m is done ONLY in horseProcessing).
- * We only adjust FROM 2140m TO current race distance — we never "normalize to 2140m" here.
+ * Race-distance adjustment FROM the 2140 m reference TO the actual race
+ * distance.  Raw KM times are always pre-normalised to 2140 m, so this
+ * function only converts in the forward direction (never back to 2140 m).
+ *
+ * Piecewise-linear rates:
+ *   shorter races  3.2 s / 1 000 m  (subtracted — faster per km)
+ *   longer  races  2.0 s / 1 000 m  (added    — slightly slower per km)
  */
 export const calculateRaceDistanceAdjustment = (raceDistance: number): number => {
   const ref = REFERENCE_DISTANCE_M;
-  const tolerance = RACE_DISTANCE_TOLERANCE_M;
-  if (Math.abs(raceDistance - ref) <= tolerance) {
-    console.log(`Race distance adjustment: ${raceDistance}m ≈ reference ${ref}m → 0.000s (raw already 2140m)`);
+  if (Math.abs(raceDistance - ref) <= RACE_DISTANCE_TOLERANCE_M) {
+    log.debug(`[raceDistAdj] ${raceDistance}m ≈ ${ref}m → 0.000s`);
     return 0;
   }
 
-  // Calculate adjustment from 2140m reference TO actual race distance using non-linear rates
-  let adjustment = 0;
-  const distanceDifferenceM = Math.abs(raceDistance - ref);
-  const distanceDifferenceKm = distanceDifferenceM / 1000;
+  const diffKm = Math.abs(raceDistance - ref) / 1000;
+  const adjustment = raceDistance < ref
+    ? -(diffKm * SHORTER_DISTANCE_RATE_S_PER_KM)
+    :  (diffKm * LONGER_DISTANCE_RATE_S_PER_KM);
 
-  console.log(`\n--- Race Distance Adjustment (FROM 2140m TO race, never TO 2140m) ---`);
-  console.log(`Reference distance: ${ref}m`);
-  console.log(`Actual race distance: ${raceDistance}m`);
-  console.log(`Distance difference: ${distanceDifferenceM}m (${distanceDifferenceKm.toFixed(3)}km)`);
-
-  if (raceDistance < ref) {
-    // Shorter distances: use 3.2s per 1000m rate
-    // When going FROM 2140m TO shorter distance, we need to subtract time
-    adjustment = -(distanceDifferenceKm * 3.2);
-    console.log(`Shorter distance rate: 3.2s per 1000m`);
-    console.log(`Calculation: -(${distanceDifferenceKm.toFixed(3)} km × 3.2) = ${adjustment.toFixed(3)}s`);
-  } else {
-    // Longer distances: use 2.0s per 1000m rate
-    // When going FROM 2140m TO longer distance, we need to add time
-    adjustment = distanceDifferenceKm * 2.0;
-    console.log(`Longer distance rate: 2.0s per 1000m`);
-    console.log(`Calculation: ${distanceDifferenceKm.toFixed(3)} km × 2.0 = ${adjustment.toFixed(3)}s`);
-  }
-  
-  console.log(`Final race distance adjustment: ${adjustment.toFixed(3)}s`);
-  console.log(`--- End Race Distance Adjustment ---\n`);
-  
+  log.debug(`[raceDistAdj] ${raceDistance}m (${raceDistance < ref ? 'shorter' : 'longer'}) → ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(3)}s`);
   return adjustment;
 };
 
 /**
- * Calculate track familiarity adjustment based on horse's home track vs race track
+ * Home-track familiarity bonus: applied when the horse races at its
+ * registered home track.
  */
 export const calculateTrackFamiliarityAdjustment = (
   horseHomeTrack: string,
   raceTrack: string
 ): number => {
-  if (!horseHomeTrack || !raceTrack) {
-    console.log('Track familiarity adjustment: Missing track data → 0.000s');
-    return 0;
-  }
+  if (!horseHomeTrack || !raceTrack) return 0;
 
-  const homeTrackNormalized = horseHomeTrack.trim().toUpperCase();
-  const raceTrackNormalized = raceTrack.trim().toUpperCase();
-  
-  if (homeTrackNormalized === raceTrackNormalized) {
-    const adjustment = -0.15; // Home track advantage
-    console.log(`Track familiarity adjustment: Home track advantage (${horseHomeTrack} = ${raceTrack}) → ${adjustment.toFixed(3)}s`);
-    return adjustment;
-  }
-  
-  console.log(`Track familiarity adjustment: Away track (${horseHomeTrack} ≠ ${raceTrack}) → 0.000s`);
-  return 0;
+  const same =
+    horseHomeTrack.trim().toUpperCase() === raceTrack.trim().toUpperCase();
+
+  const adjustment = same ? HOME_TRACK_ADJ_S : 0;
+  log.debug(`[trackAdj] home="${horseHomeTrack}" race="${raceTrack}" → ${adjustment.toFixed(3)}s`);
+  return adjustment;
 };
 
 /**
- * Calculate volte start distance penalty - only for horses with longer distance than race
+ * Volte back-marker penalty: added when a horse starts from a longer
+ * distance than the race distance in a volte (standing-start) race.
  */
 export const calculateVolteStartDistancePenalty = (
   startMethod: string,
   horseDistance: number,
   raceDistance: number
 ): number => {
-  // Only apply penalty for volte start races
-  if (!startMethod || !startMethod.toLowerCase().includes('volte')) {
-    console.log(`Volte start penalty: Not a volte start (${startMethod || 'unknown'}) → 0.000s`);
+  const isVolte = Boolean(startMethod) &&
+    startMethod.toLowerCase().includes('volte');
+
+  if (!isVolte || horseDistance <= raceDistance) {
+    log.debug(`[voltePenalty] not applicable → 0.000s`);
     return 0;
   }
-  
-  // Only apply penalty if horse has longer distance than race
-  if (horseDistance <= raceDistance) {
-    console.log(`Volte start penalty: Horse distance ${horseDistance}m ≤ race distance ${raceDistance}m → 0.000s`);
-    return 0;
-  }
-  
-  // Apply penalty for volte starts with longer horse distance
-  const penalty = 0.4;
-  console.log(`Volte start penalty: Volte start with longer distance (${horseDistance}m > ${raceDistance}m) → +${penalty.toFixed(3)}s`);
-  return penalty;
+
+  log.debug(`[voltePenalty] volte back-marker (${horseDistance}m > ${raceDistance}m) → +${VOLTE_BACK_MARKER_PENALTY_S.toFixed(3)}s`);
+  return VOLTE_BACK_MARKER_PENALTY_S;
 };
+
+// Re-export so callers that reference REFERENCE_DISTANCE_M from this module
+// continue to work without changes.
+export { REFERENCE_DISTANCE_M } from './normalizationConstants';

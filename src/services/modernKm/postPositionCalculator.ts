@@ -1,66 +1,77 @@
+import { log } from '@/lib/logger';
 
+/**
+ * Post-position default curves (seconds).
+ *
+ * Negative = advantage (inner positions), positive = penalty (outer).
+ * Values represent the raw adjustment BEFORE the postPosition weight is
+ * applied.  Custom curves from the UI override these.
+ */
+const DEFAULT_AUTO_CURVE: Record<number, number> = {
+   1: -0.30,  // rail — strong advantage
+   2: -0.25,
+   3: -0.20,
+   4: -0.10,
+   5:  0.00,  // baseline
+   6:  0.05,
+   7:  0.15,
+   8:  0.30,
+   9:  0.55,
+  10:  0.65,
+  11:  0.75,
+  12:  0.85,
+  13:  0.90,
+  14:  0.95,
+  15:  1.00,
+};
+
+const DEFAULT_VOLTE_CURVE: Record<number, number> = {
+   1: -0.25,  // front-row inside
+   2: -0.20,
+   3: -0.10,
+   4:  0.00,  // baseline
+   5:  0.05,
+   6:  0.20,
+   7:  0.25,
+   8:  0.30,
+   9:  0.50,  // second row
+  10:  0.60,
+  11:  0.75,
+  12:  0.85,
+  13:  0.90,
+  14:  0.95,
+  15:  1.00,
+};
+
+/** Fallback value for any position beyond the curve table. */
+const POSITION_OVERFLOW_ADJ = 1.00;
+
+/**
+ * Post-position time adjustment.
+ *
+ * @param postPosition    Starting gate number (1-based).
+ * @param startMethod     Race start method string ("Auto", "Volte", etc.).
+ * @param customCurves    Optional user-defined curves from the UI.
+ * @returns               Adjustment in seconds (negative = faster).
+ */
 export const calculatePostPositionAdjustment = (
-  postPosition: number, 
+  postPosition: number,
   startMethod: string,
-  customCurves?: { auto: { [key: number]: number }, volte: { [key: number]: number } }
+  customCurves?: { auto: Record<number, number>; volte: Record<number, number> }
 ): number => {
-  const s = String(startMethod ?? '').trim().toLowerCase();
-  const isVolteStart = s.startsWith('volt') || s === 'v';
-  const isAutoStart = s.startsWith('auto') || s === 'a' || (!isVolteStart);
-  
   if (!Number.isFinite(postPosition) || postPosition <= 0) {
-    console.warn(`[postPositionAdjustment] Invalid postPosition "${postPosition}", returning 0s`);
+    log.warn(`[postPos] invalid postPosition "${postPosition}" — returning 0s`);
     return 0;
   }
-  
-  console.log(`Calculating post position adjustment for position ${postPosition}, start method: ${startMethod} (${isAutoStart ? 'AUTO' : 'VOLTE'})`);
-  
-  if (isAutoStart) {
-    // Use custom curves if provided, otherwise use default auto adjustments
-    const autoAdjustments = customCurves?.auto || {
-      1: -0.30,  // Rail advantage
-      2: -0.25,  // Good position
-      3: -0.20,  // Favorable position
-      4: -0.10,  // Neutral
-      5: 0.00,   // Baseline
-      6: 0.05,   // Wide gate
-      7: 0.15,   // Outside
-      8: 0.30,   // Widest first-line draw
-      9: 0.55,   // Second tier
-      10: 0.65,  // Second tier
-      11: 0.75,  // Second tier
-      12: 0.85,  // Second tier
-      13: 0.90,  // Extended
-      14: 0.95,  // Extended
-      15: 1.00   // Extended
-    };
-    
-    const adjustment = autoAdjustments[postPosition] ?? 1.00; // Default for positions beyond 15
-    console.log(`AUTO start position ${postPosition}: ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(3)}s adjustment${customCurves ? ' (CUSTOM)' : ' (DEFAULT)'}`);
-    return adjustment;
-  } else {
-    // Use custom curves if provided, otherwise use default VOLTE adjustments
-    // Spår 6–10: +0.10 s; spår 11–15: +0.15 s (lägg på vs inner positions)
-    const volteAdjustments = customCurves?.volte || {
-      1: -0.25,  // Front-line advantage
-      2: -0.20,  // Good position
-      3: -0.10,  // Favourable in volt start
-      4: 0.00,   // Neutral
-      5: 0.05,   // Slight disadvantage
-      6: 0.20,   // Wider position (+0.10)
-      7: 0.25,   // Outside position (+0.10)
-      8: 0.30,   // Widest first-line (+0.10)
-      9: 0.50,   // Second row start (+0.10)
-      10: 0.60,  // Second row start (+0.10)
-      11: 0.75,  // Third row start (+0.15)
-      12: 0.85,  // Third row start (+0.15)
-      13: 0.90,  // Fourth row start (+0.15)
-      14: 0.95,  // Fourth row start (+0.15)
-      15: 1.00   // Fourth row start (+0.15)
-    };
-    
-    const adjustment = volteAdjustments[postPosition] ?? 1.00; // Default for positions beyond 15
-    console.log(`VOLTE start position ${postPosition}: ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(3)}s adjustment${customCurves ? ' (CUSTOM)' : ' (DEFAULT)'}`);
-    return adjustment;
-  }
+
+  const s = String(startMethod ?? '').trim().toLowerCase();
+  const isVolte = s.startsWith('volt') || s === 'v';
+
+  const curve = isVolte
+    ? (customCurves?.volte ?? DEFAULT_VOLTE_CURVE)
+    : (customCurves?.auto  ?? DEFAULT_AUTO_CURVE);
+
+  const adjustment = curve[postPosition] ?? POSITION_OVERFLOW_ADJ;
+  log.debug(`[postPos] pos ${postPosition} ${isVolte ? 'VOLTE' : 'AUTO'}${customCurves ? ' (custom)' : ''} → ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(3)}s`);
+  return adjustment;
 };

@@ -1,29 +1,44 @@
+import {
+  DRIVER_BASELINE_WIN_PCT,
+  DRIVER_SCALE,
+  DRIVER_CAP_S,
+} from './normalizationConstants';
+import { log } from '@/lib/logger';
+
 /**
- * Kusk seger% → påslag/avdrag (sek/km), tabellvärden ±0.30.
- * Neutral ~12%; mjukare kurva (större scale) så 12% vs 15% inte ger för stort hopp.
- * x = (winPct - baseline) / scale; adjustment = -0.30 * tanh(x)
+ * Driver win-rate → time adjustment (seconds/km).
+ *
+ * Uses a tanh-saturated curve so extreme win percentages don't produce
+ * unrealistic bonuses.  Range: ±DRIVER_CAP_S.
+ *
+ *   x          = (winPctFraction − baseline) / scale
+ *   adjustment = −cap × tanh(x)
+ *
+ * Examples (baseline 12 %, scale 0.10):
+ *   9 %  → +0.09 s  (slower — below-average driver)
+ *  12 %  →  0.00 s  (neutral)
+ *  15 %  → −0.09 s  (faster — above-average driver)
+ *  25 %+ → ≈ −0.30 s (capped)
+ *
+ * @param winPercentage  Driver win rate — accepts 0–1, 0–100, or basis-point
+ *                       (0–10 000) format; normalised internally.
  */
-export const calculateDriverAdjustment = (
-  winPercentage: number,
-  _postPosition: number
-): number => {
+export const calculateDriverAdjustment = (winPercentage: number): number => {
   const wpRaw = Number.isFinite(winPercentage) ? winPercentage : 0;
-  let wpFraction: number; // 0..1 (12% = 0.12)
+
+  // Normalise to 0–1 fraction regardless of input format
+  let wpFraction: number;
   if (wpRaw > 1 && wpRaw <= 100) {
     wpFraction = wpRaw / 100;
   } else if (wpRaw > 100) {
-    wpFraction = wpRaw / 10000;
+    wpFraction = wpRaw / 10_000;
   } else {
     wpFraction = Math.max(0, Math.min(1, wpRaw));
   }
 
-  const baseline = 0.12;  // 12% = neutral
-  const scale = 0.10;     // mjukare kurva: 3% skillnad (12%→15%) ger ~0.09s, inte ~0.15s
-  const cap = 0.30;
+  const x = (wpFraction - DRIVER_BASELINE_WIN_PCT) / DRIVER_SCALE;
+  const adjustment = -DRIVER_CAP_S * Math.tanh(x);
 
-  const x = (wpFraction - baseline) / scale;
-  const adjustment = -cap * Math.tanh(x);
-
-  console.log(`[DRIVER DEBUG] Kusk ${(wpFraction * 100).toFixed(1)}% -> påslag/avdrag ${adjustment.toFixed(3)}s`);
+  log.debug(`[driver] ${(wpFraction * 100).toFixed(1)}% → ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(3)}s`);
   return adjustment;
 };

@@ -4,6 +4,9 @@ import { KmTime } from '../types/kmTimeTypes';
 export interface ModernKmNormalizedResult {
   rawTime: KmTime;
   modernNormalizedTime: KmTime;
+  /** True when generated from a fallback estimate (no raw KM time available).
+   *  Estimated results are displayed only — never stored for post-race comparison. */
+  isEstimated?: boolean;
   adjustments: {
     postPosition: number;
     equipment: number;
@@ -12,8 +15,6 @@ export interface ModernKmNormalizedResult {
     form: number;
     distance: number;
     raceDistanceAdjustment: number;
-    raceType: number;
-    timeOfDay: number;
     volteStartDistancePenalty: number;
     startPoints: number;
     placePercentage: number;
@@ -25,7 +26,9 @@ export interface ModernKmNormalizedResult {
 
 export interface ModernNormalizationFactors {
   postPosition: number;
+  /** Horse's preferred/historical distance (m) — used for individual distance adjustment. */
   distance: number;
+  /** Current race distance (m). */
   raceDistance: number;
   startMethod: string;
   shoesFront: string;
@@ -35,17 +38,20 @@ export interface ModernNormalizationFactors {
   raceTrack: string;
   driverExperience: number;
   driverWinPercentage: number;
-  horseForm: number;
+  /** Horse's career win percentage in basis points (e.g. 434 = 4.34 %). */
+  horseWinPercentage: number;
+  /** Career start points (form rating). */
   startPoints: number;
+  /** Place percentage in basis points (e.g. 3478 = 34.78 %). */
   placePercentage: number;
+  /** Earnings per start in öre (÷100 → SEK). */
+  earningsPerStart: number;
   // Optional fields for debugging
   horseId?: number;
   horseName?: string;
-  horseWinPercentage: number;
-  earningsPerStart: number;
-  // Field-aware adjustment support
+  // Field-aware adjustment: all start-points values in this race's field
   fieldStartPoints?: number[];
-  // Recent race results for form calculation
+  // Recent race finish positions for form calculation
   recentRaces?: Array<{ place: number; date: string }>;
 }
 
