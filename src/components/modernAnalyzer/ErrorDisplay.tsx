@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface ErrorDisplayProps {
   error: string;
@@ -8,13 +9,11 @@ interface ErrorDisplayProps {
 
 const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ error }) => {
   return (
-    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-      <div className="flex items-center gap-2">
-        <AlertCircle className="h-5 w-5 text-red-600" />
-        <h3 className="font-semibold text-red-800">Error</h3>
-      </div>
-      <p className="text-red-700 mt-1">{error}</p>
-    </div>
+    <Alert variant="destructive" role="alert">
+      <AlertCircle className="h-4 w-4" />
+      <AlertTitle>Error</AlertTitle>
+      <AlertDescription>{error}</AlertDescription>
+    </Alert>
   );
 };
 

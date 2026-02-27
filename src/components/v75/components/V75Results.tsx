@@ -68,7 +68,7 @@ const V75Results: React.FC<V75ResultsProps> = ({
             {races.map(race => (
               <TabsContent key={race.raceNumber} value={`race-${race.raceNumber}`} className="mt-3 sm:mt-6">
                 <DebugErrorBoundary>
-                  <V75RaceDetails race={race} analysisDate={analysisDate} />
+                  <V75RaceDetails race={race} />
                 </DebugErrorBoundary>
               </TabsContent>
             ))}

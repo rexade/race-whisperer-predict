@@ -5,12 +5,10 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import V75DatePicker from "./v75/V75DatePicker";
 import { PostPositionCurves, getDefaultPostPositionCurves } from "./PostPositionCurveEditor";
-import ProgressIndicator from "./modernAnalyzer/ProgressIndicator";
 import ErrorDisplay from "./modernAnalyzer/ErrorDisplay";
 import DebugErrorBoundary from "./DebugErrorBoundary";
 import ThemeToggle from "./ThemeToggle";
 import { useV75Analysis } from "./v75/hooks/useV75Analysis";
-import { useRockSolidDebugger } from "./v75/hooks/useRockSolidDebugger";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
 import { exportV75ToExcel } from '../utils/excelExport';
 import { useGameInfo, useRaceData } from '@/queries/v75';
@@ -57,8 +55,6 @@ const V75Analyzer: React.FC = () => {
     reanalyzeWithNewWeights,
     clearError
   } = useV75Analysis();
-
-  const { isAutoDebugging, exportRockSolidReport, startFresh } = useRockSolidDebugger();
 
   const handleAnalyzeV75 = () => {
     if (!selectedDate || !races || !gameInfo) return;
@@ -214,15 +210,16 @@ const V75Analyzer: React.FC = () => {
                 error={gameError ? `Failed to fetch game info: ${gameError.message}` : `Failed to fetch race data: ${raceError?.message}`}
               />
               <div className="flex justify-end">
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
-                    setSelectedDate(null);
+                    setSelectedDate(undefined);
                     setTimeout(() => setShowInput(true), 100);
                   }}
-                  className="text-sm text-primary hover:text-primary/80 underline px-3 py-1"
                 >
                   Try another date
-                </button>
+                </Button>
               </div>
             </div>
           </AnalyzerCard>
@@ -234,15 +231,16 @@ const V75Analyzer: React.FC = () => {
             <div className="space-y-3">
               <ErrorDisplay error={error} />
               <div className="flex justify-end">
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     clearError();
                     setShowInput(true);
                   }}
-                  className="text-sm text-primary hover:text-primary/80 underline px-3 py-1"
                 >
                   Try Again
-                </button>
+                </Button>
               </div>
             </div>
           </AnalyzerCard>

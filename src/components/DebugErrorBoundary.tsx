@@ -1,5 +1,6 @@
 
 import React, { Component, ReactNode } from 'react';
+import { Button } from "@/components/ui/button";
 
 interface Props {
   children: ReactNode;
@@ -30,23 +31,27 @@ class DebugErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-8 bg-red-50 border border-red-200 rounded-lg">
-          <h2 className="text-xl font-bold text-red-800 mb-4">Error Detected</h2>
-          <p className="text-red-700 mb-2">
+        <div
+          role="alert"
+          className="p-8 bg-destructive/10 border border-destructive/30 rounded-lg"
+        >
+          <h2 className="text-xl font-bold text-destructive mb-4">Error Detected</h2>
+          <p className="text-destructive/90 mb-2">
             <strong>Error:</strong> {this.state.error?.message}
           </p>
           <details className="mt-4">
-            <summary className="cursor-pointer text-red-600 font-medium">Stack Trace</summary>
-            <pre className="mt-2 text-xs text-red-600 bg-red-100 p-2 rounded overflow-auto">
+            <summary className="cursor-pointer text-destructive font-medium">Stack Trace</summary>
+            <pre className="mt-2 text-xs text-destructive bg-destructive/10 p-2 rounded overflow-auto">
               {this.state.error?.stack}
             </pre>
           </details>
-          <button 
+          <Button
+            variant="destructive"
+            className="mt-4"
             onClick={() => this.setState({ hasError: false, error: undefined })}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
           >
             Try Again
-          </button>
+          </Button>
         </div>
       );
     }

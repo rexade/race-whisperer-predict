@@ -42,7 +42,6 @@ const AnalysisInput: React.FC<AnalysisInputProps> = ({
       <Button 
         onClick={onAnalyze} 
         disabled={loading || !value || disabled}
-        className="bg-purple-600 hover:bg-purple-700"
       >
         {buttonIcon && <span className="mr-2">{buttonIcon}</span>}
         {loading ? "Analyzing..." : buttonText}

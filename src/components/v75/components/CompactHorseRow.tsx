@@ -29,7 +29,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
     return null;
   };
 
-  const getRankBadgeStyle = (rank: number) => {
+  const getRankBadgeStyle = () => {
     return "bg-primary text-primary-foreground font-bold shadow-sm";
   };
 
@@ -57,7 +57,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
               <span className="w-4 h-4 flex items-center justify-center">
                 {getRankIcon(rank)}
               </span>
-              <Badge className={`${getRankBadgeStyle(rank)} text-xs h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0`}>
+              <Badge className={`${getRankBadgeStyle()} text-xs h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0`}>
                 {rank}
               </Badge>
             </div>

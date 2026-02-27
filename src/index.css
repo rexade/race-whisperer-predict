@@ -272,10 +272,10 @@
 
   @keyframes pulse-glow {
     0%, 100% {
-      box-shadow: 0 0 5px rgba(59, 130, 246, 0.3);
+      box-shadow: 0 0 5px hsl(var(--accent) / 0.3);
     }
     50% {
-      box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+      box-shadow: 0 0 20px hsl(var(--accent) / 0.6);
     }
   }
 
@@ -289,15 +289,15 @@
 
   /* Glassmorphism effect */
   .glass {
-    background: rgba(255, 255, 255, 0.1);
+    background: hsl(var(--background) / 0.1);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid hsl(var(--border) / 0.2);
   }
 
   .dark .glass {
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: hsl(var(--background) / 0.3);
+    border: 1px solid hsl(var(--border) / 0.1);
   }
 
   /* Modern card styles */

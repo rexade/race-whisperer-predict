@@ -6,7 +6,6 @@ import CompactV75ResultsTable from './components/CompactV75ResultsTable';
 
 interface V75RaceDetailsProps {
   race: V75RaceResult;
-  analysisDate: string;
 }
 
 const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {

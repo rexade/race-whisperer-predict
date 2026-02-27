@@ -14,6 +14,7 @@ export default function ProgressStrip({ progress, label }: Props) {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={pct}
+          aria-label={label ?? 'Progress'}
           role="progressbar"
         />
       </div>

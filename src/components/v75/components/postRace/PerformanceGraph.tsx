@@ -43,14 +43,20 @@ const PerformanceGraph: React.FC<PerformanceGraphProps> = ({
   return (
     <div className={className} style={{ width: '100%', height: 120 }}>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 4, right: 4, left: 4, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-          <XAxis dataKey="x" tick={{ fontSize: 10 }} />
-          <YAxis tick={{ fontSize: 10 }} />
+        <LineChart data={data} margin={{ top: 4, right: 4, left: 4, bottom: 4 }} accessibilityLayer>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <XAxis dataKey="x" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
+          <YAxis tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} width={32} />
           <Tooltip
-            contentStyle={{ fontSize: 11 }}
+            contentStyle={{
+              fontSize: 11,
+              backgroundColor: 'hsl(var(--popover))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: 'var(--radius)',
+              color: 'hsl(var(--popover-foreground))',
+            }}
             formatter={(value: number) => [value, 'Value']}
-            labelFormatter={(label) => `Position: ${label}`}
+            labelFormatter={(label) => `${label}m`}
           />
           <Line
             type="monotone"

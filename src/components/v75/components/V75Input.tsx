@@ -3,6 +3,7 @@ import React from 'react';
 import { TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import V75DatePicker from "../V75DatePicker";
+import { GAME_TYPE } from '@/config/game';
 
 interface V75InputProps {
   selectedDate: Date | undefined;
@@ -35,7 +36,7 @@ const V75Input: React.FC<V75InputProps> = ({
         size="lg"
       >
         <TrendingUp className="h-4 w-4 mr-2" />
-        {loading ? "Analyzing…" : "Analyze V85 Races"}
+        {loading ? "Analyzing…" : `Analyze ${GAME_TYPE} Races`}
       </Button>
     </div>
   );

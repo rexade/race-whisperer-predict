@@ -34,7 +34,7 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
     return null;
   };
 
-  const getRankBadgeStyle = (rank: number) => {
+  const getRankBadgeStyle = () => {
     return "bg-gradient-accent text-white font-bold shadow-sm";
   };
 
@@ -46,7 +46,7 @@ const V75HorseRow: React.FC<V75HorseRowProps> = ({ horse, rank }) => {
       <TableCell className="text-center sticky left-0 bg-background z-10 border-r border-atg-gray-200 w-16 sm:w-20">
         <div className="flex items-center justify-center gap-1 w-full">
           <span className="w-4 h-4 flex items-center justify-center">{getRankIcon(rank)}</span>
-          <Badge className={`${getRankBadgeStyle(rank)} text-xs`}>
+          <Badge className={`${getRankBadgeStyle()} text-xs`}>
             {rank}
           </Badge>
         </div>

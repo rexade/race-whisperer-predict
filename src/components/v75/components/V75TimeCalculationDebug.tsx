@@ -107,7 +107,7 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
                   && (data.bestFromHistory.tenths ?? 0) === (data.rawKmTime.tenths ?? 0);
                 if (!same) {
                   return (
-                    <div className="flex flex-wrap items-center gap-2 p-2 bg-amber-50 dark:bg-amber-950/20 rounded border border-amber-200">
+                    <div className="flex flex-wrap items-center gap-2 p-2 bg-warning/10 dark:bg-warning/20 rounded border border-warning/30">
                       <span className="text-xs text-muted-foreground">Best from history:</span>
                       <Badge variant="outline" className="font-mono text-xs">{formatKmTime(data.bestFromHistory)}</Badge>
                       <span className="text-xs text-muted-foreground">→ After confidence (used):</span>

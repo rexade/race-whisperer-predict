@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { Trophy } from "lucide-react";
 import StatusCard from "../../shared/analyzer/StatusCard";
 import { V75RaceResult } from "../hooks/useV75Analysis";
+import { GAME_TYPE } from '@/config/game';
 
 interface V75SummaryProps {
   races: V75RaceResult[];
@@ -17,7 +17,7 @@ const V75Summary: React.FC<V75SummaryProps> = ({ races, analysisDate }) => {
   const successfulRaces = races.filter(r => r.analysisComplete).length;
 
   return (
-    <StatusCard type="success" title="V85 Analysis Complete">
+    <StatusCard type="success" title={`${GAME_TYPE} Analysis Complete`}>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-foreground">
         <div>
           <strong className="font-medium">Date:</strong> <span className="text-muted-foreground">{analysisDate}</span>
