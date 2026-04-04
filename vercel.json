@@ -8,6 +8,10 @@
   "trailingSlash": false,
   "rewrites": [
     {
+      "source": "/api/atg/:path*",
+      "destination": "https://www.atg.se/services/racinginfo/v1/api/:path*"
+    },
+    {
       "source": "/((?!.*\\..*|api|assets).*)",
       "destination": "/index.html"
     }

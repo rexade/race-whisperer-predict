@@ -18,7 +18,7 @@ export async function fetchRaceById(raceId: string): Promise<unknown> {
   }
 
   const response = await fetch(
-    `https://www.atg.se/services/racinginfo/v1/api/races/${raceId}`
+    `/api/atg/races/${raceId}`
   );
   if (!response.ok) {
     throw new Error(`Failed to fetch race data: ${response.statusText}`);

@@ -30,7 +30,7 @@ export class V75ResultsFetcher {
       } else {
         // Step 1: Get games for the date using the correct calendar endpoint
         log.debug(`📅 Step 1: Fetching ${TARGET_GAME} games for date ${date}`);
-        const calendarResponse = await fetch(`https://www.atg.se/services/racinginfo/v1/api/calendar/day/${date}`);
+        const calendarResponse = await fetch(`/api/atg/calendar/day/${date}`);
 
         if (!calendarResponse.ok) {
           throw new Error(`Failed to fetch calendar: ${calendarResponse.statusText}`);
@@ -143,9 +143,9 @@ export class V75ResultsFetcher {
     // Strategy 3: Try dedicated results endpoints only if in-race data not available
     if (!raceResults) {
       const resultEndpoints = [
-        `https://www.atg.se/services/racinginfo/v1/api/races/${raceId}/results`,
-        `https://www.atg.se/services/racinginfo/v1/api/races/${raceId}/result`,
-        `https://www.atg.se/services/racinginfo/v1/api/results/${raceId}`
+        `/api/atg/races/${raceId}/results`,
+        `/api/atg/races/${raceId}/result`,
+        `/api/atg/results/${raceId}`
       ];
       for (const endpoint of resultEndpoints) {
         try {

@@ -104,7 +104,7 @@ export interface V75HorseData {
  */
 export const fetchAvailableGameTypes = async (date: string): Promise<string[]> => {
   try {
-    const response = await fetch(`https://www.atg.se/services/racinginfo/v1/api/calendar/day/${date}`);
+    const response = await fetch(`/api/atg/calendar/day/${date}`);
     if (!response.ok) return [];
     const data = await response.json();
     if (!data.games || typeof data.games !== 'object') return [];
@@ -121,7 +121,7 @@ export const fetchV75GameInfo = async (date: string, gameType: GameType = GAME_T
   try {
     log.debug(`🔍 Fetching ${gameType} game info for ${date}...`);
 
-    const response = await fetch(`https://www.atg.se/services/racinginfo/v1/api/calendar/day/${date}`);
+    const response = await fetch(`/api/atg/calendar/day/${date}`);
 
     if (!response.ok) {
       throw new Error(`Failed to fetch calendar data: ${response.statusText}`);
@@ -258,7 +258,7 @@ export const fetchV75CalendarDates = async (year: number, month: number, gameTyp
   try {
     // Format: YYYY-MM
     const monthStr = `${year}-${month.toString().padStart(2, '0')}`;
-    const response = await fetch(`https://www.atg.se/services/racinginfo/v1/api/calendar/month/${monthStr}`);
+    const response = await fetch(`/api/atg/calendar/month/${monthStr}`);
 
     if (!response.ok) {
       throw new Error(`Failed to fetch ${gameType} calendar: ${response.statusText}`);

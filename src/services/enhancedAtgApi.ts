@@ -55,7 +55,7 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
   console.log(`\n=== Fetching enhanced race data for: ${raceId} ===`);
   
   try {
-    const response = await fetch(`https://www.atg.se/services/racinginfo/v1/api/races/${raceId}`);
+    const response = await fetch(`/api/atg/races/${raceId}`);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch race data: ${response.statusText}`);

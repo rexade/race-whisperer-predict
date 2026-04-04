@@ -7,6 +7,13 @@ export default defineConfig({
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      '/api/atg': {
+        target: 'https://www.atg.se',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/atg/, '/services/racinginfo/v1/api'),
+      },
+    },
   },
   plugins: [
     react(),

@@ -67,7 +67,7 @@ export async function fetchExtendedRaceData(
     const [date, track, raceNum] = raceId.split('_');
     const path = `${date}_${track}_${raceNum}/extended`;
     const candidates = [
-      `https://www.atg.se/services/racinginfo/v1/api/races/${path}`,
+      `/api/atg/races/${path}`,
       `https://api.atg.se/v1/races/${path}`
     ];
     

@@ -56,7 +56,7 @@ export const fetchHorseHistoricalData = async (raceId: string, startNumber: numb
   console.log(`Fetching historical data for race ${raceId}, start ${startNumber}`);
   
   try {
-    const response = await fetch(`https://www.atg.se/services/racinginfo/v1/api/races/${raceId}/start/${startNumber}`);
+    const response = await fetch(`/api/atg/races/${raceId}/start/${startNumber}`);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch historical data: ${response.statusText}`);
