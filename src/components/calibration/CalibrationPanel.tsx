@@ -2,16 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { BarChart2, Play, Zap, Check, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NormalizationWeights } from '@/services/modernKm/types';
+import { PostPositionCurves } from '@/services/modernKm/index';
 import { useCalibration } from './useCalibration';
 import { getCalibrationCacheInfo } from '@/services/calibration/calibrationDatasetCache';
 
 interface CalibrationPanelProps {
   currentWeights: NormalizationWeights;
   onApplyWeights: (weights: NormalizationWeights) => void;
+  postPositionCurves?: PostPositionCurves;
+  onPostPositionCurvesChange?: (curves: PostPositionCurves) => void;
 }
 
 const WEIGHT_LABELS: Record<keyof NormalizationWeights, string> = {
-  postPosition: 'Post Position',
+  postPosition: 'Post Position (global scale)',
   shoeType: 'Shoes (type)',
   sulkyType: 'Sulky Type',
   driverPerformance: 'Driver Performance',
@@ -33,12 +36,32 @@ function deltaColor(d: number): string {
   return d > 0 ? 'text-green-500' : 'text-red-500';
 }
 
-const CalibrationPanel: React.FC<CalibrationPanelProps> = ({ currentWeights, onApplyWeights }) => {
+/** Returns the positions whose curve value changed by more than threshold. */
+function curveChanges(
+  original: Record<number, number>,
+  optimized: Record<number, number>,
+  threshold = 0.005
+): Array<{ pos: number; from: number; to: number; delta: number }> {
+  const results = [];
+  for (let pos = 1; pos <= 15; pos++) {
+    const from = original[pos] ?? 0;
+    const to = optimized[pos] ?? 0;
+    const delta = to - from;
+    if (Math.abs(delta) >= threshold) results.push({ pos, from, to, delta });
+  }
+  return results.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+}
+
+const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
+  currentWeights,
+  onApplyWeights,
+  postPositionCurves,
+  onPostPositionCurvesChange,
+}) => {
   const [monthsBack, setMonthsBack] = useState(2);
   const [cacheInfo, setCacheInfo] = useState<{ exists: boolean; ageHours: number | null; dateCount: number } | null>(null);
   const { state, runDataCollection, runOptimization, reset } = useCalibration();
 
-  // Check cache status whenever monthsBack changes
   useEffect(() => {
     setCacheInfo(getCalibrationCacheInfo(monthsBack));
   }, [monthsBack, state.phase]);
@@ -46,6 +69,21 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({ currentWeights, onA
   const isWorking = state.phase === 'fetching-dates' || state.phase === 'collecting' || state.phase === 'evaluating' || state.phase === 'optimizing';
   const hasDataset = !!state.dataset;
   const hasResult = !!state.optimizationResult;
+
+  const handleApply = () => {
+    if (!state.optimizationResult) return;
+    onApplyWeights(state.optimizationResult.optimizedWeights);
+    if (state.optimizationResult.optimizedCurves && onPostPositionCurvesChange) {
+      onPostPositionCurvesChange(state.optimizationResult.optimizedCurves);
+    }
+  };
+
+  const autoCurveChanges = (hasResult && postPositionCurves && state.optimizationResult?.optimizedCurves)
+    ? curveChanges(postPositionCurves.auto, state.optimizationResult.optimizedCurves.auto)
+    : [];
+  const volteCurveChanges = (hasResult && postPositionCurves && state.optimizationResult?.optimizedCurves)
+    ? curveChanges(postPositionCurves.volte, state.optimizationResult.optimizedCurves.volte)
+    : [];
 
   return (
     <div className="space-y-4 p-4">
@@ -96,7 +134,7 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({ currentWeights, onA
         <Button
           size="sm"
           variant="outline"
-          onClick={() => runDataCollection(monthsBack, currentWeights, false)}
+          onClick={() => runDataCollection(monthsBack, currentWeights, false, postPositionCurves)}
           disabled={isWorking}
           className="h-8 gap-1.5"
         >
@@ -106,12 +144,11 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({ currentWeights, onA
           {cacheInfo?.exists ? 'Load Dataset' : 'Collect Data'}
         </Button>
 
-        {/* Force refresh — only show when cache exists or dataset is loaded */}
         {(cacheInfo?.exists || hasDataset) && (
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => runDataCollection(monthsBack, currentWeights, true)}
+            onClick={() => runDataCollection(monthsBack, currentWeights, true, postPositionCurves)}
             disabled={isWorking}
             title="Re-fetch from ATG (ignores cache)"
             className="h-8 gap-1.5 text-muted-foreground"
@@ -124,7 +161,7 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({ currentWeights, onA
         {hasDataset && (
           <Button
             size="sm"
-            onClick={() => runOptimization(currentWeights)}
+            onClick={() => runOptimization(currentWeights, postPositionCurves)}
             disabled={isWorking}
             className="h-8 gap-1.5"
           >
@@ -210,11 +247,11 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({ currentWeights, onA
             <Button
               size="sm"
               variant="default"
-              onClick={() => onApplyWeights(state.optimizationResult!.optimizedWeights)}
+              onClick={handleApply}
               className="h-8 gap-1.5"
             >
               <Check className="h-3.5 w-3.5" />
-              Apply Weights
+              Apply Weights{state.optimizationResult.optimizedCurves ? ' & Curves' : ''}
             </Button>
           </div>
 
@@ -248,6 +285,25 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({ currentWeights, onA
               </tbody>
             </table>
           </div>
+
+          {/* Per-position curve changes */}
+          {state.optimizationResult.optimizedCurves && (autoCurveChanges.length > 0 || volteCurveChanges.length > 0) && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Post Position Curve Changes</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {autoCurveChanges.length > 0 && (
+                  <CurveChangeTable label="Auto Start" changes={autoCurveChanges} />
+                )}
+                {volteCurveChanges.length > 0 && (
+                  <CurveChangeTable label="Volte Start" changes={volteCurveChanges} />
+                )}
+              </div>
+            </div>
+          )}
+
+          {state.optimizationResult.optimizedCurves && autoCurveChanges.length === 0 && volteCurveChanges.length === 0 && (
+            <p className="text-xs text-muted-foreground">Post position curves unchanged by optimizer.</p>
+          )}
         </div>
       )}
 
@@ -264,6 +320,42 @@ function Stat({ label, value, highlight }: { label: string; value: string | numb
     <div className="flex flex-col">
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className={`text-sm font-medium tabular-nums ${highlight ? 'text-primary' : ''}`}>{value}</span>
+    </div>
+  );
+}
+
+function CurveChangeTable({
+  label,
+  changes,
+}: {
+  label: string;
+  changes: Array<{ pos: number; from: number; to: number; delta: number }>;
+}) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      <table className="w-full text-xs border-collapse">
+        <thead>
+          <tr className="text-muted-foreground border-b border-border">
+            <th className="text-left py-1 pr-3 font-medium">Pos</th>
+            <th className="text-right py-1 px-2 font-medium">Before</th>
+            <th className="text-right py-1 px-2 font-medium">After</th>
+            <th className="text-right py-1 pl-2 font-medium">Δ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {changes.map(({ pos, from, to, delta }) => (
+            <tr key={pos} className="border-b border-border/40">
+              <td className="py-1 pr-3 text-muted-foreground">#{pos}</td>
+              <td className="py-1 px-2 text-right tabular-nums">{from >= 0 ? '+' : ''}{from.toFixed(3)}s</td>
+              <td className="py-1 px-2 text-right tabular-nums font-medium">{to >= 0 ? '+' : ''}{to.toFixed(3)}s</td>
+              <td className={`py-1 pl-2 text-right tabular-nums ${Math.abs(delta) < 0.005 ? 'text-muted-foreground' : delta < 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {delta >= 0 ? '+' : ''}{delta.toFixed(3)}s
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

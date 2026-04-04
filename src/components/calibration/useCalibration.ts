@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { NormalizationWeights } from '@/services/modernKm/types';
+import { PostPositionCurves } from '@/services/modernKm/index';
 import {
   fetchHistoricalDates,
   collectCalibrationData,
@@ -75,7 +76,6 @@ function runInWorker<T>(
 
 export function useCalibration() {
   const [state, setState] = useState<CalibrationState>(INITIAL_STATE);
-  // Keep dataset in a ref so runOptimization always sees the latest value
   const datasetRef = useRef<CalibrationDataset | null>(null);
 
   const updateState = (patch: Partial<CalibrationState>) =>
@@ -85,7 +85,12 @@ export function useCalibration() {
    * Step 1: Collect historical data. Loads from localStorage cache if available.
    * The baseline evaluation runs in the calibration worker to keep UI responsive.
    */
-  const runDataCollection = useCallback(async (monthsBack: number, currentWeights: NormalizationWeights, forceRefresh = false) => {
+  const runDataCollection = useCallback(async (
+    monthsBack: number,
+    currentWeights: NormalizationWeights,
+    forceRefresh = false,
+    currentCurves?: PostPositionCurves
+  ) => {
     updateState({ ...INITIAL_STATE, phase: 'fetching-dates', progressMessage: 'Checking cache…', progressFraction: 0 });
     datasetRef.current = null;
 
@@ -129,7 +134,7 @@ export function useCalibration() {
 
       const baselineEval = await runInWorker<CalibrationEvaluation>(
         () => new Worker(new URL('../../workers/calibration.worker.ts', import.meta.url), { type: 'module' }),
-        { type: 'EVALUATE', payload: { dataset, weights: currentWeights } },
+        { type: 'EVALUATE', payload: { dataset, weights: currentWeights, curves: currentCurves } },
         'EVAL_DONE'
       );
 
@@ -146,9 +151,12 @@ export function useCalibration() {
   }, []);
 
   /**
-   * Step 2: Optimize weights in a Web Worker — UI stays fully responsive.
+   * Step 2: Optimize weights (and curves) in a Web Worker — UI stays fully responsive.
    */
-  const runOptimization = useCallback(async (currentWeights: NormalizationWeights) => {
+  const runOptimization = useCallback(async (
+    currentWeights: NormalizationWeights,
+    currentCurves?: PostPositionCurves
+  ) => {
     const dataset = datasetRef.current ?? state.dataset;
     if (!dataset) return;
 
@@ -157,7 +165,7 @@ export function useCalibration() {
     try {
       const result = await runInWorker<OptimizationResult>(
         () => new Worker(new URL('../../workers/calibration.worker.ts', import.meta.url), { type: 'module' }),
-        { type: 'OPTIMIZE', payload: { dataset, initialWeights: currentWeights } },
+        { type: 'OPTIMIZE', payload: { dataset, initialWeights: currentWeights, initialCurves: currentCurves } },
         'DONE',
         (p) => updateState({
           progressMessage: p.message,

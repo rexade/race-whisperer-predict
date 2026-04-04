@@ -14,6 +14,7 @@ import { V75ResultsFetcher } from '@/components/v75/services/v75ResultsFetcher';
 import { calculateRawKmTimesForRaceWithId } from '@/services/kmTimeProcessor';
 import { RaceResultProcessor } from '@/components/v75/services/raceResultProcessor';
 import { NormalizationWeights } from '@/services/modernKm/types';
+import { PostPositionCurves } from '@/services/modernKm/index';
 import { HorseRawKmTime } from '@/services/types/kmTimeTypes';
 import { V75CacheService } from '@/services/v75CacheService';
 import { saveCalibrationDataset, loadCalibrationDataset, getCalibrationCacheInfo } from './calibrationDatasetCache';
@@ -281,7 +282,8 @@ export async function collectCalibrationData(
  */
 export async function evaluateWeights(
   dataset: CalibrationDataset,
-  weights: NormalizationWeights
+  weights: NormalizationWeights,
+  curves?: PostPositionCurves
 ): Promise<CalibrationEvaluation> {
   let totalRankError = 0;
   let totalTimeDiffS = 0;
@@ -301,7 +303,8 @@ export async function evaluateWeights(
           race.raceData,
           race.rawKmTimes,
           weights,
-          dateData.date
+          dateData.date,
+          curves
         );
 
         if (!result.analysisComplete || result.horses.length === 0) continue;

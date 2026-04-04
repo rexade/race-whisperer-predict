@@ -1,20 +1,14 @@
 /**
  * Weight Optimizer — Coordinate Descent
  *
- * Minimizes rank MAE over the NormalizationWeights parameter space using
- * coordinate descent with exponential step decay.
- *
- * How it works:
- *   1. Start from `initialWeights` and compute baseline MAE.
- *   2. For each weight dimension, try ±step. Keep the direction that lowers MAE.
- *   3. If no improvement across all dimensions, halve the step size.
- *   4. Stop when step < MIN_STEP or maxPasses exhausted.
- *
- * The inner `evaluate` call uses Phase-2 logic (no API calls, pure math) so
- * each pass over 13 weights × 2 directions = 26 evaluations is fast.
+ * Phase 1: Optimize the 13 NormalizationWeights.
+ * Phase 2: If curves are provided, optimize per-position curve values for
+ *   both auto and volte starts (30 additional dimensions).
+ * The two phases alternate until convergence so each informs the other.
  */
 
 import { NormalizationWeights } from '@/services/modernKm/types';
+import { PostPositionCurves } from '@/services/modernKm/index';
 import { CalibrationDataset, CalibrationEvaluation, evaluateWeights } from './historicalCalibrationService';
 
 export interface OptimizationProgress {
@@ -28,6 +22,8 @@ export interface OptimizationProgress {
 
 export interface OptimizationResult {
   optimizedWeights: NormalizationWeights;
+  /** Present when curves were passed as input — the calibration-tuned curve values. */
+  optimizedCurves?: PostPositionCurves;
   initialMAE: number;
   finalMAE: number;
   improvementPct: number;
@@ -36,9 +32,12 @@ export interface OptimizationResult {
   finalEvaluation: CalibrationEvaluation;
 }
 
-const MIN_STEP = 0.02;
-const MAX_PASSES = 12;
+const MIN_WEIGHT_STEP = 0.02;
+const MAX_PASSES = 14;
 const WEIGHT_BOUNDS: [number, number] = [0.0, 3.0];
+
+const MIN_CURVE_STEP = 0.01;
+const CURVE_BOUNDS: [number, number] = [-1.5, 1.5];
 
 const WEIGHT_KEYS: (keyof NormalizationWeights)[] = [
   'postPosition',
@@ -56,6 +55,8 @@ const WEIGHT_KEYS: (keyof NormalizationWeights)[] = [
   'earningsPerStart',
 ];
 
+const CURVE_POSITIONS = Array.from({ length: 15 }, (_, i) => i + 1);
+
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
@@ -64,68 +65,114 @@ function copyWeights(w: NormalizationWeights): NormalizationWeights {
   return { ...w };
 }
 
+function copyCurves(c: PostPositionCurves): PostPositionCurves {
+  return { auto: { ...c.auto }, volte: { ...c.volte } };
+}
+
 /**
- * Optimize weights via coordinate descent.
+ * Optimize weights (and optionally per-position curves) via coordinate descent.
  *
- * @param dataset   Pre-collected calibration data (no API calls during optimization)
- * @param initial   Starting weight configuration
- * @param onProgress  Optional progress callback
+ * @param dataset        Pre-collected calibration data (no API calls)
+ * @param initial        Starting weight configuration
+ * @param onProgress     Optional progress callback
+ * @param initialCurves  Starting post-position curves — if provided, curves are
+ *                       optimized alongside weights
  */
 export async function optimizeWeights(
   dataset: CalibrationDataset,
   initial: NormalizationWeights,
-  onProgress?: (p: OptimizationProgress) => void
+  onProgress?: (p: OptimizationProgress) => void,
+  initialCurves?: PostPositionCurves
 ): Promise<OptimizationResult> {
-  const initialEval = await evaluateWeights(dataset, initial);
+  const initialEval = await evaluateWeights(dataset, initial, initialCurves);
   const initialMAE = initialEval.rankMAE;
 
-  let best = copyWeights(initial);
+  let bestWeights = copyWeights(initial);
+  let bestCurves = initialCurves ? copyCurves(initialCurves) : undefined;
   let bestMAE = initialMAE;
-  let step = 0.1;
+
+  let weightStep = 0.1;
+  let curveStep = 0.05;
   let pass = 0;
 
-  while (step >= MIN_STEP && pass < MAX_PASSES) {
+  // Run until both weight and curve steps have converged (or MAX_PASSES)
+  while (pass < MAX_PASSES && (weightStep >= MIN_WEIGHT_STEP || (bestCurves && curveStep >= MIN_CURVE_STEP))) {
     pass++;
     let improved = false;
 
-    for (const key of WEIGHT_KEYS) {
-      for (const dir of [+step, -step]) {
-        const candidate = copyWeights(best);
-        candidate[key] = clamp(best[key] + dir, WEIGHT_BOUNDS[0], WEIGHT_BOUNDS[1]);
+    // --- Phase A: optimize the 13 NormalizationWeights ---
+    if (weightStep >= MIN_WEIGHT_STEP) {
+      for (const key of WEIGHT_KEYS) {
+        for (const dir of [+weightStep, -weightStep]) {
+          const candidate = copyWeights(bestWeights);
+          candidate[key] = clamp(bestWeights[key] + dir, WEIGHT_BOUNDS[0], WEIGHT_BOUNDS[1]);
+          if (candidate[key] === bestWeights[key]) continue;
 
-        // Skip if value didn't actually change (already at bound)
-        if (candidate[key] === best[key]) continue;
+          const eval_ = await evaluateWeights(dataset, candidate, bestCurves);
+          if (eval_.rankMAE < bestMAE) {
+            bestMAE = eval_.rankMAE;
+            bestWeights = candidate;
+            improved = true;
+            break;
+          }
+        }
 
-        const eval_ = await evaluateWeights(dataset, candidate);
-        if (eval_.rankMAE < bestMAE) {
-          bestMAE = eval_.rankMAE;
-          best = candidate;
-          improved = true;
-          break; // Take the first improvement for this dimension and move on
+        onProgress?.({
+          pass,
+          maxPasses: MAX_PASSES,
+          currentMAE: bestMAE,
+          bestMAE,
+          step: weightStep,
+          message: `Pass ${pass}/${MAX_PASSES} · weights · step=${weightStep.toFixed(3)} · MAE=${bestMAE.toFixed(4)}`,
+        });
+      }
+    }
+
+    // --- Phase B: optimize per-position curve values ---
+    if (bestCurves && curveStep >= MIN_CURVE_STEP) {
+      for (const startType of ['auto', 'volte'] as const) {
+        for (const pos of CURVE_POSITIONS) {
+          const current = bestCurves[startType][pos] ?? 0;
+          for (const dir of [+curveStep, -curveStep]) {
+            const candidate = copyCurves(bestCurves);
+            const newVal = clamp(current + dir, CURVE_BOUNDS[0], CURVE_BOUNDS[1]);
+            if (Math.abs(newVal - current) < 0.001) continue;
+            candidate[startType][pos] = newVal;
+
+            const eval_ = await evaluateWeights(dataset, bestWeights, candidate);
+            if (eval_.rankMAE < bestMAE) {
+              bestMAE = eval_.rankMAE;
+              bestCurves = candidate;
+              improved = true;
+              break;
+            }
+          }
+
+          onProgress?.({
+            pass,
+            maxPasses: MAX_PASSES,
+            currentMAE: bestMAE,
+            bestMAE,
+            step: curveStep,
+            message: `Pass ${pass}/${MAX_PASSES} · curves (${startType} pos ${pos}) · step=${curveStep.toFixed(3)} · MAE=${bestMAE.toFixed(4)}`,
+          });
         }
       }
-
-      onProgress?.({
-        pass,
-        maxPasses: MAX_PASSES,
-        currentMAE: bestMAE,
-        bestMAE,
-        step,
-        message: `Pass ${pass}/${MAX_PASSES} | step=${step.toFixed(3)} | rank MAE=${bestMAE.toFixed(4)}`,
-      });
     }
 
     if (!improved) {
-      step /= 2;
+      weightStep /= 2;
+      curveStep /= 2;
     }
   }
 
-  const finalEval = await evaluateWeights(dataset, best);
+  const finalEval = await evaluateWeights(dataset, bestWeights, bestCurves);
   const improvementPct =
     initialMAE > 0 ? ((initialMAE - finalEval.rankMAE) / initialMAE) * 100 : 0;
 
   return {
-    optimizedWeights: best,
+    optimizedWeights: bestWeights,
+    optimizedCurves: bestCurves,
     initialMAE,
     finalMAE: finalEval.rankMAE,
     improvementPct,

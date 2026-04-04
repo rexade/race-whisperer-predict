@@ -8,6 +8,7 @@
  */
 
 import { NormalizationWeights } from '@/services/modernKm/types';
+import { PostPositionCurves } from '@/services/modernKm/index';
 import { CalibrationDataset, evaluateWeights } from '@/services/calibration/historicalCalibrationService';
 import { optimizeWeights, OptimizationProgress, OptimizationResult } from '@/services/calibration/weightOptimizer';
 
@@ -15,9 +16,10 @@ self.onmessage = async (event: MessageEvent) => {
   const { type, payload } = event.data;
 
   if (type === 'OPTIMIZE') {
-    const { dataset, initialWeights } = payload as {
+    const { dataset, initialWeights, initialCurves } = payload as {
       dataset: CalibrationDataset;
       initialWeights: NormalizationWeights;
+      initialCurves?: PostPositionCurves;
     };
 
     try {
@@ -26,7 +28,8 @@ self.onmessage = async (event: MessageEvent) => {
         initialWeights,
         (p: OptimizationProgress) => {
           (self as any).postMessage({ type: 'PROGRESS', payload: p });
-        }
+        },
+        initialCurves
       );
 
       (self as any).postMessage({ type: 'DONE', payload: result });
@@ -39,13 +42,14 @@ self.onmessage = async (event: MessageEvent) => {
   }
 
   if (type === 'EVALUATE') {
-    const { dataset, weights } = payload as {
+    const { dataset, weights, curves } = payload as {
       dataset: CalibrationDataset;
       weights: NormalizationWeights;
+      curves?: PostPositionCurves;
     };
 
     try {
-      const result = await evaluateWeights(dataset, weights);
+      const result = await evaluateWeights(dataset, weights, curves);
       (self as any).postMessage({ type: 'EVAL_DONE', payload: result });
     } catch (error) {
       (self as any).postMessage({
