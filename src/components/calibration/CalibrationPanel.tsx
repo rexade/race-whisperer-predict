@@ -162,11 +162,14 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({ currentWeights, onA
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
           <Stat label="Dates" value={state.dataset?.length ?? 0} />
           <Stat label="Races" value={state.dataset?.reduce((s, d) => s + d.races.length, 0) ?? 0} />
-          <Stat label="Baseline rank MAE" value={state.baselineEval.rankMAE.toFixed(3)} highlight />
-          <Stat
-            label="Top-3 accuracy"
-            value={`${(state.baselineEval.topPickAccuracy * 100).toFixed(1)}%`}
-          />
+          <Stat label="Horses (real data)" value={state.baselineEval.horsesEvaluated} />
+          <Stat label="Estimated skipped" value={state.baselineEval.estimatedHorsesSkipped} />
+          <Stat label="Rank MAE" value={state.baselineEval.rankMAE.toFixed(3)} highlight />
+          <Stat label="Win accuracy" value={`${(state.baselineEval.winAccuracy * 100).toFixed(1)}%`} highlight />
+          <Stat label="Top-3 accuracy" value={`${(state.baselineEval.topPickAccuracy * 100).toFixed(1)}%`} />
+          {state.baselineEval.timeMAE !== null && (
+            <Stat label="Time MAE" value={`${state.baselineEval.timeMAE.toFixed(2)}s`} />
+          )}
         </div>
       )}
 
@@ -179,14 +182,20 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({ currentWeights, onA
               <Check className="h-4 w-4 text-green-500" />
               <span className="text-sm font-medium">Optimization complete</span>
             </div>
-            <div className="flex items-center gap-4 text-sm">
+            <div className="flex flex-wrap items-center gap-4 text-sm">
               <span>
-                MAE: <span className="text-muted-foreground line-through">{state.optimizationResult.initialMAE.toFixed(3)}</span>
+                Rank MAE: <span className="text-muted-foreground line-through">{state.optimizationResult.initialMAE.toFixed(3)}</span>
                 {' → '}
                 <span className="font-medium text-green-500">{state.optimizationResult.finalMAE.toFixed(3)}</span>
               </span>
+              <span>
+                Win: <span className="font-medium text-green-500">{(state.optimizationResult.finalEvaluation.winAccuracy * 100).toFixed(1)}%</span>
+              </span>
+              <span>
+                Top-3: <span className="font-medium">{(state.optimizationResult.finalEvaluation.topPickAccuracy * 100).toFixed(1)}%</span>
+              </span>
               <span className={deltaColor(state.optimizationResult.improvementPct)}>
-                {state.optimizationResult.improvementPct >= 0 ? '▲' : '▼'}{Math.abs(state.optimizationResult.improvementPct).toFixed(1)}%
+                {state.optimizationResult.improvementPct >= 0 ? '▲' : '▼'}{Math.abs(state.optimizationResult.improvementPct).toFixed(1)}% better
               </span>
               <span className="text-muted-foreground text-xs">
                 {state.optimizationResult.passesCompleted} passes

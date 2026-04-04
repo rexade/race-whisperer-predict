@@ -40,12 +40,19 @@ export interface DateCalibrationData {
 export type CalibrationDataset = DateCalibrationData[];
 
 export interface CalibrationEvaluation {
+  /** Mean absolute error: |predicted rank − actual position|, estimated horses excluded */
   rankMAE: number;
+  /** Mean absolute error of predicted km time vs actual km time in seconds */
   timeMAE: number | null;
   /** Fraction of predicted top-3 picks that actually placed top-3 */
   topPickAccuracy: number;
+  /** Fraction of races where our #1 ranked horse actually won */
+  winAccuracy: number;
   racesEvaluated: number;
+  /** Horses with real km-time data (estimated-fallback horses excluded) */
   horsesEvaluated: number;
+  /** Horses skipped because they had no real km-time data */
+  estimatedHorsesSkipped: number;
 }
 
 export interface CollectionProgress {
@@ -68,18 +75,17 @@ export async function fetchHistoricalDates(monthsBack: number): Promise<string[]
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
 
-  // Build candidate list: race days (Wed/Fri/Sat/Sun) in the past N months
+  // Build candidate list: every day in the past N months.
+  // We check every day so no game type (V75/V85/V86/V65) is missed
+  // regardless of weekday schedule.
   const candidates: string[] = [];
   const start = new Date(today);
   start.setMonth(start.getMonth() - monthsBack);
   start.setDate(1);
 
   for (const d = new Date(start); d < today; d.setDate(d.getDate() + 1)) {
-    const dow = d.getDay(); // 0=Sun,3=Wed,5=Fri,6=Sat
-    if (dow === 0 || dow === 3 || dow === 5 || dow === 6) {
-      const iso = d.toISOString().split('T')[0];
-      if (iso < todayStr) candidates.push(iso);
-    }
+    const iso = d.toISOString().split('T')[0];
+    if (iso < todayStr) candidates.push(iso);
   }
 
   // Check each candidate with fetchV75GameInfo in parallel batches of 12
@@ -164,19 +170,14 @@ export async function collectCalibrationData(
       }
       if (actualResults.length === 0) continue;
 
+      // Process all races for this date in parallel (3 at a time max to
+      // avoid hammering the ATG API with too many concurrent horse fetches)
+      const RACE_CONCURRENCY = 3;
       const dateRaces: RaceCalibrationData[] = [];
 
-      for (let j = 0; j < races.length; j++) {
-        const race = races[j];
-
-        onProgress?.({
-          datesCompleted: i,
-          datesTotal: dates.length,
-          message: `[${i + 1}/${dates.length}] ${date}: horse data race ${j + 1}/${races.length}…`,
-        });
-
+      const processRace = async (race: V75RaceData): Promise<RaceCalibrationData | null> => {
         const actualRace = actualResults.find(ar => ar.raceId === race.raceId);
-        if (!actualRace?.finishOrder?.length) continue;
+        if (!actualRace?.finishOrder?.length) return null;
 
         // Build actualResults map: horseId → { position, kmTime? }
         const actualMap = new Map<number, ActualHorseResult>();
@@ -188,14 +189,13 @@ export async function collectCalibrationData(
             });
           }
         }
-        if (actualMap.size === 0) continue;
+        if (actualMap.size === 0) return null;
 
-        // --- Raw KM times: prefer existing V75CacheService entry (7-day TTL) ---
+        // Raw KM times: prefer existing V75CacheService entry (7-day TTL)
         let rawKmTimes: HorseRawKmTime[] = [];
         const cachedRawTimes = await V75CacheService.getRawTimes(race.raceId);
 
         if (cachedRawTimes) {
-          // Convert cache format → HorseRawKmTime (same as useV75Cache)
           rawKmTimes = cachedRawTimes.rawTimes.map(c => ({
             horseId: c.horseId,
             horseName: c.horseName || `Horse ${c.horseId}`,
@@ -207,7 +207,6 @@ export async function collectCalibrationData(
             dataSource: 'recent' as const,
           }));
         } else {
-          // Cache miss — fetch from ATG API
           const atgStarts = race.horses.map((horse: any) => ({
             horse: {
               id: horse.horseId,
@@ -225,30 +224,27 @@ export async function collectCalibrationData(
 
           try {
             rawKmTimes = await calculateRawKmTimesForRaceWithId(race.raceId, atgStarts);
-            // Persist so next calibration / main analyzer run can reuse
             const rawTimesForCache = rawKmTimes.map(rt => {
-              const horseInRace = race.horses.find((h: any) => h.horseId === rt.horseId);
-              return {
-                horseId: rt.horseId,
-                horseName: rt.horseName,
-                postPosition: horseInRace?.postPosition || 1,
-                bestTime: rt.rawBestTime ?? rt.bestTime,
-                validTimesCount: rt.validTimesCount,
-              };
+              const h = race.horses.find((x: any) => x.horseId === rt.horseId);
+              return { horseId: rt.horseId, horseName: rt.horseName, postPosition: h?.postPosition || 1, bestTime: rt.rawBestTime ?? rt.bestTime, validTimesCount: rt.validTimesCount };
             });
             V75CacheService.storeRawTimes(date, gameInfo.gameId, race.raceId, race.raceNumber, rawTimesForCache).catch(() => {});
           } catch {
-            continue;
+            return null;
           }
         }
 
-        dateRaces.push({
-          raceId: race.raceId,
-          raceNumber: race.raceNumber,
-          raceData: race,
-          rawKmTimes,
-          actualResults: actualMap,
-        });
+        return { raceId: race.raceId, raceNumber: race.raceNumber, raceData: race, rawKmTimes, actualResults: actualMap };
+      };
+
+      // Run races in parallel batches
+      for (let j = 0; j < races.length; j += RACE_CONCURRENCY) {
+        const batch = races.slice(j, j + RACE_CONCURRENCY);
+        onProgress?.({ datesCompleted: i, datesTotal: dates.length, message: `[${i + 1}/${dates.length}] ${date}: races ${j + 1}–${Math.min(j + RACE_CONCURRENCY, races.length)}/${races.length}…` });
+        const batchResults = await Promise.allSettled(batch.map(processRace));
+        for (const r of batchResults) {
+          if (r.status === 'fulfilled' && r.value) dateRaces.push(r.value);
+        }
       }
 
       if (dateRaces.length > 0) {
@@ -276,6 +272,12 @@ export async function collectCalibrationData(
 /**
  * Phase 2: Evaluate a weight configuration against the collected dataset.
  * No API calls — pure computation using cached race data + rawKmTimes.
+ *
+ * IMPORTANT: horses whose prediction was generated from a statistical fallback
+ * (no real km-time data) are excluded from all metrics.  Including them would
+ * pollute the MAE because the fallback path ignores the weights being tested —
+ * it uses fixed heuristics instead.  Only horses with actual measured times
+ * challenge the weight system meaningfully.
  */
 export async function evaluateWeights(
   dataset: CalibrationDataset,
@@ -286,7 +288,10 @@ export async function evaluateWeights(
   let timeCount = 0;
   let topPicksCorrect = 0;
   let topPicksTotal = 0;
+  let winCorrect = 0;
+  let winTotal = 0;
   let horsesEvaluated = 0;
+  let estimatedHorsesSkipped = 0;
   let racesEvaluated = 0;
 
   for (const dateData of dataset) {
@@ -300,31 +305,42 @@ export async function evaluateWeights(
         );
 
         if (!result.analysisComplete || result.horses.length === 0) continue;
+
+        // Only include horses with real km-time data in metrics
+        const realHorses = result.horses.filter(h => !h.modernNormalizedResult?.isEstimated);
+        if (realHorses.length === 0) continue;
+
+        estimatedHorsesSkipped += result.horses.length - realHorses.length;
         racesEvaluated++;
 
-        for (const horse of result.horses) {
-          const actual = race.actualResults.get(horse.horseId);
-          if (actual === undefined || !horse.rank) continue;
+        // Re-rank among real horses only (same order, new sequential ranks)
+        const ranked = [...realHorses].sort((a, b) => (a.finalScore ?? 999) - (b.finalScore ?? 999));
+        ranked.forEach((h, idx) => { (h as any)._calibRank = idx + 1; });
 
-          totalRankError += Math.abs(horse.rank - actual.position);
+        // Find our predicted winner (rank 1 among real horses)
+        const predictedWinner = ranked[0];
+        const actualWinner = race.actualResults.get(predictedWinner?.horseId);
+        winTotal++;
+        if (actualWinner?.position === 1) winCorrect++;
+
+        for (const horse of ranked) {
+          const actual = race.actualResults.get(horse.horseId);
+          if (actual === undefined) continue;
+
+          const calibRank: number = (horse as any)._calibRank;
+          totalRankError += Math.abs(calibRank - actual.position);
           horsesEvaluated++;
 
-          // Time MAE: compare predicted km time to actual km time
+          // Time MAE
           if (horse.predictedTime && actual.kmTime) {
-            const predS =
-              horse.predictedTime.minutes * 60 +
-              horse.predictedTime.seconds +
-              horse.predictedTime.tenths * 0.1;
-            const actS =
-              actual.kmTime.minutes * 60 +
-              actual.kmTime.seconds +
-              actual.kmTime.tenths * 0.1;
+            const predS = horse.predictedTime.minutes * 60 + horse.predictedTime.seconds + horse.predictedTime.tenths * 0.1;
+            const actS  = actual.kmTime.minutes * 60 + actual.kmTime.seconds + actual.kmTime.tenths * 0.1;
             totalTimeDiffS += Math.abs(predS - actS);
             timeCount++;
           }
 
-          // Top-pick accuracy
-          if (horse.rank <= 3) {
+          // Top-3 accuracy
+          if (calibRank <= 3) {
             topPicksTotal++;
             if (actual.position <= 3) topPicksCorrect++;
           }
@@ -336,10 +352,12 @@ export async function evaluateWeights(
   }
 
   return {
-    rankMAE: horsesEvaluated > 0 ? totalRankError / horsesEvaluated : 999,
-    timeMAE: timeCount > 0 ? totalTimeDiffS / timeCount : null,
-    topPickAccuracy: topPicksTotal > 0 ? topPicksCorrect / topPicksTotal : 0,
+    rankMAE:               horsesEvaluated > 0 ? totalRankError / horsesEvaluated : 999,
+    timeMAE:               timeCount > 0 ? totalTimeDiffS / timeCount : null,
+    topPickAccuracy:       topPicksTotal > 0 ? topPicksCorrect / topPicksTotal : 0,
+    winAccuracy:           winTotal > 0 ? winCorrect / winTotal : 0,
     racesEvaluated,
     horsesEvaluated,
+    estimatedHorsesSkipped,
   };
 }
