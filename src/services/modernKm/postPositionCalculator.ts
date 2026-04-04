@@ -7,7 +7,7 @@ import { log } from '@/lib/logger';
  * Values represent the raw adjustment BEFORE the postPosition weight is
  * applied.  Custom curves from the UI override these.
  */
-const DEFAULT_AUTO_CURVE: Record<number, number> = {
+export const DEFAULT_AUTO_CURVE: Record<number, number> = {
    1: -0.30,  // rail — strong advantage
    2: -0.25,
    3: -0.20,
@@ -25,7 +25,7 @@ const DEFAULT_AUTO_CURVE: Record<number, number> = {
   15:  1.00,
 };
 
-const DEFAULT_VOLTE_CURVE: Record<number, number> = {
+export const DEFAULT_VOLTE_CURVE: Record<number, number> = {
    1: -0.25,  // front-row inside
    2: -0.20,
    3: -0.10,

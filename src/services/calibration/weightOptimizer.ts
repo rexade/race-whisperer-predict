@@ -1,14 +1,16 @@
 /**
  * Weight Optimizer — Coordinate Descent
  *
- * Phase 1: Optimize the 13 NormalizationWeights.
- * Phase 2: If curves are provided, optimize per-position curve values for
- *   both auto and volte starts (30 additional dimensions).
- * The two phases alternate until convergence so each informs the other.
+ * Phase A: Optimize all NormalizationWeights.
+ * Phase B: Optimize per-position curve values for auto and volte starts
+ *   (30 additional dimensions). Always runs — defaults to the standard
+ *   curves when the caller provides none.
+ * The two phases alternate until convergence.
  */
 
 import { NormalizationWeights } from '@/services/modernKm/types';
 import { PostPositionCurves } from '@/services/modernKm/index';
+import { DEFAULT_AUTO_CURVE, DEFAULT_VOLTE_CURVE } from '@/services/modernKm/postPositionCalculator';
 import { CalibrationDataset, CalibrationEvaluation, evaluateWeights } from './historicalCalibrationService';
 
 export interface OptimizationProgress {
@@ -22,8 +24,8 @@ export interface OptimizationProgress {
 
 export interface OptimizationResult {
   optimizedWeights: NormalizationWeights;
-  /** Present when curves were passed as input — the calibration-tuned curve values. */
-  optimizedCurves?: PostPositionCurves;
+  /** Always present — per-position curve values tuned by calibration. */
+  optimizedCurves: PostPositionCurves;
   initialMAE: number;
   finalMAE: number;
   improvementPct: number;
@@ -89,11 +91,16 @@ export async function optimizeWeights(
   onProgress?: (p: OptimizationProgress) => void,
   initialCurves?: PostPositionCurves
 ): Promise<OptimizationResult> {
-  const initialEval = await evaluateWeights(dataset, initial, initialCurves);
+  // Always optimize curves — use provided curves or fall back to the standard defaults.
+  const startCurves: PostPositionCurves = initialCurves
+    ? copyCurves(initialCurves)
+    : { auto: { ...DEFAULT_AUTO_CURVE }, volte: { ...DEFAULT_VOLTE_CURVE } };
+
+  const initialEval = await evaluateWeights(dataset, initial, startCurves);
   const initialMAE = initialEval.rankMAE;
 
   let bestWeights = copyWeights(initial);
-  let bestCurves = initialCurves ? copyCurves(initialCurves) : undefined;
+  let bestCurves = startCurves;
   let bestMAE = initialMAE;
 
   let weightStep = 0.1;
@@ -101,7 +108,7 @@ export async function optimizeWeights(
   let pass = 0;
 
   // Run until both weight and curve steps have converged (or MAX_PASSES)
-  while (pass < MAX_PASSES && (weightStep >= MIN_WEIGHT_STEP || (bestCurves && curveStep >= MIN_CURVE_STEP))) {
+  while (pass < MAX_PASSES && (weightStep >= MIN_WEIGHT_STEP || curveStep >= MIN_CURVE_STEP)) {
     pass++;
     let improved = false;
 
@@ -133,8 +140,8 @@ export async function optimizeWeights(
       }
     }
 
-    // --- Phase B: optimize per-position curve values ---
-    if (bestCurves && curveStep >= MIN_CURVE_STEP) {
+    // --- Phase B: optimize per-position curve values (always runs) ---
+    if (curveStep >= MIN_CURVE_STEP) {
       for (const startType of ['auto', 'volte'] as const) {
         for (const pos of CURVE_POSITIONS) {
           const current = bestCurves[startType][pos] ?? 0;

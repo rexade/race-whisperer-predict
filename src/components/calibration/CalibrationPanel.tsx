@@ -291,24 +291,27 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
             </table>
           </div>
 
-          {/* Per-position curve changes */}
-          {state.optimizationResult.optimizedCurves && (autoCurveChanges.length > 0 || volteCurveChanges.length > 0) && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Post Position Curve Changes</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {autoCurveChanges.length > 0 && (
-                  <CurveChangeTable label="Auto Start" changes={autoCurveChanges} />
-                )}
-                {volteCurveChanges.length > 0 && (
-                  <CurveChangeTable label="Volte Start" changes={volteCurveChanges} />
-                )}
-              </div>
+          {/* Per-position calibrated curves — always shown */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Per-Position Curves (seconds offset)
+              {autoCurveChanges.length + volteCurveChanges.length === 0 && (
+                <span className="ml-2 text-muted-foreground/60">· no change from starting values</span>
+              )}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <CurveFullTable
+                label="Auto Start"
+                original={postPositionCurves?.auto ?? {}}
+                optimized={state.optimizationResult.optimizedCurves.auto}
+              />
+              <CurveFullTable
+                label="Volte Start"
+                original={postPositionCurves?.volte ?? {}}
+                optimized={state.optimizationResult.optimizedCurves.volte}
+              />
             </div>
-          )}
-
-          {state.optimizationResult.optimizedCurves && autoCurveChanges.length === 0 && volteCurveChanges.length === 0 && (
-            <p className="text-xs text-muted-foreground">Post position curves unchanged by optimizer.</p>
-          )}
+          </div>
         </div>
       )}
 
@@ -329,12 +332,14 @@ function Stat({ label, value, highlight }: { label: string; value: string | numb
   );
 }
 
-function CurveChangeTable({
+function CurveFullTable({
   label,
-  changes,
+  original,
+  optimized,
 }: {
   label: string;
-  changes: Array<{ pos: number; from: number; to: number; delta: number }>;
+  original: Record<number, number>;
+  optimized: Record<number, number>;
 }) {
   return (
     <div>
@@ -344,21 +349,29 @@ function CurveChangeTable({
           <tr className="text-muted-foreground border-b border-border">
             <th className="text-left py-1 pr-3 font-medium">Pos</th>
             <th className="text-right py-1 px-2 font-medium">Before</th>
-            <th className="text-right py-1 px-2 font-medium">After</th>
+            <th className="text-right py-1 px-2 font-medium">Calibrated</th>
             <th className="text-right py-1 pl-2 font-medium">Δ</th>
           </tr>
         </thead>
         <tbody>
-          {changes.map(({ pos, from, to, delta }) => (
-            <tr key={pos} className="border-b border-border/40">
-              <td className="py-1 pr-3 text-muted-foreground">#{pos}</td>
-              <td className="py-1 px-2 text-right tabular-nums">{from >= 0 ? '+' : ''}{from.toFixed(3)}s</td>
-              <td className="py-1 px-2 text-right tabular-nums font-medium">{to >= 0 ? '+' : ''}{to.toFixed(3)}s</td>
-              <td className={`py-1 pl-2 text-right tabular-nums ${Math.abs(delta) < 0.005 ? 'text-muted-foreground' : delta < 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {delta >= 0 ? '+' : ''}{delta.toFixed(3)}s
-              </td>
-            </tr>
-          ))}
+          {Array.from({ length: 15 }, (_, i) => i + 1).map(pos => {
+            const from = original[pos] ?? 0;
+            const to = optimized[pos] ?? 0;
+            const delta = to - from;
+            const changed = Math.abs(delta) >= 0.005;
+            return (
+              <tr key={pos} className={`border-b border-border/30 ${changed ? '' : 'opacity-50'}`}>
+                <td className="py-0.5 pr-3 text-muted-foreground">#{pos}</td>
+                <td className="py-0.5 px-2 text-right tabular-nums">{from >= 0 ? '+' : ''}{from.toFixed(3)}s</td>
+                <td className={`py-0.5 px-2 text-right tabular-nums font-medium ${changed ? '' : 'text-muted-foreground'}`}>
+                  {to >= 0 ? '+' : ''}{to.toFixed(3)}s
+                </td>
+                <td className={`py-0.5 pl-2 text-right tabular-nums ${!changed ? 'text-muted-foreground' : delta < 0 ? 'text-green-500' : 'text-red-500'}`}>
+                  {changed ? (delta >= 0 ? '+' : '') + delta.toFixed(3) + 's' : '—'}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
