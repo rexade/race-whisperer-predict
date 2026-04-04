@@ -1,5 +1,6 @@
-// Target game type - change to 'V75', 'V86', 'V65' etc. as needed
-const TARGET_GAME = 'V85';
+import { GAME_TYPE } from '@/config/game';
+
+const TARGET_GAME = GAME_TYPE;
 
 import { V75ActualResult } from '../types/postRaceAnalysisTypes';
 import { formatKmTime } from '../utils/postRaceUtils';

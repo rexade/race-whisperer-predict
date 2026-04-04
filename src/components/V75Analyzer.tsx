@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Trophy, CalendarIcon, Settings2, Trash2, Play, Download } from "lucide-react";
+import { Trophy, CalendarIcon, Settings2, Trash2, Play, Download, BarChart2 } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import V75DatePicker from "./v75/V75DatePicker";
@@ -26,6 +26,7 @@ import V75Summary from "./v75/components/V75Summary";
 const V75Results = lazy(() => import("./v75/components/V75Results"));
 const V75CacheManager = lazy(() => import("./v75/components/V75CacheManager"));
 const WeightManager = lazy(() => import("./WeightManager"));
+const CalibrationPanel = lazy(() => import("./calibration/CalibrationPanel"));
 
 const V75Analyzer: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
@@ -34,6 +35,7 @@ const V75Analyzer: React.FC = () => {
   const [activeTab, setActiveTab] = useState("");
   const [showCacheManager, setShowCacheManager] = useState(false);
   const [showWeights, setShowWeights] = useState(false);
+  const [showCalibration, setShowCalibration] = useState(false);
   const [showInput, setShowInput] = useState(true);
 
   // React Query Data Fetching
@@ -171,6 +173,15 @@ const V75Analyzer: React.FC = () => {
               <Button
                 variant="ghost"
                 size="icon"
+                onClick={() => setShowCalibration((v) => !v)}
+                title="Calibrate weights"
+                className="h-8 w-8 sm:h-9 sm:w-9"
+              >
+                <BarChart2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setShowCacheManager((v) => !v)}
                 title="Cache"
                 className="h-8 w-8 sm:h-9 sm:w-9"
@@ -256,6 +267,18 @@ const V75Analyzer: React.FC = () => {
           <DebugErrorBoundary>
             <Suspense fallback={<div className="p-4 text-center text-muted-foreground">Loading cache manager...</div>}>
               <V75CacheManager />
+            </Suspense>
+          </DebugErrorBoundary>
+        )}
+
+        {/* Calibration Panel */}
+        {showCalibration && (
+          <DebugErrorBoundary>
+            <Suspense fallback={<div className="p-4 text-center text-muted-foreground">Loading calibration…</div>}>
+              <CalibrationPanel
+                currentWeights={weights}
+                onApplyWeights={(w) => { setWeights(w); setShowCalibration(false); }}
+              />
             </Suspense>
           </DebugErrorBoundary>
         )}
