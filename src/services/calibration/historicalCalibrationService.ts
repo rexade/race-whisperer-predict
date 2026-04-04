@@ -9,7 +9,7 @@
  * Phase 2 (evaluateWeights) — fast: pure math, no API calls, uses cached data.
  */
 
-import { fetchV75GameInfo, fetchRaceDataForGame, fetchV75CalendarDates, V75RaceData } from '@/services/v75CalendarApi';
+import { fetchV75GameInfo, fetchRaceDataForGame, V75RaceData } from '@/services/v75CalendarApi';
 import { V75ResultsFetcher } from '@/components/v75/services/v75ResultsFetcher';
 import { calculateRawKmTimesForRaceWithId } from '@/services/kmTimeProcessor';
 import { RaceResultProcessor } from '@/components/v75/services/raceResultProcessor';
@@ -54,32 +54,47 @@ export interface CollectionProgress {
 
 /**
  * Returns all past game dates for the last `monthsBack` months, most recent first.
+ *
+ * Uses the proven /calendar/day endpoint (same as the main analyzer) rather than
+ * the month calendar endpoint which has unreliable structure. Checks candidate dates
+ * in parallel batches to keep the scan fast.
+ *
+ * ATG schedules V75 on Saturdays, V86 on Wednesdays, V65 on Fridays — but we check
+ * Fri/Sat/Sun/Wed to catch all game types without hardcoding per-type logic.
  */
 export async function fetchHistoricalDates(monthsBack: number): Promise<string[]> {
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
-  const dates: string[] = [];
 
-  // Fetch current month too (past days only)
-  const monthsToFetch = monthsBack + 1;
+  // Build candidate list: race days (Wed/Fri/Sat/Sun) in the past N months
+  const candidates: string[] = [];
+  const start = new Date(today);
+  start.setMonth(start.getMonth() - monthsBack);
+  start.setDate(1);
 
-  for (let m = 0; m < monthsToFetch; m++) {
-    const d = new Date(today.getFullYear(), today.getMonth() - m, 1);
-    const year = d.getFullYear();
-    const month = d.getMonth() + 1;
-
-    try {
-      const calendarDates = await fetchV75CalendarDates(year, month);
-      const pastDates = calendarDates
-        .map(cd => cd.date)
-        .filter(date => date < todayStr);
-      dates.push(...pastDates);
-    } catch {
-      // Skip months that fail
+  for (const d = new Date(start); d < today; d.setDate(d.getDate() + 1)) {
+    const dow = d.getDay(); // 0=Sun,3=Wed,5=Fri,6=Sat
+    if (dow === 0 || dow === 3 || dow === 5 || dow === 6) {
+      const iso = d.toISOString().split('T')[0];
+      if (iso < todayStr) candidates.push(iso);
     }
   }
 
-  return [...new Set(dates)].sort((a, b) => b.localeCompare(a));
+  // Check each candidate with fetchV75GameInfo in parallel batches of 12
+  const BATCH = 12;
+  const gameDates: string[] = [];
+
+  for (let i = 0; i < candidates.length; i += BATCH) {
+    const batch = candidates.slice(i, i + BATCH);
+    const results = await Promise.allSettled(
+      batch.map(date => fetchV75GameInfo(date).then(info => (info ? date : null)))
+    );
+    for (const r of results) {
+      if (r.status === 'fulfilled' && r.value) gameDates.push(r.value);
+    }
+  }
+
+  return gameDates.sort((a, b) => b.localeCompare(a));
 }
 
 /**
