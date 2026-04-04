@@ -138,11 +138,12 @@ const V75Analyzer: React.FC = () => {
                 size="sm"
                 onClick={handleAnalyzeV75}
                 disabled={!selectedDate || isAnalyzing || !isDataReady}
+                title={selectedDate && !isFetching && !isDataReady ? `No ${GAME_TYPE} game on this date` : undefined}
                 className="flex-shrink-0 h-8 sm:h-9"
               >
                 <Play className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 <span className="hidden sm:inline text-sm">
-                  {isAnalyzing ? "Analyzing…" : isFetching ? "Loading Data..." : "Analyze"}
+                  {isAnalyzing ? "Analyzing…" : isFetching ? "Loading…" : "Analyze"}
                 </span>
                 <span className="sm:hidden text-xs">Go</span>
               </Button>
@@ -213,6 +214,16 @@ const V75Analyzer: React.FC = () => {
           />
         )}
 
+        {/* No game found for selected date */}
+        {selectedDate && !isFetching && !gameInfo && !gameError && (
+          <AnalyzerCard>
+            <div className="text-center py-2 text-muted-foreground text-sm space-y-1">
+              <p>No <strong>{GAME_TYPE}</strong> game found for {format(selectedDate, "MMMM d, yyyy")}.</p>
+              <p className="text-xs">This date may have a different game type (V75/V85/V86) or no races scheduled.</p>
+            </div>
+          </AnalyzerCard>
+        )}
+
         {/* React Query error display */}
         {(gameError || raceError) && (
           <AnalyzerCard>
@@ -278,6 +289,8 @@ const V75Analyzer: React.FC = () => {
               <CalibrationPanel
                 currentWeights={weights}
                 onApplyWeights={(w) => { setWeights(w); setShowCalibration(false); }}
+                postPositionCurves={postPositionCurves}
+                onPostPositionCurvesChange={(c) => { setPostPositionCurves(c); }}
               />
             </Suspense>
           </DebugErrorBoundary>

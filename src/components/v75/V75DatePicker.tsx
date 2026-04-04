@@ -44,6 +44,9 @@ const V75DatePicker: React.FC<V75DatePickerProps> = ({
           mode="single"
           selected={selectedDate}
           onSelect={handleDateSelect}
+          captionLayout="dropdown-buttons"
+          fromYear={2020}
+          toYear={new Date().getFullYear() + 1}
           className={cn("p-3 pointer-events-auto")}
         />
       </PopoverContent>
