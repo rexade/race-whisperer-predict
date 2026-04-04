@@ -65,7 +65,7 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
 }) => {
   const [monthsBack, setMonthsBack] = useState(2);
   const [cacheInfo, setCacheInfo] = useState<{ exists: boolean; ageHours: number | null; dateCount: number } | null>(null);
-  const { state, runDataCollection, runOptimization, reset } = useCalibration();
+  const { state, runDataCollection, runOptimization, acceptResult, reset } = useCalibration();
 
   useEffect(() => {
     setCacheInfo(getCalibrationCacheInfo(monthsBack));
@@ -78,9 +78,12 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
   const handleApply = () => {
     if (!state.optimizationResult) return;
     onApplyWeights(state.optimizationResult.optimizedWeights);
-    if (state.optimizationResult.optimizedCurves && onPostPositionCurvesChange) {
+    if (onPostPositionCurvesChange) {
       onPostPositionCurvesChange(state.optimizationResult.optimizedCurves);
     }
+    // Promote the final eval to the new baseline so next optimization
+    // tries to beat this result, not the original starting point.
+    acceptResult();
   };
 
   const autoCurveChanges = (hasResult && postPositionCurves && state.optimizationResult?.optimizedCurves)

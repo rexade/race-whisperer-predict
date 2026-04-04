@@ -184,10 +184,29 @@ export function useCalibration() {
     }
   }, [state.dataset]);
 
+  /**
+   * Promote the last optimization result to the new baseline.
+   * Keeps the dataset loaded so the user can immediately optimize again.
+   * Call this after applying optimized weights so each round improves on the last.
+   */
+  const acceptResult = useCallback(() => {
+    setState(prev => {
+      if (!prev.optimizationResult) return prev;
+      const newBaseline = prev.optimizationResult.finalEvaluation;
+      return {
+        ...prev,
+        baselineEval: newBaseline,
+        optimizationResult: null,
+        phase: 'done',
+        progressMessage: `New baseline · Rank MAE: ${newBaseline.rankMAE.toFixed(3)} · Win: ${(newBaseline.winAccuracy * 100).toFixed(1)}% · Ready to optimize again`,
+      };
+    });
+  }, []);
+
   const reset = useCallback(() => {
     datasetRef.current = null;
     setState(INITIAL_STATE);
   }, []);
 
-  return { state, runDataCollection, runOptimization, reset };
+  return { state, runDataCollection, runOptimization, acceptResult, reset };
 }
