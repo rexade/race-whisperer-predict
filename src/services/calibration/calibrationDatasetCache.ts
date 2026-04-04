@@ -1,8 +1,13 @@
 /**
- * Calibration Dataset Cache — localStorage persistence.
+ * Calibration Dataset Cache — persistent localStorage storage.
  *
- * Stores the collected CalibrationDataset so that closing and reopening
- * the tab does not require re-fetching everything from ATG.
+ * Historical race results never change — once a race is run, the finish
+ * order is permanent.  This cache has NO TTL: data is kept indefinitely
+ * and only overwritten when the user explicitly clicks "Refresh".
+ *
+ * The cache is keyed by (gameType, monthsBack) so different window sizes
+ * each get their own entry.  Expanding from 3 months to 6 months forces a
+ * new collection that covers the wider range; the old entry is replaced.
  *
  * Maps are serialized as plain arrays of pairs; HorseRawKmTime is stored
  * in minimal form (strip allTimes to keep the blob small, mirrors what
@@ -14,7 +19,6 @@ import { HorseRawKmTime } from '@/services/types/kmTimeTypes';
 import { GAME_TYPE } from '@/config/game';
 
 const CACHE_KEY_PREFIX = 'calibration_dataset_';
-const CACHE_TTL_HOURS = 72; // 3 days
 
 interface SerializedHorseRawKmTime {
   horseId: number;
@@ -106,13 +110,6 @@ export function loadCalibrationDataset(monthsBack: number): CalibrationDataset |
     // Validate game type match
     if (s.gameType !== GAME_TYPE) return null;
 
-    // Check TTL
-    const ageHours = (Date.now() - new Date(s.cachedAt).getTime()) / 3_600_000;
-    if (ageHours > CACHE_TTL_HOURS) {
-      localStorage.removeItem(cacheKey(monthsBack));
-      return null;
-    }
-
     const dataset: CalibrationDataset = s.dates.map(d => ({
       date: d.date,
       races: d.races.map((r): RaceCalibrationData => ({
@@ -142,14 +139,15 @@ export function clearCalibrationDataset(monthsBack?: number): void {
   }
 }
 
-export function getCalibrationCacheInfo(monthsBack: number): { exists: boolean; ageHours: number | null; dateCount: number } {
+export function getCalibrationCacheInfo(monthsBack: number): { exists: boolean; ageHours: number | null; dateCount: number; cachedAt: string | null } {
   try {
     const raw = localStorage.getItem(cacheKey(monthsBack));
-    if (!raw) return { exists: false, ageHours: null, dateCount: 0 };
+    if (!raw) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
     const s: SerializedDataset = JSON.parse(raw);
+    if (s.gameType !== GAME_TYPE) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
     const ageHours = (Date.now() - new Date(s.cachedAt).getTime()) / 3_600_000;
-    return { exists: true, ageHours, dateCount: s.dates.length };
+    return { exists: true, ageHours, dateCount: s.dates.length, cachedAt: s.cachedAt };
   } catch {
-    return { exists: false, ageHours: null, dateCount: 0 };
+    return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
   }
 }

@@ -83,7 +83,13 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({ currentWeights, onA
         {/* Cache status badge */}
         {cacheInfo?.exists && !hasDataset && (
           <span className="text-xs text-muted-foreground border border-border rounded px-2 py-0.5">
-            cached · {cacheInfo.dateCount} dates · {cacheInfo.ageHours?.toFixed(0)}h ago
+            saved · {cacheInfo.dateCount} dates · {
+              cacheInfo.ageHours !== null
+                ? cacheInfo.ageHours < 48
+                  ? `${cacheInfo.ageHours.toFixed(0)}h ago`
+                  : `${(cacheInfo.ageHours / 24).toFixed(0)}d ago`
+                : ''
+            }
           </span>
         )}
 
