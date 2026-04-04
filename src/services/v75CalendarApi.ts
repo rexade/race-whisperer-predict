@@ -213,7 +213,8 @@ export const fetchRaceDataForGame = async (
       const horses = (raceData.starts || [])
         .filter((start: any) =>
           // Exclude scratched/withdrawn horses — they won't race
-          !start.scratchIndicator && !start.scratched && start.horse?.id
+          // Only filter when the field is explicitly true; missing field = not scratched
+          start.scratchIndicator !== true && start.scratched !== true && start.horse
         )
         .map((start: any) => extractHorseData(start));
 
