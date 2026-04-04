@@ -54,6 +54,10 @@ const WEIGHT_KEYS: (keyof NormalizationWeights)[] = [
   'horseWinPercentage',
   'earningsPerStart',
   'gallopRisk',
+  'layoffPenalty',
+  'ageFactor',
+  'genderAdjustment',
+  'consistencyFactor',
 ];
 
 const CURVE_POSITIONS = Array.from({ length: 15 }, (_, i) => i + 1);

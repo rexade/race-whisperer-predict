@@ -163,6 +163,54 @@ export const FORM_FALLBACK_BASELINE_PCT = 10 as const;
 export const FORM_FALLBACK_SCALE_S = 0.01 as const;
 
 // ---------------------------------------------------------------------------
+// Layoff penalty
+// ---------------------------------------------------------------------------
+
+/** Minimum days since last race before any penalty is applied. */
+export const LAYOFF_THRESHOLD_DAYS = 21 as const;
+
+/** tanh scale for layoff.  At 30 days past threshold → tanh(1) ≈ 76 % of cap. */
+export const LAYOFF_SCALE_DAYS = 30 as const;
+
+/** Maximum layoff penalty in seconds (before weight). */
+export const LAYOFF_MAX_S = 0.35 as const;
+
+// ---------------------------------------------------------------------------
+// Age factor
+// ---------------------------------------------------------------------------
+
+/** Horses 5–7 years old are considered peak age (0 s adjustment). */
+export const AGE_PEAK_MIN = 5 as const;
+export const AGE_PEAK_MAX = 7 as const;
+
+/** Seconds added per year BELOW peak minimum (young horse penalty). */
+export const AGE_YOUNG_SCALE_S = 0.08 as const;
+
+/** Seconds added per year ABOVE peak maximum (aging horse penalty). */
+export const AGE_OLD_SCALE_S = 0.05 as const;
+
+// ---------------------------------------------------------------------------
+// Gender adjustment
+// ---------------------------------------------------------------------------
+
+/** Time penalty for mares (sto) in mixed-gender fields.
+ *  On average mares run ~0.08 s/km slower than geldings/stallions. */
+export const MARE_ADJ_S = 0.08 as const;
+
+// ---------------------------------------------------------------------------
+// Finish consistency
+// ---------------------------------------------------------------------------
+
+/** Maximum time penalty for highly inconsistent finishers (before weight). */
+export const CONSISTENCY_MAX_S = 0.15 as const;
+
+/** tanh scale for consistency.  At stdDev=3 finish positions → ≈ 76 % of cap. */
+export const CONSISTENCY_SCALE = 3.0 as const;
+
+/** Minimum number of recent finishes required to compute a consistency score. */
+export const CONSISTENCY_MIN_RACES = 3 as const;
+
+// ---------------------------------------------------------------------------
 // Gallop risk
 // ---------------------------------------------------------------------------
 

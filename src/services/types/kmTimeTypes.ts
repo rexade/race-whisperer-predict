@@ -32,6 +32,12 @@ export interface HorseRawKmTime {
   /** Fraction of historical starts where the horse broke gait (galloped).
    *  0 = never galloped; 0.25 = galloped in 1 of 4 races. */
   gallopRate?: number;
+  /** Date string (YYYY-MM-DD) of the horse's most recent race (including
+   *  galloped/DQ races).  Used to compute layoff days relative to race date. */
+  lastRaceDate?: string;
+  /** Standard deviation of the horse's last 3–8 finish positions.
+   *  Low = consistent, high = boom-or-bust.  Null when < 3 races available. */
+  consistencyScore?: number;
   usedExtendedFallback?: boolean;
   usedInvalidTimeFallback?: boolean;
   warning?: {

@@ -43,6 +43,14 @@ export const processHorseKmTimes = async (
   let galloped = 0;
   let missingKmTimes = 0;
 
+  // Most recent race date from ALL starts (including galloped/DQ) for layoff calculation
+  const lastRaceDate = historicalRaces.length > 0
+    ? historicalRaces
+        .map(r => r.date)
+        .filter(Boolean)
+        .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null
+    : null;
+
   console.log(`\n=== Processing KM times for ${horseName} (ID: ${horseId}) ===`);
   console.log(`📊 Historical records provided: ${historicalRaces.length}`);
 
@@ -310,6 +318,18 @@ export const processHorseKmTimes = async (
     confidenceMultiplier, // Include confidence in result
     usedStatisticsFallback,
     gallopRate: totalRecords > 0 ? galloped / totalRecords : 0,
+    lastRaceDate: lastRaceDate ?? undefined,
+    consistencyScore: (() => {
+      const finishes = processedTimes
+        .filter(t => t.finishOrder !== undefined && t.finishOrder > 0)
+        .sort((a, b) => new Date(b.raceDate).getTime() - new Date(a.raceDate).getTime())
+        .slice(0, 8)
+        .map(t => t.finishOrder!);
+      if (finishes.length < 3) return undefined;
+      const mean = finishes.reduce((s, v) => s + v, 0) / finishes.length;
+      const variance = finishes.reduce((s, v) => s + (v - mean) ** 2, 0) / finishes.length;
+      return Math.sqrt(variance);
+    })(),
   };
 };
 

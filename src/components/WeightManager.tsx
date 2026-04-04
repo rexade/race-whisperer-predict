@@ -240,6 +240,38 @@ const WeightManager: React.FC<WeightManagerProps> = ({
           typicalRange: '0s to +0.5s',
           baseEffect: '15% gallop rate ≈ +0.19s penalty',
           isNew: true
+        },
+        {
+          key: 'layoffPenalty' as keyof NormalizationWeights,
+          label: 'Layoff Penalty',
+          description: 'Penalty for horses returning after 21+ days since last race',
+          typicalRange: '0s to +0.35s',
+          baseEffect: '51 days off ≈ +0.21s, 90+ days ≈ +0.33s',
+          isNew: true
+        },
+        {
+          key: 'ageFactor' as keyof NormalizationWeights,
+          label: 'Age Factor',
+          description: 'Penalty for horses outside peak age (5–7 years). Young and old horses adjusted.',
+          typicalRange: '0s to +0.16s',
+          baseEffect: '3yo +0.16s, 4yo +0.08s, 5–7yo 0s, 8yo +0.05s',
+          isNew: true
+        },
+        {
+          key: 'genderAdjustment' as keyof NormalizationWeights,
+          label: 'Gender (mare)',
+          description: 'Modest time penalty for mares in mixed-gender fields',
+          typicalRange: '0s to +0.08s',
+          baseEffect: 'Mares +0.08s before weight, geldings/stallions 0s',
+          isNew: true
+        },
+        {
+          key: 'consistencyFactor' as keyof NormalizationWeights,
+          label: 'Consistency',
+          description: 'Penalty for boom-or-bust horses with high variance in finish positions',
+          typicalRange: '0s to +0.15s',
+          baseEffect: 'stdDev 3+ finish positions ≈ +0.11s penalty',
+          isNew: true
         }
       ]
     },

@@ -21,6 +21,16 @@ import {
   FORM_FALLBACK_SCALE_S,
   GALLOP_RISK_MAX_S,
   GALLOP_RISK_SCALE,
+  LAYOFF_THRESHOLD_DAYS,
+  LAYOFF_SCALE_DAYS,
+  LAYOFF_MAX_S,
+  AGE_PEAK_MIN,
+  AGE_PEAK_MAX,
+  AGE_YOUNG_SCALE_S,
+  AGE_OLD_SCALE_S,
+  MARE_ADJ_S,
+  CONSISTENCY_MAX_S,
+  CONSISTENCY_SCALE,
 } from './normalizationConstants';
 import { log } from '@/lib/logger';
 
@@ -213,6 +223,76 @@ export const calculateFormAdjustment = (
  *  15 %  → +0.38 s  (regular gallop risk, ≈ half field position)
  *  30 %+ → ≈ +0.49 s (capped — serial offender)
  */
+/**
+ * Layoff penalty — time added for horses returning after an extended rest.
+ *
+ * No effect for ≤ LAYOFF_THRESHOLD_DAYS days.  Beyond that a tanh curve
+ * rises to LAYOFF_MAX_S (before weight multiplier).
+ *
+ * Examples (threshold 21d, scale 30d, max 0.35s):
+ *   21 days  → 0.00 s  (just at threshold)
+ *   51 days  → +0.27 s  (1 month of rust)
+ *   90 days  → +0.33 s  (returning from injury)
+ *  180 days+ → ≈ +0.35 s (capped)
+ */
+export const calculateLayoffAdjustment = (daysSinceLastRace: number): number => {
+  if (!Number.isFinite(daysSinceLastRace) || daysSinceLastRace <= LAYOFF_THRESHOLD_DAYS) return 0;
+  const excess = daysSinceLastRace - LAYOFF_THRESHOLD_DAYS;
+  const adj = LAYOFF_MAX_S * Math.tanh(excess / LAYOFF_SCALE_DAYS);
+  log.debug(`[layoff] ${daysSinceLastRace}d since last race → +${adj.toFixed(3)}s`);
+  return adj;
+};
+
+/**
+ * Age factor — time penalty for horses outside peak racing age (5–7 years old).
+ *
+ * @param birthYear  Horse birth year (e.g. 2019).
+ * @param raceYear   Year the race takes place (e.g. 2025).
+ */
+export const calculateAgeFactor = (birthYear: number, raceYear: number): number => {
+  if (!birthYear || birthYear <= 0) return 0;
+  const age = raceYear - birthYear;
+  if (age < AGE_PEAK_MIN) {
+    const adj = (AGE_PEAK_MIN - age) * AGE_YOUNG_SCALE_S;
+    log.debug(`[age] ${age}yo (young) → +${adj.toFixed(3)}s`);
+    return adj;
+  }
+  if (age > AGE_PEAK_MAX) {
+    const adj = (age - AGE_PEAK_MAX) * AGE_OLD_SCALE_S;
+    log.debug(`[age] ${age}yo (aging) → +${adj.toFixed(3)}s`);
+    return adj;
+  }
+  log.debug(`[age] ${age}yo (peak) → +0.000s`);
+  return 0;
+};
+
+/**
+ * Gender adjustment — modest time penalty for mares in mixed-gender fields.
+ * ATG sex codes: 'S' = sto (mare), 'H' = hingst (stallion), 'V' = valack (gelding).
+ */
+export const calculateGenderAdjustment = (sex: string): number => {
+  const s = (sex ?? '').trim().toUpperCase();
+  if (s === 'S' || s === 'MARE' || s === 'F' || s === 'STO') {
+    log.debug(`[gender] mare → +${MARE_ADJ_S.toFixed(3)}s`);
+    return MARE_ADJ_S;
+  }
+  return 0;
+};
+
+/**
+ * Finish consistency penalty — horses with highly variable finish positions
+ * are harder to predict and are slightly penalised.
+ *
+ * @param consistencyScore  Standard deviation of recent finish positions.
+ *                          0 = perfectly consistent; 4+ = boom-or-bust.
+ */
+export const calculateConsistencyAdjustment = (consistencyScore: number): number => {
+  if (!Number.isFinite(consistencyScore) || consistencyScore <= 0) return 0;
+  const adj = CONSISTENCY_MAX_S * Math.tanh(consistencyScore / CONSISTENCY_SCALE);
+  log.debug(`[consistency] stdDev=${consistencyScore.toFixed(2)} → +${adj.toFixed(3)}s`);
+  return adj;
+};
+
 export const calculateGallopRiskAdjustment = (gallopRate: number): number => {
   if (!Number.isFinite(gallopRate) || gallopRate <= 0) return 0;
   const rate = Math.max(0, Math.min(1, gallopRate));

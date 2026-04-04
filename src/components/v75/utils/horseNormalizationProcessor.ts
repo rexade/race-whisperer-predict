@@ -165,6 +165,15 @@ export const applyHorseNormalization = (
       horseName: extractedData.safeHorseName,
       recentRaces, // Add recent races for form calculation
       gallopRisk: rawTimeData?.gallopRate ?? 0,
+      layoffDays: (() => {
+        if (!rawTimeData?.lastRaceDate || !race.date) return undefined;
+        const diff = new Date(race.date).getTime() - new Date(rawTimeData.lastRaceDate).getTime();
+        return Math.max(0, Math.floor(diff / 86_400_000));
+      })(),
+      horseBirthYear: (horse as any).birthYear || 0,
+      raceYear: race.date ? parseInt(race.date.split('-')[0], 10) : new Date().getFullYear(),
+      horseSex: (horse as any).sex || '',
+      consistencyScore: rawTimeData?.consistencyScore,
     };
 
     const result = applyModernKmNormalization(fallbackTime, factors, weights, postPositionCurves);
@@ -219,6 +228,15 @@ export const applyHorseNormalization = (
     horseName: extractedData.safeHorseName,
     recentRaces, // Add recent races for form calculation
     gallopRisk: rawTimeData?.gallopRate ?? 0,
+    layoffDays: (() => {
+      if (!rawTimeData?.lastRaceDate || !race.date) return undefined;
+      const diff = new Date(race.date).getTime() - new Date(rawTimeData.lastRaceDate).getTime();
+      return Math.max(0, Math.floor(diff / 86_400_000));
+    })(),
+    horseBirthYear: (horse as any).birthYear || 0,
+    raceYear: race.date ? parseInt(race.date.split('-')[0], 10) : new Date().getFullYear(),
+    horseSex: (horse as any).sex || '',
+    consistencyScore: rawTimeData?.consistencyScore,
   };
 
   const result = applyModernKmNormalization(rawKmTime, factors, weights, postPositionCurves);

@@ -21,6 +21,10 @@ export interface ModernKmNormalizedResult {
     horseWinPercentage: number;
     earningsPerStart: number;
     gallopRisk: number;
+    layoffPenalty: number;
+    ageFactor: number;
+    genderAdjustment: number;
+    consistencyFactor: number;
     total: number;
   };
 }
@@ -56,6 +60,16 @@ export interface ModernNormalizationFactors {
   recentRaces?: Array<{ place: number; date: string }>;
   /** Fraction of historical starts where horse broke gait (0–1). */
   gallopRisk?: number;
+  /** Days since the horse last raced (any result including gallop/DQ). */
+  layoffDays?: number;
+  /** Horse birth year (e.g. 2019). Race year is derived from the race date. */
+  horseBirthYear?: number;
+  /** Race year — used together with horseBirthYear to compute age. */
+  raceYear?: number;
+  /** ATG sex code: 'S'=mare, 'H'=stallion, 'V'=gelding. */
+  horseSex?: string;
+  /** Std-dev of recent finish positions (low = consistent, high = boom-or-bust). */
+  consistencyScore?: number;
 }
 
 export interface NormalizationWeights {
@@ -73,6 +87,10 @@ export interface NormalizationWeights {
   horseWinPercentage: number;
   earningsPerStart: number;
   gallopRisk: number;
+  layoffPenalty: number;
+  ageFactor: number;
+  genderAdjustment: number;
+  consistencyFactor: number;
 }
 
 // Realistic Balanced weights (2025)
@@ -94,4 +112,8 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   horseWinPercentage: 0.4,    // avoid stacking with place%
   earningsPerStart: 0.2,      // purse inflation & class bias → keep small
   gallopRisk: 0.5,            // penalty for horses with history of breaking gait
+  layoffPenalty: 0.6,         // penalty for extended rest period (21+ days)
+  ageFactor: 0.5,             // age-based adjustment (peak 5–7yo)
+  genderAdjustment: 0.4,      // mare penalty in mixed-gender fields
+  consistencyFactor: 0.3,     // penalty for inconsistent finish positions
 };

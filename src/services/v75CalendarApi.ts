@@ -64,6 +64,8 @@ export interface V75RaceData {
       type: string;
     };
     homeTrack: any; // Keep as any for now due to API inconsistency
+    birthYear?: number;
+    sex?: string;
   }>;
 }
 
@@ -94,6 +96,8 @@ export interface V75HorseData {
     type: string;
   };
   homeTrack: any; // Keep as any for now due to API inconsistency
+  birthYear?: number;
+  sex?: string;
 }
 
 /**
@@ -391,6 +395,9 @@ const extractHorseData = (start: any): V75HorseData => {
     sulky: {
       type: sulkyType,
     },
-    homeTrack: start.horse?.homeTrack || start.horse?.track || 'Unknown'
+    homeTrack: start.horse?.homeTrack || start.horse?.track || 'Unknown',
+    birthYear: start.horse?.birthYear || start.horse?.birth_year || 0,
+    // ATG sex codes: S=sto (mare), H=hingst (stallion), V=valack (gelding)
+    sex: start.horse?.sex || start.horse?.gender || '',
   };
 };

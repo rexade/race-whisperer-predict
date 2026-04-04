@@ -21,6 +21,10 @@ import {
   calculateEarningsPerStartAdjustment,
   calculateFormAdjustment,
   calculateGallopRiskAdjustment,
+  calculateLayoffAdjustment,
+  calculateAgeFactor,
+  calculateGenderAdjustment,
+  calculateConsistencyAdjustment,
 } from './performanceCalculators';
 import {
   calculateDistanceAdjustment,
@@ -75,6 +79,10 @@ export const applyModernKmNormalization = (
     horseWinPercentage:        0,
     earningsPerStart:          0,
     gallopRisk:                0,
+    layoffPenalty:             0,
+    ageFactor:                 0,
+    genderAdjustment:          0,
+    consistencyFactor:         0,
     total:                     0,
   };
 
@@ -147,6 +155,19 @@ export const applyModernKmNormalization = (
   adjustments.gallopRisk =
     calculateGallopRiskAdjustment(factors.gallopRisk ?? 0) * weights.gallopRisk;
 
+  adjustments.layoffPenalty =
+    calculateLayoffAdjustment(factors.layoffDays ?? 0) * weights.layoffPenalty;
+
+  adjustments.ageFactor =
+    calculateAgeFactor(factors.horseBirthYear ?? 0, factors.raceYear ?? new Date().getFullYear())
+    * weights.ageFactor;
+
+  adjustments.genderAdjustment =
+    calculateGenderAdjustment(factors.horseSex ?? '') * weights.genderAdjustment;
+
+  adjustments.consistencyFactor =
+    calculateConsistencyAdjustment(factors.consistencyScore ?? 0) * weights.consistencyFactor;
+
   // STEP 5: Total
   adjustments.total = Object.entries(adjustments)
     .filter(([key]) => key !== 'total')
@@ -170,6 +191,10 @@ export const applyModernKmNormalization = (
     ` win%=${adjustments.horseWinPercentage.toFixed(3)}` +
     ` earn=${adjustments.earningsPerStart.toFixed(3)}` +
     ` gallop=${adjustments.gallopRisk.toFixed(3)}` +
+    ` layoff=${adjustments.layoffPenalty.toFixed(3)}` +
+    ` age=${adjustments.ageFactor.toFixed(3)}` +
+    ` gender=${adjustments.genderAdjustment.toFixed(3)}` +
+    ` consist=${adjustments.consistencyFactor.toFixed(3)}` +
     ` TOTAL=${adjustments.total.toFixed(3)}s`
   );
 
