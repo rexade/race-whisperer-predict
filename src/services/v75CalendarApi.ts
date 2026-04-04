@@ -210,13 +210,7 @@ export const fetchRaceDataForGame = async (
         // ... abbreviated debug logic ...
       }
 
-      const horses = (raceData.starts || [])
-        .filter((start: any) =>
-          // Exclude scratched/withdrawn horses — they won't race
-          // Only filter when the field is explicitly true; missing field = not scratched
-          start.scratchIndicator !== true && start.scratched !== true && start.horse
-        )
-        .map((start: any) => extractHorseData(start));
+      const horses = (raceData.starts || []).map((start: any) => extractHorseData(start));
 
       v75Races.push({
         raceId: raceData.id,
