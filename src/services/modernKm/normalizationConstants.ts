@@ -149,8 +149,9 @@ export const FORM_SCORE_MID = 0.3 as const;
 /** Form-score for 11th or worse. */
 export const FORM_SCORE_POOR = 0.6 as const;
 
-/** Scale factor converting weighted form score to seconds. */
-export const FORM_SCALE_S = 0.05 as const;
+/** Scale factor converting weighted form score to seconds.
+ *  At 0.30: win form → −0.30 s, poor form → +0.18 s (meaningful signal). */
+export const FORM_SCALE_S = 0.30 as const;
 
 /** Maximum number of recent races considered in the form calculation. */
 export const FORM_MAX_RECENT_RACES = 8 as const;
@@ -160,6 +161,17 @@ export const FORM_FALLBACK_BASELINE_PCT = 10 as const;
 
 /** Seconds per percentage-point deviation in the win-% form fallback. */
 export const FORM_FALLBACK_SCALE_S = 0.01 as const;
+
+// ---------------------------------------------------------------------------
+// Gallop risk
+// ---------------------------------------------------------------------------
+
+/** Maximum time penalty (before weight) for a horse with 100 % gallop history. */
+export const GALLOP_RISK_MAX_S = 0.5 as const;
+
+/** tanh scale factor for gallop risk.  At GALLOP_RISK_SCALE (15 % rate) the
+ *  penalty reaches tanh(1) ≈ 76 % of the cap → ≈ +0.38 s before weighting. */
+export const GALLOP_RISK_SCALE = 0.15 as const;
 
 // ---------------------------------------------------------------------------
 // Outlier detection

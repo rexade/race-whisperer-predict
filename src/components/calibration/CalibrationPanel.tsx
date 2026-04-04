@@ -27,6 +27,7 @@ const WEIGHT_LABELS: Record<keyof NormalizationWeights, string> = {
   placePercentage: 'Place %',
   horseWinPercentage: 'Win %',
   earningsPerStart: 'Earnings/Start',
+  gallopRisk: 'Gallop Risk',
 };
 
 const MONTHS_OPTIONS = [1, 2, 3, 6];

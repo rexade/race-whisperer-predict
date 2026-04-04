@@ -19,6 +19,8 @@ import {
   FORM_MAX_RECENT_RACES,
   FORM_FALLBACK_BASELINE_PCT,
   FORM_FALLBACK_SCALE_S,
+  GALLOP_RISK_MAX_S,
+  GALLOP_RISK_SCALE,
 } from './normalizationConstants';
 import { log } from '@/lib/logger';
 
@@ -194,4 +196,27 @@ export const calculateFormAdjustment = (
 
   log.debug('[form] no data → 0.000s');
   return 0;
+};
+
+/**
+ * Gallop-risk time penalty.
+ *
+ * Horses that frequently break gait are unpredictable — a tanh curve
+ * converts their historical gallop rate into a positive (slower) time
+ * adjustment.  Zero gallop history → 0 s (no bonus for reliability).
+ *
+ *   adjustment = GALLOP_RISK_MAX_S × tanh(gallopRate / GALLOP_RISK_SCALE)
+ *
+ * Examples (defaults — max 0.50 s, scale 0.15):
+ *   0 %  → +0.00 s  (never galloped — no effect)
+ *  10 %  → +0.32 s  (occasional gallop risk)
+ *  15 %  → +0.38 s  (regular gallop risk, ≈ half field position)
+ *  30 %+ → ≈ +0.49 s (capped — serial offender)
+ */
+export const calculateGallopRiskAdjustment = (gallopRate: number): number => {
+  if (!Number.isFinite(gallopRate) || gallopRate <= 0) return 0;
+  const rate = Math.max(0, Math.min(1, gallopRate));
+  const adj = GALLOP_RISK_MAX_S * Math.tanh(rate / GALLOP_RISK_SCALE);
+  log.debug(`[gallopRisk] rate=${(rate * 100).toFixed(1)}% → +${adj.toFixed(3)}s`);
+  return adj;
 };

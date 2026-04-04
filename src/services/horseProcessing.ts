@@ -308,7 +308,8 @@ export const processHorseKmTimes = async (
     oldestRecordDate: metadata?.oldestRecordDate,
     newestRecordDate: metadata?.newestRecordDate,
     confidenceMultiplier, // Include confidence in result
-    usedStatisticsFallback
+    usedStatisticsFallback,
+    gallopRate: totalRecords > 0 ? galloped / totalRecords : 0,
   };
 };
 

@@ -163,7 +163,8 @@ export const applyHorseNormalization = (
       earningsPerStart: horse.statistics.earningsPerStart,
       horseId: horse.horseId,
       horseName: extractedData.safeHorseName,
-      recentRaces // Add recent races for form calculation
+      recentRaces, // Add recent races for form calculation
+      gallopRisk: rawTimeData?.gallopRate ?? 0,
     };
 
     const result = applyModernKmNormalization(fallbackTime, factors, weights, postPositionCurves);
@@ -216,7 +217,8 @@ export const applyHorseNormalization = (
     earningsPerStart: horse.statistics.earningsPerStart,
     horseId: horse.horseId,
     horseName: extractedData.safeHorseName,
-    recentRaces // Add recent races for form calculation
+    recentRaces, // Add recent races for form calculation
+    gallopRisk: rawTimeData?.gallopRate ?? 0,
   };
 
   const result = applyModernKmNormalization(rawKmTime, factors, weights, postPositionCurves);

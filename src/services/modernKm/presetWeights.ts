@@ -25,7 +25,8 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
       startPoints: 0.5,
       placePercentage: 0.6,
       horseWinPercentage: 0.4,
-      earningsPerStart: 0.2
+      earningsPerStart: 0.2,
+      gallopRisk: 0.5
     }
   },
   {
@@ -45,7 +46,8 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
       startPoints: 0.5,
       placePercentage: 0.6,
       horseWinPercentage: 0.7,
-      earningsPerStart: 0.4
+      earningsPerStart: 0.4,
+      gallopRisk: 0.3
     }
   },
   {
@@ -65,7 +67,8 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
       startPoints: 0.8,
       placePercentage: 0.9,
       horseWinPercentage: 1.0,
-      earningsPerStart: 0.7
+      earningsPerStart: 0.7,
+      gallopRisk: 0.5
     }
   },
   {
@@ -85,7 +88,8 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
       startPoints: 1.2,
       placePercentage: 1.3,
       horseWinPercentage: 1.4,
-      earningsPerStart: 1.1
+      earningsPerStart: 1.1,
+      gallopRisk: 0.8
     }
   },
   {
@@ -105,7 +109,8 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
       startPoints: 0.6,
       placePercentage: 0.7,
       horseWinPercentage: 0.8,
-      earningsPerStart: 0.5
+      earningsPerStart: 0.5,
+      gallopRisk: 0.5
     }
   },
   {
@@ -125,7 +130,8 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
       startPoints: 1.3,
       placePercentage: 1.4,
       horseWinPercentage: 1.5,
-      earningsPerStart: 1.2
+      earningsPerStart: 1.2,
+      gallopRisk: 0.7
     }
   }
 ];

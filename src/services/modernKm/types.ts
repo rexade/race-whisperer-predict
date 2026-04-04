@@ -20,6 +20,7 @@ export interface ModernKmNormalizedResult {
     placePercentage: number;
     horseWinPercentage: number;
     earningsPerStart: number;
+    gallopRisk: number;
     total: number;
   };
 }
@@ -53,6 +54,8 @@ export interface ModernNormalizationFactors {
   fieldStartPoints?: number[];
   // Recent race finish positions for form calculation
   recentRaces?: Array<{ place: number; date: string }>;
+  /** Fraction of historical starts where horse broke gait (0–1). */
+  gallopRisk?: number;
 }
 
 export interface NormalizationWeights {
@@ -69,6 +72,7 @@ export interface NormalizationWeights {
   placePercentage: number;
   horseWinPercentage: number;
   earningsPerStart: number;
+  gallopRisk: number;
 }
 
 // Realistic Balanced weights (2025)
@@ -88,5 +92,6 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   startPoints: 0.5,           // lower because function now saturates
   placePercentage: 0.6,       // avoid stacking with startPoints
   horseWinPercentage: 0.4,    // avoid stacking with place%
-  earningsPerStart: 0.2       // purse inflation & class bias → keep small
+  earningsPerStart: 0.2,      // purse inflation & class bias → keep small
+  gallopRisk: 0.5,            // penalty for horses with history of breaking gait
 };

@@ -19,7 +19,8 @@ import {
   calculatePlacePercentageAdjustment,
   calculateHorseWinPercentageAdjustment,
   calculateEarningsPerStartAdjustment,
-  calculateFormAdjustment
+  calculateFormAdjustment,
+  calculateGallopRiskAdjustment,
 } from './performanceCalculators';
 import {
   calculateDistanceAdjustment,
@@ -73,6 +74,7 @@ export const applyModernKmNormalization = (
     placePercentage:           0,
     horseWinPercentage:        0,
     earningsPerStart:          0,
+    gallopRisk:                0,
     total:                     0,
   };
 
@@ -142,6 +144,9 @@ export const applyModernKmNormalization = (
     EARNINGS_MAX_BONUS_S
   );
 
+  adjustments.gallopRisk =
+    calculateGallopRiskAdjustment(factors.gallopRisk ?? 0) * weights.gallopRisk;
+
   // STEP 5: Total
   adjustments.total = Object.entries(adjustments)
     .filter(([key]) => key !== 'total')
@@ -164,6 +169,7 @@ export const applyModernKmNormalization = (
     ` place%=${adjustments.placePercentage.toFixed(3)}` +
     ` win%=${adjustments.horseWinPercentage.toFixed(3)}` +
     ` earn=${adjustments.earningsPerStart.toFixed(3)}` +
+    ` gallop=${adjustments.gallopRisk.toFixed(3)}` +
     ` TOTAL=${adjustments.total.toFixed(3)}s`
   );
 

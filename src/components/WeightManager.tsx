@@ -225,12 +225,20 @@ const WeightManager: React.FC<WeightManagerProps> = ({
           baseEffect: 'Higher % = better horse',
           isNew: true
         },
-        { 
-          key: 'earningsPerStart' as keyof NormalizationWeights, 
-          label: 'Earnings Per Start', 
+        {
+          key: 'earningsPerStart' as keyof NormalizationWeights,
+          label: 'Earnings Per Start',
           description: 'Horse earning power and class',
           typicalRange: '-0.3s to +0.3s',
           baseEffect: 'Higher earnings = higher class',
+          isNew: true
+        },
+        {
+          key: 'gallopRisk' as keyof NormalizationWeights,
+          label: 'Gallop Risk',
+          description: 'Penalty for horses that frequently break gait (gallop) in races',
+          typicalRange: '0s to +0.5s',
+          baseEffect: '15% gallop rate ≈ +0.19s penalty',
           isNew: true
         }
       ]

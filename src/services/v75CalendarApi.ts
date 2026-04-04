@@ -206,23 +206,12 @@ export const fetchRaceDataForGame = async (
         // ... abbreviated debug logic ...
       }
 
-      const horses = raceData.starts?.map((start: any, startIndex: number) => {
-        // Extract horse statistics
-        const horseLifeStats = start.horse?.statistics?.life || {};
-        const driverStats = start.driver?.statistics || {};
-        const driver2025Stats = start.driver?.statistics?.years?.['2025'] || {};
-
-        const totalEarnings = horseLifeStats.earnings || horseLifeStats.totalEarnings || 0;
-        const totalStarts = horseLifeStats.starts || horseLifeStats.totalStarts || 0;
-
-        // Calculate earnings per start
-        const earningsPerStart = calculateEarningsPerStart(totalEarnings, totalStarts);
-
-        // Extract horse data
-        const horseData = extractHorseData(start);
-
-        return horseData;
-      }) || [];
+      const horses = (raceData.starts || [])
+        .filter((start: any) =>
+          // Exclude scratched/withdrawn horses — they won't race
+          !start.scratchIndicator && !start.scratched && start.horse?.id
+        )
+        .map((start: any) => extractHorseData(start));
 
       v75Races.push({
         raceId: raceData.id,

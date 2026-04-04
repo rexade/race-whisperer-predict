@@ -29,6 +29,9 @@ export interface HorseRawKmTime {
   newestRecordDate?: string;
   confidenceMultiplier?: number;
   usedStatisticsFallback?: boolean;
+  /** Fraction of historical starts where the horse broke gait (galloped).
+   *  0 = never galloped; 0.25 = galloped in 1 of 4 races. */
+  gallopRate?: number;
   usedExtendedFallback?: boolean;
   usedInvalidTimeFallback?: boolean;
   warning?: {
