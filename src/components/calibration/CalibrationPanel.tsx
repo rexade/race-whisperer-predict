@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { BarChart2, Play, Zap, Check, AlertCircle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BarChart2, Play, Zap, Check, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NormalizationWeights } from '@/services/modernKm/types';
 import { useCalibration } from './useCalibration';
+import { getCalibrationCacheInfo } from '@/services/calibration/calibrationDatasetCache';
 
 interface CalibrationPanelProps {
   currentWeights: NormalizationWeights;
@@ -34,7 +35,13 @@ function deltaColor(d: number): string {
 
 const CalibrationPanel: React.FC<CalibrationPanelProps> = ({ currentWeights, onApplyWeights }) => {
   const [monthsBack, setMonthsBack] = useState(2);
+  const [cacheInfo, setCacheInfo] = useState<{ exists: boolean; ageHours: number | null; dateCount: number } | null>(null);
   const { state, runDataCollection, runOptimization, reset } = useCalibration();
+
+  // Check cache status whenever monthsBack changes
+  useEffect(() => {
+    setCacheInfo(getCalibrationCacheInfo(monthsBack));
+  }, [monthsBack, state.phase]);
 
   const isWorking = state.phase === 'fetching-dates' || state.phase === 'collecting' || state.phase === 'evaluating' || state.phase === 'optimizing';
   const hasDataset = !!state.dataset;
@@ -73,18 +80,40 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({ currentWeights, onA
           </div>
         </div>
 
+        {/* Cache status badge */}
+        {cacheInfo?.exists && !hasDataset && (
+          <span className="text-xs text-muted-foreground border border-border rounded px-2 py-0.5">
+            cached · {cacheInfo.dateCount} dates · {cacheInfo.ageHours?.toFixed(0)}h ago
+          </span>
+        )}
+
         <Button
           size="sm"
           variant="outline"
-          onClick={() => runDataCollection(monthsBack, currentWeights)}
+          onClick={() => runDataCollection(monthsBack, currentWeights, false)}
           disabled={isWorking}
           className="h-8 gap-1.5"
         >
           {isWorking && (state.phase === 'fetching-dates' || state.phase === 'collecting' || state.phase === 'evaluating')
             ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
             : <Play className="h-3.5 w-3.5" />}
-          {hasDataset ? 'Re-collect Data' : 'Collect Data'}
+          {cacheInfo?.exists ? 'Load Dataset' : 'Collect Data'}
         </Button>
+
+        {/* Force refresh — only show when cache exists or dataset is loaded */}
+        {(cacheInfo?.exists || hasDataset) && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => runDataCollection(monthsBack, currentWeights, true)}
+            disabled={isWorking}
+            title="Re-fetch from ATG (ignores cache)"
+            className="h-8 gap-1.5 text-muted-foreground"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh
+          </Button>
+        )}
 
         {hasDataset && (
           <Button

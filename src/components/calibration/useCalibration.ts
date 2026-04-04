@@ -8,6 +8,7 @@ import {
   CalibrationEvaluation,
   CollectionProgress,
 } from '@/services/calibration/historicalCalibrationService';
+import { getCalibrationCacheInfo, clearCalibrationDataset } from '@/services/calibration/calibrationDatasetCache';
 import {
   optimizeWeights,
   OptimizationResult,
@@ -53,35 +54,47 @@ export function useCalibration() {
 
   /**
    * Step 1: Collect historical data for the given number of months back.
-   * Stores dataset in state for later re-use.
+   * Loads from localStorage cache if available; fetches fresh data otherwise.
+   * Pass forceRefresh=true to bypass the cache.
    */
-  const runDataCollection = useCallback(async (monthsBack: number, currentWeights: NormalizationWeights) => {
-    updateState({ ...INITIAL_STATE, phase: 'fetching-dates', progressMessage: 'Scanning calendar for past games…', progressFraction: 0 });
+  const runDataCollection = useCallback(async (monthsBack: number, currentWeights: NormalizationWeights, forceRefresh = false) => {
+    updateState({ ...INITIAL_STATE, phase: 'fetching-dates', progressMessage: 'Checking cache…', progressFraction: 0 });
 
     try {
-      // Fetch historical game dates
-      const dates = await fetchHistoricalDates(monthsBack);
-      if (dates.length === 0) {
-        updateState({ phase: 'error', error: 'No historical game dates found for the selected period.' });
-        return;
+      // Check if cached dataset exists first (skip date scanning if so)
+      const cacheInfo = getCalibrationCacheInfo(monthsBack);
+      let dates: string[] = [];
+
+      if (!forceRefresh && cacheInfo.exists && cacheInfo.dateCount > 0) {
+        // Dataset cache exists — collectCalibrationData will load it directly
+        updateState({ phase: 'collecting', progressMessage: `Found cached dataset (${cacheInfo.dateCount} dates). Loading…` });
+      } else {
+        updateState({ phase: 'fetching-dates', progressMessage: 'Scanning calendar for past games…' });
+        dates = await fetchHistoricalDates(monthsBack);
+        if (dates.length === 0) {
+          updateState({ phase: 'error', error: 'No historical game dates found for the selected period.' });
+          return;
+        }
+        updateState({ datesFound: dates.length, phase: 'collecting', progressMessage: `Found ${dates.length} game dates. Collecting data…` });
       }
 
-      updateState({ datesFound: dates.length, phase: 'collecting', progressMessage: `Found ${dates.length} game dates. Collecting data…` });
-
-      // Collect calibration data
-      const dataset = await collectCalibrationData(dates, (p: CollectionProgress) => {
-        updateState({
-          progressMessage: p.message,
-          progressFraction: p.datesTotal > 0 ? p.datesCompleted / p.datesTotal : 0,
-        });
-      });
+      const dataset = await collectCalibrationData(
+        dates,
+        (p: CollectionProgress) => {
+          updateState({
+            progressMessage: p.message,
+            progressFraction: p.datesTotal > 0 ? p.datesCompleted / p.datesTotal : 0,
+          });
+        },
+        monthsBack,
+        forceRefresh
+      );
 
       if (dataset.length === 0) {
         updateState({ phase: 'error', error: 'Could not collect data for any historical date. Check that past race results are available.' });
         return;
       }
 
-      // Baseline evaluation with current weights
       updateState({ phase: 'evaluating', progressMessage: 'Computing baseline MAE with current weights…', progressFraction: 1 });
       const baselineEval = await evaluateWeights(dataset, currentWeights);
 
@@ -89,7 +102,7 @@ export function useCalibration() {
         phase: 'done',
         dataset,
         baselineEval,
-        progressMessage: `Collected ${dataset.length} dates (${dataset.reduce((s, d) => s + d.races.length, 0)} races). Baseline rank MAE: ${baselineEval.rankMAE.toFixed(3)}`,
+        progressMessage: `${dataset.length} dates · ${dataset.reduce((s, d) => s + d.races.length, 0)} races · Baseline rank MAE: ${baselineEval.rankMAE.toFixed(3)}`,
         progressFraction: 1,
       });
     } catch (err) {

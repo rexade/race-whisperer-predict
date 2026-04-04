@@ -15,6 +15,8 @@ import { calculateRawKmTimesForRaceWithId } from '@/services/kmTimeProcessor';
 import { RaceResultProcessor } from '@/components/v75/services/raceResultProcessor';
 import { NormalizationWeights } from '@/services/modernKm/types';
 import { HorseRawKmTime } from '@/services/types/kmTimeTypes';
+import { V75CacheService } from '@/services/v75CacheService';
+import { saveCalibrationDataset, loadCalibrationDataset, getCalibrationCacheInfo } from './calibrationDatasetCache';
 
 export interface ActualHorseResult {
   position: number;
@@ -99,12 +101,37 @@ export async function fetchHistoricalDates(monthsBack: number): Promise<string[]
 
 /**
  * Phase 1: Collect all data needed for calibration.
- * Makes many API calls — call once, cache the result.
+ *
+ * First checks the persistent localStorage dataset cache (3-day TTL).
+ * If a cached dataset exists for the requested window, returns it instantly.
+ *
+ * When fetching fresh data, leverages the existing V75CacheService raw-time
+ * cache (7-day TTL) so horse km-time fetches are skipped for races already
+ * seen in the main analyzer.  After collection the full dataset is persisted
+ * so subsequent runs are instant.
+ *
+ * @param monthsBack  Number of past months to cover (used as cache key)
+ * @param forceRefresh  Skip the dataset cache and re-fetch everything
  */
 export async function collectCalibrationData(
   dates: string[],
-  onProgress?: (p: CollectionProgress) => void
+  onProgress?: (p: CollectionProgress) => void,
+  monthsBack?: number,
+  forceRefresh = false
 ): Promise<CalibrationDataset> {
+  // Return persisted dataset if available and not forcing refresh
+  if (!forceRefresh && monthsBack !== undefined) {
+    const info = getCalibrationCacheInfo(monthsBack);
+    if (info.exists && info.dateCount > 0) {
+      onProgress?.({ datesCompleted: 0, datesTotal: 1, message: `Loading cached dataset (${info.dateCount} dates, ${info.ageHours?.toFixed(0)}h old)…` });
+      const cached = loadCalibrationDataset(monthsBack);
+      if (cached) {
+        onProgress?.({ datesCompleted: 1, datesTotal: 1, message: `Loaded ${cached.length} dates from cache.` });
+        return cached;
+      }
+    }
+  }
+
   const dataset: CalibrationDataset = [];
 
   for (let i = 0; i < dates.length; i++) {
@@ -163,27 +190,56 @@ export async function collectCalibrationData(
         }
         if (actualMap.size === 0) continue;
 
-        // Build ATG starts for km time fetch
-        const atgStarts = race.horses.map((horse: any) => ({
-          horse: {
-            id: horse.horseId,
-            name: typeof horse.name === 'string' ? horse.name : String(horse.name),
-          },
-          number: horse.postPosition,
-          postPosition: horse.postPosition,
-          distance: horse.distance,
-          driver: {
-            firstName: horse.driver.firstName,
-            lastName: horse.driver.lastName,
-            statistics: { winPercentage: horse.driver.winPercentage },
-          },
-        }));
-
+        // --- Raw KM times: prefer existing V75CacheService entry (7-day TTL) ---
         let rawKmTimes: HorseRawKmTime[] = [];
-        try {
-          rawKmTimes = await calculateRawKmTimesForRaceWithId(race.raceId, atgStarts);
-        } catch {
-          continue;
+        const cachedRawTimes = await V75CacheService.getRawTimes(race.raceId);
+
+        if (cachedRawTimes) {
+          // Convert cache format → HorseRawKmTime (same as useV75Cache)
+          rawKmTimes = cachedRawTimes.rawTimes.map(c => ({
+            horseId: c.horseId,
+            horseName: c.horseName || `Horse ${c.horseId}`,
+            allTimes: [],
+            bestTime: c.rawKmTime || { minutes: 0, seconds: 0, tenths: 0 },
+            rawBestTime: c.rawKmTime,
+            validTimesCount: c.validTimesCount || 3,
+            isNotifiee: false,
+            dataSource: 'recent' as const,
+          }));
+        } else {
+          // Cache miss — fetch from ATG API
+          const atgStarts = race.horses.map((horse: any) => ({
+            horse: {
+              id: horse.horseId,
+              name: typeof horse.name === 'string' ? horse.name : String(horse.name),
+            },
+            number: horse.postPosition,
+            postPosition: horse.postPosition,
+            distance: horse.distance,
+            driver: {
+              firstName: horse.driver.firstName,
+              lastName: horse.driver.lastName,
+              statistics: { winPercentage: horse.driver.winPercentage },
+            },
+          }));
+
+          try {
+            rawKmTimes = await calculateRawKmTimesForRaceWithId(race.raceId, atgStarts);
+            // Persist so next calibration / main analyzer run can reuse
+            const rawTimesForCache = rawKmTimes.map(rt => {
+              const horseInRace = race.horses.find((h: any) => h.horseId === rt.horseId);
+              return {
+                horseId: rt.horseId,
+                horseName: rt.horseName,
+                postPosition: horseInRace?.postPosition || 1,
+                bestTime: rt.rawBestTime ?? rt.bestTime,
+                validTimesCount: rt.validTimesCount,
+              };
+            });
+            V75CacheService.storeRawTimes(date, gameInfo.gameId, race.raceId, race.raceNumber, rawTimesForCache).catch(() => {});
+          } catch {
+            continue;
+          }
         }
 
         dateRaces.push({
@@ -205,8 +261,13 @@ export async function collectCalibrationData(
     onProgress?.({
       datesCompleted: i + 1,
       datesTotal: dates.length,
-      message: `[${i + 1}/${dates.length}] ${date}: done`,
+      message: `[${i + 1}/${dates.length}] ${date}: done (${dataset.length} dates collected so far)`,
     });
+  }
+
+  // Persist so next run is instant
+  if (monthsBack !== undefined && dataset.length > 0) {
+    saveCalibrationDataset(monthsBack, dataset);
   }
 
   return dataset;
