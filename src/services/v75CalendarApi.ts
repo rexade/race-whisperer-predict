@@ -99,6 +99,22 @@ export interface V75HorseData {
 }
 
 /**
+ * Return all game type keys that have at least one game on a given date.
+ * e.g. ["V75", "V86", "GS75"] — whatever ATG lists in data.games
+ */
+export const fetchAvailableGameTypes = async (date: string): Promise<string[]> => {
+  try {
+    const response = await fetch(`https://www.atg.se/services/racinginfo/v1/api/calendar/day/${date}`);
+    if (!response.ok) return [];
+    const data = await response.json();
+    if (!data.games || typeof data.games !== 'object') return [];
+    return Object.keys(data.games).filter(k => Array.isArray(data.games[k]) && data.games[k].length > 0);
+  } catch {
+    return [];
+  }
+};
+
+/**
  * Fetch game information for a specific date and game type
  */
 export const fetchV75GameInfo = async (date: string, gameType: GameType = GAME_TYPE): Promise<V75GameInfo | null> => {

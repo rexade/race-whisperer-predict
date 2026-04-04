@@ -11,7 +11,7 @@ import ThemeToggle from "./ThemeToggle";
 import { useV75Analysis } from "./v75/hooks/useV75Analysis";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
 import { exportV75ToExcel } from '../utils/excelExport';
-import { useGameInfo, useRaceData } from '@/queries/v75';
+import { useGameInfo, useRaceData, useAvailableGameTypes } from '@/queries/v75';
 import { GAME_TYPE, GameType } from '@/config/game';
 
 // Shared components
@@ -43,6 +43,8 @@ const V75Analyzer: React.FC = () => {
   const dateStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null;
   const { data: gameInfo, isLoading: isLoadingGame, error: gameError } = useGameInfo(dateStr, gameType);
   const { data: races, isLoading: isLoadingRaces, error: raceError } = useRaceData(dateStr, gameInfo, gameType);
+  const noGameFound = !!dateStr && !isLoadingGame && !gameInfo && !gameError;
+  const { data: availableGameTypes } = useAvailableGameTypes(dateStr, !noGameFound);
 
   const isDataReady = !!races && races.length > 0;
   const isFetching = isLoadingGame || isLoadingRaces;
@@ -232,11 +234,30 @@ const V75Analyzer: React.FC = () => {
         )}
 
         {/* No game found for selected date */}
-        {selectedDate && !isFetching && !gameInfo && !gameError && (
+        {noGameFound && selectedDate && (
           <AnalyzerCard>
-            <div className="text-center py-2 text-muted-foreground text-sm space-y-1">
+            <div className="text-center py-3 text-muted-foreground text-sm space-y-3">
               <p>No <strong>{gameType}</strong> game found for {format(selectedDate, "MMMM d, yyyy")}.</p>
-              <p className="text-xs">Try a different game type using the selector in the toolbar.</p>
+              {availableGameTypes && availableGameTypes.length > 0 ? (
+                <div className="space-y-1">
+                  <p className="text-xs">Available on this date:</p>
+                  <div className="flex gap-2 justify-center flex-wrap">
+                    {availableGameTypes.map((gt) => (
+                      <Button
+                        key={gt}
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => setGameType(gt as GameType)}
+                      >
+                        {gt}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs">No multi-race games scheduled on this date.</p>
+              )}
             </div>
           </AnalyzerCard>
         )}

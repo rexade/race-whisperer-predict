@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchV75GameInfo, fetchRaceDataForGame, V75GameInfo } from "@/services/v75CalendarApi";
+import { fetchV75GameInfo, fetchRaceDataForGame, fetchAvailableGameTypes, V75GameInfo } from "@/services/v75CalendarApi";
 import { GAME_TYPE, GameType } from "@/config/game";
 
 /**
@@ -14,6 +14,20 @@ export const useGameInfo = (date: string | undefined | null, gameType: GameType 
         },
         enabled: !!date,
         staleTime: 5 * 60 * 1000, // 5 minutes
+    });
+
+/**
+ * Hook to fetch all available game types for a date (only fires when gameInfo is null)
+ */
+export const useAvailableGameTypes = (date: string | undefined | null, skip: boolean) =>
+    useQuery({
+        queryKey: ["availableGameTypes", date],
+        queryFn: () => {
+            if (!date) return [];
+            return fetchAvailableGameTypes(date);
+        },
+        enabled: !!date && !skip,
+        staleTime: 5 * 60 * 1000,
     });
 
 /**
