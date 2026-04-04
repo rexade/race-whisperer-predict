@@ -77,26 +77,38 @@ function deserializeRawKmTime(s: SerializedHorseRawKmTime): HorseRawKmTime {
 }
 
 export function saveCalibrationDataset(monthsBack: number, dataset: CalibrationDataset): void {
-  try {
-    const serialized: SerializedDataset = {
-      gameType: GAME_TYPE,
-      monthsBack,
-      cachedAt: new Date().toISOString(),
-      dates: dataset.map(d => ({
-        date: d.date,
-        races: d.races.map((r): SerializedRaceCalibrationData => ({
-          raceId: r.raceId,
-          raceNumber: r.raceNumber,
-          raceData: r.raceData,
-          rawKmTimes: r.rawKmTimes.map(serializeRawKmTime),
-          actualResultsEntries: Array.from(r.actualResults.entries()),
-        })),
+  const key = cacheKey(monthsBack);
+  const serialized: SerializedDataset = {
+    gameType: GAME_TYPE,
+    monthsBack,
+    cachedAt: new Date().toISOString(),
+    dates: dataset.map(d => ({
+      date: d.date,
+      races: d.races.map((r): SerializedRaceCalibrationData => ({
+        raceId: r.raceId,
+        raceNumber: r.raceNumber,
+        raceData: r.raceData,
+        rawKmTimes: r.rawKmTimes.map(serializeRawKmTime),
+        actualResultsEntries: Array.from(r.actualResults.entries()),
       })),
-    };
-    localStorage.setItem(cacheKey(monthsBack), JSON.stringify(serialized));
+    })),
+  };
+  const blob = JSON.stringify(serialized);
+  try {
+    localStorage.setItem(key, blob);
     console.log(`[CalibrationCache] Saved dataset: ${dataset.length} dates`);
   } catch (e) {
-    console.warn('[CalibrationCache] Failed to save dataset (storage full?):', e);
+    // Quota exceeded — evict other calibration caches (older month windows) and retry
+    console.warn('[CalibrationCache] Storage full, evicting other calibration caches…');
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(CACHE_KEY_PREFIX) && k !== key)
+      .forEach(k => localStorage.removeItem(k));
+    try {
+      localStorage.setItem(key, blob);
+      console.log(`[CalibrationCache] Saved dataset after eviction: ${dataset.length} dates`);
+    } catch (e2) {
+      console.warn('[CalibrationCache] Failed to save dataset even after eviction (dataset too large for localStorage):', e2);
+    }
   }
 }
 

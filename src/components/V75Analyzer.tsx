@@ -30,7 +30,13 @@ const CalibrationPanel = lazy(() => import("./calibration/CalibrationPanel"));
 
 const V75Analyzer: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  const [weights, setWeights] = useState<NormalizationWeights>(getDefaultWeights());
+  const [weights, setWeights] = useState<NormalizationWeights>(() => {
+    try {
+      const saved = localStorage.getItem('customDefaultWeights');
+      if (saved) return { ...getDefaultWeights(), ...JSON.parse(saved) };
+    } catch {}
+    return getDefaultWeights();
+  });
   const [postPositionCurves, setPostPositionCurves] = useState<PostPositionCurves>(getDefaultPostPositionCurves());
   const [activeTab, setActiveTab] = useState("");
   const [showCacheManager, setShowCacheManager] = useState(false);
@@ -75,6 +81,13 @@ const V75Analyzer: React.FC = () => {
       reanalyzeWithNewWeights(weights, postPositionCurves);
     }
   }, [weights, postPositionCurves]);
+
+  // Auto-persist weights so they survive page refresh
+  useEffect(() => {
+    try {
+      localStorage.setItem('customDefaultWeights', JSON.stringify(weights));
+    } catch {}
+  }, [weights]);
 
   // Update active tab when results are loaded
   useEffect(() => {
@@ -320,8 +333,8 @@ const V75Analyzer: React.FC = () => {
           </DebugErrorBoundary>
         )}
 
-        {/* Calibration Panel */}
-        {showCalibration && (
+        {/* Calibration Panel — keep mounted so the loaded dataset survives Apply */}
+        <div style={{ display: showCalibration ? undefined : 'none' }}>
           <DebugErrorBoundary>
             <Suspense fallback={<div className="p-4 text-center text-muted-foreground">Loading calibration…</div>}>
               <CalibrationPanel
@@ -332,7 +345,7 @@ const V75Analyzer: React.FC = () => {
               />
             </Suspense>
           </DebugErrorBoundary>
-        )}
+        </div>
 
         {/* Weight Manager */}
         {v75Results.length > 0 && showWeights && (

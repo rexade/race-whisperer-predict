@@ -58,18 +58,33 @@ const WeightManager: React.FC<WeightManagerProps> = ({
   };
 
   const saveAsDefault = () => {
+    // Weights are auto-saved on every change; this is a manual confirmation.
+    // If localStorage is full (calibration datasets), clear them first.
+    const blob = JSON.stringify(weights);
     try {
-      localStorage.setItem('customDefaultWeights', JSON.stringify(weights));
+      localStorage.setItem('customDefaultWeights', blob);
       toast({
         title: "Default Weights Saved",
         description: "Current weights have been saved as your new defaults.",
       });
-    } catch (error) {
-      toast({
-        title: "Save Failed",
-        description: "Failed to save default weights. Please try again.",
-        variant: "destructive",
-      });
+    } catch {
+      // Storage full — evict calibration caches and retry
+      Object.keys(localStorage)
+        .filter(k => k.startsWith('calibration_dataset_'))
+        .forEach(k => localStorage.removeItem(k));
+      try {
+        localStorage.setItem('customDefaultWeights', blob);
+        toast({
+          title: "Default Weights Saved",
+          description: "Saved (cleared old calibration cache to free space).",
+        });
+      } catch {
+        toast({
+          title: "Save Failed",
+          description: "Browser storage is full and could not be cleared. Try closing other tabs or clearing site data.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
