@@ -121,6 +121,7 @@ export function loadCalibrationDataset(monthsBack: number): CalibrationDataset |
       })),
     }));
 
+    const ageHours = (Date.now() - new Date(s.cachedAt).getTime()) / 3_600_000;
     console.log(`[CalibrationCache] Loaded dataset: ${dataset.length} dates (${ageHours.toFixed(1)}h old)`);
     return dataset;
   } catch (e) {

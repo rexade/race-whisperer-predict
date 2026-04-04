@@ -306,41 +306,47 @@ export async function evaluateWeights(
 
         if (!result.analysisComplete || result.horses.length === 0) continue;
 
-        // Only include horses with real km-time data in metrics
-        const realHorses = result.horses.filter(h => !h.modernNormalizedResult?.isEstimated);
-        if (realHorses.length === 0) continue;
+        // Use the full-field rank as assigned by RaceScoreCalculator (rank 1-N
+        // among ALL horses). Estimated horses are skipped from the MAE but their
+        // presence in the field still affects the rank numbers of real horses —
+        // this is correct behaviour, matching how V75PredictionComparator works.
+        const realHorseCount = result.horses.filter(h => !h.modernNormalizedResult?.isEstimated).length;
+        if (realHorseCount === 0) continue;
 
-        estimatedHorsesSkipped += result.horses.length - realHorses.length;
+        estimatedHorsesSkipped += result.horses.length - realHorseCount;
         racesEvaluated++;
 
-        // Re-rank among real horses only (same order, new sequential ranks)
-        const ranked = [...realHorses].sort((a, b) => (a.finalScore ?? 999) - (b.finalScore ?? 999));
-        ranked.forEach((h, idx) => { (h as any)._calibRank = idx + 1; });
-
-        // Find our predicted winner (rank 1 among real horses)
-        const predictedWinner = ranked[0];
-        const actualWinner = race.actualResults.get(predictedWinner?.horseId);
+        // Predicted winner = horse with rank 1 among all horses
+        const predictedWinner = result.horses.find(h => h.rank === 1);
+        const actualWinnerEntry = predictedWinner ? race.actualResults.get(predictedWinner.horseId) : undefined;
         winTotal++;
-        if (actualWinner?.position === 1) winCorrect++;
+        if (actualWinnerEntry?.position === 1) winCorrect++;
 
-        for (const horse of ranked) {
+        for (const horse of result.horses) {
+          // Skip estimated fallback horses — they don't respond to weights
+          if (horse.modernNormalizedResult?.isEstimated) {
+            estimatedHorsesSkipped++;
+            continue;
+          }
+
           const actual = race.actualResults.get(horse.horseId);
-          if (actual === undefined) continue;
+          if (actual === undefined || !horse.rank) continue;
 
-          const calibRank: number = (horse as any)._calibRank;
-          totalRankError += Math.abs(calibRank - actual.position);
+          // horse.rank is 1-N among the full field; actual.position is also 1-N
+          totalRankError += Math.abs(horse.rank - actual.position);
           horsesEvaluated++;
 
           // Time MAE
-          if (horse.predictedTime && actual.kmTime) {
-            const predS = horse.predictedTime.minutes * 60 + horse.predictedTime.seconds + horse.predictedTime.tenths * 0.1;
+          if (horse.modernNormalizedResult?.modernNormalizedTime && actual.kmTime) {
+            const t = horse.modernNormalizedResult.modernNormalizedTime;
+            const predS = t.minutes * 60 + t.seconds + t.tenths * 0.1;
             const actS  = actual.kmTime.minutes * 60 + actual.kmTime.seconds + actual.kmTime.tenths * 0.1;
             totalTimeDiffS += Math.abs(predS - actS);
             timeCount++;
           }
 
           // Top-3 accuracy
-          if (calibRank <= 3) {
+          if (horse.rank <= 3) {
             topPicksTotal++;
             if (actual.position <= 3) topPicksCorrect++;
           }
