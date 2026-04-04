@@ -1,8 +1,6 @@
-import { GAME_TYPE, IS_DEBUG } from "@/config/game";
+import { GAME_TYPE, IS_DEBUG, GameType } from "@/config/game";
 import { log } from "@/lib/logger";
 import { fetchRaceById } from "@/services/raceDataCache";
-
-const TARGET_GAME = GAME_TYPE;
 
 export interface V75CalendarDate {
   date: string; // YYYY-MM-DD format
@@ -101,11 +99,11 @@ export interface V75HorseData {
 }
 
 /**
- * Fetch V75 game information for a specific date
+ * Fetch game information for a specific date and game type
  */
-export const fetchV75GameInfo = async (date: string): Promise<V75GameInfo | null> => {
+export const fetchV75GameInfo = async (date: string, gameType: GameType = GAME_TYPE): Promise<V75GameInfo | null> => {
   try {
-    log.debug(`🔍 Fetching ${TARGET_GAME} game info for ${date}...`);
+    log.debug(`🔍 Fetching ${gameType} game info for ${date}...`);
 
     const response = await fetch(`https://www.atg.se/services/racinginfo/v1/api/calendar/day/${date}`);
 
@@ -116,21 +114,21 @@ export const fetchV75GameInfo = async (date: string): Promise<V75GameInfo | null
     const data = await response.json();
     log.debug('📅 Calendar API response received:', {
       date: data.date,
-      targetGames: data.games?.[TARGET_GAME]?.length || 0
+      targetGames: data.games?.[gameType]?.length || 0
     });
 
     // Look for target games in the response
-    const v75Games = data.games?.[TARGET_GAME];
+    const v75Games = data.games?.[gameType];
 
     if (!v75Games || v75Games.length === 0) {
-      log.debug(`❌ No ${TARGET_GAME} games found for ${date}`);
+      log.debug(`❌ No ${gameType} games found for ${date}`);
       return null;
     }
 
     // Take the first game (there should typically be only one per day)
     const v75Game = v75Games[0];
 
-    log.debug(`🎯 ${TARGET_GAME} Game found:`, {
+    log.debug(`🎯 ${gameType} Game found:`, {
       gameId: v75Game.id,
       raceCount: v75Game.races?.length || 0,
       raceIds: v75Game.races,
@@ -152,7 +150,7 @@ export const fetchV75GameInfo = async (date: string): Promise<V75GameInfo | null
     };
 
   } catch (error) {
-    log.error(`❌ Error fetching ${TARGET_GAME} game info:`, error);
+    log.error(`❌ Error fetching ${gameType} game info:`, error);
     return null;
   }
 };
@@ -172,9 +170,10 @@ const calculateEarningsPerStart = (totalEarnings: number, totalStarts: number): 
  */
 export const fetchRaceDataForGame = async (
   date: string,
-  gameInfo: V75GameInfo
+  gameInfo: V75GameInfo,
+  gameType: GameType = GAME_TYPE
 ): Promise<V75RaceData[]> => {
-  log.info(`\n=== 🏇 Starting ${TARGET_GAME} Race Data Fetch for ${date} ===`);
+  log.info(`\n=== 🏇 Starting ${gameType} Race Data Fetch for ${date} ===`);
   log.info(`✅ Using existing game info: ${gameInfo.gameId}`);
   log.debug(`📋 Race IDs to fetch: ${gameInfo.raceIds.join(', ')}`);
 
@@ -220,7 +219,7 @@ export const fetchRaceDataForGame = async (
         track: raceData.track?.name || gameInfo.track,
         name: raceData.name,
         date: date,
-        prize: raceData.terms?.pools?.find((p: any) => p.betType === 'V75')?.prize || 0,
+        prize: raceData.terms?.pools?.find((p: any) => p.betType === gameType)?.prize || 0,
         horses
       });
 
@@ -229,7 +228,7 @@ export const fetchRaceDataForGame = async (
     }
   }
 
-  log.info(`\n🏁 ${TARGET_GAME} Race Data Fetch Complete: ${v75Races.length}/${gameInfo.raceIds.length} races successfully fetched`);
+  log.info(`\n🏁 ${gameType} Race Data Fetch Complete: ${v75Races.length}/${gameInfo.raceIds.length} races successfully fetched`);
 
   return v75Races.sort((a, b) => a.raceNumber - b.raceNumber);
 };
@@ -239,25 +238,24 @@ export const fetchRaceDataForGame = async (
 /**
  * Fetch available V75 dates for a given month
  */
-export const fetchV75CalendarDates = async (year: number, month: number): Promise<V75CalendarDate[]> => {
+export const fetchV75CalendarDates = async (year: number, month: number, gameType: GameType = GAME_TYPE): Promise<V75CalendarDate[]> => {
   try {
     // Format: YYYY-MM
     const monthStr = `${year}-${month.toString().padStart(2, '0')}`;
     const response = await fetch(`https://www.atg.se/services/racinginfo/v1/api/calendar/month/${monthStr}`);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch ${TARGET_GAME} calendar: ${response.statusText}`);
+      throw new Error(`Failed to fetch ${gameType} calendar: ${response.statusText}`);
     }
 
     const data = await response.json();
 
-    // Filter for V75 events and transform to our format
     const v75Dates: V75CalendarDate[] = [];
 
     if (data.calendarDays) {
       for (const day of data.calendarDays) {
         const v75Events = day.events?.filter((event: any) =>
-          event.eventType === TARGET_GAME || event.name?.includes(TARGET_GAME)
+          event.eventType === gameType || event.name?.includes(gameType)
         );
 
         if (v75Events && v75Events.length > 0) {
@@ -270,7 +268,7 @@ export const fetchV75CalendarDates = async (year: number, month: number): Promis
               startMethod: race.startMethod,
               track: race.track?.name || 'Unknown',
               name: race.name,
-              prize: race.terms?.pools?.find((p: any) => p.betType === TARGET_GAME)?.prize || 0
+              prize: race.terms?.pools?.find((p: any) => p.betType === gameType)?.prize || 0
             })) || [];
 
             v75Dates.push({
@@ -285,7 +283,7 @@ export const fetchV75CalendarDates = async (year: number, month: number): Promis
 
     return v75Dates;
   } catch (error) {
-    log.error(`Error fetching ${TARGET_GAME} calendar:`, error);
+    log.error(`Error fetching ${gameType} calendar:`, error);
     return [];
   }
 };

@@ -12,7 +12,7 @@ import { useV75Analysis } from "./v75/hooks/useV75Analysis";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
 import { exportV75ToExcel } from '../utils/excelExport';
 import { useGameInfo, useRaceData } from '@/queries/v75';
-import { GAME_TYPE } from '@/config/game';
+import { GAME_TYPE, GameType } from '@/config/game';
 
 // Shared components
 import AnalyzerLayout from "./shared/analyzer/AnalyzerLayout";
@@ -37,11 +37,12 @@ const V75Analyzer: React.FC = () => {
   const [showWeights, setShowWeights] = useState(false);
   const [showCalibration, setShowCalibration] = useState(false);
   const [showInput, setShowInput] = useState(true);
+  const [gameType, setGameType] = useState<GameType>(GAME_TYPE);
 
   // React Query Data Fetching
   const dateStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null;
-  const { data: gameInfo, isLoading: isLoadingGame, error: gameError } = useGameInfo(dateStr);
-  const { data: races, isLoading: isLoadingRaces, error: raceError } = useRaceData(dateStr, gameInfo);
+  const { data: gameInfo, isLoading: isLoadingGame, error: gameError } = useGameInfo(dateStr, gameType);
+  const { data: races, isLoading: isLoadingRaces, error: raceError } = useRaceData(dateStr, gameInfo, gameType);
 
   const isDataReady = !!races && races.length > 0;
   const isFetching = isLoadingGame || isLoadingRaces;
@@ -128,6 +129,22 @@ const V75Analyzer: React.FC = () => {
 
             {/* Center: Main actions */}
             <div className="flex items-center gap-1.5 sm:gap-2 flex-1 justify-center max-w-2xl min-w-0">
+              {/* Game type selector */}
+              <div className="flex-shrink-0 flex rounded-md border border-border overflow-hidden">
+                {(['V75', 'V86', 'V85', 'V65'] as GameType[]).map((gt) => (
+                  <button
+                    key={gt}
+                    onClick={() => setGameType(gt)}
+                    className={`px-2 py-1 text-xs font-medium transition-colors ${
+                      gameType === gt
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-background text-muted-foreground hover:text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    {gt}
+                  </button>
+                ))}
+              </div>
               <div className="flex-shrink-0">
                 <V75DatePicker
                   selectedDate={selectedDate}
@@ -138,7 +155,7 @@ const V75Analyzer: React.FC = () => {
                 size="sm"
                 onClick={handleAnalyzeV75}
                 disabled={!selectedDate || isAnalyzing || !isDataReady}
-                title={selectedDate && !isFetching && !isDataReady ? `No ${GAME_TYPE} game on this date` : undefined}
+                title={selectedDate && !isFetching && !isDataReady ? `No ${gameType} game on this date` : undefined}
                 className="flex-shrink-0 h-8 sm:h-9"
               >
                 <Play className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -218,8 +235,8 @@ const V75Analyzer: React.FC = () => {
         {selectedDate && !isFetching && !gameInfo && !gameError && (
           <AnalyzerCard>
             <div className="text-center py-2 text-muted-foreground text-sm space-y-1">
-              <p>No <strong>{GAME_TYPE}</strong> game found for {format(selectedDate, "MMMM d, yyyy")}.</p>
-              <p className="text-xs">This date may have a different game type (V75/V85/V86) or no races scheduled.</p>
+              <p>No <strong>{gameType}</strong> game found for {format(selectedDate, "MMMM d, yyyy")}.</p>
+              <p className="text-xs">Try a different game type using the selector in the toolbar.</p>
             </div>
           </AnalyzerCard>
         )}
