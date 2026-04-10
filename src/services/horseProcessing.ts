@@ -6,6 +6,7 @@ import { HorseDebugger } from './debugging/horseDebugger';
 import { DataValidator } from './debugging/dataValidator';
 import { getSourceConfidenceMultiplier, getStatisticsBreakdown } from './utils/recordsFallback';
 import { toSeconds, secondsToKmParts, isOutlierTime, createRecordKey } from './utils/robustTimeConversion';
+import { log } from '@/lib/logger';
 
 // Updated interface to match ATG API structure
 export interface ATGHistoricalRace {
@@ -51,14 +52,11 @@ export const processHorseKmTimes = async (
         .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null
     : null;
 
-  console.log(`\n=== Processing KM times for ${horseName} (ID: ${horseId}) ===`);
-  console.log(`📊 Historical records provided: ${historicalRaces.length}`);
+  log.debug(`[horseProcessing] ${horseName} (${horseId}) — ${historicalRaces.length} records`);
 
   // CRITICAL: Check if we have historical records before processing
   if (!historicalRaces || historicalRaces.length === 0) {
-    console.warn(`❌ NO HISTORICAL RECORDS - Horse ${horseName}:`);
-    console.warn(`  📊 Historical races provided: ${historicalRaces?.length || 0}`);
-    console.warn(`  🔍 This will result in empty processed times`);
+    log.warn(`[horseProcessing] ${horseName}: no historical records`);
 
     HorseDebugger.log(horseId, horseName, 'NO_HISTORICAL_RECORDS', {
       historicalRacesLength: historicalRaces?.length || 0,
@@ -75,7 +73,7 @@ export const processHorseKmTimes = async (
     };
   }
 
-  console.log(`✅ Historical records validation passed: ${historicalRaces.length} races found`);
+  log.debug(`[horseProcessing] ${horseName} — ${historicalRaces.length} records validated`);
   HorseDebugger.logHistoricalData(horseId, horseName, historicalRaces);
 
   // Track why records are dropped - for debugging
@@ -93,7 +91,7 @@ export const processHorseKmTimes = async (
     // Check for valid kmTime structure
     if (!race.kmTime || typeof race.kmTime.minutes !== 'number' || typeof race.kmTime.seconds !== 'number') {
       dropReasons.noKmTime++;
-      console.log(`Skipping race ${race.date} - no valid km time structure`);
+      log.debug(`[horseProcessing] skip ${race.date} — no km time`);
       continue;
     }
 
@@ -102,7 +100,7 @@ export const processHorseKmTimes = async (
     const badCodes = ['0', 'it', 'dist', 'u', 'gdk', 'br', 'p', 'dq'];
     if (badCodes.includes(code)) {
       dropReasons.badCode++;
-      console.log(`Skipping race ${race.date} - bad code: ${code}`);
+      log.debug(`[horseProcessing] skip ${race.date} — bad code: ${code}`);
       continue;
     }
 
@@ -110,14 +108,14 @@ export const processHorseKmTimes = async (
     if (race.disqualified) {
       disqualified++;
       dropReasons.dqOrGallop++;
-      console.log(`Skipping race ${race.date} - disqualified`);
+      log.debug(`[horseProcessing] skip ${race.date} — disqualified`);
       continue;
     }
 
     if (race.galloped) {
       galloped++;
       dropReasons.dqOrGallop++;
-      console.log(`Skipping race ${race.date} - galloped`);
+      log.debug(`[horseProcessing] skip ${race.date} — galloped`);
       continue;
     }
 
@@ -125,7 +123,7 @@ export const processHorseKmTimes = async (
     const raceValidation = DataValidator.validateKmTime(race.kmTime, `${horseName} race ${race.date}`);
     if (!raceValidation.isValid && !isStatsSource) {
       dropReasons.invalidShape++;
-      console.error(`Invalid KM time for ${horseName} race ${race.date}:`, raceValidation.errors);
+      log.error(`[horseProcessing] invalid km time for ${horseName} race ${race.date}:`, raceValidation.errors);
       HorseDebugger.log(horseId, horseName, 'INVALID_RACE_DATA', {
         date: race.date,
         validation: raceValidation,
@@ -144,7 +142,7 @@ export const processHorseKmTimes = async (
         race.startMethod
       );
 
-      console.log(`${race.date}: ${originalKmTime.minutes}:${originalKmTime.seconds.toString().padStart(2, '0')}.${originalKmTime.tenths} → ${normalizedKmTime.minutes}:${normalizedKmTime.seconds.toString().padStart(2, '0')}.${normalizedKmTime.tenths} (${race.distance}m ${race.startMethod}, place ${race.finishOrder})`);
+      log.debug(`[horseProcessing] ${race.date}: ${originalKmTime.minutes}:${originalKmTime.seconds.toString().padStart(2, '0')}.${originalKmTime.tenths} → ${normalizedKmTime.minutes}:${normalizedKmTime.seconds.toString().padStart(2, '0')}.${normalizedKmTime.tenths} (${race.distance}m ${race.startMethod}, place ${race.finishOrder})`);
 
       // Log each historical normalization step
       HorseDebugger.logHistoricalNormalization(horseId, horseName, {
@@ -160,7 +158,7 @@ export const processHorseKmTimes = async (
       // Check for outliers (warn but don't drop)
       const outlierCheck = isOutlierTime(normalizedKmTime);
       if (outlierCheck.isOutlier) {
-        console.warn(`⚠️ Outlier time detected for ${horseName} on ${race.date}: ${normalizedKmTime.minutes}:${normalizedKmTime.seconds}.${normalizedKmTime.tenths} (${outlierCheck.reason})`);
+        log.warn(`[horseProcessing] outlier time for ${horseName} on ${race.date}: ${normalizedKmTime.minutes}:${normalizedKmTime.seconds}.${normalizedKmTime.tenths} (${outlierCheck.reason})`);
       }
 
       processedTimes.push({
@@ -178,20 +176,19 @@ export const processHorseKmTimes = async (
       dropReasons.validProcessed++;
       validRecords++;
     } catch (error) {
-      console.error(`Error processing race ${race.date} for ${horseName}:`, error);
+      log.error(`[horseProcessing] error processing race ${race.date} for ${horseName}:`, error);
       continue;
     }
   }
 
-  // Log drop reasons for debugging
-  console.log(`📊 [DROP REASONS] ${horseName}:`, dropReasons);
+  log.debug(`[horseProcessing] ${horseName} drop reasons:`, dropReasons);
 
   // Deduplicate records (same race + similar time = duplicate)
   const seen = new Set<string>();
   processedTimes = processedTimes.filter(r => {
     const key = createRecordKey(r as any);
     if (seen.has(key)) {
-      console.log(`🔄 Duplicate record detected and removed: ${r.raceDate} ${r.normalizedTime.minutes}:${r.normalizedTime.seconds}.${r.normalizedTime.tenths}`);
+      log.debug(`[horseProcessing] duplicate removed: ${r.raceDate} ${r.normalizedTime.minutes}:${r.normalizedTime.seconds}.${r.normalizedTime.tenths}`);
       return false;
     }
     seen.add(key);
@@ -217,9 +214,9 @@ export const processHorseKmTimes = async (
     const fastestRecord = processedTimes[0].normalizedTime;
     bestTime = { ...fastestRecord };
     bestRecordTime = { ...fastestRecord };
-    console.log(`✅ Using best time for ${horseName}: ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
+    log.debug(`[horseProcessing] ${horseName} best time: ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
   } else {
-    console.warn(`⚠️ No valid times for ${horseName}`);
+    log.warn(`[horseProcessing] ${horseName}: no valid times`);
   }
 
   // Log validation statistics
@@ -233,21 +230,21 @@ export const processHorseKmTimes = async (
   };
   HorseDebugger.logValidationStats(horseId, horseName, validationStats);
 
-  console.log(`Processed ${processedTimes.length} valid times for ${horseName}`);
-  if (hasBestTime) {
-    const t = processedTimes[0];
-    console.log(`Best time: ${t.normalizedTime.minutes}:${t.normalizedTime.seconds.toString().padStart(2, '0')}.${t.normalizedTime.tenths} (from ${t.raceDate})`);
-    console.log(`RAW Time (Best): ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
-  } else {
-    console.warn(`❌ NO VALID TIMES - Horse ${horseName}:`);
-    console.warn(`  📊 Historical races provided: ${historicalRaces.length}`);
-    console.warn(`  ✅ Valid processed times: ${processedTimes.length}`);
-    console.warn(`  🔍 Drop reasons:`, dropReasons);
-    console.warn(`  💡 Check the drop reasons above to see why records were filtered out`);
+  log.debug(`[horseProcessing] ${horseName}: ${processedTimes.length} valid times`);
+  if (!hasBestTime) {
+    log.warn(`[horseProcessing] ${horseName}: no valid times — ${historicalRaces.length} records, drops:`, dropReasons);
   }
 
   // Enhanced debugging for final results
   HorseDebugger.logProcessedTimes(horseId, horseName, processedTimes, bestTime);
+
+  // Compute gallop/DQ counts for last 10 starts (all races, including galloped/DQ ones)
+  const recentTen = [...historicalRaces]
+    .filter(r => r.date)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 10);
+  const gallopCount = recentTen.filter(r => r.galloped === true).length;
+  const disqualificationCount = recentTen.filter(r => r.disqualified === true).length;
 
   // Get telemetry breakdown for statistics fallback
   const statsBreakdown = getStatisticsBreakdown(
@@ -258,9 +255,7 @@ export const processHorseKmTimes = async (
 
   // Log telemetry for monitoring fallback usage
   if (usedStatisticsFallback) {
-    console.log(`📊 [FALLBACK TELEMETRY] ${horseName}:`);
-    console.log(`   Statistics records: ${statsBreakdown.statisticsRecords}/${statsBreakdown.totalRecords}`);
-    console.log(`   Distance breakdown: K=${statsBreakdown.distanceBreakdown.short} M=${statsBreakdown.distanceBreakdown.medium} L=${statsBreakdown.distanceBreakdown.long}`);
+    log.debug(`[horseProcessing] ${horseName} stats fallback: ${statsBreakdown.statisticsRecords}/${statsBreakdown.totalRecords} records`);
 
     HorseDebugger.log(horseId, horseName, 'STATISTICS_FALLBACK_TELEMETRY', {
       statisticsRecords: statsBreakdown.statisticsRecords,
@@ -279,28 +274,14 @@ export const processHorseKmTimes = async (
   const rawBestTime = { ...bestTime };
 
   if (confidenceMultiplier < 1.0) {
-    console.log(`📊 [CONFIDENCE ADJUSTMENT] Applying ${confidenceMultiplier}x multiplier for statistics-only data`);
     const rawSec = toSeconds(bestTime.minutes, bestTime.seconds, bestTime.tenths ?? 0);
     const penalizedSec = rawSec / confidenceMultiplier; // Slower time = less confident
     bestTime = secondsToKmParts(penalizedSec);
-    console.log(`   Raw best time: ${rawBestTime.minutes}:${rawBestTime.seconds.toString().padStart(2, '0')}.${rawBestTime.tenths}`);
-    console.log(`   Penalized: ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
+    log.debug(`[horseProcessing] ${horseName} confidence ${confidenceMultiplier}x: ${rawBestTime.minutes}:${rawBestTime.seconds.toString().padStart(2, '0')}.${rawBestTime.tenths} → ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
   }
 
-  // Enhanced logging for time calculation transparency
   if (HorseDebugger.shouldDebugHorse(horseName)) {
-    console.log(`🐎 [DETAILED TIME CALCULATION] ${horseName}:`);
-    console.log(`   📊 Historical Records Processed: ${historicalRaces.length}`);
-    console.log(`   ✅ Valid Times Found: ${processedTimes.length}`);
-    console.log(`   📈 Calculation Method: Best single time (≤5 months)`);
-    console.log(`   🎯 Confidence Multiplier: ${confidenceMultiplier}x`);
-    console.log(`   📉 Drop Reasons:`, dropReasons);
-
-    if (hasBestTime) {
-      const t = processedTimes[0];
-      console.log(`   🏆 Best Time: ${t.normalizedTime.minutes}:${t.normalizedTime.seconds.toString().padStart(2, '0')}.${t.normalizedTime.tenths ?? 0} (from ${t.raceDate}, ${t.distance}m ${t.startMethod})`);
-    }
-    console.log(`   🎯 Final Best Time: ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
+    log.debug(`[horseProcessing] ${horseName}: ${processedTimes.length} valid / ${historicalRaces.length} total, confidence ${confidenceMultiplier}x, final ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
   }
 
   return {
@@ -318,6 +299,8 @@ export const processHorseKmTimes = async (
     confidenceMultiplier, // Include confidence in result
     usedStatisticsFallback,
     gallopRate: totalRecords > 0 ? galloped / totalRecords : 0,
+    gallopCount,
+    disqualificationCount,
     lastRaceDate: lastRaceDate ?? undefined,
     consistencyScore: (() => {
       const finishes = processedTimes

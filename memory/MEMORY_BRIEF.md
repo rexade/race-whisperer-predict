@@ -1,27 +1,29 @@
-# Memory Brief — MUTATE #38
-*2026-04-10 16:00 — pre-run context from MemPalace*
+# Memory Brief — MUTATE #41
+*2026-04-11 00:00 — pre-run context*
 
-## Project direction
-A V75 horse race analysis tool. Users pick a race date, the app fetches ATG race data,
-runs normalization/scoring logic across horses in each leg, and surfaces ranked picks.
-- React 18 + TypeScript + 
+## Palace context (L0+L1)
+Lab: Pi Pulse incubator — Raspberry Pi 5 (testpi), /home/admin/lab
+Active project: race-whisperer-predict (V75 horse race analysis, mounted in incubator)
+Pi Pulse loop: winding down — lab-runner.timer to be disabled after narrator restart
+Race-whisperer loop: active hourly via race-whisperer.timer
+Current phase: visual retheme (Pi Pulse dark aesthetic) + gallopCount fix + LANE 1 weight eval
+Owner: admin
+
+## L1 — ESSENTIAL STORY
+
+[decisions]
+  - # Race Whisperer Predict — Durable Decisions  ## ATG API (CRITICAL — never violate) - The app calls the real ATG.se production API — only from the browser, triggered by user action - Never add poll...  (decisions.md)
+  - CI — use mocked/cached data only - Violation = real traffic to a production API without user consent  ## Architecture - React Query for all data fetching (useGameInfo, useRaceData) - `useV75Analysi...  (decisions.md)
+  - eep it there - `src/services/modernKm/` is the core km-time normalization logic — treat as sensitive  ## Code quality - `tsc --noEmit` must pass after every change — no type errors allowed - 71 tes...  (decisions.md)
+
+[failures]
+  - # Race Whisperer Predict — Failure Patterns  ## Scheduling - Claude Code rat
 
 ## User feedback (highest priority)
 (none)
 
-## Open thread
-(check ACTIVE_THREADS.md)
-
-## Prior failures to avoid
-# Race Whisperer Predict — Failure Patterns
-## Scheduling
-- Claude Code rate limit resets at 10pm Europe/Stockholm — runs 28 (twice) failed this way. Schedule outside this window.
-## Testing
-- jsdom ESM incompatibility: 
-
-## Hard constraints
-eep it there
-- `src/services/modernKm/` is the core km-time normalization logic — treat as sensitive
-## Code quality
-- `tsc --noEmit` must pass after every change — no type errors allowed
-- 71 tests must pass after every
+## Open threads
+### Evaluate Run 46 weight rebalance — compare vs baseline
+### gallopCount wiring gap — confirmed production bug
+### BUG: gallopCount never populated in horseProcessing.ts
+### U1 — Dark foundation (FIRST)

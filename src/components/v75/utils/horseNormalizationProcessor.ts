@@ -156,7 +156,6 @@ export const applyHorseNormalization = (
       raceTrack: race.track || "Unknown",
       driverExperience: horse.driver.experience,
       driverWinPercentage: horse.driver2025WinPercentage || horse.driver.winPercentage2025 || horse.driver.winPercentage || 0,
-      horseForm: horse.statistics.winPercentage,
       startPoints: horse.statistics.startPoints,
       placePercentage: horse.statistics.placePercentage,
       horseWinPercentage: horse.statistics.winPercentage,
@@ -218,8 +217,6 @@ export const applyHorseNormalization = (
     raceTrack: race.track || "Unknown",
     driverExperience: horse.driver.experience,
     driverWinPercentage: horse.driver2025WinPercentage || horse.driver.winPercentage2025 || horse.driver.winPercentage || 0,
-
-    horseForm: horse.statistics.winPercentage,
     startPoints: horse.statistics.startPoints,
     placePercentage: horse.statistics.placePercentage,
     horseWinPercentage: horse.statistics.winPercentage,

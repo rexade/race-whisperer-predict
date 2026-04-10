@@ -4,117 +4,6 @@
 
 ---
 
-## Run 34 — 2026-04-10 — MUTATE
-
-**Goal:** Console cleanup in `v75DataConsistencyValidator.ts` — the only remaining open thread. 21 `console.log` + 2 `console.error` calls replaced with `log.debug`/`log.error` from `src/lib/logger.ts`.
-
-**Done:**
-- `src/services/v75DataConsistencyValidator.ts` — added `import { log }` from `@/lib/logger`; replaced all `console.log` calls with `log.debug` and all `console.error` calls with `log.error`. Removed emoji prefixes from error messages.
-
-**Result:** pass — tsc clean, 127/127 tests pass.
-
-**Next:** All open threads now closed. Next run should identify a new meaningful improvement — candidates: weight grounding via MAE-driven presets, or surfacing MAE stats more prominently in the UI.
-
-<!-- stdout from run 34 2026-04-10 07:00 -->
-Done. Run 34 complete.
-
-**What changed:** `src/services/v75DataConsistencyValidator.ts` — added `import { log } from '@/lib/logger'`, replaced all 21 `console.log` calls with `log.debug` and both `console.error` calls with `log.error`. These diagnostic messages now only fire in debug mode (`IS_DEBUG === true`) instead of always polluting the console.
-
-**Result:** tsc clean, 127/127 tests pass.
-
-**All open threads are now closed.** Next meaningful candidates:
-- MAE-driven weight presets (use accumulated error data to surface tuning suggestions in WeightManager)
-- Surface MAE aggregate badge in the main header so users see accuracy without opening the panel
-
----
-
-## Run 35 — 2026-04-10 — RESEARCH
-
-**Investigated:** `raceMAEService.ts` async/await correctness; MAE panel visibility placement in `V75Analyzer.tsx`; stderr noise source in `kmTimeProcessor.test.ts`.
-
-**Key finding:** `fetchAndComputeMAEForRace` in `raceMAEService.ts:19` calls `RaceAnalysisCache.getRaceAnalysis(raceId)` without `await`. The method is declared `static async` and returns `Promise<RaceAnalysisData | null>`. In production, `stored` is therefore a Promise object (always truthy), causing `stored.horses` at line 43 to be `undefined` — the `for` loop throws `TypeError: undefined is not iterable`. The MAE "Compute" button would always fail at runtime. Tests pass because the test mock at `raceMAEService.test.ts:25` returns synchronously (`_analysisStore[raceId] ?? null`), masking the bug entirely. TypeScript does not catch this (loose tsconfig: `strict: false`, project references may use stale cache).
-
-**Secondary finding:** `MAEPanel` is only mounted when `showCacheManager` is true (V75Analyzer.tsx:265). Users see it only if they open the Cache/Trash drawer — there's no persistent accuracy indicator anywhere else in the UI.
-
-**Tertiary finding:** `log.warn(` at `kmTimeProcessor.ts:113` is not gated behind IS_DEBUG. In the test at `kmTimeProcessor.test.ts:26-43`, the mock returns `null` for historical data, triggering the NO HISTORICAL DATA warn path on every test run. `log.warn` always calls `console.warn` regardless of debug mode.
-
-**Implication:** The MAE feature added in Run 32 is silently broken in production. The async/await mismatch is invisible to tests and TypeScript (due to the synchronous test mock and loose tsconfig). Users who click "Compute" for any race would get a "Not finished or no matches" error (from the catch in MAEPanel) or a runtime TypeError — never seeing actual accuracy data even for completed races.
-
-**Suggested next move:** Mutate `src/services/raceMAEService.ts:19` — add `await` before `RaceAnalysisCache.getRaceAnalysis(raceId)`. One-line fix. No type changes needed (the existing `if (!stored)` null-guard already handles the `null` case correctly once the value is actually awaited). Verify with `tsc --noEmit` and `vitest run`.
-
-<!-- stdout from run 35 2026-04-10 08:00 -->
----
-
-**Run 35 complete.**
-
-## Finding: Critical production bug in `raceMAEService.ts`
-
-**Root cause:** `src/services/raceMAEService.ts:19` is missing `await`:
-
-```typescript
-// Current (broken in production):
-const stored = RaceAnalysisCache.getRaceAnalysis(raceId);
-
-// Fix:
-const stored = await RaceAnalysisCache.getRaceAnalysis(raceId);
-```
-
-`getRaceAnalysis` is declared `static async` and returns `Promise<RaceAnalysisData | null>`. Without `await`, `stored` is always a truthy Promise object — the null guard never triggers, and `stored.horses` at line 43 is `undefined`, causing `TypeError: undefined is not iterable` every time the user clicks "Compute" in MAEPanel.
-
-**Why it was invisible:** The test mock at `raceMAEService.test.ts:25` returns the data synchronously, so tests see real data instead of a Promise and pass cleanly. TypeScript doesn't catch it either (likely due to project reference cache or the `strict: false` in `tsconfig.app.json`).
-
-**Impact:** The entire MAE feature — the accuracy feedback loop added in Run 32 — is non-functional in production. No user who clicks "Compute" has ever gotten a result.
-
-**Fix for next mutate run:** One-line change at `raceMAEService.ts:19`. Tests should still pass unchanged since the mock behavior is unaffected. `tsc --noEmit` + 127/127 tests should confirm clean.
-
-
-<!-- stdout from run 36 2026-04-10 09:00 -->
-[run failed — claude exited 1]
-
-You've hit your limit · resets 1pm (Europe/Stockholm)
-
-
-<!-- stdout from run 36 2026-04-10 10:00 -->
-[run failed — claude exited 1]
-
-You've hit your limit · resets 1pm (Europe/Stockholm)
-
-
-<!-- stdout from run 36 2026-04-10 11:00 -->
-[run failed — claude exited 1]
-
-You've hit your limit · resets 1pm (Europe/Stockholm)
-
-
-<!-- stdout from run 36 2026-04-10 12:00 -->
-[run failed — claude exited 1]
-
-You've hit your limit · resets 1pm (Europe/Stockholm)
-
----
-
-## Run 36 — 2026-04-10 — MUTATE
-
-**Goal:** Fix CRITICAL thread — missing `await` in `raceMAEService.ts` breaking MAE compute in production. Also fix 3 pre-existing test failures caused by `FORM_SCALE_S` changing from 0.05 → 0.30 without test updates.
-**Done:**
-- `src/services/raceMAEService.ts:19` — added `await` to `RaceAnalysisCache.getRaceAnalysis(raceId)`. Without it, `stored` was always a truthy Promise object, the null-guard never fired, and `stored.horses` threw `TypeError: undefined is not iterable` at runtime.
-- `src/services/modernKm/__tests__/normalizationPipeline.test.ts` — updated 3 `calculateFormAdjustment` test expected values to match current `FORM_SCALE_S = 0.30` (tests were written for 0.05). All 3 now pass with correct formula comments.
-**Result:** pass — tsc clean, 127/127 tests pass
-**Next:** Surface aggregate MAE accuracy badge in main header (currently hidden behind Cache drawer — see open thread in ACTIVE_THREADS.md)
-
-<!-- stdout from run 36 2026-04-10 13:00 -->
-Done. Two fixes in this run:
-
-**1. Critical bug fixed — `raceMAEService.ts:19`**
-`getRaceAnalysis` is `static async`. Without `await`, `stored` was always a truthy Promise object — the null-guard never fired and `stored.horses` threw `TypeError: undefined is not iterable` at runtime. One-line fix.
-
-**2. Pre-existing test failures fixed — 3 tests in `normalizationPipeline.test.ts`**
-`FORM_SCALE_S` was changed from `0.05` → `0.30` (in a calibration run) but 3 test expected values still referenced the old scale. Updated the expected values and comments to match current constants.
-
-Result: tsc clean, **127/127 tests pass**.
-
----
-
 ## Run 47 — 2026-04-10 — MUTATE
 
 **Goal:** Surface MAE accuracy panel (MAEPanel was built in Run 32 but never mounted — invisible to users). Add compact accuracy badge to header toolbar. Fix kmTimeProcessor test noise.
@@ -145,3 +34,128 @@ Run 47 complete. Here's what changed:
 [run failed — claude exited 1]
 
 You've hit your limit · resets 6pm (Europe/Stockholm)
+
+
+<!-- stdout from run 38 2026-04-10 16:00 -->
+[run failed — claude exited 1]
+
+You've hit your limit · resets 6pm (Europe/Stockholm)
+
+
+<!-- stdout from run 38 2026-04-10 17:00 -->
+[run failed — claude exited 1]
+
+You've hit your limit · resets 6pm (Europe/Stockholm)
+
+
+---
+
+---
+
+## Run 48 — 2026-04-10 — MUTATE
+
+**Goal:** Lane 2 research — produce 5 falsifiable hypotheses on baseline prediction errors. Opportunistic: console cleanup in `horseProcessing.ts` + dead `horseForm` removal.
+**Done:**
+- `memory/decisions.md` — added `## Research: baseline investigation — Run 48` with 5 hypotheses (H1–H5 ranked by impact): gallop-invisible-to-form, single-best-time-bias, field-size-blind-form, layoff-threshold-miscalibrated, fallback-form-scale-mismatch.
+- `src/services/horseProcessing.ts` — added `import { log } from '@/lib/logger'`; replaced all ~20 raw `console.log/warn/error` calls with `log.debug/warn/error`. These fired for every horse on every analysis run.
+- `src/components/v75/utils/horseNormalizationProcessor.ts` — removed dead `horseForm: horse.statistics.winPercentage` excess property from both `factors` objects (the `horseForm` field was deleted from `ModernNormalizationFactors` in Run 13; these two lines had zero effect but were misleading).
+**Result:** pass — tsc clean, 131/131 tests pass
+**Next:** Lane 1 (evaluate Run 46 weights) is unblocked by MAEPanel being visible (Run 47). User needs to run MAE evaluator on recent V75 dates in the browser and record Rank MAE + win% vs baseline (MAE 5.289, win 30.6%). If improved → update status.json accuracy field. If not → revert to v1 weights per ACTIVE_THREADS. After evaluation, consider implementing H1 or H2 from decisions.md.
+
+<!-- stdout from run 38 2026-04-10 18:00 -->
+Run 48 complete. Here's what changed:
+
+---
+
+## Summary
+
+**Lane 2 research — 5 hypotheses written to `memory/decisions.md`:**
+
+- **H1 [high]** Gallop/DQ races are invisible to the form calculator — `recentRaces` is built from `processedTimes` which already excludes them. A horse that galloped last race has zero form penalty from that event (gallopRisk is a career-rate signal, not a last-race signal). Fix: pass these races as place=15.
+- **H2 [high]** Single best time (most optimistic) biases the model toward boom-or-bust horses over consistent ones. `consistencyFactor` max impact is 0.075s — too small to compensate. Fix: average top-2 times.
+- **H3 [med]** Form scoring uses absolute finish positions; 6th in a 7-horse race = 6th in a 16-horse race. Fix: percentile-based bands.
+- **H4 [med]** Layoff threshold of 21 days is miscalibrated for the active V75 season where typical rest is 10–14 days. Fix: reduce to 14d.
+- **H5 [low]** Fallback form scale (0.01) is 40× smaller than the main form path (0.40) — no-history horses are systematically undervalued.
+
+**Opportunistic cleanup (same pass):**
+- `src/services/horseProcessing.ts` — added `log` import; replaced ~20 raw `console.*` calls with `log.debug/warn/error`. These fired on every horse for every analysis run.
+- `src/components/v75/utils/horseNormalizationProcessor.ts` — removed dead `horseForm: horse.statistics.winPercentage` from both `factors` objects (property removed from the type in Run 13; these assignments were silently ignored for 35 runs).
+
+**Result:** tsc clean, 131/131 tests pass.
+
+**Lane 1 is still open** — it requires the user to run the MAE evaluator in the browser and compare Rank MAE vs the 5.289 baseline.
+
+
+<!-- stdout from run 39 2026-04-10 19:00 -->
+[run failed — claude exited 1]
+
+You've hit your limit · resets 11pm (Europe/Stockholm)
+
+
+<!-- stdout from run 39 2026-04-10 20:00 -->
+[run failed — claude exited 1]
+
+You've hit your limit · resets 11pm (Europe/Stockholm)
+
+
+<!-- stdout from run 39 2026-04-10 21:00 -->
+[run failed — claude exited 1]
+
+You've hit your limit · resets 11pm (Europe/Stockholm)
+
+
+<!-- stdout from run 39 2026-04-10 22:00 -->
+[run failed — claude exited 1]
+
+You've hit your limit · resets 11pm (Europe/Stockholm)
+
+---
+
+## Run 49 — 2026-04-10 — RESEARCH
+
+**Investigated:** Full gallop signal tracing — `horseProcessing.ts` → `HorseRawKmTime` → `horseNormalizationProcessor.ts` → `confidenceFlags.ts` → `modernKm/index.ts`
+
+**Key finding:** `gallopCount` and `disqualificationCount` are declared in the `HorseRawKmTime` interface (`kmTimeTypes.ts:45-47`) and read by `confidenceFlags.ts:128` (`rawTimeData?.gallopCount ?? 0`), but **`horseProcessing.ts` never populates either field**. It computes `gallopRate` (career float) but omits the integer counts from its return object. Result: `gallopRisk` confidence flag is permanently `false` in production — the "Gallop ×N" UI chip never fires. All four unit tests for this flag pass because they manually inject `gallopCount` via `makeRawTimeData`, masking the wiring gap entirely. Separately, `calculateGallopReliabilityPenalty` (`adjustmentCalculators.ts:173`) — added in Run 22 and documented as "wired into pipeline" — is **dead code**: `modernKm/index.ts` uses `calculateGallopRiskAdjustment` (rate-based, line 156) instead.
+
+**Implication:** Every horse with 2+ gallops in their last 10 starts is silently missing the "Gallop ×N" warning chip. The reliability score for these horses is inflated by 0.5 points (no gallop deduction). Users see no flag for horses that are genuine reliability concerns. The scoring itself is unaffected (career rate penalty still applies), but the annotation system is broken.
+
+**Suggested next move:** Mutate `horseProcessing.ts` only — add two lines to the return object:
+```
+gallopCount: sortedRecent10.filter(r => r.galloped).length,
+disqualificationCount: sortedRecent10.filter(r => r.disqualified).length,
+```
+where `sortedRecent10` is `historicalRaces` sorted descending by date, sliced to 10. No interface changes needed (fields already exist). No scoring changes. Test: the existing 4 `gallopRisk` tests should still pass; add 1 integration test verifying `gallopCount > 0` when input has a galloped race in the last 10. After this is merged, `calculateGallopReliabilityPenalty` can replace `calculateGallopRiskAdjustment` in `modernKm/index.ts` for a more granular recent-count-based penalty (separate run).
+
+
+<!-- stdout from run 39 2026-04-10 23:00 -->
+---
+
+---
+
+## Run 49 Research Summary
+
+**Thread investigated:** `gallopCount` wiring — traced the full gallop signal from data ingestion to UI flag.
+
+### What I found
+
+**Production bug — `gallopRisk` confidence flag is permanently silent:**
+
+The chain breaks at `horseProcessing.ts`. It computes `gallopRate` (career float) and returns it, but the `HorseRawKmTime` interface also declares `gallopCount` and `disqualificationCount` (integer counts for last 10 starts). These are never populated. `confidenceFlags.ts:128` reads `rawTimeData?.gallopCount ?? 0` — always gets `0` — so `gallopRisk` is always `false`.
+
+The UI chip `"Gallop ×N"` in `CompactHorseRow.tsx` and the −0.5 reliability score deduction never fire for any horse in production. Four unit tests pass only because they manually inject `gallopCount` via `makeRawTimeData` — they test the function in isolation, masking the wiring gap entirely.
+
+**Secondary finding — `calculateGallopReliabilityPenalty` is dead code:**
+
+Run 22 notes say "wired into pipeline" but `modernKm/index.ts:156` uses `calculateGallopRiskAdjustment` (career rate, from `performanceCalculators.ts`) instead. `calculateGallopReliabilityPenalty` (count-based, from `adjustmentCalculators.ts`) is exported, tested (10 tests), but never called in the pipeline.
+
+### Recommended next MUTATE
+
+**File:** `src/services/horseProcessing.ts` — one change, no interface modifications needed:
+
+Compute from `historicalRaces` sorted descending by date, sliced to 10:
+```
+gallopCount: recentTen.filter(r => r.galloped === true).length,
+disqualificationCount: recentTen.filter(r => r.disqualified === true).length,
+```
+
+This fixes the silent flag, doesn't touch scoring, and opens the door for replacing `calculateGallopRiskAdjustment` with the count-based `calculateGallopReliabilityPenalty` in a follow-up run.

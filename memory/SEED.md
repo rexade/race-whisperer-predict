@@ -55,36 +55,33 @@ The race data comes from the real ATG.se production API. It is not a test enviro
 - Prefer UX clarity and data quality over feature additions
 - Avoid random rewrites or complexity that doesn't serve the user
 
+## Visual phase — Pi Pulse aesthetic
+
+The UI should adopt Pi Pulse's dark aesthetic. Not a clone — same visual language applied to a data tool.
+
+Target look:
+- Background: `#080808` (pure black, no blue tint)
+- Surface panels: `#0f0f0f` / `#161616`
+- Accent: `#22d3ee` cyan (replaces ATG blue throughout)
+- Default to dark — `defaultTheme="dark"` in App.tsx, ThemeToggle can stay but dark is the default
+- Borders: hairline `rgba(255,255,255,0.07)`
+- Text: `#f1f5f9` primary, `#475569` muted
+
+**Reference:** Pi Pulse CSS lives at `/home/admin/lab/src/pi-pulse/src/index.css` — read it before making token changes.
+
+**Rules:**
+- One visual layer per run — do not rewrite everything at once
+- Start with `src/index.css` dark mode tokens, then `App.tsx`, then component surfaces
+- Never mix visual changes with scoring/logic changes in the same run
+- tsc must pass after every visual run
+- Do not remove functionality — WeightManager, MAE panel, cache drawer all stay
+
 ## Scoring pipeline
 Single adjusted km-time output (lower = better). 13 factors in `applyModernKmNormalization` (`modernKm/index.ts`). Weights in `DEFAULT_WEIGHTS` (`modernKm/types.ts`), user-tunable via `WeightManager` → `localStorage`.
 Full step-by-step reference: `memory/SEED_PIPELINE.md`
 
-## Current weight snapshot (v2 — updated Run 46)
-| Factor | Weight | Notes |
-|---|---|---|
-| `driverPerformance` | 1.0 | exact table value |
-| `raceDistanceAdjustment` | 1.0 | reference distance scaling |
-| `volteStartDistancePenalty` | 1.1 | standing start cost |
-| `postPosition` | 0.9 | meaningful but not decisive |
-| `form` | **0.8** | ↑ boosted — primary current-condition signal |
-| `distanceAdjustment` | 0.8 | preferred vs race distance |
-| `trackFamiliarity` | 0.6 | home track bonus |
-| `layoffPenalty` | 0.6 | 21+ days rest |
-| `placePercentage` | 0.6 | career place rate |
-| `sulkyType` | 0.5 | American sulky advantage |
-| `gallopRisk` | 0.5 | gait-break history |
-| `ageFactor` | 0.5 | peak 5–7yo |
-| `startPoints` | 0.5 | saturated log-scale rating |
-| `consistencyFactor` | **0.5** | ↑ boosted — consistent finishers rank better |
-| `shoeType` | 0.4 | barefoot advantage |
-| `genderAdjustment` | 0.4 | mare penalty |
-| `horseWinPercentage` | **0.2** | ↓ reduced — overlap with startPoints+place% |
-| `earningsPerStart` | **0.1** | ↓ reduced — class/purse bias |
-
-Form constants (v2):
-- `FORM_SCALE_S`: 0.40 (↑ from 0.30) — wider impact range
-- `FORM_MAX_RECENT_RACES`: 5 (↓ from 8) — tighter recency window
-- Recency weighting: **exponential** `2^(n-i-1)` (↑ from linear) — most recent race = 52% of weight
+## Current weight snapshot
+*v2 weights active (Run 46). Full table in `memory/SEED_PIPELINE.md`. Key changes: form 0.8, consistencyFactor 0.5, horseWinPct 0.2, earningsPerStart 0.1. FORM_SCALE_S 0.40, FORM_MAX_RECENT_RACES 5, exponential recency.*
 
 ## Primary direction — accuracy and trustworthy results
 
