@@ -3,7 +3,7 @@ import { GAME_TYPE } from '@/config/game';
 const TARGET_GAME = GAME_TYPE;
 
 import { V75ActualResult } from '../types/postRaceAnalysisTypes';
-import { formatKmTime } from '../utils/postRaceUtils';
+import { formatKmTime } from '../utils/v75DisplayUtils';
 import { parseActualTime, findBestTime } from '../utils/timeAnalysisUtils';
 import { log } from '@/lib/logger';
 import { IS_DEBUG } from '@/config/game';
