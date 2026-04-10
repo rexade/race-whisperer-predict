@@ -12,6 +12,7 @@ export interface ProcessedKmTime {
   distance: number;
   startMethod: string;
   finishOrder?: number;
+  postPosition?: number;
   valid: boolean;
 }
 
@@ -40,6 +41,10 @@ export interface HorseRawKmTime {
   consistencyScore?: number;
   usedExtendedFallback?: boolean;
   usedInvalidTimeFallback?: boolean;
+  /** Number of gallop (stride-break) races in the last 10 historical starts. */
+  gallopCount?: number;
+  /** Number of disqualified races in the last 10 historical starts. */
+  disqualificationCount?: number;
   warning?: {
     type: 'invalid-record';
     message: string;
@@ -47,23 +52,3 @@ export interface HorseRawKmTime {
   };
 }
 
-export interface ModernKmNormalizedResult {
-  rawTime: KmTime;
-  modernNormalizedTime: KmTime;
-  adjustments: {
-    postPosition: number;
-    equipment: number;
-    driver: number;
-    track: number;
-    form: number;
-    distance: number;
-    raceDistanceAdjustment: number;
-    raceType: number;
-    timeOfDay: number;
-    startPoints: number;
-    placePercentage: number;
-    horseWinPercentage: number;
-    earningsPerStart: number;
-    total: number;
-  };
-}

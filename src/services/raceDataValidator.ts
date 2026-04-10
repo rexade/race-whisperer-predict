@@ -1,4 +1,5 @@
 import { EnhancedRaceData, EnhancedHorseData } from './enhancedAtgApi';
+import { log } from '../lib/logger';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -22,7 +23,7 @@ export interface ScratchAnalysis {
 }
 
 const analyzeScratchesAndDuplicates = (horses: EnhancedHorseData[]): ScratchAnalysis => {
-  console.log(`\n🔍 === ANALYZING SCRATCHES AND DUPLICATES ===`);
+  log.debug(`analyzing scratches and duplicates`);
   
   // Group horses by post position
   const postPositionMap = new Map<number, EnhancedHorseData[]>();
@@ -39,7 +40,7 @@ const analyzeScratchesAndDuplicates = (horses: EnhancedHorseData[]): ScratchAnal
   postPositionMap.forEach((horsesAtPosition, position) => {
     if (horsesAtPosition.length > 1) {
       actualDuplicates.push(position);
-      console.log(`🚨 ACTUAL DUPLICATE at position ${position}: ${horsesAtPosition.map(h => h.name).join(', ')}`);
+      log.debug(`actual duplicate at position ${position}: ${horsesAtPosition.map(h => h.name).join(', ')}`);
     }
   });
 
@@ -64,7 +65,7 @@ const analyzeScratchesAndDuplicates = (horses: EnhancedHorseData[]): ScratchAnal
       
       if (hasLowerPosition && hasHigherPosition) {
         likelyScratches.push(pos);
-        console.log(`🐎❌ Position ${pos} appears to be SCRATCHED (gap in sequence)`);
+        log.debug(`position ${pos} appears to be scratched (gap in sequence)`);
       }
     });
   }
@@ -77,7 +78,7 @@ const analyzeScratchesAndDuplicates = (horses: EnhancedHorseData[]): ScratchAnal
     actualHorses
   };
 
-  console.log(`📊 SCRATCH ANALYSIS RESULT:`, {
+  log.debug(`scratch analysis result:`, {
     actualHorses: analysis.actualHorses,
     maxPosition: analysis.maxPosition,
     likelyScratches: analysis.likelyScratches,
@@ -96,8 +97,7 @@ export const validateRaceData = (raceData: EnhancedRaceData): ValidationResult =
     fixes: []
   };
 
-  console.log(`\n=== Validating race data for ${raceData.raceId} ===`);
-  console.log(`Race has ${raceData.horses.length} horses`);
+  log.debug(`validating race data for ${raceData.raceId}, ${raceData.horses.length} horses`);
 
   // Analyze scratches and duplicates
   const scratchAnalysis = analyzeScratchesAndDuplicates(raceData.horses);
@@ -123,7 +123,7 @@ export const validateRaceData = (raceData: EnhancedRaceData): ValidationResult =
     result.warnings.push(
       `Detected ${scratchAnalysis.likelyScratches.length} likely scratched horses at positions: ${scratchAnalysis.likelyScratches.join(', ')}`
     );
-    console.log(`ℹ️ This is normal - horses can be scratched before race start`);
+    log.debug(`scratched horses detected — normal before race start`);
   }
 
   // Check for unusual position patterns that might indicate data issues
@@ -139,24 +139,24 @@ export const validateRaceData = (raceData: EnhancedRaceData): ValidationResult =
   raceData.dataQuality.hasValidPostPositions = scratchAnalysis.actualDuplicates.length === 0;
   raceData.dataQuality.duplicatePositions = scratchAnalysis.actualDuplicates;
 
-  console.log(`Validation result: ${result.isValid ? 'VALID' : 'INVALID'}`);
+  log.debug(`validation result: ${result.isValid ? 'valid' : 'invalid'}`);
   if (result.errors.length > 0) {
-    console.log('Errors:', result.errors);
+    log.debug('errors:', result.errors);
   }
   if (result.warnings.length > 0) {
-    console.log('Warnings:', result.warnings);
+    log.debug('warnings:', result.warnings);
   }
 
   return result;
 };
 
 export const fixRaceDataIssues = (raceData: EnhancedRaceData): EnhancedRaceData => {
-  console.log(`\n=== Attempting to fix race data issues ===`);
+  log.debug(`attempting to fix race data issues`);
   
   const validation = validateRaceData(raceData);
   
   if (validation.isValid) {
-    console.log('✅ No fixes needed - data is valid');
+    log.debug('no fixes needed — data is valid');
     return raceData;
   }
 
@@ -167,14 +167,14 @@ export const fixRaceDataIssues = (raceData: EnhancedRaceData): EnhancedRaceData 
   const duplicateFixes = validation.fixes.filter(fix => fix.type === 'duplicate_position');
   
   if (duplicateFixes.length > 0) {
-    console.log('🔧 Fixing ACTUAL duplicate post positions (not scratches)...');
+    log.debug('fixing actual duplicate post positions (not scratches)');
     
     const scratchAnalysis = analyzeScratchesAndDuplicates(fixedData.horses);
     
     // For each duplicate position, reassign one of the horses to an available position
     scratchAnalysis.actualDuplicates.forEach(duplicatePosition => {
       const horsesAtPosition = fixedData.horses.filter(h => h.postPosition === duplicatePosition);
-      console.log(`🔧 Fixing duplicate at position ${duplicatePosition} with ${horsesAtPosition.length} horses`);
+      log.debug(`fixing duplicate at position ${duplicatePosition} with ${horsesAtPosition.length} horses`);
       
       // Keep the first horse at the original position, move others
       for (let i = 1; i < horsesAtPosition.length; i++) {
@@ -186,7 +186,7 @@ export const fixRaceDataIssues = (raceData: EnhancedRaceData): EnhancedRaceData 
           newPosition++;
         }
         
-        console.log(`  Moving ${horseToMove.name}: ${duplicatePosition} → ${newPosition}`);
+        log.debug(`moving ${horseToMove.name}: ${duplicatePosition} -> ${newPosition}`);
         horseToMove.postPosition = newPosition;
       }
     });
@@ -195,11 +195,11 @@ export const fixRaceDataIssues = (raceData: EnhancedRaceData): EnhancedRaceData 
     fixedData.dataQuality.hasValidPostPositions = true;
     fixedData.dataQuality.duplicatePositions = [];
     
-    console.log('✅ Fixed duplicate positions while preserving scratch gaps');
+    log.debug('fixed duplicate positions while preserving scratch gaps');
   }
   
   const finalValidation = validateRaceData(fixedData);
-  console.log(`Fix result: ${finalValidation.isValid ? 'SUCCESS' : 'FAILED'}`);
+  log.debug(`fix result: ${finalValidation.isValid ? 'success' : 'failed'}`);
   
   return fixedData;
 };

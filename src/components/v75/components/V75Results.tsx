@@ -45,7 +45,7 @@ const V75Results: React.FC<V75ResultsProps> = ({
 
           <Tabs value={activeTab} onValueChange={onTabChange}>
             {/* Dynamic grid tabs based on race count */}
-            <div className="sticky top-[52px] z-10 bg-background border-b mb-4">
+            <div className="sticky top-[57px] z-10 bg-background border-b mb-4">
               <TabsList 
                 className="bg-transparent p-0 gap-1 w-full h-9 sm:h-10"
                 style={{ display: 'grid', gridTemplateColumns: `repeat(${races.length}, 1fr)` }}

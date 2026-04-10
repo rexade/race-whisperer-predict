@@ -5,6 +5,7 @@ import { V75RaceResult } from '../types/raceResultTypes';
 import { HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 import { RaceScoreCalculator } from './raceScoreCalculator';
 import { loadKmTimeRecords, getKmTimeRecordsForHorse } from '../../../services/kmTimeRecords';
+import { log } from '@/lib/logger';
 
 export class RaceResultProcessor {
   /**
@@ -55,7 +56,7 @@ export class RaceResultProcessor {
         }
       };
     } catch (error) {
-      console.error(`❌ Error processing race ${race.raceNumber}:`, error);
+      log.error(`Error processing race ${race.raceNumber}:`, error);
 
       return this.createErrorRaceResult(race, safeRaceTrack, safeRaceName);
     }

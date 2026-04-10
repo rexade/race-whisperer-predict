@@ -1,4 +1,5 @@
-import { RaceAnalysisData, RaceAnalysisSummary } from './types';
+import { log } from '@/lib/logger';
+import { RaceAnalysisData, RaceAnalysisSummary, RaceMAEResult } from './types';
 
 export class RaceAnalysisCache {
   /**
@@ -32,26 +33,22 @@ export class RaceAnalysisCache {
         horses
       };
       
-      // Enhanced debug logging for storage verification
-      console.log(`💾 STORING RACE ANALYSIS - Race ${raceNumber}:`);
-      console.log(`📅 Analysis date: ${analysisDate}`);
-      console.log(`🔑 Storage key: ${key}`);
-      console.log(`🐎 Horse count: ${horses.length}`);
-      
+      // Debug logging for storage verification
+      log.debug(`Storing race analysis - Race ${raceNumber}: date=${analysisDate}, key=${key}, horses=${horses.length}`);
+
       const horsesWithTimes = horses.filter(h => h.predictedTime);
-      console.log(`⏱️ Horses with predicted times: ${horsesWithTimes.length}`);
-      
-      // Sample the first few horses with predicted times
+      log.debug(`Horses with predicted times: ${horsesWithTimes.length}`);
+
       horsesWithTimes.slice(0, 3).forEach(horse => {
-        console.log(`  🐎 ${horse.horseName}: ${horse.predictedTime?.minutes}:${horse.predictedTime?.seconds}.${horse.predictedTime?.tenths}`);
+        log.debug(`  ${horse.horseName}: ${horse.predictedTime?.minutes}:${horse.predictedTime?.seconds}.${horse.predictedTime?.tenths}`);
       });
-      
+
       localStorage.setItem(key, JSON.stringify(analysisData));
-      
-      console.log(`✅ Race analysis stored successfully`);
+
+      log.debug(`Race analysis stored successfully`);
       
     } catch (error) {
-      console.error('❌ Error storing race analysis:', error);
+      log.warn('Error storing race analysis:', error);
       throw error;
     }
   }
@@ -65,9 +62,8 @@ export class RaceAnalysisCache {
       const stored = localStorage.getItem(key);
       
       if (!stored) {
-        console.log(`🔍 No race analysis found for race ${raceId}`);
-        console.log(`📋 Checking all localStorage keys for race analyses...`);
-        
+        log.debug(`No race analysis found for race ${raceId}`);
+
         // Debug: List all available race analysis keys
         const allKeys = [];
         for (let i = 0; i < localStorage.length; i++) {
@@ -76,34 +72,27 @@ export class RaceAnalysisCache {
             allKeys.push(key);
           }
         }
-        console.log(`🗂️ Found ${allKeys.length} race analysis entries:`, allKeys);
-        
+        log.debug(`Found ${allKeys.length} race analysis entries:`, allKeys);
+
         return null;
       }
-      
+
       const analysisData = JSON.parse(stored);
-      
-      // Enhanced debug logging for retrieval verification
-      console.log(`📊 RETRIEVED RACE ANALYSIS - Race ${analysisData.raceNumber}:`);
-      console.log(`📅 Analysis date: ${analysisData.analysisDate}`);
-      console.log(`🐎 Horse count: ${analysisData.horses.length}`);
-      
+
+      // Debug logging for retrieval verification
+      log.debug(`Retrieved race analysis - Race ${analysisData.raceNumber}: date=${analysisData.analysisDate}, horses=${analysisData.horses.length}`);
+
       const horsesWithTimes = analysisData.horses.filter((h: any) => h.predictedTime);
-      console.log(`⏱️ Horses with predicted times: ${horsesWithTimes.length}`);
-      
-      // Sample verification of predicted time data integrity
+      log.debug(`Horses with predicted times: ${horsesWithTimes.length}`);
+
       horsesWithTimes.slice(0, 3).forEach((horse: any) => {
-        console.log(`  🐎 ${horse.horseName}: ${horse.predictedTime?.minutes}:${horse.predictedTime?.seconds}.${horse.predictedTime?.tenths}`);
-        console.log(`    - Time validity:`, horse.predictedTime && 
-          typeof horse.predictedTime.minutes === 'number' &&
-          typeof horse.predictedTime.seconds === 'number' &&
-          typeof horse.predictedTime.tenths === 'number');
+        log.debug(`  ${horse.horseName}: ${horse.predictedTime?.minutes}:${horse.predictedTime?.seconds}.${horse.predictedTime?.tenths}`);
       });
-      
+
       return analysisData;
       
     } catch (error) {
-      console.error('❌ Error retrieving race analysis:', error);
+      log.warn('Error retrieving race analysis:', error);
       return null;
     }
   }
@@ -115,9 +104,9 @@ export class RaceAnalysisCache {
     try {
       const key = `v75_race_analysis_${raceId}`;
       localStorage.removeItem(key);
-      console.log(`🗑️ Cleared race analysis for race ${raceId}`);
+      log.debug(`Cleared race analysis for race ${raceId}`);
     } catch (error) {
-      console.error('❌ Error clearing race analysis:', error);
+      log.warn('Error clearing race analysis:', error);
     }
   }
 
@@ -128,8 +117,8 @@ export class RaceAnalysisCache {
     try {
       const analyses: RaceAnalysisSummary[] = [];
       
-      console.log(`🔍 Scanning localStorage for race analyses...`);
-      
+      log.debug(`Scanning localStorage for race analyses...`);
+
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         
@@ -147,9 +136,9 @@ export class RaceAnalysisCache {
         }
       }
       
-      console.log(`📋 Found ${analyses.length} race analyses in cache`);
+      log.debug(`Found ${analyses.length} race analyses in cache`);
       analyses.forEach(analysis => {
-        console.log(`  - Race ${analysis.raceNumber} (${analysis.raceId}): ${analysis.analysisDate}`);
+        log.debug(`  Race ${analysis.raceNumber} (${analysis.raceId}): ${analysis.analysisDate}`);
       });
       
       // Sort by date and race number
@@ -162,7 +151,7 @@ export class RaceAnalysisCache {
       return analyses;
       
     } catch (error) {
-      console.error('❌ Error getting all race analyses:', error);
+      log.warn('Error getting all race analyses:', error);
       return [];
     }
   }
@@ -189,11 +178,11 @@ export class RaceAnalysisCache {
         gameIds.push(`v75-${date}`);
       });
       
-      console.log(`📋 Found cached game IDs: ${gameIds.join(', ')}`);
+      log.debug(`Found cached game IDs: ${gameIds.join(', ')}`);
       return gameIds;
-      
+
     } catch (error) {
-      console.error('❌ Error getting cached game IDs:', error);
+      log.warn('Error getting cached game IDs:', error);
       return [];
     }
   }
@@ -203,24 +192,63 @@ export class RaceAnalysisCache {
    */
   static async hasPredictionsForDate(date: string): Promise<boolean> {
     try {
-      console.log(`🔍 Checking predictions for date: ${date}`);
-      
+      log.debug(`Checking predictions for date: ${date}`);
+
       const raceAnalyses = await this.getAllRaceAnalyses();
       const matchingAnalyses = raceAnalyses.filter(analysis => analysis.analysisDate === date);
-      
-      console.log(`📊 Found ${matchingAnalyses.length} analyses for ${date}:`);
+
+      log.debug(`Found ${matchingAnalyses.length} analyses for ${date}`);
       matchingAnalyses.forEach(analysis => {
-        console.log(`  - Race ${analysis.raceNumber} (${analysis.raceId}): stored on ${analysis.timestamp}`);
+        log.debug(`  Race ${analysis.raceNumber} (${analysis.raceId}): stored on ${analysis.timestamp}`);
       });
-      
+
       const hasAnalyses = matchingAnalyses.length > 0;
-      console.log(`🎯 Predictions for ${date}: ${hasAnalyses ? 'FOUND' : 'NOT FOUND'}`);
-      
+      log.debug(`Predictions for ${date}: ${hasAnalyses ? 'FOUND' : 'NOT FOUND'}`);
+
       return hasAnalyses;
-      
+
     } catch (error) {
-      console.error('❌ Error checking predictions for date:', error);
+      log.warn('Error checking predictions for date:', error);
       return false;
+    }
+  }
+
+  // ─── MAE cache ───────────────────────────────────────────────────────────────
+
+  static storeMAEResult(maeResult: RaceMAEResult): void {
+    try {
+      localStorage.setItem(`v75_mae_${maeResult.raceId}`, JSON.stringify(maeResult));
+      log.debug(`MAE result stored for race ${maeResult.raceId}: meanRankError=${maeResult.meanRankError.toFixed(2)}`);
+    } catch (error) {
+      log.warn('Error storing MAE result:', error);
+    }
+  }
+
+  static getMAEResult(raceId: string): RaceMAEResult | null {
+    try {
+      const stored = localStorage.getItem(`v75_mae_${raceId}`);
+      return stored ? (JSON.parse(stored) as RaceMAEResult) : null;
+    } catch (error) {
+      log.warn('Error retrieving MAE result:', error);
+      return null;
+    }
+  }
+
+  static getAllMAEResults(): RaceMAEResult[] {
+    try {
+      const results: RaceMAEResult[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('v75_mae_')) {
+          const stored = localStorage.getItem(key);
+          if (stored) results.push(JSON.parse(stored) as RaceMAEResult);
+        }
+      }
+      results.sort((a, b) => b.analysisDate.localeCompare(a.analysisDate) || a.raceNumber - b.raceNumber);
+      return results;
+    } catch (error) {
+      log.warn('Error retrieving all MAE results:', error);
+      return [];
     }
   }
 }

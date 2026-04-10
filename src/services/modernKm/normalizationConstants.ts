@@ -238,3 +238,49 @@ export const KM_MAX_SECONDS = 125 as const;  // 2:05.0 / km
 /** Multiplier applied to times sourced from statistics records (not results).
  *  Values < 1 penalise uncertain data so estimated times rank lower. */
 export const STATISTICS_CONFIDENCE_MULTIPLIER = 0.7 as const;
+
+// ---------------------------------------------------------------------------
+// Gallop reliability
+// ---------------------------------------------------------------------------
+
+/** Penalty added per gallop (stride-break) in the horse's last 10 starts.
+ *  Ported from v85-briefing-engine feature_extract/reliability.py.
+ *  1 gallop → +0.15 s; 3 gallops → +0.45 s (before weight). */
+export const GALLOP_PENALTY_PER_RACE_S = 0.15 as const;
+
+/** Penalty added per disqualification in the horse's last 10 starts. */
+export const DISQ_PENALTY_PER_RACE_S = 0.10 as const;
+
+/** Hard cap on the total gallop reliability penalty (before weight).
+ *  Even a very unreliable horse cannot exceed this. */
+export const GALLOP_RELIABILITY_MAX_PENALTY_S = 0.50 as const;
+
+// ---------------------------------------------------------------------------
+// Trip dependency (volte-penalty modifier)
+// ---------------------------------------------------------------------------
+
+/** Post-position threshold: draws at or above this are "outside" starts.
+ *  Horses that consistently place from outside positions are less
+ *  trip-dependent and receive a reduced volte back-marker penalty. */
+export const TRIP_DEPENDENCY_OUTSIDE_THRESHOLD = 7 as const;
+
+/** Minimum number of outside-draw races needed to assess trip dependency.
+ *  Fewer than this → insufficient data → modifier stays at 1.0. */
+export const TRIP_DEPENDENCY_MIN_OUTSIDE = 2 as const;
+
+/** Minimum number of positioned records (postPosition defined & > 0)
+ *  before any trip dependency assessment is attempted. */
+export const TRIP_DEPENDENCY_MIN_RECORDS = 4 as const;
+
+/** Modifier when there is insufficient data or the horse has not been
+ *  assessed — leaves the volte penalty completely unmodified. */
+export const TRIP_DEPENDENCY_MAX_MODIFIER = 1.0 as const;
+
+/** Minimum modifier: even the most outside-capable horse retains 60 % of
+ *  the volte penalty (cannot fully explain away a back-marker draw). */
+export const TRIP_DEPENDENCY_MIN_MODIFIER = 0.6 as const;
+
+/** Scale factor mapping outside place rate to penalty reduction.
+ *  outsidePlaceRate × scale = fraction of penalty removed.
+ *  At 100 % outside place rate: 1.0 − 1.0×0.5 = 0.5, clamped to 0.6. */
+export const TRIP_DEPENDENCY_OUTSIDE_RATE_SCALE = 0.5 as const;

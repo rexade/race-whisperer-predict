@@ -372,11 +372,11 @@ const WeightManager: React.FC<WeightManagerProps> = ({
             </TabsList>
             
             <TabsContent value="weights" className="space-y-6 mt-6">
-              <div className="flex justify-between items-start gap-4">
-                <p className="text-sm text-muted-foreground">
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start sm:gap-4">
+                <p className="text-sm text-muted-foreground sm:flex-1">
                   Adjust the weights to control how much each factor affects the final normalized time.
                 </p>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 shrink-0">
                   <div className="flex gap-2">
                     <Button 
                       variant="outline" 
@@ -482,7 +482,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({
                                   max="2.0"
                                   step="0.1"
                                 />
-                                <Badge variant="secondary" className="text-xs">
+                                <Badge variant="secondary" className="hidden sm:inline-flex text-xs">
                                   {factor.typicalRange}
                                 </Badge>
                               </div>

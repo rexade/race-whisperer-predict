@@ -1,0 +1,11 @@
+{
+  "project": "race-whisperer-predict",
+  "managed_by": "pi-pulse",
+  "registered": "2026-04-08",
+  "last_run": "2026-04-10",
+  "run_count": 34,
+  "health": "green",
+  "current_focus": "Run 34: Console cleanup in v75DataConsistencyValidator.ts — 21 console.log + 2 console.error replaced with log.debug/log.error. tsc clean, 127/127 tests pass.",
+  "open_threads": 0,
+  "next_run_goal": "All threads closed. Candidates: MAE-driven weight presets in WeightManager, or surface aggregate MAE accuracy badge in main header."
+}

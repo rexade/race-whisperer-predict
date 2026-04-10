@@ -2,6 +2,7 @@
  * ROBUST Equipment Calculators
  * Enhanced versions with comprehensive validation, corruption detection, and fallbacks
  */
+import { log } from '@/lib/logger';
 
 export interface EquipmentCalculationResult {
   adjustment: number;
@@ -16,12 +17,7 @@ export const calculateRobustShoeAdjustment = (
   backShoes: any,
   horseId?: number
 ): EquipmentCalculationResult => {
-  console.log(`👟 ROBUST calculateShoeAdjustment for horse ${horseId}:`, { 
-    frontShoes, 
-    backShoes, 
-    frontType: typeof frontShoes, 
-    backType: typeof backShoes 
-  });
+  log.debug(`[shoes] horse ${horseId} front=${frontShoes} back=${backShoes}`);
   
   const result: EquipmentCalculationResult = {
     adjustment: 0,
@@ -80,7 +76,7 @@ export const calculateRobustShoeAdjustment = (
     result.warnings.push('Back barefoot: -0.1s advantage');
   }
   
-  console.log(`👟 Shoe calculation result for horse ${horseId}:`, result);
+  log.debug(`[shoes] horse ${horseId} result adj=${result.adjustment} confidence=${result.confidence}`);
   return result;
 };
 
@@ -88,10 +84,7 @@ export const calculateRobustSulkyAdjustment = (
   sulkyType: any,
   horseId?: number
 ): EquipmentCalculationResult => {
-  console.log(`🛷 ROBUST calculateSulkyAdjustment for horse ${horseId}:`, { 
-    sulkyType, 
-    type: typeof sulkyType 
-  });
+  log.debug(`[sulky] horse ${horseId} type=${sulkyType}`);
   
   const result: EquipmentCalculationResult = {
     adjustment: 0,
@@ -129,22 +122,11 @@ export const calculateRobustSulkyAdjustment = (
   );
   
   if (hasCorruption) {
-    console.error(`🚨 SULKY CORRUPTION detected for horse ${horseId}:`, sulkyType);
+    log.warn(`[sulky] corruption detected horse=${horseId} value="${sulkyType}"`);
     result.warnings.push(`Corrupted sulky data: ${sulkyType}`);
     result.fallbackUsed = true;
     result.confidence = 'low';
     result.source = 'fallback_corruption_detected';
-    
-    // Log detailed corruption analysis
-    console.error('🚨 Corruption analysis:', {
-      originalValue: sulkyType,
-      length: sulkyType.length,
-      containsObject: sulkyType.includes('[object'),
-      containsFunction: sulkyType.includes('function'),
-      isStringified: sulkyType.startsWith('{') || sulkyType.startsWith('['),
-      horseId
-    });
-    
     return result;
   }
   
@@ -187,7 +169,7 @@ export const calculateRobustSulkyAdjustment = (
     result.adjustment = mapping.adjustment;
     result.warnings.push(mapping.description);
     result.source = `mapped_${normalizedType}`;
-    console.log(`🛷 ✅ Mapped sulky type "${normalizedType}" → ${mapping.adjustment}s (${mapping.description})`);
+    log.debug(`[sulky] mapped "${normalizedType}" → ${mapping.adjustment}s`);
   } else {
     // Unknown type - try pattern matching for variants
     if (normalizedType.startsWith('AM') || normalizedType.includes('AMERICAN')) {
@@ -208,7 +190,7 @@ export const calculateRobustSulkyAdjustment = (
     }
   }
   
-  console.log(`🛷 Sulky calculation result for horse ${horseId}:`, result);
+  log.debug(`[sulky] horse ${horseId} result adj=${result.adjustment} confidence=${result.confidence}`);
   return result;
 };
 

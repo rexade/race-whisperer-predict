@@ -75,4 +75,17 @@ export class V75CacheService {
   static async hasPredictionsForDate(date: string): Promise<boolean> {
     return RaceAnalysisCache.hasPredictionsForDate(date);
   }
+
+  // MAE Cache Methods
+  static storeMAEResult(maeResult: import('./types').RaceMAEResult): void {
+    return RaceAnalysisCache.storeMAEResult(maeResult);
+  }
+
+  static getMAEResult(raceId: string): import('./types').RaceMAEResult | null {
+    return RaceAnalysisCache.getMAEResult(raceId);
+  }
+
+  static getAllMAEResults(): import('./types').RaceMAEResult[] {
+    return RaceAnalysisCache.getAllMAEResults();
+  }
 }

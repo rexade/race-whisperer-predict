@@ -1,0 +1,10 @@
+wing: race-whisperer
+rooms:
+- name: identity
+  description: Stable project facts
+- name: decisions
+  description: Durable decisions and constraints
+- name: failures
+  description: Failure patterns and lessons
+- name: runs
+  description: Per-run compressed summaries

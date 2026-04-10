@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Medal, ChevronDown, ChevronUp, Zap, Banknote, Award } from "lucide-react";
+import { Medal, ChevronDown, ChevronUp, Zap, Banknote, Award, AlertTriangle, Clock, BarChart2, WifiOff } from "lucide-react";
 import { V75HorseResult } from '../hooks/useV75Analysis';
 import { ensureStringForDisplay, formatKmTime, formatEarnings, getShoesDisplay, getShoesColor, getSulkyDisplay } from '../utils/v75DisplayUtils';
 import { V75TimeCalculationDebug } from './V75TimeCalculationDebug';
 import { useIsMobile } from '../../../hooks/use-mobile';
 import { getLatestKmTimeDisplay } from '../../../services/kmTimeRecords';
+import { hasAnyFlag, computeReliabilityScore, type HorseConfidenceFlags } from '../utils/confidenceFlags';
 
 interface CompactHorseRowProps {
   horse: V75HorseResult;
@@ -18,6 +19,117 @@ const uncertainLabel: Record<string, string> = {
   best_only: "Best raw time used — no valid normalized samples available",
   no_valid_samples: "Fallback estimate — no valid historical samples found",
 };
+
+// Small tooltip-wrapped chip used for per-horse confidence flags
+const FlagChip: React.FC<{
+  icon: React.ReactNode;
+  label: string;
+  tooltip: string;
+  variant?: 'warn' | 'danger' | 'muted';
+}> = ({ icon, label, tooltip, variant = 'muted' }) => {
+  const colorClass =
+    variant === 'danger' ? 'text-destructive border-destructive/30 bg-destructive/5'
+    : variant === 'warn' ? 'text-warning border-warning/30 bg-warning/5'
+    : 'text-muted-foreground border-border bg-muted/30';
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className={`inline-flex items-center gap-0.5 text-[10px] px-1 py-0 rounded border cursor-default ${colorClass}`}
+          aria-label={tooltip}
+        >
+          {icon}
+          {label}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
+  );
+};
+
+const ConfidenceFlagStrip: React.FC<{ flags: HorseConfidenceFlags }> = ({ flags }) => {
+  if (!hasAnyFlag(flags)) return null;
+  return (
+    <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+      {flags.noKmTime && (
+        <FlagChip
+          icon={<WifiOff className="h-2.5 w-2.5" aria-hidden="true" />}
+          label="No KM"
+          tooltip="No km time — score is a fallback estimate"
+          variant="danger"
+        />
+      )}
+      {flags.lowSampleSize && (
+        <FlagChip
+          icon={<BarChart2 className="h-2.5 w-2.5" aria-hidden="true" />}
+          label={`Thin (${flags.validTimesCount})`}
+          tooltip={`Only ${flags.validTimesCount} valid km-time sample(s) — thin data basis`}
+          variant="muted"
+        />
+      )}
+      {flags.gallopRisk && (
+        <FlagChip
+          icon={<AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />}
+          label={`Gallop ×${flags.gallopCount}`}
+          tooltip={`${flags.gallopCount} gallop(s) in last 10 starts — reliability concern`}
+          variant="warn"
+        />
+      )}
+      {flags.staleForm && (
+        <FlagChip
+          icon={<Clock className="h-2.5 w-2.5" aria-hidden="true" />}
+          label="Stale"
+          tooltip="Most recent race was 90+ days ago — form data may be stale"
+          variant="warn"
+        />
+      )}
+    </div>
+  );
+};
+
+// ── Reliability dot (1-5 score derived from existing pipeline fields) ──────────
+
+const RELIABILITY_DOT_COLOR: Record<number, string> = {
+  5: 'text-success',
+  4: 'text-success',
+  3: 'text-warning',
+  2: 'text-destructive',
+  1: 'text-destructive',
+};
+
+function buildReliabilityTooltip(score: number, horse: V75HorseResult): string {
+  const deductions: string[] = [];
+  if (horse.timeSource === 'none') deductions.push('no usable time');
+  else if (horse.uncertain) deductions.push('using raw best-time fallback');
+  if (horse.historySource === 'abroad') deductions.push('foreign-track data');
+  if (horse.confidenceMultiplier !== undefined && horse.confidenceMultiplier < 0.5) {
+    deductions.push('very thin raw data');
+  }
+  if (horse.confidenceFlags?.gallopRisk) deductions.push(`gallop risk ×${horse.confidenceFlags.gallopCount}`);
+  if (horse.confidenceFlags?.staleForm) deductions.push('stale form (90+ days)');
+  if (horse.confidenceFlags?.lowSampleSize) deductions.push(`thin sample (${horse.confidenceFlags.validTimesCount} times)`);
+  if (horse.confidenceFlags?.noDriverStats) deductions.push('no driver stats');
+  return deductions.length
+    ? `Signal ${score}/5 — ${deductions.join(', ')}`
+    : `Signal ${score}/5 — strong data basis`;
+}
+
+const ReliabilityDot: React.FC<{ score: number; tooltip: string }> = ({ score, tooltip }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>
+      <span
+        className={`${RELIABILITY_DOT_COLOR[score] ?? 'text-muted-foreground'} text-[9px] cursor-default leading-none`}
+        aria-label={tooltip}
+      >
+        ●
+      </span>
+    </TooltipTrigger>
+    <TooltipContent>{tooltip}</TooltipContent>
+  </Tooltip>
+);
+
+// ──────────────────────────────────────────────────────────────────────────────
 
 const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
   const [showDebug, setShowDebug] = useState(false);
@@ -49,6 +161,17 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
   const kmTimeTooltip = latestKmTime
     ? `Km time data from ${latestKmTime.date}${latestKmTime.raceName ? ` — ${latestKmTime.raceName}` : ''}${horse.kmTimeRecords && horse.kmTimeRecords.length > 1 ? ` (${horse.kmTimeRecords.length} races)` : ''}`
     : '';
+
+  const flags = horse.confidenceFlags;
+
+  const relScore = computeReliabilityScore(
+    horse.confidenceFlags,
+    horse.timeSource,
+    horse.uncertain,
+    horse.historySource,
+    horse.confidenceMultiplier,
+  );
+  const relTooltip = buildReliabilityTooltip(relScore, horse);
 
   return (
     <>
@@ -125,6 +248,8 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
                     </Tooltip>
                   )}
                 </div>
+                {/* Per-horse confidence flags — only rendered when at least one flag is raised */}
+                {flags && <ConfidenceFlagStrip flags={flags} />}
               </div>
               <Button
                 variant="ghost"
@@ -165,7 +290,10 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
                   </Tooltip>
                 )}
               </div>
-              <div className="text-xs text-primary font-medium">Pred</div>
+              <div className="text-xs text-primary font-medium flex items-center justify-center gap-0.5">
+                Pred
+                <ReliabilityDot score={relScore} tooltip={relTooltip} />
+              </div>
             </div>
 
             {/* Raw and Best */}

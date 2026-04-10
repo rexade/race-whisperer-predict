@@ -1,5 +1,6 @@
 import { KmTime } from '../types/kmTimeTypes';
 import { ATGHistoricalRace } from '../horseProcessing';
+import { log } from '@/lib/logger';
 
 export interface HorseDebugInfo {
   horseId: number;
@@ -25,7 +26,7 @@ export class HorseDebugger {
         this.debugLogs = Array.isArray(parsed) ? parsed : (parsed?.logs || []);
       }
     } catch (e) {
-      console.warn('XANDER DEBUG: Failed to hydrate logs from storage', e);
+      log.warn('XANDER DEBUG: Failed to hydrate logs from storage', e);
     } finally {
       this.isHydrated = true;
     }
@@ -37,15 +38,16 @@ export class HorseDebugger {
         localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.debugLogs));
       }
     } catch (e) {
-      console.warn('XANDER DEBUG: Failed to persist logs to storage', e);
+      log.warn('XANDER DEBUG: Failed to persist logs to storage', e);
     }
   }
+
   static shouldDebugHorse(horseName: string): boolean {
     // If debugging all horses, always return true
     if (this.debugAllHorses) return true;
-    
+
     // Otherwise check if horse name matches any target
-    return this.targetHorses.some(target => 
+    return this.targetHorses.some(target =>
       horseName.toLowerCase().includes(target.toLowerCase())
     );
   }
@@ -62,10 +64,10 @@ export class HorseDebugger {
   static log(horseId: number, horseName: string, stage: string, data: any): void {
     if (!this.shouldDebugHorse(horseName)) return;
 
-    console.log(`🐎 [XANDER DEBUG] ${stage.toUpperCase()}`);
-    console.log(`   Horse: ${horseName} (ID: ${horseId})`);
-    console.log(`   Data:`, data);
-    console.log(`   Timestamp: ${new Date().toISOString()}`);
+    log.debug(`🐎 [XANDER DEBUG] ${stage.toUpperCase()}`);
+    log.debug(`   Horse: ${horseName} (ID: ${horseId})`);
+    log.debug(`   Data:`, data);
+    log.debug(`   Timestamp: ${new Date().toISOString()}`);
 
     this.debugLogs.push({
       horseId,
@@ -80,18 +82,18 @@ export class HorseDebugger {
   static logHistoricalData(horseId: number, horseName: string, records: any[]): void {
     if (!this.shouldDebugHorse(horseName)) return;
 
-    console.log(`🐎 [XANDER DEBUG] HISTORICAL_DATA_RECEIVED`);
-    console.log(`   Horse: ${horseName} (ID: ${horseId})`);
-    console.log(`   Total records: ${records?.length || 0}`);
-    
+    log.debug(`🐎 [XANDER DEBUG] HISTORICAL_DATA_RECEIVED`);
+    log.debug(`   Horse: ${horseName} (ID: ${horseId})`);
+    log.debug(`   Total records: ${records?.length || 0}`);
+
     if (records && records.length > 0) {
-      console.log(`   Sample record structure:`, {
+      log.debug(`   Sample record structure:`, {
         keys: Object.keys(records[0]),
         firstRecord: records[0]
       });
-      
+
       records.forEach((record, index) => {
-        console.log(`   Record ${index + 1}:`, {
+        log.debug(`   Record ${index + 1}:`, {
           date: record.date,
           kmTime: record.kmTime,
           distance: record.start?.distance,
@@ -121,15 +123,15 @@ export class HorseDebugger {
   static logProcessedTimes(horseId: number, horseName: string, processedTimes: any[], best3Average: KmTime): void {
     if (!this.shouldDebugHorse(horseName)) return;
 
-    console.log(`🐎 [XANDER DEBUG] PROCESSED_TIMES_RESULT`);
-    console.log(`   Horse: ${horseName} (ID: ${horseId})`);
-    console.log(`   Valid processed times: ${processedTimes.length}`);
-    console.log(`   Best time: ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
-    
+    log.debug(`🐎 [XANDER DEBUG] PROCESSED_TIMES_RESULT`);
+    log.debug(`   Horse: ${horseName} (ID: ${horseId})`);
+    log.debug(`   Valid processed times: ${processedTimes.length}`);
+    log.debug(`   Best time: ${best3Average.minutes}:${best3Average.seconds.toString().padStart(2, '0')}.${best3Average.tenths}`);
+
     if (processedTimes.length > 0) {
-      console.log(`   All processed times:`);
+      log.debug(`   All processed times:`);
       processedTimes.forEach((time, index) => {
-        console.log(`     ${index + 1}. Original: ${time.originalTime.minutes}:${time.originalTime.seconds.toString().padStart(2, '0')}.${time.originalTime.tenths} → Normalized: ${time.normalizedTime.minutes}:${time.normalizedTime.seconds.toString().padStart(2, '0')}.${time.normalizedTime.tenths} (${time.distance}m, ${time.startMethod})`);
+        log.debug(`     ${index + 1}. Original: ${time.originalTime.minutes}:${time.originalTime.seconds.toString().padStart(2, '0')}.${time.originalTime.tenths} → Normalized: ${time.normalizedTime.minutes}:${time.normalizedTime.seconds.toString().padStart(2, '0')}.${time.normalizedTime.tenths} (${time.distance}m, ${time.startMethod})`);
       });
     }
 
@@ -156,36 +158,36 @@ export class HorseDebugger {
   static logNormalizationStep(horseId: number, horseName: string, step: string, before: any, after: any): void {
     if (!this.shouldDebugHorse(horseName)) return;
 
-    console.log(`🐎 [XANDER DEBUG] NORMALIZATION_${step.toUpperCase()}`);
-    console.log(`   Horse: ${horseName} (ID: ${horseId})`);
-    console.log(`   Before: ${JSON.stringify(before)}`);
-    console.log(`   After: ${JSON.stringify(after)}`);
+    log.debug(`🐎 [XANDER DEBUG] NORMALIZATION_${step.toUpperCase()}`);
+    log.debug(`   Horse: ${horseName} (ID: ${horseId})`);
+    log.debug(`   Before: ${JSON.stringify(before)}`);
+    log.debug(`   After: ${JSON.stringify(after)}`);
   }
 
   static logFinalResult(horseId: number, horseName: string, rawKmTime: KmTime | undefined, normalizedResult: any): void {
     if (!this.shouldDebugHorse(horseName)) return;
 
-    console.log(`🐎 [XANDER DEBUG] FINAL_RESULT`);
-    console.log(`   Horse: ${horseName} (ID: ${horseId})`);
-    console.log(`   Raw KM Time: ${rawKmTime ? `${rawKmTime.minutes}:${rawKmTime.seconds.toString().padStart(2, '0')}.${rawKmTime.tenths}` : 'NONE'}`);
-    console.log(`   Normalized Result: ${normalizedResult ? 'EXISTS' : 'NONE'}`);
+    log.debug(`🐎 [XANDER DEBUG] FINAL_RESULT`);
+    log.debug(`   Horse: ${horseName} (ID: ${horseId})`);
+    log.debug(`   Raw KM Time: ${rawKmTime ? `${rawKmTime.minutes}:${rawKmTime.seconds.toString().padStart(2, '0')}.${rawKmTime.tenths}` : 'NONE'}`);
+    log.debug(`   Normalized Result: ${normalizedResult ? 'EXISTS' : 'NONE'}`);
     if (normalizedResult?.modernNormalizedTime) {
       const time = normalizedResult.modernNormalizedTime;
-      console.log(`   Final Predicted Time: ${time.minutes}:${time.seconds.toString().padStart(2, '0')}.${time.tenths}`);
+      log.debug(`   Final Predicted Time: ${time.minutes}:${time.seconds.toString().padStart(2, '0')}.${time.tenths}`);
     }
   }
 
   static logHistoricalNormalization(horseId: number, horseName: string, originalRace: any, normalizedTime: any): void {
     if (!this.shouldDebugHorse(horseName)) return;
 
-    console.log(`🐎 [XANDER DEBUG] HISTORICAL_NORMALIZATION_STEP`);
-    console.log(`   Horse: ${horseName} (ID: ${horseId})`);
-    console.log(`   Race Date: ${originalRace.date}`);
-    console.log(`   Distance: ${originalRace.distance}m`);
-    console.log(`   Start Method: ${originalRace.startMethod}`);
-    console.log(`   Original KM Time: ${originalRace.kmTime}`);
-    console.log(`   Normalized to 2140m: ${normalizedTime.minutes}:${normalizedTime.seconds.toString().padStart(2, '0')}.${normalizedTime.tenths}`);
-    
+    log.debug(`🐎 [XANDER DEBUG] HISTORICAL_NORMALIZATION_STEP`);
+    log.debug(`   Horse: ${horseName} (ID: ${horseId})`);
+    log.debug(`   Race Date: ${originalRace.date}`);
+    log.debug(`   Distance: ${originalRace.distance}m`);
+    log.debug(`   Start Method: ${originalRace.startMethod}`);
+    log.debug(`   Original KM Time: ${originalRace.kmTime}`);
+    log.debug(`   Normalized to 2140m: ${normalizedTime.minutes}:${normalizedTime.seconds.toString().padStart(2, '0')}.${normalizedTime.tenths}`);
+
     this.debugLogs.push({
       horseId,
       horseName,
@@ -208,15 +210,15 @@ export class HorseDebugger {
   static logValidationStats(horseId: number, horseName: string, stats: any): void {
     if (!this.shouldDebugHorse(horseName)) return;
 
-    console.log(`🐎 [XANDER DEBUG] VALIDATION_STATISTICS`);
-    console.log(`   Horse: ${horseName} (ID: ${horseId})`);
-    console.log(`   Total Historical Records: ${stats.totalRecords}`);
-    console.log(`   Valid Records: ${stats.validRecords}`);
-    console.log(`   Disqualified: ${stats.disqualified}`);
-    console.log(`   Galloped: ${stats.galloped}`);
-    console.log(`   Missing KM Times: ${stats.missingKmTimes}`);
-    console.log(`   Best time used: ${stats.best3TimesUsed}`);
-    
+    log.debug(`🐎 [XANDER DEBUG] VALIDATION_STATISTICS`);
+    log.debug(`   Horse: ${horseName} (ID: ${horseId})`);
+    log.debug(`   Total Historical Records: ${stats.totalRecords}`);
+    log.debug(`   Valid Records: ${stats.validRecords}`);
+    log.debug(`   Disqualified: ${stats.disqualified}`);
+    log.debug(`   Galloped: ${stats.galloped}`);
+    log.debug(`   Missing KM Times: ${stats.missingKmTimes}`);
+    log.debug(`   Best time used: ${stats.best3TimesUsed}`);
+
     this.debugLogs.push({
       horseId,
       horseName,
@@ -230,12 +232,12 @@ export class HorseDebugger {
   static logModernNormalizationBreakdown(horseId: number, horseName: string, rawTime: any, adjustments: any, finalTime: any): void {
     if (!this.shouldDebugHorse(horseName)) return;
 
-    console.log(`🐎 [XANDER DEBUG] MODERN_NORMALIZATION_BREAKDOWN`);
-    console.log(`   Horse: ${horseName} (ID: ${horseId})`);
-    console.log(`   Raw KM Time: ${rawTime.minutes}:${rawTime.seconds.toString().padStart(2, '0')}.${rawTime.tenths}`);
-    console.log(`   Total Adjustment: ${adjustments.total?.toFixed(3)}s`);
-    console.log(`   Final Time: ${finalTime.minutes}:${finalTime.seconds.toString().padStart(2, '0')}.${finalTime.tenths}`);
-    
+    log.debug(`🐎 [XANDER DEBUG] MODERN_NORMALIZATION_BREAKDOWN`);
+    log.debug(`   Horse: ${horseName} (ID: ${horseId})`);
+    log.debug(`   Raw KM Time: ${rawTime.minutes}:${rawTime.seconds.toString().padStart(2, '0')}.${rawTime.tenths}`);
+    log.debug(`   Total Adjustment: ${adjustments.total?.toFixed(3)}s`);
+    log.debug(`   Final Time: ${finalTime.minutes}:${finalTime.seconds.toString().padStart(2, '0')}.${finalTime.tenths}`);
+
     this.debugLogs.push({
       horseId,
       horseName,
@@ -252,8 +254,6 @@ export class HorseDebugger {
           form: adjustments.form,
           distance: adjustments.distance,
           raceDistanceAdjustment: adjustments.raceDistanceAdjustment,
-          raceType: adjustments.raceType,
-          timeOfDay: adjustments.timeOfDay,
           startPoints: adjustments.startPoints,
           placePercentage: adjustments.placePercentage,
           horseWinPercentage: adjustments.horseWinPercentage,
@@ -267,25 +267,25 @@ export class HorseDebugger {
 
   static logEquipmentData(horseId: number, horseName: string, sulkyType: any, frontShoes: any, backShoes: any): void {
     if (!this.shouldDebugHorse(horseName)) return;
-    
-    console.log(`🐎 [XANDER DEBUG] EQUIPMENT_VALIDATION`);
-    console.log(`   Horse: ${horseName} (ID: ${horseId})`);
-    console.log(`   Sulky Type: "${sulkyType}" (${typeof sulkyType})`);
-    console.log(`   Front Shoes: "${frontShoes}" (${typeof frontShoes})`);
-    console.log(`   Back Shoes: "${backShoes}" (${typeof backShoes})`);
-    
+
+    log.debug(`🐎 [XANDER DEBUG] EQUIPMENT_VALIDATION`);
+    log.debug(`   Horse: ${horseName} (ID: ${horseId})`);
+    log.debug(`   Sulky Type: "${sulkyType}" (${typeof sulkyType})`);
+    log.debug(`   Front Shoes: "${frontShoes}" (${typeof frontShoes})`);
+    log.debug(`   Back Shoes: "${backShoes}" (${typeof backShoes})`);
+
     if (String(sulkyType).includes('[object Object]')) {
-      console.error(`   🚨 SULKY CORRUPTION DETECTED!`);
+      log.warn(`🚨 XANDER DEBUG: SULKY CORRUPTION DETECTED for ${horseName} (ID: ${horseId})`);
     }
-    
+
     this.debugLogs.push({
       horseId,
       horseName,
       stage: 'equipment_validation',
-      data: { 
-        sulkyType, 
+      data: {
+        sulkyType,
         sulkyTypeType: typeof sulkyType,
-        frontShoes, 
+        frontShoes,
         frontShoesType: typeof frontShoes,
         backShoes,
         backShoesType: typeof backShoes,
@@ -297,17 +297,13 @@ export class HorseDebugger {
   }
 
   static logDataCorruption(horseId: number, horseName: string, fieldName: string, corruptedValue: any): void {
-    console.error(`🐎 [XANDER DEBUG] DATA_CORRUPTION_DETECTED`);
-    console.error(`   Horse: ${horseName} (ID: ${horseId})`);
-    console.error(`   Field: ${fieldName}`);
-    console.error(`   Corrupted Value: "${corruptedValue}" (${typeof corruptedValue})`);
-    console.error(`   Is Object String: ${String(corruptedValue).includes('[object Object]')}`);
-    
+    log.warn(`🐎 [XANDER DEBUG] DATA_CORRUPTION_DETECTED: Horse ${horseName} (ID: ${horseId}) field="${fieldName}" value="${corruptedValue}" (${typeof corruptedValue})`);
+
     this.debugLogs.push({
       horseId,
       horseName,
       stage: 'data_corruption',
-      data: { 
+      data: {
         fieldName,
         corruptedValue,
         valueType: typeof corruptedValue,

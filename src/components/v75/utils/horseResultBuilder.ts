@@ -6,6 +6,7 @@ import { RaceAnalysisCache } from '../../../services/v75Cache/raceAnalysisCache'
 import { analyzeHistorySource } from './confidenceCalculator';
 import { pickDisplayTime, isZeroParts } from './timeUtils';
 import type { TimeSource } from '../types/raceResultTypes';
+import { computeConfidenceFlags } from './confidenceFlags';
 import { log } from '@/lib/logger';
 
 export const buildHorseResult = (
@@ -98,6 +99,13 @@ export const buildHorseResult = (
     });
   }
 
+  // Compute per-horse confidence/sanity flags (do not affect score, annotate trust)
+  const confidenceFlags = computeConfidenceFlags(
+    rawTimeData,
+    rawKmTime,
+    horse.driver?.winPercentage2025
+  );
+
   const horseResult: V75HorseResult = {
     raceNumber: race.raceNumber,
     raceId: race.raceId,
@@ -139,7 +147,9 @@ export const buildHorseResult = (
     warning: synthesizedWarning,
     usedInvalidTimeFallback: rawTimeData?.usedInvalidTimeFallback,
     usedExtendedFallback: rawTimeData?.usedExtendedFallback,
-    confidenceMultiplier: rawTimeData?.confidenceMultiplier
+    confidenceMultiplier: rawTimeData?.confidenceMultiplier,
+    // Per-horse sanity flags (annotation only, not used in scoring)
+    confidenceFlags,
   };
 
   return horseResult;

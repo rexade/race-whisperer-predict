@@ -48,6 +48,24 @@ export interface RaceAnalysisSummary {
   timestamp: string;
 }
 
+export interface HorseMAEEntry {
+  horseId: number;
+  horseName: string;
+  predictedRank: number;
+  actualFinishOrder: number;
+  rankError: number; // |predictedRank - actualFinishOrder|
+}
+
+export interface RaceMAEResult {
+  raceId: string;
+  raceNumber: number;
+  analysisDate: string;
+  computedAt: string;
+  meanRankError: number;
+  horseCount: number;
+  horses: HorseMAEEntry[];
+}
+
 export interface CacheInfo {
   raceIds: string[];
   totalSize: number;

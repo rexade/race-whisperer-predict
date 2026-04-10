@@ -1,5 +1,6 @@
 import type { KmtidPerStartAnalytics } from './postRaceAnalysisTypes';
 import type { KmTimeRecordEntry } from '../../../services/kmTimeRecords';
+import type { HorseConfidenceFlags } from '../utils/confidenceFlags';
 
 export type TimeSource = "normalized" | "best_raw" | "abroad" | "field_median" | "none";
 
@@ -60,6 +61,8 @@ export interface V75HorseResult {
   kmtidAnalytics?: KmtidPerStartAnalytics;
   /** Km time records (first 200m / last 200m) from Kmtime folder when horse name matches. */
   kmTimeRecords?: KmTimeRecordEntry[];
+  /** Per-horse sanity flags — annotate trust without affecting the score. */
+  confidenceFlags?: HorseConfidenceFlags;
 }
 
 export interface V75RaceResult {

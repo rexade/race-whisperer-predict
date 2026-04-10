@@ -1,6 +1,20 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { calculateRawKmTimesForRaceWithId } from '../kmTimeProcessor';
 import type { ATGStartInfo } from '../atgApi';
+
+// Prevent real ATG API calls during tests.
+// fetchHorseHistoricalData and fetchExtendedRaceData are the two network entry points
+// invoked by calculateRawKmTimesForRaceWithId. Pure logic functions are kept real
+// via importActual so filtering, scoring, and processing tests stay meaningful.
+vi.mock('../atgHistoricalApi', async (importActual) => {
+    const actual = await importActual<typeof import('../atgHistoricalApi')>();
+    return { ...actual, fetchHorseHistoricalData: vi.fn().mockResolvedValue(null) };
+});
+
+vi.mock('../utils/extendedFallbackHandler', async (importActual) => {
+    const actual = await importActual<typeof import('../utils/extendedFallbackHandler')>();
+    return { ...actual, fetchExtendedRaceData: vi.fn().mockResolvedValue(null) };
+});
 
 describe('kmTimeProcessor', () => {
     describe('calculateRawKmTimesForRaceWithId', () => {

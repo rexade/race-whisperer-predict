@@ -122,7 +122,9 @@ export const useV75Analysis = () => {
             postPosition: h.postPosition,
             finalScore: h.finalScore ?? 0,
             rank: h.rank ?? 0,
-            predictedTime: h.predictedTime
+            predictedTime: (h.modernNormalizedResult?.modernNormalizedTime && !(h.modernNormalizedResult as any)?.isEstimated)
+              ? h.modernNormalizedResult.modernNormalizedTime
+              : undefined,
           }));
 
           V75CacheService.storeRaceAnalysis(
