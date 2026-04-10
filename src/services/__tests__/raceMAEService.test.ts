@@ -208,4 +208,60 @@ describe('getAggregateMAEStats', () => {
     expect(stats!.raceCount).toBe(1);
     expect(stats!.meanRankError).toBe(2.5);
   });
+
+  it('computes winRate = 0 and top3Rate = 0 when no rank-1 pick exists in results', () => {
+    _maeStore['rA'] = { raceId: 'rA', raceNumber: 1, analysisDate: '2026-04-01', computedAt: '', meanRankError: 2.0, horseCount: 2, horses: [] };
+    const stats = getAggregateMAEStats();
+    expect(stats!.winRate).toBe(0);
+    expect(stats!.top3Rate).toBe(0);
+  });
+
+  it('counts winRate = 1.0 when rank-1 pick won every race', () => {
+    const winner = (raceId: string): import('../v75Cache/types').RaceMAEResult => ({
+      raceId, raceNumber: 1, analysisDate: '2026-04-01', computedAt: '', meanRankError: 1.0, horseCount: 3,
+      horses: [
+        { horseId: 1, horseName: 'A', predictedRank: 1, actualFinishOrder: 1, rankError: 0 },
+        { horseId: 2, horseName: 'B', predictedRank: 2, actualFinishOrder: 2, rankError: 0 },
+      ],
+    });
+    _maeStore['rA'] = winner('rA');
+    _maeStore['rB'] = winner('rB');
+    const stats = getAggregateMAEStats();
+    expect(stats!.winRate).toBe(1.0);
+    expect(stats!.top3Rate).toBe(1.0);
+  });
+
+  it('counts top3Rate correctly when rank-1 pick places but does not win', () => {
+    // race rA: rank-1 pick finished 2nd (top3 = true, win = false)
+    // race rB: rank-1 pick finished 5th (top3 = false, win = false)
+    _maeStore['rA'] = {
+      raceId: 'rA', raceNumber: 1, analysisDate: '2026-04-01', computedAt: '', meanRankError: 1.0, horseCount: 2,
+      horses: [{ horseId: 1, horseName: 'A', predictedRank: 1, actualFinishOrder: 2, rankError: 1 }],
+    };
+    _maeStore['rB'] = {
+      raceId: 'rB', raceNumber: 2, analysisDate: '2026-04-01', computedAt: '', meanRankError: 4.0, horseCount: 2,
+      horses: [{ horseId: 1, horseName: 'A', predictedRank: 1, actualFinishOrder: 5, rankError: 4 }],
+    };
+    const stats = getAggregateMAEStats();
+    expect(stats!.winRate).toBe(0);    // neither won
+    expect(stats!.top3Rate).toBe(0.5); // only rA was top-3
+  });
+
+  it('mixed: 1 win, 1 top3-but-not-win, 1 miss → winRate 1/3, top3Rate 2/3', () => {
+    _maeStore['r1'] = {
+      raceId: 'r1', raceNumber: 1, analysisDate: '2026-04-01', computedAt: '', meanRankError: 0, horseCount: 2,
+      horses: [{ horseId: 1, horseName: 'A', predictedRank: 1, actualFinishOrder: 1, rankError: 0 }],
+    };
+    _maeStore['r2'] = {
+      raceId: 'r2', raceNumber: 2, analysisDate: '2026-04-01', computedAt: '', meanRankError: 2, horseCount: 2,
+      horses: [{ horseId: 1, horseName: 'A', predictedRank: 1, actualFinishOrder: 3, rankError: 2 }],
+    };
+    _maeStore['r3'] = {
+      raceId: 'r3', raceNumber: 3, analysisDate: '2026-04-01', computedAt: '', meanRankError: 6, horseCount: 2,
+      horses: [{ horseId: 1, horseName: 'A', predictedRank: 1, actualFinishOrder: 7, rankError: 6 }],
+    };
+    const stats = getAggregateMAEStats();
+    expect(stats!.winRate).toBeCloseTo(1 / 3, 5);
+    expect(stats!.top3Rate).toBeCloseTo(2 / 3, 5);
+  });
 });

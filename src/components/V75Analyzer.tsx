@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Trophy, CalendarIcon, Settings2, Trash2, Play, Download, BarChart2 } from "lucide-react";
+import { Trophy, CalendarIcon, Settings2, Trash2, Play, Download, BarChart2, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import V75DatePicker from "./v75/V75DatePicker";
@@ -11,6 +11,7 @@ import ThemeToggle from "./ThemeToggle";
 import { useV75Analysis } from "./v75/hooks/useV75Analysis";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
 import { exportV75ToExcel } from '../utils/excelExport';
+import { getAggregateMAEStats, type AggregateMAEStats } from '../services/raceMAEService';
 import { useGameInfo, useRaceData, useAvailableGameTypes } from '@/queries/v75';
 import { GAME_TYPE, GameType } from '@/config/game';
 
@@ -25,6 +26,7 @@ import V75Summary from "./v75/components/V75Summary";
 // Lazy load heavy components for better performance
 const V75Results = lazy(() => import("./v75/components/V75Results"));
 const V75CacheManager = lazy(() => import("./v75/components/V75CacheManager"));
+const MAEPanel = lazy(() => import("./v75/components/MAEPanel"));
 const WeightManager = lazy(() => import("./WeightManager"));
 const CalibrationPanel = lazy(() => import("./calibration/CalibrationPanel"));
 
@@ -41,6 +43,7 @@ const V75Analyzer: React.FC = () => {
   const [activeTab, setActiveTab] = useState("");
   const [showCacheManager, setShowCacheManager] = useState(false);
   const [showWeights, setShowWeights] = useState(false);
+  const [maeStats, setMaeStats] = useState<AggregateMAEStats | null>(() => getAggregateMAEStats());
   const [showCalibration, setShowCalibration] = useState(false);
   const [showInput, setShowInput] = useState(true);
   const [gameType, setGameType] = useState<GameType>(GAME_TYPE);
@@ -105,6 +108,13 @@ const V75Analyzer: React.FC = () => {
     }
   }, [v75Results]);
 
+  // Refresh MAE stats when cache drawer closes (user may have computed new MAE data)
+  useEffect(() => {
+    if (!showCacheManager) {
+      setMaeStats(getAggregateMAEStats());
+    }
+  }, [showCacheManager]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -136,10 +146,20 @@ const V75Analyzer: React.FC = () => {
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border/50">
         <div className="container mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-14 gap-2 sm:gap-4">
-            {/* Left: Minimal branding */}
+            {/* Left: Minimal branding + accuracy badge */}
             <div className="flex items-center gap-2 flex-shrink-0">
               <Trophy className="h-5 w-5 text-primary" />
               <span className="text-sm font-medium text-foreground hidden sm:inline">TrotAnalyzer</span>
+              {maeStats && (
+                <button
+                  onClick={() => setShowCacheManager(true)}
+                  className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs tabular-nums text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  title={`Model accuracy over ${maeStats.raceCount} race${maeStats.raceCount !== 1 ? 's' : ''}: ±${maeStats.meanRankError.toFixed(1)} mean rank error · ${(maeStats.winRate * 100).toFixed(0)}% win · ${(maeStats.top3Rate * 100).toFixed(0)}% top-3. Click to view details.`}
+                >
+                  <TrendingUp className="h-3 w-3" />
+                  ±{maeStats.meanRankError.toFixed(1)} · {(maeStats.winRate * 100).toFixed(0)}%W
+                </button>
+              )}
             </div>
 
             {/* Center: Main actions */}
@@ -324,11 +344,18 @@ const V75Analyzer: React.FC = () => {
           <V75Summary races={v75Results} analysisDate={analysisDate} />
         )}
 
-        {/* Cache Manager */}
+        {/* Cache Manager + MAE accuracy panel */}
         {showCacheManager && (
           <DebugErrorBoundary>
             <Suspense fallback={<div className="p-4 text-center text-muted-foreground">Loading cache manager...</div>}>
               <V75CacheManager />
+            </Suspense>
+          </DebugErrorBoundary>
+        )}
+        {showCacheManager && (
+          <DebugErrorBoundary>
+            <Suspense fallback={null}>
+              <MAEPanel />
             </Suspense>
           </DebugErrorBoundary>
         )}

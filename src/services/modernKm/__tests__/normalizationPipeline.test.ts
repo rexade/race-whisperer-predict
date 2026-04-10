@@ -170,8 +170,8 @@ describe('calculateFormAdjustment', () => {
       { place: 1, date: '2024-01-05' },
     ];
     const adj = calculateFormAdjustment(races);
-    // All FORM_SCORE_WIN = -1.0 → avg = -1.0 → adj = -1.0 * 0.05 = -0.05
-    expect(adj).toBeCloseTo(-0.05, 5);
+    // All FORM_SCORE_WIN = -1.0 → avg = -1.0 → adj = -1.0 * 0.40 = -0.40
+    expect(adj).toBeCloseTo(-0.40, 5);
   });
 
   it('returns penalty for all poor finishes (11+)', () => {
@@ -180,8 +180,8 @@ describe('calculateFormAdjustment', () => {
       { place: 15, date: '2024-01-06' },
     ];
     const adj = calculateFormAdjustment(races);
-    // All FORM_SCORE_POOR = 0.6 → avg = 0.6 → adj = 0.6 * 0.05 = +0.03
-    expect(adj).toBeCloseTo(0.03, 5);
+    // All FORM_SCORE_POOR = 0.6 → avg = 0.6 → adj = 0.6 * 0.40 = +0.24
+    expect(adj).toBeCloseTo(0.24, 5);
   });
 
   it('sorts by date descending — recent races weighted heavier', () => {
@@ -202,16 +202,16 @@ describe('calculateFormAdjustment', () => {
   it('handles mixed results correctly (2nd, 5th, 8th)', () => {
     // Single race in each bracket: PLACE, GOOD, MID
     const races = [
-      { place: 2, date: '2024-01-03' }, // weight 8 → FORM_SCORE_PLACE = -0.5
-      { place: 5, date: '2024-01-02' }, // weight 7 → FORM_SCORE_GOOD  = -0.2
-      { place: 8, date: '2024-01-01' }, // weight 6 → FORM_SCORE_MID   =  0.3
+      { place: 2, date: '2024-01-03' }, // idx 0 → weight 2^4=16, FORM_SCORE_PLACE = -0.5
+      { place: 5, date: '2024-01-02' }, // idx 1 → weight 2^3=8,  FORM_SCORE_GOOD  = -0.2
+      { place: 8, date: '2024-01-01' }, // idx 2 → weight 2^2=4,  FORM_SCORE_MID   =  0.3
     ];
-    // formScore = (-0.5*8) + (-0.2*7) + (0.3*6) = -4 - 1.4 + 1.8 = -3.6
-    // totalWeight = 8+7+6 = 21
-    // avg = -3.6/21 = -0.17143
-    // adj = -0.17143 * 0.05 = -0.008571
+    // formScore = (-0.5*16) + (-0.2*8) + (0.3*4) = -8 - 1.6 + 1.2 = -8.4
+    // totalWeight = 16+8+4 = 28
+    // avg = -8.4/28 = -0.30
+    // adj = -0.30 * 0.40 = -0.12
     const adj = calculateFormAdjustment(races);
-    expect(adj).toBeCloseTo(-0.00857, 4);
+    expect(adj).toBeCloseTo(-0.12, 4);
   });
 
   it('fallback uses win-percentage when no race array given', () => {

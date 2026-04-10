@@ -67,9 +67,20 @@ const MAEPanel: React.FC = () => {
           <BarChart2 className="h-4 w-4 text-primary" />
           Model Accuracy
           {stats && (
-            <Badge variant="secondary" className="ml-auto text-xs tabular-nums">
-              Avg ±{stats.meanRankError.toFixed(1)} rank over {stats.raceCount} race{stats.raceCount !== 1 ? 's' : ''}
-            </Badge>
+            <div className="ml-auto flex items-center gap-1.5 flex-wrap justify-end">
+              <Badge variant="secondary" className="text-xs tabular-nums">
+                ±{stats.meanRankError.toFixed(1)} rank
+              </Badge>
+              <Badge variant="secondary" className="text-xs tabular-nums">
+                {(stats.winRate * 100).toFixed(0)}% win
+              </Badge>
+              <Badge variant="secondary" className="text-xs tabular-nums">
+                {(stats.top3Rate * 100).toFixed(0)}% top-3
+              </Badge>
+              <span className="text-[11px] text-muted-foreground">
+                ({stats.raceCount}r)
+              </span>
+            </div>
           )}
         </CardTitle>
       </CardHeader>
@@ -88,11 +99,26 @@ const MAEPanel: React.FC = () => {
                   {summary.analysisDate} — Race {summary.raceNumber}
                 </span>
                 <div className="flex items-center gap-1.5">
-                  {mae && (
-                    <Badge variant="outline" className="tabular-nums text-xs px-1.5 py-0">
-                      ±{mae.meanRankError.toFixed(1)} ({mae.horseCount}h)
-                    </Badge>
-                  )}
+                  {mae && (() => {
+                    const top1 = mae.horses.find(h => h.predictedRank === 1);
+                    const winHit = top1?.actualFinishOrder === 1;
+                    const top3Hit = top1 !== undefined && top1.actualFinishOrder <= 3;
+                    return (
+                      <>
+                        <Badge variant="outline" className="tabular-nums text-xs px-1.5 py-0">
+                          ±{mae.meanRankError.toFixed(1)} ({mae.horseCount}h)
+                        </Badge>
+                        {top1 && (
+                          <span
+                            className={`text-[10px] font-medium tabular-nums ${winHit ? 'text-green-500' : top3Hit ? 'text-yellow-500' : 'text-muted-foreground'}`}
+                            title={`#1 pick finished ${top1.actualFinishOrder === 1 ? '1st' : top1.actualFinishOrder <= 3 ? `top-3 (${top1.actualFinishOrder})` : `${top1.actualFinishOrder}th`}`}
+                          >
+                            {winHit ? '✓W' : top3Hit ? `T${top1.actualFinishOrder}` : `${top1.actualFinishOrder}th`}
+                          </span>
+                        )}
+                      </>
+                    );
+                  })()}
                   {error && (
                     <span className="text-destructive flex items-center gap-1">
                       <AlertCircle className="h-3 w-3" />

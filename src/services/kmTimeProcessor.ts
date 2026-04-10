@@ -110,7 +110,7 @@ export const calculateRawKmTimesForRaceWithId = async (
 
       // ❺ If still nothing after ALL fallbacks, mark zero and continue
       if (!records || records.length === 0) {
-        log.warn(`[KmTimeProcessor] NO HISTORICAL DATA - Horse ${horseName} (Post ${postPosition})`);
+        log.debug(`[KmTimeProcessor] NO HISTORICAL DATA - Horse ${horseName} (Post ${postPosition})`);
         log.debug(`[KmTimeProcessor] Data check: historicalData=${!!historicalData}, horse=${!!historicalData?.horse}, results=${!!historicalData?.horse?.results}, records=${!!historicalData?.horse?.results?.records}`);
         log.debug(`[KmTimeProcessor] Records length: ${historicalData?.horse?.results?.records?.length || 0}`);
         log.debug(`[KmTimeProcessor] Statistics fallback attempted: yes`);

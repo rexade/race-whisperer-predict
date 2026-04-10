@@ -3,9 +3,16 @@
   "managed_by": "pi-pulse",
   "registered": "2026-04-08",
   "last_run": "2026-04-10",
-  "run_count": 34,
+  "run_count": 47,
   "health": "green",
-  "current_focus": "Run 34: Console cleanup in v75DataConsistencyValidator.ts — 21 console.log + 2 console.error replaced with log.debug/log.error. tsc clean, 127/127 tests pass.",
-  "open_threads": 0,
-  "next_run_goal": "All threads closed. Candidates: MAE-driven weight presets in WeightManager, or surface aggregate MAE accuracy badge in main header."
+  "current_focus": "Run 47: Surfaced MAEPanel in cache drawer + compact ±X.X accuracy badge in header toolbar. Fixed log.warn noise in kmTimeProcessor. MAEPanel was built in Run 32 but never mounted — now visible.",
+  "open_threads": 2,
+  "next_run_goal": "Evaluate Run 46 weights: MAEPanel is now visible — run MAE evaluator on recent dates via the cache drawer, compare Rank MAE and win% vs baseline (MAE 5.289, win 30.6%). Record numbers and update accuracy field.",
+  "accuracy": {
+    "rankMAE": 5.289,
+    "winPct": 30.6,
+    "top3Pct": 52.5,
+    "races": 49,
+    "label": "baseline (pre-Run 46)"
+  }
 }

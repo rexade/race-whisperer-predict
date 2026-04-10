@@ -2,31 +2,55 @@
 
 Threads represent open lines of investigation or improvement that span multiple runs.
 
-## CRITICAL — fix immediately
+## Two-lane structure — active now
 
-### Missing `await` in `raceMAEService.ts` — MAE compute is broken in production
-**File:** `src/services/raceMAEService.ts:19`
-**Bug:** `const stored = RaceAnalysisCache.getRaceAnalysis(raceId);` — missing `await`.
-`getRaceAnalysis` is declared `static async` and returns `Promise<RaceAnalysisData | null>`.
-Without `await`, `stored` is a Promise object (always truthy). The `if (!stored)` guard never fires.
-`stored.horses` at line 43 is `undefined` → `for (const predicted of stored.horses)` throws `TypeError: undefined is not iterable`.
-**Why tests pass:** The mock at `raceMAEService.test.ts:25` returns synchronously (`_analysisStore[raceId] ?? null`), so tests see actual data, not a Promise.
-**Fix:** Add `await` to line 19. One-line change. Existing null-guard already correct.
+These lanes run in parallel. Mutation lane MUST complete before any new scoring changes.
+The research lane feeds the next mutation — it does not produce code changes itself.
+
+---
+
+## LANE 1 — EVALUATE (MUTATE run)
+
+### Evaluate Run 46 weight rebalance — compare vs baseline
+Run 46 changed: form weight 0.5→0.8, FORM_SCALE_S 0.30→0.40, FORM_MAX_RECENT_RACES 8→5, recency weighting linear→exponential (2^n). Also: horseWinPct 0.4→0.2, earningsPerStart 0.2→0.1, consistencyFactor 0.3→0.5.
+**Baseline:** Rank MAE 5.289, win% 30.6%, top-3% 52.5% (49 races, 17 dates).
+**Goal:** lower Rank MAE, raise win% without picking false favorites.
+**Action:** MAEPanel is now visible in the Cache drawer (Run 47). Run the MAE evaluator on at least the same date range, record actual numbers.
+- If improved → update `accuracy` in status.json with new measurements, label "v2 weights", keep changes.
+- If worse → revert DEFAULT_WEIGHTS to v1 in `modernKm/types.ts`, revert constants in `normalizationConstants.ts`, document in failures.md what did not work and why.
+**Hard rule:** No new weight changes until this evaluation is complete and recorded.
+
+---
+
+## LANE 2 — RESEARCH (RESEARCH run)
+
+### Investigate baseline improvement opportunities
+**Do not mutate any scoring code in this thread.** Output is hypotheses only.
+**Baseline:** Rank MAE 5.289, win% 30.6%, top-3% 52.5% over 49 races / 17 dates.
+The core question: **What repeated prediction mistake is not explained by the current weights?**
+
+Investigate by reading source code, cached race data, and MAE results already stored:
+- Where do rank errors cluster? By race type (auto vs volt)? By distance band? By field size?
+- Is the model consistently good at rank 1 but random at ranks 4–8? Or does it fail at specific race shapes?
+- Which factors most often push a horse to rank 1 when it finishes 5th or worse? (false favorites)
+- Does form help more in auto starts than volt? Does post-position dominate in volt fields?
+- Are there horses where gallopRisk is 0 but they galloped — data gaps?
+- Does driver weight correlate with actual winner in the logged MAE data, or is it noise?
+
+**Output must be exactly 3–5 concrete hypotheses, ranked by estimated impact, in this format:**
 ```
-const stored = await RaceAnalysisCache.getRaceAnalysis(raceId);
+H1 [high/med/low impact]: [claim]. Evidence: [what you saw]. Proposed test: [specific weight/constant change to try].
 ```
-Verify: `tsc --noEmit`, then `vitest run` (127/127 must still pass).
+Example of acceptable output:
+`H1 [high]: form hurts volt races because volt km-times reflect starting position more than current fitness. Evidence: [cite races/data]. Proposed test: form weight 0.8 for auto, 0.3 for volt.`
+
+Do NOT write vague suggestions like "improve form signal." Write a falsifiable hypothesis with a proposed experiment.
+Write findings to `memory/decisions.md` under a new heading `## Research: baseline investigation — Run [N]`.
 
 ## Open — low priority
 
-### MAE UI prominence — aggregate badge hidden behind Cache drawer
-MAEPanel only mounts when `showCacheManager` is true (`V75Analyzer.tsx:265`). Users who haven't opened the Cache drawer never see the model accuracy data. Consider: read `getAggregateMAEStats()` at the top level of `V75Analyzer` and render a compact badge in the header toolbar when data exists.
-
-### Stderr noise in kmTimeProcessor tests
-`log.warn(` at `kmTimeProcessor.ts:113` ("NO HISTORICAL DATA") is not gated behind IS_DEBUG. In tests, the mock returns null for historical data, triggering this warn on every run. The `log.warn` function always calls `console.warn` regardless of debug mode. Fix: gate this specific call with `log.debug` instead, since "no data" is expected and handled gracefully by the fallback chain — the zero-time result is already the correct output, the warn just adds noise.
-
 ### MAE-driven weight presets
-Use accumulated MAE data to surface tuning suggestions in WeightManager. Requires more MAE data to be useful; consider after the async bug is fixed so the feature actually collects data.
+Use accumulated MAE data to surface tuning suggestions in WeightManager. Requires more MAE data to be useful; consider after more evaluations are done.
 
 ## Closed
 - [x] **Understand scoring** — done (Run 1). Pipeline fully mapped, see SEED.md.
@@ -58,3 +82,5 @@ Use accumulated MAE data to surface tuning suggestions in WeightManager. Require
 - [x] **MAE infrastructure** — done (Run 32). Fixed `predictedTime` storage bug; `RaceMAEResult` type; `raceMAEService.ts` with `fetchAndComputeMAEForRace` + `getAggregateMAEStats`; `MAEPanel.tsx` with per-race compute buttons + aggregate badge; wired into `V75Analyzer`; cleaned lone `console.error` in `raceResultProcessor.ts`; 10 new tests; 116/116 pass.
 - [x] **Multi-dimensional score display** — done (Run 33). `computeReliabilityScore()` in `confidenceFlags.ts` (1–5 from timeSource/uncertain/historySource/confidenceMultiplier/flags); `ReliabilityDot` component rendered next to "Pred" label in `CompactHorseRow.tsx`; 11 new tests; 127/127 pass.
 - [x] **Clean console pollution in `v75DataConsistencyValidator.ts` (21 calls)** — done (Run 34). All `console.log` → `log.debug`, all `console.error` → `log.error`. tsc clean, 127/127 pass.
+- [x] **Missing `await` in `raceMAEService.ts`** — fixed (Run 36). `getRaceAnalysis` is `static async`; missing `await` made `stored` always a truthy Promise, breaking MAE compute. Also fixed 3 stale `calculateFormAdjustment` tests whose expected values referenced old `FORM_SCALE_S = 0.05` (current value: 0.30). tsc clean, 127/127 pass.
+- [x] **MAE UI prominence — surface MAEPanel + header badge** — done (Run 47). MAEPanel now mounts below V75CacheManager when cache drawer is open. Compact `±X.X` accuracy badge in header toolbar (lazy-init from localStorage, refreshes on drawer close). `log.warn` → `log.debug` for "NO HISTORICAL DATA" in `kmTimeProcessor.ts`. tsc clean, 127/127 pass.

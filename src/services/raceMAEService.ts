@@ -16,7 +16,7 @@ import { log } from '@/lib/logger';
  * Galloped / disqualified horses are excluded (their finishOrder is undefined).
  */
 export async function fetchAndComputeMAEForRace(raceId: string): Promise<RaceMAEResult | null> {
-  const stored = RaceAnalysisCache.getRaceAnalysis(raceId);
+  const stored = await RaceAnalysisCache.getRaceAnalysis(raceId);
   if (!stored) {
     log.debug(`MAE: no stored prediction for race ${raceId}`);
     return null;
@@ -83,6 +83,10 @@ export interface AggregateMAEStats {
   meanRankError: number;
   /** Number of races contributing */
   raceCount: number;
+  /** Fraction of races where rank-1 pick actually finished 1st (0–1) */
+  winRate: number;
+  /** Fraction of races where rank-1 pick finished in top 3 (0–1) */
+  top3Rate: number;
   /** Individual results, newest first */
   results: RaceMAEResult[];
 }
@@ -95,5 +99,17 @@ export function getAggregateMAEStats(): AggregateMAEStats | null {
   const meanRankError =
     results.reduce((sum, r) => sum + r.meanRankError, 0) / results.length;
 
-  return { meanRankError, raceCount: results.length, results };
+  let winnerHits = 0;
+  let top3Hits = 0;
+  for (const r of results) {
+    const top1 = r.horses.find(h => h.predictedRank === 1);
+    if (top1) {
+      if (top1.actualFinishOrder === 1) winnerHits++;
+      if (top1.actualFinishOrder <= 3) top3Hits++;
+    }
+  }
+  const winRate = winnerHits / results.length;
+  const top3Rate = top3Hits / results.length;
+
+  return { meanRankError, raceCount: results.length, winRate, top3Rate, results };
 }

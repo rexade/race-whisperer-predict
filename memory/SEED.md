@@ -59,6 +59,33 @@ The race data comes from the real ATG.se production API. It is not a test enviro
 Single adjusted km-time output (lower = better). 13 factors in `applyModernKmNormalization` (`modernKm/index.ts`). Weights in `DEFAULT_WEIGHTS` (`modernKm/types.ts`), user-tunable via `WeightManager` → `localStorage`.
 Full step-by-step reference: `memory/SEED_PIPELINE.md`
 
+## Current weight snapshot (v2 — updated Run 46)
+| Factor | Weight | Notes |
+|---|---|---|
+| `driverPerformance` | 1.0 | exact table value |
+| `raceDistanceAdjustment` | 1.0 | reference distance scaling |
+| `volteStartDistancePenalty` | 1.1 | standing start cost |
+| `postPosition` | 0.9 | meaningful but not decisive |
+| `form` | **0.8** | ↑ boosted — primary current-condition signal |
+| `distanceAdjustment` | 0.8 | preferred vs race distance |
+| `trackFamiliarity` | 0.6 | home track bonus |
+| `layoffPenalty` | 0.6 | 21+ days rest |
+| `placePercentage` | 0.6 | career place rate |
+| `sulkyType` | 0.5 | American sulky advantage |
+| `gallopRisk` | 0.5 | gait-break history |
+| `ageFactor` | 0.5 | peak 5–7yo |
+| `startPoints` | 0.5 | saturated log-scale rating |
+| `consistencyFactor` | **0.5** | ↑ boosted — consistent finishers rank better |
+| `shoeType` | 0.4 | barefoot advantage |
+| `genderAdjustment` | 0.4 | mare penalty |
+| `horseWinPercentage` | **0.2** | ↓ reduced — overlap with startPoints+place% |
+| `earningsPerStart` | **0.1** | ↓ reduced — class/purse bias |
+
+Form constants (v2):
+- `FORM_SCALE_S`: 0.40 (↑ from 0.30) — wider impact range
+- `FORM_MAX_RECENT_RACES`: 5 (↓ from 8) — tighter recency window
+- Recency weighting: **exponential** `2^(n-i-1)` (↑ from linear) — most recent race = 52% of weight
+
 ## Primary direction — accuracy and trustworthy results
 
 The codebase is clean. The pipeline works. The next phase is making the **output trustworthy**.
@@ -90,12 +117,14 @@ These flags don't change the score — they let the user decide how much to trus
 ---
 
 ## What to focus on next (priority order)
-1. **MAE infrastructure** — prediction store + result comparison + error display
-2. **Per-horse confidence flags** — sample size, missing data, equipment delta, data age
-3. **Console cleanup** — `v75DataConsistencyValidator.ts` (20 calls) — do this opportunistically, not as a dedicated run
+1. **Evaluate Run 46 weights** — run the MAE evaluator on recent dates, compare Rank MAE and win% vs previous baseline (MAE 5.289 / win 30.6%). If improved → keep. If worse → revert and tune.
+2. **MAE infrastructure** — prediction store + result comparison + error display
+3. **Per-horse confidence flags** — sample size, missing data, equipment delta, data age
+4. **Console cleanup** — `v75DataConsistencyValidator.ts` (20 calls) — do this opportunistically, not as a dedicated run
 
 ## Done (accuracy phase)
 - [x] **Gallop reliability factor** — done (Run 22). `calculateGallopReliabilityPenalty` wired into pipeline, weight 0.8, tests pass.
+- [x] **Weight rebalance v2** — done (Run 46). Boosted form signal (weight 0.8, scale 0.40, 5-race window, exponential recency). Reduced career-stat overlap (winPct 0.2, earnings 0.1). Boosted consistency (0.5). Goal: lower Rank MAE, increase win% without false verdicts.
 
 ## Known technical debt
 - `equipmentCalculators.ts` is a thin wrapper over `robustEquipmentCalculators.ts` — redundant surface, harmless

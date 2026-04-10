@@ -177,7 +177,9 @@ export const calculateFormAdjustment = (
     let totalWeight = 0;
 
     sorted.forEach((race, index) => {
-      const weight = maxRecentRaces - index;
+      // Exponential decay: most recent race gets ~2× the weight of the previous one.
+      // e.g. 5 races → weights 16, 8, 4, 2, 1 (most recent = 52% of total).
+      const weight = Math.pow(2, maxRecentRaces - index - 1);
       let score: number;
       if      (race.place === 1)                        score = FORM_SCORE_WIN;
       else if (race.place >= 2 && race.place <= 3)      score = FORM_SCORE_PLACE;

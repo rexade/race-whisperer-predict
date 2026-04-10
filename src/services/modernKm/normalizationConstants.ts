@@ -150,11 +150,12 @@ export const FORM_SCORE_MID = 0.3 as const;
 export const FORM_SCORE_POOR = 0.6 as const;
 
 /** Scale factor converting weighted form score to seconds.
- *  At 0.30: win form → −0.30 s, poor form → +0.18 s (meaningful signal). */
-export const FORM_SCALE_S = 0.30 as const;
+ *  At 0.40: win form → −0.40 s, poor form → +0.24 s (stronger signal). */
+export const FORM_SCALE_S = 0.40 as const;
 
-/** Maximum number of recent races considered in the form calculation. */
-export const FORM_MAX_RECENT_RACES = 8 as const;
+/** Maximum number of recent races considered in the form calculation.
+ *  5 races: focuses on recent condition, avoids dilution by stale results. */
+export const FORM_MAX_RECENT_RACES = 5 as const;
 
 /** Win-percentage baseline used when no recent-race results are available. */
 export const FORM_FALLBACK_BASELINE_PCT = 10 as const;
