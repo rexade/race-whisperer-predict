@@ -144,10 +144,17 @@ export const FORM_SCORE_WIN = -1.0 as const;
 export const FORM_SCORE_PLACE = -0.5 as const;
 /** Form-score for 4th or 5th. */
 export const FORM_SCORE_GOOD = -0.2 as const;
-/** Form-score for 6th–10th. */
+/** Form-score for 6th–8th. */
 export const FORM_SCORE_MID = 0.3 as const;
-/** Form-score for 11th or worse. */
+/** Form-score for 9th or worse.
+ *  Threshold lowered from 11 to 9: modal V85 field is 10-15 horses,
+ *  so 9th/10th are genuinely poor finishes, not mid-pack. */
 export const FORM_SCORE_POOR = 0.6 as const;
+
+/** Place at which POOR band begins (inclusive).
+ *  9th in a typical 12-horse field = 4th from last → genuinely poor.
+ *  Full fix would use fieldSize; this pragmatic threshold is correct for modal field. */
+export const FORM_POOR_THRESHOLD = 9 as const;
 
 /** Scale factor converting weighted form score to seconds.
  *  At 0.40: win form → −0.40 s, poor form → +0.24 s (stronger signal). */

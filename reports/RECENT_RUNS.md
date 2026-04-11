@@ -4,172 +4,114 @@
 
 ---
 
-## Run 50 — 2026-04-11 — MUTATE
+## Run 56 — 2026-04-11 — RESEARCH
 
-**Goal:** Lane 3 U1 — Dark foundation. App opened with ATG blue dark theme; replace with Pi Pulse near-black + cyan palette and default to dark mode.
-**Done:**
-- `src/index.css`: Replaced `.dark {}` block — background `#080808`, card `#0f0f0f`, primary/accent `#22d3ee` (188 86% 53%), foreground `#f1f5f9`, muted-foreground `#475569`, borders hairline dark gray.
-- `src/App.tsx`: Changed `defaultTheme="system"` → `"dark"`, removed `enableSystem`. App now boots dark unconditionally.
-- tsc --noEmit: clean. No type errors.
-**Result:** pass
-**Next:** U2 — Audit main panels (V75Analyzer header, tabs, WeightManager, MAEPanel) for lingering blue tints or white backgrounds leaking through. Patch at component level where tokens aren't enough.
+**Investigated:** H3 — field-size-blind form bands: full fix feasibility + pragmatic fix readiness
 
-<!-- stdout from run 42 2026-04-11 04:00 -->
-Done. Here's what changed in Run 50:
+**Key finding:** `ATGHistoricalRecord` (atgHistoricalApi.ts) has **no `fieldSize` or `startCount` field** — confirmed by complete interface inspection. Field size for historical race records is structurally impossible to obtain: each per-horse historical record only contains the horse's own result, not total starters. Getting it would require one `/api/atg/races/{raceId}` call per historical race — 50-120 extra API calls per game round. Prohibited by no-spam directive. Full fix is **permanently blocked**.
 
----
+MAE evaluation data (`mae-auto-2026-03-14.json`, 24 races) shows actual V85 field sizes: modal range 10-15 horses (median ~12). In a 12-horse field, 9th place = 4th from last — genuinely poor. In a 15-horse field, 9th place = 7th from last — borderline MID. The current threshold (11+) is too lenient for all these typical fields.
 
-**LANE 3 → U1 — Dark foundation**
+The pragmatic fix is safe: add `FORM_POOR_THRESHOLD = 9` constant, change `place >= 11` → `place >= FORM_POOR_THRESHOLD` in `performanceCalculators.ts:187`. Effect: 9th/10th finishes move from +0.12s to +0.24s. Existing test `'mixed results (2nd, 5th, 8th)'` unaffected — `place: 8` stays MID. Test for poor finishes uses `place: 12`/`15` — still passes.
 
-**`src/index.css`** — replaced the `.dark {}` CSS variable block:
-- `--background`: `225 65% 10%` (ATG dark blue) → `0 0% 3%` (`#080808`, pure black)
-- `--card` / `--popover`: → `0 0% 6%` (`#0f0f0f`)
-- `--primary` / `--accent`: `220 82% 46%` (ATG blue) → `188 86% 53%` (`#22d3ee`, Pi Pulse cyan)
-- `--primary-foreground` / `--accent-foreground`: → `0 0% 3%` (dark text on cyan)
-- `--foreground`: → `210 40% 96%` (`#f1f5f9`)
-- `--muted-foreground`: → `215 19% 35%` (`#475569`)
-- `--border` / `--input`: → `0 0% 10%` (hairline dark gray, approximating `rgba(255,255,255,0.07)`)
-- `--ring`: → `188 86% 53%` (cyan)
-- Sidebar and ATG semantic tokens updated consistently
+**Implication:** The pragmatic fix is the only viable improvement for H3 — and it's correct for the modal field size. Two boundary tests needed: `place: 8` → MID, `place: 9` → POOR, `place: 10` → POOR. These guard the new threshold constant.
 
-**`src/App.tsx`** — `defaultTheme="system"` → `"dark"`, removed `enableSystem`. App boots dark unconditionally; ThemeToggle still works if users want light.
+**Suggested next move:** MUTATE — `performanceCalculators.ts:187` + `normalizationConstants.ts` (add `FORM_POOR_THRESHOLD = 9`) + 3 boundary tests in `normalizationPipeline.test.ts`. One-liner logic change, new constant, 3 tests. tsc must pass.
 
-tsc: clean. Next: U2 — surface polish audit of component-level blue tints.
+<!-- stdout from run 51 2026-04-11 16:00 -->
 
 ---
 
----
+## Run 56 — Research Complete
 
-## Run 51 — 2026-04-11 — RESEARCH
+**Thread investigated:** H3 — field-size-blind form bands
 
-**Investigated:** H1 full data-flow trace (galloped races invisible to form calculator) + U2 surface audit (hardcoded blue tints)
+### Key findings
 
-**Key finding:** Galloped race dates are never passed to the form calculator. `horseProcessing.ts` now returns `gallopCount` (Run 49 fix) but NOT `gallopDates`. `HorseRawKmTime.allTimes` contains only clean races — galloped/DQ are skipped at lines 108-120. `horseNormalizationProcessor.ts` builds `recentRaces` exclusively from `allTimes`. A horse that galloped last race gets the same form calculation as if that race never happened — potentially a +0.20–0.30 s scoring error in its favour.
+**Full fix is permanently blocked.** `ATGHistoricalRecord` has no `fieldSize` or `startCount` field. Getting field size for historical races would require one `/api/atg/races/{raceId}` API call per historical race (~50-120 extra calls per game round). Prohibited.
 
-**Implication:** With FORM_MAX_RECENT_RACES=5 and exponential weights (16,8,4,2,1), the most recent race carries 52% of the total form weight. A horse with 4 prior wins + 1 recent gallop: currently scores as near-perfect form (−0.32 s); with fix, ≈ −0.07 s. Gap ≈ 0.25 s — roughly 2–3 positions. This is the most impactful unfixed scoring bug.
+**Pragmatic fix is the only option — and it's correct.** MAE evaluation data shows actual V85 field sizes: modal range 10-15 horses (median ~12). In a 12-horse field, 9th place = 4th from last, genuinely poor performance. Current threshold of 11+ for POOR is too lenient for all typical fields.
 
-**Secondary finding (U2):** Only ONE hardcoded blue Tailwind class across all component tsx files: `text-blue-600` at `PostPositionCurveEditor.tsx:172`. Everything else in V75Analyzer, WeightManager, MAEPanel, CompactHorseRow uses semantic token classes. U2 is a one-line fix, can bundle with H1.
+### Exact changes for the next mutate run
 
-**Suggested next move:** H1 mutate across 3 files + U2 one-liner:
-1. `src/services/types/kmTimeTypes.ts` — add `gallopDates?: string[]` to `HorseRawKmTime`
-2. `src/services/horseProcessing.ts` — after line 247, derive `gallopDates` from `recentTen` and include in return
-3. `src/components/v75/utils/horseNormalizationProcessor.ts` — update param 7 type to `HorseRawKmTime | undefined`, inject `gallopDates` as `{ place: 15, date }` entries into `recentRaces` in both real and fallback code paths
-4. `src/components/PostPositionCurveEditor.tsx:172` — `text-blue-600` → `text-muted-foreground`
-5. Tests: add 1 to `horseProcessing.test.ts` (gallopDates populated), add 1 to `normalizationPipeline.test.ts` (recent gallop → non-negative form adj)
+1. **`normalizationConstants.ts`** — add `FORM_POOR_THRESHOLD = 9 as const` in the recent-form section
+2. **`performanceCalculators.ts:187`** — change MID band from `place >= 6 && place <= 10` → `place >= 6 && place <= 8`, so `else` (place >= 9) triggers POOR
+3. **`normalizationPipeline.test.ts`** — 3 new boundary tests:
+   - `place: 8` → MID (+0.12s) — boundary guard
+   - `place: 9` → POOR (+0.24s) — new threshold
+   - `place: 10` → POOR (+0.24s) — was MID, now POOR
 
-
-<!-- stdout from run 43 2026-04-11 05:00 -->
-**Run 51 — Research complete.**
+All existing tests unaffected: `place: 8` stays MID, `place: 12`/`15` still POOR. Three files, one logic line, one constant, three tests.
 
 ---
 
-## What I found
+## Run 57 — 2026-04-11 — MUTATE
 
-### H1 — Galloped race dates invisible to form calculator (confirmed, quantified)
-
-The bug is a **silent form override for horses that recently galloped**. The chain:
-
-1. `horseProcessing.ts` lines 115-120: galloped races are `continue`d — they never enter `allTimes`
-2. `horseNormalizationProcessor.ts` lines 193-201: `recentRaces` is built entirely from `allTimes`
-3. `calculateFormAdjustment` sees no gallop → no penalty
-
-**Impact:** With `FORM_MAX_RECENT_RACES=5` and exponential decay (`2^n` weights), the most recent race carries 52% of the total form weight. A horse with 4 wins + 1 recent gallop currently scores as near-perfect form (−0.32 s); with the fix it scores as mediocre (≈ −0.07 s). Gap ≈ **0.25 s**, roughly 2–3 positions in a close field. This is the highest-leverage unfixed scoring bug.
-
-**Type annotation bonus:** The `rawTimeData` parameter in `applyHorseNormalization` is typed as a narrow inline type `{ allTimes?: ... }` but the function body already accesses `.gallopRate`, `.lastRaceDate`, `.consistencyScore` on it. The fix properly types it as `HorseRawKmTime | undefined`.
-
----
-
-### U2 — Surface polish (complete, trivially small)
-
-Only **one** hardcoded blue class exists across all component `.tsx` files: `text-blue-600` at `PostPositionCurveEditor.tsx:172`. Everything else already uses semantic token classes. U2 is a one-liner, bundled with H1.
-
----
-
-### Next mutate: H1 + U2 bundle
-
-3 source files + 1 UI file + 2 tests. Exact implementation plan is in `ACTIVE_THREADS.md`.
-
----
-
-## Run 51 — 2026-04-11 — MUTATE
-
-**Goal:** H1 + U2 bundle — inject galloped race dates into form calculator so a galloped last race is penalised (not silently ignored), plus fix last hardcoded ATG blue token.
+**Goal:** H3 — POOR band threshold fix. Research (Run 56) confirmed the pragmatic fix is correct and all exact changes were pre-specified.
 
 **Done:**
-- `src/services/types/kmTimeTypes.ts` — added `gallopDates?: string[]` to `HorseRawKmTime`
-- `src/services/horseProcessing.ts` — computed `gallopDates` from `recentTen` (line 247), included in return object
-- `src/components/v75/utils/horseNormalizationProcessor.ts` — widened `rawTimeData` param from narrow inline type to `HorseRawKmTime`; injected gallop entries as `{ place: 15, date }` in both code paths (fallback + real data); `calculateFormAdjustment` sorts by date so mixed-source entries work correctly
-- `src/components/PostPositionCurveEditor.tsx:172` — `text-blue-600` → `text-muted-foreground` (U2 done)
-- `src/services/__tests__/horseProcessing.test.ts` — 2 new tests: gallopDates contains gallop date; gallopDates empty when none
-- `src/services/modernKm/__tests__/normalizationPipeline.test.ts` — 1 new test: gallop-injected place=15 → adj +0.24 (penalty, not 0)
+- `src/services/modernKm/normalizationConstants.ts` — added `FORM_POOR_THRESHOLD = 9 as const` with calibration comment; updated `FORM_SCORE_MID` doc comment to reflect 6–8 range
+- `src/services/modernKm/performanceCalculators.ts` — imported `FORM_POOR_THRESHOLD`; changed MID band from `place <= 10` → `place <= FORM_POOR_THRESHOLD - 1` (i.e. ≤ 8)
+- `src/services/modernKm/__tests__/normalizationPipeline.test.ts` — 3 new boundary tests: place=8 → MID +0.12s, place=9 → POOR +0.24s, place=10 → POOR +0.24s
 
-**Result:** pass — tsc clean, 139/139 tests pass
+**Result:** pass — tsc clean, 156/156 tests pass (up from 153)
 
-**Next:** LANE 1 evaluation — run MAE evaluator on recent dates with v2 weights, record Rank MAE + win% vs baseline (5.289 / 30.6%)
+**Next:** H4 step 2 — lower `LAYOFF_THRESHOLD_DAYS` 21→14 (hold; needs MAE data). Or run eval-mae.mjs on more dates to grow accuracy corpus.
 
-<!-- stdout from run 44 2026-04-11 06:00 -->
-Run 51 complete. Here's what changed:
+<!-- stdout from run 53 2026-04-11 17:00 -->
+Done. Here's a summary of Run 57:
 
-**H1 — Gallop dates injected into form calculator (highest-leverage scoring bug fixed)**
+**H3 — POOR band threshold fix** (research was complete from Run 56, mutation executed now)
 
-The bug: galloped races were skipped when building `allTimes` (clean races only), so a horse whose most recent race was a gallop got zero form penalty — a ~+0.25 s scoring error in their favour.
+**Changes made:**
+- `normalizationConstants.ts` — added `FORM_POOR_THRESHOLD = 9 as const` with calibration rationale; updated `FORM_SCORE_MID` doc comment
+- `performanceCalculators.ts:187` — MID band changed from `place <= 10` → `place <= FORM_POOR_THRESHOLD - 1` (≤ 8); imported new constant
+- `normalizationPipeline.test.ts` — 3 boundary tests confirming: place=8 stays MID (+0.12s), place=9 → POOR (+0.24s), place=10 → POOR (+0.24s)
 
-Fix across 3 files:
-- `kmTimeTypes.ts` — added `gallopDates?: string[]` to `HorseRawKmTime`
-- `horseProcessing.ts` — computes `gallopDates` from `recentTen` alongside `gallopCount`
-- `horseNormalizationProcessor.ts` — widened `rawTimeData` param to `HorseRawKmTime`; injects gallop dates as `{ place: 15, date }` in both code paths before passing to `calculateFormAdjustment` (which already sorts by date, so ordering is correct). A recent gallop now adds **+0.24 s form penalty** instead of nothing.
+**Result:** tsc clean, 156/156 tests pass (up from 153).
 
-**U2 — Last hardcoded blue token removed**: `PostPositionCurveEditor.tsx:172` `text-blue-600` → `text-muted-foreground`
-
-**3 new tests** (horseProcessing: 2, normalizationPipeline: 1) — all 139 tests pass, tsc clean.
-
-**Next:** LANE 1 evaluation — run the MAE panel on recent dates to compare v2 weights vs baseline (5.289 MAE / 30.6% win).
-
----
-
-## Run 52 — 2026-04-11 — MUTATE
-
-**Goal:** U3 — Accent propagation — replace ATG blue (hsl 214 series) in `:root` light-mode block with cyan (hsl 188) to match the dark mode Pi Pulse palette. LANE 1 evaluation is user-gated, so this was the right scoring-neutral work to do.
-
-**Done:**
-- `src/index.css` — `:root` light-mode block: replaced all `214` hsl series values with `188` (cyan hue)
-  - `--primary`: `214 84% 22%` → `188 84% 22%`
-  - `--primary-hover`: `214 84% 18%` → `188 84% 18%`
-  - `--secondary-foreground`: `214 84% 22%` → `188 84% 22%`
-  - `--accent`: `214 95% 45%` → `188 86% 45%`
-  - `--accent-hover`: `214 95% 40%` → `188 86% 40%`
-  - `--ring`: `214 95% 45%` → `188 86% 45%`
-  - `--atg-navy`: `214 84% 22%` → `188 84% 22%`
-  - `--atg-blue`: `214 95% 45%` → `188 86% 45%`
-  - `--atg-light-blue`: `210 40% 90%` → `188 40% 90%`
-  - `--sidebar-background`: `214 84% 22%` → `188 84% 22%`
-  - `--sidebar-primary`: `214 95% 45%` → `188 86% 45%`
-  - `--sidebar-accent-foreground`: `214 84% 22%` → `188 84% 22%`
-  - `--sidebar-ring`: `214 95% 45%` → `188 86% 45%`
-  - Updated block comments to reflect new palette
-
-**Result:** pass — tsc clean, 139 tests pass
-
-**Next:** LANE 1 evaluation — user must run MAE panel in browser on recent dates, compare v2 weights vs baseline (5.289 MAE / 30.6% win%). After that, H2 (top-2 time average) becomes the next scoring improvement.
-
-<!-- stdout from run 45 2026-04-11 07:00 -->
-Done. Here's what changed in Run 52:
-
-**U3 — Accent propagation** (`src/index.css`)
-
-Replaced all 13 ATG blue (`hsl 214`) values in the `:root` light-mode block with cyan (`hsl 188`), matching the dark mode's Pi Pulse palette:
-
-- `--primary` / `--primary-hover` / `--secondary-foreground`: `214 84%` → `188 84%`
-- `--accent` / `--accent-hover` / `--ring`: `214 95%` → `188 86%`  
-- `--atg-navy` / `--atg-blue` / `--atg-light-blue`: updated to `188` hue
-- Sidebar tokens (`--sidebar-background`, `--sidebar-primary`, `--sidebar-accent-foreground`, `--sidebar-ring`): all `214` → `188`
-
-If a user ever toggles to light mode, they'll now see cyan instead of ATG corporate blue. Dark mode is unaffected. tsc clean, 139 tests pass.
-
-**Next:** LANE 1 evaluation (user-gated) — open the MAE panel in the browser and run it on recent dates. Once that's recorded, H2 (top-2 time average) is ready to land.
+**Effect:** 9th and 10th-place finishes now carry a +0.24s form penalty instead of +0.12s, reflecting that in a modal 12-horse V85 field, 9th place is 4th from last — genuinely poor, not mid-pack.
 
 
-<!-- stdout from run 46 2026-04-11 08:00 -->
+<!-- stdout from run 54 2026-04-11 18:00 -->
 [run failed — claude exited 1]
 
-You've hit your limit · resets 9am (Europe/Stockholm)
+You've hit your limit · resets 7pm (Europe/Stockholm)
+
+---
+
+## Run 58 — 2026-04-11 — MUTATE
+
+**Goal:** Sync eval-mae.mjs with H3 POOR band change, then grow MAE corpus on new dates.
+
+**Done:**
+- `scripts/eval-mae.mjs:153` — fixed `formAdj` POOR band: `<= 10` → `<= 8` (MID is now 6–8, POOR is 9+ matching `FORM_POOR_THRESHOLD = 9` from H3/Run 57)
+- Ran `eval-mae.mjs` on 3 new V85 dates: 2026-04-05, 2026-03-28, 2026-03-21 (24 new races)
+- Results: V1 MAE=5.233 (13% win), V2 MAE=5.279 (13% win) — V1 very slightly better (+0.046 delta)
+- Combined 48-race picture: V1=5.006, V2=5.006 — essentially tied across all 6 dates
+- Report saved: `reports/mae-auto-2026-04-05.json`
+
+**Result:** pass
+
+**Next:** H4 step 2 (lower `LAYOFF_THRESHOLD_DAYS` 21→14) — tests are already written (Run 55). Combined MAE tie means no signal to block it. Or run eval on 2–3 more dates to get to 72 races (more statistical power).
+
+<!-- stdout from run 54 2026-04-11 19:00 -->
+**Run 58 complete.**
+
+## What changed
+
+**`scripts/eval-mae.mjs` — formAdj POOR band sync (H3)**
+- Line 153: `<= 10` → `<= 8` — MID is now 6–8, POOR is 9+, matching `FORM_POOR_THRESHOLD = 9` added in Run 57.
+- Before this fix, the evaluator was scoring 9th and 10th place finishes as MID (+0.12s) while the live app was scoring them as POOR (+0.24s). Future evals now faithfully represent the pipeline.
+
+## MAE corpus — combined picture
+
+| Batch | Dates | Races | V1 MAE | V2 MAE | Delta |
+|---|---|---|---|---|---|
+| Old | Mar 14 / Mar 7 / Feb 28 | 24 | 4.779 | 4.733 | −0.046 (V2 better) |
+| New | Apr 5 / Mar 28 / Mar 21 | 24 | 5.233 | 5.279 | +0.046 (V1 better) |
+| **Combined** | 6 dates | **48** | **5.006** | **5.006** | **tied** |
+
+V1 and V2 are statistically tied at this sample size. V2 remains current — the design rationale (form-heavy, reduced career-stat overlap) is sound regardless of the tie. Need 72+ races for statistical signal.
+
+**Next:** H4 step 2 — lower `LAYOFF_THRESHOLD_DAYS` from 21 to 14. Tests are pre-written from Run 55. The MAE tie is not a blocker.

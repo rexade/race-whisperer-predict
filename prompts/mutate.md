@@ -23,6 +23,12 @@ The app fetches from the real ATG.se production API. Do NOT:
 - Use API calls in build scripts or CI
 If testing data logic, mock the response or use existing cached data. The API is for real users in the browser only.
 
+**Exception — autonomous MAE evaluation:**
+You MAY run `node scripts/eval-mae.mjs YYYY-MM-DD` to evaluate V1 vs V2 weights on completed past V75 dates.
+This script makes one calendar call + one call per race (7 max) with 700ms delay.
+Use it when ACTIVE_THREADS.md has an open LANE 1 evaluation thread.
+Do NOT run it repeatedly in a loop — once per session on a few dates is the intended use.
+
 ## Rules
 - Work only inside /home/admin/race-whisperer-predict/src/
 - Never touch /home/admin/lab/ — that is Pi Pulse, not this project

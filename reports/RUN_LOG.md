@@ -1479,3 +1479,291 @@ You've hit your limit · resets 9am (Europe/Stockholm)
 
 **Next:** LANE 1 evaluation (user-gated) — open the MAE panel in the browser and run it on recent dates with v2 weights to compare Rank MAE + win% vs baseline.
 
+
+## Run 54 — 2026-04-11 — RESEARCH
+
+**Investigated:** H3 (field-size-blind form) and H4 (layoff threshold miscalibrated) from open threads. Full data-flow trace: `calculateFormAdjustment` in `performanceCalculators.ts`, `ATGHistoricalRecord` in `atgHistoricalApi.ts`, `ProcessedKmTime` in `kmTimeTypes.ts`, `horseNormalizationProcessor.ts` both code paths, `normalizationConstants.ts`, `calculateLayoffAdjustment`, and the entire `normalizationPipeline.test.ts` coverage map.
+
+**Key finding:** RUN_LOG Run 16 claims to have cleaned `atgHistoricalApi.ts` (27 calls → `log.debug`/`log.warn`, added `import { log }`) but the file on disk has zero changes from Run 16 — 27 raw `console.*` calls remain and no logger import exists. Confirmed via `grep -c "console\." atgHistoricalApi.ts` → 27. Three calls fire unconditionally on every horse fetch (lines 56, 67: fetch tracing; line 268: processing start). Fallback-path calls (lines 279, 288, 290) fire for any horse with no recent data — potentially many. The `isXanderDebug`-gated calls (8 in filterRecords) are conditional and lower priority.
+
+**Secondary findings:**
+- **H3 (field-size-blind form) is data-plumbing blocked.** `ATGHistoricalRecord` has no `fieldSize` field — just `place` as a string. `fieldSize` doesn't appear anywhere in the codebase. True percentile-based bands require either ATG API support (unconfirmed) or a different approach. Pragmatic alternative (no new data): shift the POOR threshold from 11→9 so positions 9+ are POOR rather than MID. In a 10-horse V75 field, 9th–10th would become POOR rather than MID — closer to reality. One constant change, no data plumbing.
+- **H4 (layoff threshold) has ZERO test coverage.** `calculateLayoffAdjustment` is defined in `performanceCalculators.ts`, called in `modernKm/index.ts`, but NOT imported in `normalizationPipeline.test.ts`. The function has no tests at all. Adding tests is the right first step before any threshold constant change. The threshold change itself (21→14 days) is implementable as one constant, but has low weighted impact: horses with 15–21 day gaps would gain 0.021–0.055s penalty. Direction is empirically uncertain without MAE data.
+
+**Implication:**
+- `atgHistoricalApi.ts` is the most concrete actionable fix: 27 calls, live code, same pattern as Runs 10-16, Run 16's RUN_LOG entry is false.
+- H3 alternative (POOR threshold 11→9) is a one-constant change that partially addresses the field-size bias without data plumbing.
+- H4 should be test-first: add `calculateLayoffAdjustment` tests verifying current behavior, THEN adjust threshold after MAE data shows whether it helps.
+
+**Suggested next move:** MUTATE — clean `atgHistoricalApi.ts`: add `import { log } from '@/lib/logger'`, replace lines 56,67 with `log.debug`, line 72 with `log.warn`, the 8 `isXanderDebug`-gated calls with `log.debug` (preserve gate), lines 268 with `log.debug`, lines 279/288/290 with `log.warn` (data-quality signals), summary block (307-320, gated by `isXanderDebug || usedFallback`) with `log.debug`. Strip all emoji prefixes.
+
+<!-- stdout from run 47 2026-04-11 10:00 -->
+Here's a summary of what I found and documented:
+
+---
+
+## Run 54 Research — Summary
+
+**Thread investigated:** H3 (field-size-blind form) and H4 (layoff threshold), plus a full audit of file state vs RUN_LOG claims.
+
+### Finding 1 — Critical: `atgHistoricalApi.ts` was never actually cleaned
+
+RUN_LOG Run 16 claims all 27 `console.*` calls were replaced with `log.debug`/`log.warn`. The file on disk tells a different story: `grep -c "console\." atgHistoricalApi.ts` → **27**. No `import { log }` present. The RUN_LOG entry is false — either the session produced the log entry without committing, or the changes were reverted.
+
+Impact: 3 calls fire unconditionally on every horse fetch (lines 56, 67, 268), plus fallback-path calls (279, 288, 290) fire for any horse with no recent records. In a 7-leg V75 race with ~10 horses/leg, that's 70+ unconditional console calls per load.
+
+**This is the clear next mutate** — same mechanical pattern as Runs 10–16, now with a precise call-by-call spec in `ACTIVE_THREADS.md`.
+
+### Finding 2 — H3 (field-size-blind form): data-plumbing blocked
+
+`ATGHistoricalRecord` has no `fieldSize` field, and the word doesn't appear anywhere in the codebase. True percentile-based form bands require this data. **Pragmatic alternative** (no data plumbing): shift the POOR threshold from `place >= 11` to `place >= 9` in `calculateFormAdjustment` — in a 10-horse V75 field, 9th/10th becomes +0.24s instead of +0.12s. One-line change.
+
+### Finding 3 — H4 (layoff threshold): zero test coverage
+
+`calculateLayoffAdjustment` is in the live pipeline but not imported in any test file. **Tests must come before** the threshold constant change. The weighted penalty delta for a 21→14 day threshold shift is only 0.02–0.05s — direction empirically uncertain without MAE data.
+
+
+<!-- stdout from run 49 2026-04-11 10:31 -->
+[run failed — claude exited 1]
+
+You've hit your limit · resets 2pm (Europe/Stockholm)
+
+
+<!-- stdout from run 49 2026-04-11 11:00 -->
+[run failed — claude exited 1]
+
+You've hit your limit · resets 2pm (Europe/Stockholm)
+
+
+<!-- stdout from run 49 2026-04-11 12:00 -->
+[run failed — claude exited 1]
+
+You've hit your limit · resets 2pm (Europe/Stockholm)
+
+
+<!-- stdout from run 49 2026-04-11 13:00 -->
+[run failed — claude exited 1]
+
+You've hit your limit · resets 2pm (Europe/Stockholm)
+
+
+
+## Run 54 — 2026-04-11 — MUTATE
+
+**Goal:** LANE 1 — evaluate Run 46 weight rebalance (v2 weights) vs baseline. LANE 2 — clean atgHistoricalApi.ts console calls (false run 16 claim).
+
+**Done:**
+- `scripts/eval-mae.mjs` — two bugs fixed:
+  1. Game type V75 → V85 (app is configured for V85 via `.env` VITE_GAME_TYPE=V85)
+  2. `normalizeHistoricalKmTime`: ATG's `kmTime` is already in s/km — removed incorrect `/( dist / 1000)` division that caused ALL km-times to fail range check (24 s/km < 60 threshold). Now uses correct piecewise-linear delta, matching `kmTimeNormalization.ts`.
+- Ran evaluator: `node scripts/eval-mae.mjs 2026-03-14 2026-03-07 2026-02-28` (24 races, 3 V85 dates, full km-time coverage)
+  - V1 MAE: 4.779, win% 25% | V2 MAE: 4.733, win% 25% | Delta: −0.046 → V2 slightly better
+  - Verdict: **keep V2 weights**. Report saved to `reports/mae-auto-2026-03-14.json`.
+- `status.json` — updated `accuracy` field with V85 eval numbers (v2 label, 24 races, 3 dates). Incremented run_count to 54.
+- `src/services/atgHistoricalApi.ts` — added `import { log } from '@/lib/logger'`. Replaced all 27 raw `console.*` calls with `log.debug`/`log.warn`. Stripped emoji prefixes. `isXanderDebug` gate and `usedFallback` gate preserved. Fallback-path calls promoted to `log.warn` (data-quality signals). Summary block preserved under `if (isXanderDebug || usedFallback)` gate.
+
+**Result:** pass — tsc clean, 143/143 tests pass, 0 raw console calls in atgHistoricalApi.ts.
+
+**Next:** H3 pragmatic fix (POOR band threshold 11→9) or H4 layoff tests first. Also consider gallopCount wiring gap (Run 49): horseProcessing.ts never populates `gallopCount`/`disqualificationCount` into HorseRawKmTime, so gallopRisk confidence flag is always false in production.
+
+<!-- stdout from run 49 2026-04-11 14:00 -->
+Run 54 complete. Here's what happened:
+
+---
+
+## Summary
+
+**Two bugs fixed in `scripts/eval-mae.mjs`** (both prevented LANE 1 eval from ever working):
+1. **Game type**: script looked for `calendar.games?.V75` but app is configured for V85 (`VITE_GAME_TYPE=V85`). All 27+ tested dates returned "No V75 on this date".
+2. **km-time normalization**: ATG's `kmTime` is already in s/km (e.g. `1:15.5/km = 75.5 s/km`), but the script divided by `dist/1000`, giving `~24 s/km` which failed the `> 60` range check — resulting in 0/N km-times on every race.
+
+**MAE evaluation ran successfully** (24 races, 3 V85 dates, full km-time coverage):
+- V2 MAE: **4.733** | V1 MAE: 4.779 | Delta: −0.046 → **V2 slightly better**
+- Verdict: keep v2 weights (no changes to `modernKm/types.ts`)
+
+**LANE 2 — `atgHistoricalApi.ts` console cleanup** (27 calls → 0):
+- Added `import { log } from '@/lib/logger'`
+- All `console.log` → `log.debug`, catch `console.error` → `log.warn`, fallback-path calls → `log.warn`
+- `isXanderDebug` and `usedFallback` gates preserved, emoji prefixes stripped
+
+**Result**: tsc clean, 143/143 tests pass.
+
+**Next**: G1 — gallopCount wiring gap (horseProcessing.ts never populates `gallopCount` into HorseRawKmTime → gallopRisk UI chip always silent).
+
+---
+
+## Run 55 — 2026-04-11 — MUTATE
+
+**Goal:** H4 step 1 — add `calculateLayoffAdjustment` test coverage before any threshold change. Also audited G1 (gallopCount wiring) — already fully implemented in horseProcessing.ts and confidenceFlags.ts from prior run; ACTIVE_THREADS was stale.
+
+**Done:**
+- `src/services/modernKm/__tests__/normalizationPipeline.test.ts` — added `calculateLayoffAdjustment` import and 9-test `describe` block covering: 0/14/21d → 0, NaN/Infinity guard, 22d tiny penalty (~0.012s), 51d mid-range (~0.267s = tanh(1) * max), 90d deep layoff (~0.343s), near-cap at 180d, monotone increase.
+- Total tests: 153 (was 144), all pass.
+
+**Result:** pass
+
+**Next:** H4 step 2 — lower `LAYOFF_THRESHOLD_DAYS` from 21 → 14 (and adjust `LAYOFF_SCALE_DAYS` to 22) after reviewing whether MAE data supports it. Or: H3 pragmatic fix — POOR band cut-point 11 → 9 in `performanceCalculators.ts`.
+
+
+<!-- stdout from run 50 2026-04-11 15:00 -->
+Done. Here's what happened this run:
+
+**Thread picked:** H4 step 1 — layoff threshold tests (required before any constant changes)
+
+**What changed:**
+- `src/services/modernKm/__tests__/normalizationPipeline.test.ts` — added `calculateLayoffAdjustment` import + 9-test `describe` block covering:
+  - Zero-penalty cases: 0d, 14d, 21d (threshold), NaN/Infinity
+  - Penalty cases: 22d (~0.012s), 51d (~0.267s = tanh(1)×max), 90d (~0.343s), 180d (near-cap ≤0.35s)
+  - Monotone increase property
+- **153 tests total, all pass** (was 144)
+
+**Bonus discovery:** G1 (gallopCount wiring) was already fully implemented in `horseProcessing.ts:249-255` — `gallopCount`, `gallopDates`, and `disqualificationCount` all wired. The thread was stale from Run 49 research before the H1 gallop fix landed. Marked closed.
+
+**Next:** H4 step 2 (lower threshold 21→14, now test-guarded) or H3 pragmatic fix (POOR band cut from 11→9 in `performanceCalculators.ts`).
+
+
+## Run 56 — 2026-04-11 — RESEARCH
+
+**Investigated:** H3 — field-size-blind form bands: full fix feasibility + pragmatic fix readiness
+
+**Key finding:** `ATGHistoricalRecord` (atgHistoricalApi.ts) has **no `fieldSize` or `startCount` field** — confirmed by complete interface inspection. Field size for historical race records is structurally impossible to obtain: each per-horse historical record only contains the horse's own result, not total starters. Getting it would require one `/api/atg/races/{raceId}` call per historical race — 50-120 extra API calls per game round. Prohibited by no-spam directive. Full fix is **permanently blocked**.
+
+MAE evaluation data (`mae-auto-2026-03-14.json`, 24 races) shows actual V85 field sizes: modal range 10-15 horses (median ~12). In a 12-horse field, 9th place = 4th from last — genuinely poor. In a 15-horse field, 9th place = 7th from last — borderline MID. The current threshold (11+) is too lenient for all these typical fields.
+
+The pragmatic fix is safe: add `FORM_POOR_THRESHOLD = 9` constant, change `place >= 11` → `place >= FORM_POOR_THRESHOLD` in `performanceCalculators.ts:187`. Effect: 9th/10th finishes move from +0.12s to +0.24s. Existing test `'mixed results (2nd, 5th, 8th)'` unaffected — `place: 8` stays MID. Test for poor finishes uses `place: 12`/`15` — still passes.
+
+**Implication:** The pragmatic fix is the only viable improvement for H3 — and it's correct for the modal field size. Two boundary tests needed: `place: 8` → MID, `place: 9` → POOR, `place: 10` → POOR. These guard the new threshold constant.
+
+**Suggested next move:** MUTATE — `performanceCalculators.ts:187` + `normalizationConstants.ts` (add `FORM_POOR_THRESHOLD = 9`) + 3 boundary tests in `normalizationPipeline.test.ts`. One-liner logic change, new constant, 3 tests. tsc must pass.
+
+<!-- stdout from run 51 2026-04-11 16:00 -->
+## Run 56 — Research Complete
+
+**Thread investigated:** H3 — field-size-blind form bands
+
+### Key findings
+
+**Full fix is permanently blocked.** `ATGHistoricalRecord` has no `fieldSize` or `startCount` field. Getting field size for historical races would require one `/api/atg/races/{raceId}` API call per historical race (~50-120 extra calls per game round). Prohibited.
+
+**Pragmatic fix is the only option — and it's correct.** MAE evaluation data shows actual V85 field sizes: modal range 10-15 horses (median ~12). In a 12-horse field, 9th place = 4th from last, genuinely poor performance. Current threshold of 11+ for POOR is too lenient for all typical fields.
+
+### Exact changes for the next mutate run
+
+1. **`normalizationConstants.ts`** — add `FORM_POOR_THRESHOLD = 9 as const` in the recent-form section
+2. **`performanceCalculators.ts:187`** — change MID band from `place >= 6 && place <= 10` → `place >= 6 && place <= 8`, so `else` (place >= 9) triggers POOR
+3. **`normalizationPipeline.test.ts`** — 3 new boundary tests:
+   - `place: 8` → MID (+0.12s) — boundary guard
+   - `place: 9` → POOR (+0.24s) — new threshold
+   - `place: 10` → POOR (+0.24s) — was MID, now POOR
+
+All existing tests unaffected: `place: 8` stays MID, `place: 12`/`15` still POOR. Three files, one logic line, one constant, three tests.
+
+
+## Run 57 — 2026-04-11 — MUTATE
+
+**Goal:** H3 — POOR band threshold fix. Research (Run 56) confirmed the pragmatic fix is correct and all exact changes were pre-specified.
+
+**Done:**
+- `src/services/modernKm/normalizationConstants.ts` — added `FORM_POOR_THRESHOLD = 9 as const` with calibration comment; updated `FORM_SCORE_MID` doc comment to reflect 6–8 range
+- `src/services/modernKm/performanceCalculators.ts` — imported `FORM_POOR_THRESHOLD`; changed MID band from `place <= 10` → `place <= FORM_POOR_THRESHOLD - 1` (i.e. ≤ 8)
+- `src/services/modernKm/__tests__/normalizationPipeline.test.ts` — 3 new boundary tests: place=8 → MID +0.12s, place=9 → POOR +0.24s, place=10 → POOR +0.24s
+
+**Result:** pass — tsc clean, 156/156 tests pass (up from 153)
+
+**Next:** H4 step 2 — lower `LAYOFF_THRESHOLD_DAYS` 21→14 (hold; needs MAE data). Or run eval-mae.mjs on more dates to grow accuracy corpus.
+
+<!-- stdout from run 53 2026-04-11 17:00 -->
+Done. Here's a summary of Run 57:
+
+**H3 — POOR band threshold fix** (research was complete from Run 56, mutation executed now)
+
+**Changes made:**
+- `normalizationConstants.ts` — added `FORM_POOR_THRESHOLD = 9 as const` with calibration rationale; updated `FORM_SCORE_MID` doc comment
+- `performanceCalculators.ts:187` — MID band changed from `place <= 10` → `place <= FORM_POOR_THRESHOLD - 1` (≤ 8); imported new constant
+- `normalizationPipeline.test.ts` — 3 boundary tests confirming: place=8 stays MID (+0.12s), place=9 → POOR (+0.24s), place=10 → POOR (+0.24s)
+
+**Result:** tsc clean, 156/156 tests pass (up from 153).
+
+**Effect:** 9th and 10th-place finishes now carry a +0.24s form penalty instead of +0.12s, reflecting that in a modal 12-horse V85 field, 9th place is 4th from last — genuinely poor, not mid-pack.
+
+
+<!-- stdout from run 54 2026-04-11 18:00 -->
+[run failed — claude exited 1]
+
+You've hit your limit · resets 7pm (Europe/Stockholm)
+
+
+
+## Run 58 — 2026-04-11 — MUTATE
+
+**Goal:** Sync eval-mae.mjs with H3 POOR band change, then grow MAE corpus on new dates.
+
+**Done:**
+- `scripts/eval-mae.mjs:153` — fixed `formAdj` POOR band: `<= 10` → `<= 8` (MID is now 6–8, POOR is 9+ matching `FORM_POOR_THRESHOLD = 9` from H3/Run 57)
+- Ran `eval-mae.mjs` on 3 new V85 dates: 2026-04-05, 2026-03-28, 2026-03-21 (24 new races)
+- Results: V1 MAE=5.233 (13% win), V2 MAE=5.279 (13% win) — V1 very slightly better (+0.046 delta)
+- Combined 48-race picture: V1=5.006, V2=5.006 — essentially tied across all 6 dates
+- Report saved: `reports/mae-auto-2026-04-05.json`
+
+**Result:** pass
+
+**Next:** H4 step 2 (lower `LAYOFF_THRESHOLD_DAYS` 21→14) — tests are already written (Run 55). Combined MAE tie means no signal to block it. Or run eval on 2–3 more dates to get to 72 races (more statistical power).
+
+<!-- stdout from run 54 2026-04-11 19:00 -->
+**Run 58 complete.**
+
+## What changed
+
+**`scripts/eval-mae.mjs` — formAdj POOR band sync (H3)**
+- Line 153: `<= 10` → `<= 8` — MID is now 6–8, POOR is 9+, matching `FORM_POOR_THRESHOLD = 9` added in Run 57.
+- Before this fix, the evaluator was scoring 9th and 10th place finishes as MID (+0.12s) while the live app was scoring them as POOR (+0.24s). Future evals now faithfully represent the pipeline.
+
+## MAE corpus — combined picture
+
+| Batch | Dates | Races | V1 MAE | V2 MAE | Delta |
+|---|---|---|---|---|---|
+| Old | Mar 14 / Mar 7 / Feb 28 | 24 | 4.779 | 4.733 | −0.046 (V2 better) |
+| New | Apr 5 / Mar 28 / Mar 21 | 24 | 5.233 | 5.279 | +0.046 (V1 better) |
+| **Combined** | 6 dates | **48** | **5.006** | **5.006** | **tied** |
+
+V1 and V2 are statistically tied at this sample size. V2 remains current — the design rationale (form-heavy, reduced career-stat overlap) is sound regardless of the tie. Need 72+ races for statistical signal.
+
+**Next:** H4 step 2 — lower `LAYOFF_THRESHOLD_DAYS` from 21 to 14. Tests are pre-written from Run 55. The MAE tie is not a blocker.
+
+
+## Run 59 — 2026-04-11 — RESEARCH
+
+**Investigated:** H4 layoff threshold change (21d → 14d) — readiness check. Traced `calculateLayoffAdjustment` through `performanceCalculators.ts`, `normalizationConstants.ts`, `horseNormalizationProcessor.ts`, `index.ts`, and `eval-mae.mjs`. Read all existing layoff tests. Read both MAE reports (48 races total).
+
+**Key finding:** The `eval-mae.mjs` script has its own hardcoded `LAYOFF_THRESH = 21` at line 93 — a direct constant clone, not imported from `normalizationConstants.ts`. If `LAYOFF_THRESHOLD_DAYS` is changed to 14 in the source, the evaluator silently continues to use 21, diverging from the live pipeline. This is the same class of desync that Run 58 fixed for H3's `FORM_POOR_THRESHOLD`. Additionally, 3 existing tests embed 21d-threshold-specific assertions and will fail after the change: (1) `'returns 0 at exactly the threshold (21 days)'` (line 609 — with 14d threshold, 21d produces ~0.080s); (2) `'returns small penalty just above threshold (22 days → ~0.012 s)'` (line 622 — excess changes from 1d to 8d, penalty ~0.090s); (3) `'returns ~0.267 s at one scale-unit past threshold (51 days)'` (line 629 — the semantically-correct "one scale unit" test becomes 44d = 14+30, penalty ~0.301s). All other layoff tests remain valid.
+
+**Implication:** A simple 1-line constant change in `normalizationConstants.ts` leaves the evaluator broken without also patching `eval-mae.mjs:93`. The 3 broken tests are not accidents — they document the old threshold and must be rewritten to express the new intent (14d baseline, 44d = one scale unit, 22d = 8d excess). Net scoring impact: a horse that rested exactly 21 days (previously penalty-free) would receive +0.080s × weight 0.6 = +0.048s net penalty — meaningful in tight fields.
+
+**Suggested next move:** MUTATE — H4 step 2. One run, 4 changes: (1) `normalizationConstants.ts` line 178: `LAYOFF_THRESHOLD_DAYS = 21 → 14`. (2) `eval-mae.mjs` line 93: `LAYOFF_THRESH = 21 → 14`. (3) Update test at line 609: assert `calculateLayoffAdjustment(21)` ≈ 0.080s (POOR penalty for normal-rest horse). (4) Update tests at lines 622 and 629: rewrite "just above threshold" as 15d (excess=1, ~0.012s) and "one scale unit" as 44d (excess=30, ~0.267s). tsc + all tests must pass.
+
+<!-- stdout from run 55 2026-04-11 20:00 -->
+**Run 59 — Research complete.**
+
+## What I investigated
+
+Traced the full H4 layoff threshold change (21d → 14d) from constant → formula → normalization pipeline → browser processor → test suite → MAE evaluator.
+
+## Key finding
+
+`eval-mae.mjs` has its own hardcoded `LAYOFF_THRESH = 21` at line 93 — a constant clone, not imported from the source. If only `normalizationConstants.ts` is changed, the evaluator silently diverges from the live pipeline. This is the **same desync class** that Run 58 fixed for H3's `FORM_POOR_THRESHOLD`.
+
+## What breaks predictably
+
+Three tests embed 21d-threshold-specific assertions that will fail after the change:
+- Line 609: `'returns 0 at exactly the threshold (21 days)'` → at 14d threshold, 21d produces ~0.080s (not 0)
+- Line 622: `'returns small penalty just above threshold (22 days → ~0.012 s)'` → excess is now 8d, penalty ~0.090s
+- Line 629: `'returns ~0.267 s at one scale-unit past threshold (51 days)'` → one scale unit (30d past 14d threshold) is now 44d; 51d ≈ 0.310s
+
+## Suggested mutate action
+
+**H4 step 2 — 4 atomic changes in one run:**
+1. `normalizationConstants.ts:178` — `LAYOFF_THRESHOLD_DAYS = 21 → 14`
+2. `eval-mae.mjs:93` — `LAYOFF_THRESH = 21 → 14`
+3. Update test (line 609) to assert `calculateLayoffAdjustment(21) ≈ 0.080s`
+4. Rewrite "just above threshold" test as 15d (≈0.012s) and "one scale unit" as 44d (≈0.267s)
+

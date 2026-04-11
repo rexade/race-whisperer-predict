@@ -1,5 +1,6 @@
 
 import { hasNumericKmTime } from './utils/kmTimeUtils';
+import { log } from '@/lib/logger';
 
 export interface ATGHistoricalRecord {
   date: string;
@@ -53,23 +54,23 @@ export const fetchHorseHistoricalData = async (raceId: string, startNumber: numb
     return cached.data;
   }
 
-  console.log(`Fetching historical data for race ${raceId}, start ${startNumber}`);
-  
+  log.debug(`Fetching historical data for race ${raceId}, start ${startNumber}`);
+
   try {
     const response = await fetch(`/api/atg/races/${raceId}/start/${startNumber}`);
-    
+
     if (!response.ok) {
       throw new Error(`Failed to fetch historical data: ${response.statusText}`);
     }
-    
+
     const data = await response.json();
     START_CACHE.set(cacheKey, { data, fetchedAt: Date.now() });
-    console.log(`Historical data fetched for horse ${data.horse?.name || 'Unknown'}`);
-    
+    log.debug(`Historical data fetched for horse ${data.horse?.name || 'Unknown'}`);
+
     return data;
-    
+
   } catch (error) {
-    console.error(`Error fetching historical data for ${raceId}/start/${startNumber}:`, error);
+    log.warn(`Error fetching historical data for ${raceId}/start/${startNumber}:`, error);
     throw error;
   }
 };
@@ -157,7 +158,7 @@ export const processHistoricalRecords = (
       if (isStatisticsSource && !record.date) {
         // Statistics records without dates bypass time window (e.g., 'life' records)
         if (isXanderDebug) {
-          console.log(`📊 STATISTICS RECORD - Bypassing time window check`);
+          log.debug(`STATISTICS RECORD - Bypassing time window check`);
         }
         // Skip to next filter - don't check date window for stats
       } else if (!ignoreTimeWindow) {
@@ -173,7 +174,7 @@ export const processHistoricalRecords = (
           filteringStats.outsideTimeWindow++;
           rejectRecord(record, `outside-${HISTORICAL_RECORD_MAX_MONTHS}-months`, source);
           if (isXanderDebug) {
-            console.log(`🕵️ FILTERED OUT - Outside ${HISTORICAL_RECORD_MAX_MONTHS} months: ${record.date}`);
+            log.debug(`FILTERED OUT - Outside ${HISTORICAL_RECORD_MAX_MONTHS} months: ${record.date}`);
           }
           return false;
         }
@@ -185,7 +186,7 @@ export const processHistoricalRecords = (
       if (!hasValidTime) {
         filteringStats.noTime++;
         if (isXanderDebug) {
-          console.log(`🕵️ FILTERED OUT - No valid time: ${record.date}`);
+          log.debug(`FILTERED OUT - No valid time: ${record.date}`);
         }
         return false;
       }
@@ -195,7 +196,7 @@ export const processHistoricalRecords = (
         filteringStats.disqualified++;
         rejectRecord(record, 'disqualified', source);
         if (isXanderDebug) {
-          console.log(`🕵️ FILTERED OUT - Disqualified: ${record.date}`);
+          log.debug(`FILTERED OUT - Disqualified: ${record.date}`);
         }
         return false;
       }
@@ -205,7 +206,7 @@ export const processHistoricalRecords = (
         filteringStats.galloped++;
         rejectRecord(record, 'galloped', source);
         if (isXanderDebug) {
-          console.log(`🕵️ FILTERED OUT - Galloped: ${record.date}`);
+          log.debug(`FILTERED OUT - Galloped: ${record.date}`);
         }
         return false;
       }
@@ -223,7 +224,7 @@ export const processHistoricalRecords = (
           filteringStats.invalidPlace++;
           rejectRecord(record, 'invalid-place', source);
           if (isXanderDebug) {
-            console.log(`🕵️ FILTERED OUT - Malformed place: ${record.date} (place: ${record.place})`);
+            log.debug(`FILTERED OUT - Malformed place: ${record.date} (place: ${record.place})`);
           }
           return false;
         }
@@ -245,7 +246,7 @@ export const processHistoricalRecords = (
         filteringStats.missingFields++;
         rejectRecord(record, 'missing-fields', source);
         if (isXanderDebug) {
-          console.log(`🕵️ FILTERED OUT - Missing fields: ${record.date}`);
+          log.debug(`FILTERED OUT - Missing fields: ${record.date}`);
         }
         return false;
       }
@@ -255,7 +256,7 @@ export const processHistoricalRecords = (
         const timeStr = typeof record.kmTime === 'object' && 'minutes' in record.kmTime 
           ? `${record.kmTime.minutes}:${record.kmTime.seconds}.${record.kmTime.tenths}`
           : 'Unknown time';
-        console.log(`✅ KEPT - ${record.date}: ${timeStr} (${record.start.distance}m, place ${record.place})`);
+        log.debug(`KEPT - ${record.date}: ${timeStr} (${record.start.distance}m, place ${record.place})`);
       }
       
       return true;
@@ -265,7 +266,7 @@ export const processHistoricalRecords = (
   };
   
   // First pass: Try with 5-month constraint (only allow records from last 4–5 months)
-  console.log(`🔍 [${debugHorseName || 'Horse'}] Starting historical record processing with ${records.length} total records`);
+  log.debug(`[${debugHorseName || 'Horse'}] Starting historical record processing with ${records.length} total records`);
   const { validRecords: recentRecords, invalidCandidates: recentInvalid, filteringStats: recentStats } = filterRecords(records, false);
   
   let finalRecords = recentRecords;
@@ -276,7 +277,7 @@ export const processHistoricalRecords = (
   
   // Second pass: If no recent records, use fallback (all-time)
   if (recentRecords.length === 0) {
-    console.log(`⚠️ [${debugHorseName || 'Horse'}] No recent records found, attempting fallback to all historical data`);
+    log.warn(`[${debugHorseName || 'Horse'}] No recent records found, attempting fallback to all historical data`);
     const { validRecords: fallbackRecords, invalidCandidates: fallbackInvalid, filteringStats: fallbackStats } = filterRecords(records, true);
     
     if (fallbackRecords.length > 0) {
@@ -285,9 +286,9 @@ export const processHistoricalRecords = (
       usedFallback = true;
       dataSource = 'fallback';
       finalStats = fallbackStats;
-      console.log(`🚨 [${debugHorseName || 'Horse'}] FALLBACK ACTIVATED: Found ${fallbackRecords.length} valid historical records from all time`);
+      log.warn(`[${debugHorseName || 'Horse'}] FALLBACK ACTIVATED: Found ${fallbackRecords.length} valid historical records from all time`);
     } else {
-      console.log(`❌ [${debugHorseName || 'Horse'}] No valid records found even with fallback`);
+      log.warn(`[${debugHorseName || 'Horse'}] No valid records found even with fallback`);
     }
   }
   
@@ -304,19 +305,19 @@ export const processHistoricalRecords = (
   // Log final statistics
   const isXanderDebug = debugHorseName?.toLowerCase().includes('xander');
   if (isXanderDebug || usedFallback) {
-    console.log(`🕵️ [${debugHorseName || 'Horse'}] FINAL FILTERING SUMMARY ${usedFallback ? '(FALLBACK MODE)' : '(RECENT MODE)'}:`);
-    console.log(`   Total records: ${finalStats.total}`);
-    console.log(`   Outside time window: ${finalStats.outsideTimeWindow}`);
-    console.log(`   No valid time: ${finalStats.noTime}`);
-    console.log(`   Disqualified: ${finalStats.disqualified}`);
-    console.log(`   Galloped: ${finalStats.galloped}`);
-    console.log(`   Invalid place: ${finalStats.invalidPlace}`);
-    console.log(`   Missing fields: ${finalStats.missingFields}`);
-    console.log(`   Final valid records: ${finalStats.valid}`);
-    console.log(`   Date range: ${oldestRecordDate} to ${newestRecordDate}`);
-    console.log(`   Data source: ${dataSource.toUpperCase()}`);
+    log.debug(`[${debugHorseName || 'Horse'}] FINAL FILTERING SUMMARY ${usedFallback ? '(FALLBACK MODE)' : '(RECENT MODE)'}:`);
+    log.debug(`   Total records: ${finalStats.total}`);
+    log.debug(`   Outside time window: ${finalStats.outsideTimeWindow}`);
+    log.debug(`   No valid time: ${finalStats.noTime}`);
+    log.debug(`   Disqualified: ${finalStats.disqualified}`);
+    log.debug(`   Galloped: ${finalStats.galloped}`);
+    log.debug(`   Invalid place: ${finalStats.invalidPlace}`);
+    log.debug(`   Missing fields: ${finalStats.missingFields}`);
+    log.debug(`   Final valid records: ${finalStats.valid}`);
+    log.debug(`   Date range: ${oldestRecordDate} to ${newestRecordDate}`);
+    log.debug(`   Data source: ${dataSource.toUpperCase()}`);
     if (usedFallback) {
-      console.log(`   🚨 HORSE MARKED AS NOTIFIEE - USING OLD DATA`);
+      log.debug(`   HORSE USING FALLBACK (OLD DATA)`);
     }
   }
   

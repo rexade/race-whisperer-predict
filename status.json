@@ -3,16 +3,42 @@
   "managed_by": "pi-pulse",
   "registered": "2026-04-08",
   "last_run": "2026-04-11",
-  "run_count": 53,
+  "run_count": 58,
   "health": "green",
-  "current_focus": "Run 53 MUTATE: H2 — top-2 time average in horseProcessing.ts. bestTime now averages the two fastest normalized times (not just the single fastest). Reduces false-favorite inflation for boom-or-bust horses. 4 new tests, 143/143 pass, tsc clean.",
-  "open_threads": 1,
-  "next_run_goal": "LANE 1 evaluation (user-gated) — run MAE panel on recent dates with v2 weights, record Rank MAE + win% vs baseline (5.289 / 30.6%). After eval: H3 (percentile-based form bands) or H4 (layoff threshold 21→14d).",
+  "current_focus": "Run 58 MUTATE: eval-mae.mjs H3 sync (POOR band <= 10 \u2192 <= 8). MAE corpus expanded to 48 races / 6 dates. V1/V2 tied at 5.006 combined MAE.",
+  "open_threads": 2,
+  "next_run_goal": "H4 step 2 — lower LAYOFF_THRESHOLD_DAYS 21\u219214 (tests pre-written, MAE tie is not a blocker). Or expand MAE corpus to 72+ races for more signal.",
   "accuracy": {
-    "rankMAE": 5.289,
-    "winPct": 30.6,
-    "top3Pct": 52.5,
-    "races": 49,
-    "label": "baseline (pre-Run 46)"
+    "rankMAE_combined": 5.006,
+    "races_combined": 48,
+    "dates_combined": 6,
+    "gameType": "V85",
+    "evalScript": "scripts/eval-mae.mjs",
+    "batches": [
+      {
+        "dates": ["2026-03-14", "2026-03-07", "2026-02-28"],
+        "report": "reports/mae-auto-2026-03-14.json",
+        "races": 24,
+        "v1MAE": 4.779,
+        "v2MAE": 4.733,
+        "verdict": "V2 slightly better"
+      },
+      {
+        "dates": ["2026-04-05", "2026-03-28", "2026-03-21"],
+        "report": "reports/mae-auto-2026-04-05.json",
+        "races": 24,
+        "v1MAE": 5.233,
+        "v2MAE": 5.279,
+        "verdict": "V1 slightly better"
+      }
+    ],
+    "label": "v2 weights (Run 46) — autonomous eval, 6 dates, 48 races. V1/V2 tied.",
+    "v1Baseline": {
+      "rankMAE": 5.289,
+      "winPct": 30.6,
+      "top3Pct": 52.5,
+      "races": 49,
+      "label": "pre-Run 46 baseline (V75, browser eval)"
+    }
   }
 }

@@ -1,5 +1,5 @@
-# Memory Brief — MUTATE #46
-*2026-04-11 09:00 — pre-run context*
+# Memory Brief — RESEARCH #55
+*2026-04-11 20:00 — pre-run context*
 
 ## Palace context (L0+L1)
 Lab: Pi Pulse incubator — Raspberry Pi 5 (testpi), /home/admin/lab
@@ -23,7 +23,7 @@ Owner: admin
 (none)
 
 ## Open threads
-### Evaluate Run 46 weight rebalance — compare vs baseline
-### [x] H1 — galloped race dates invisible to form calculator — DONE (Run 51)
-### [x] U2 — Surface polish — DONE (Run 51)
-### [x] U1 — Dark foundation — DONE (Run 50/MUTATE)
+### [x] Evaluate Run 46 weight rebalance — DONE (Run 54)
+### [x] eval-mae.mjs H3 sync — DONE (Run 58)
+### MAE corpus — 6 dates, 48 races (updated Run 58)
+### [x] atgHistoricalApi.ts console cleanup — DONE (Run 54)

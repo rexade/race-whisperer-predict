@@ -9,20 +9,37 @@ The research lane feeds the next mutation — it does not produce code changes i
 
 ---
 
-## LANE 1 — EVALUATE (MUTATE run, user-gated)
+## LANE 1 — EVALUATE
 
-### Evaluate Run 46 weight rebalance — compare vs baseline
-Run 46 changed: form weight 0.5→0.8, FORM_SCALE_S 0.30→0.40, FORM_MAX_RECENT_RACES 8→5, recency weighting linear→exponential (2^n). Also: horseWinPct 0.4→0.2, earningsPerStart 0.2→0.1, consistencyFactor 0.3→0.5.
-**Baseline:** Rank MAE 5.289, win% 30.6%, top-3% 52.5% (49 races, 17 dates).
-**Goal:** lower Rank MAE, raise win% without picking false favorites.
-**Action:** MAEPanel is visible in the Cache drawer. Run the MAE evaluator on at least the same date range, record actual numbers.
-- If improved → update `accuracy` in status.json with new measurements, label "v2 weights", keep changes.
-- If worse → revert DEFAULT_WEIGHTS to v1 in `modernKm/types.ts`, revert constants in `normalizationConstants.ts`, document in failures.md what did not work and why.
-**Hard rule:** No new weight changes until this evaluation is complete and recorded.
+### [x] Evaluate Run 46 weight rebalance — DONE (Run 54)
+V2 weights confirmed better on V85 races: MAE 4.733 vs V1 4.779 (24 races, 3 dates).
+Delta: −0.046 → V2 slightly better. Verdict: keep v2 weights.
+Report: `reports/mae-auto-2026-03-14.json`.
+
+**Also fixed in Run 54 (eval-mae.mjs bugs):**
+- Game type was V75 — corrected to V85 (app uses VITE_GAME_TYPE=V85)
+- `normalizeHistoricalKmTime` divided km-time (already s/km) by distance — caused 0/N km-times in all races. Now uses correct piecewise-linear delta.
+
+### [x] eval-mae.mjs H3 sync — DONE (Run 58)
+`formAdj` POOR band `<= 10` → `<= 8` (matches `FORM_POOR_THRESHOLD = 9` from H3/Run 57).
+Future evaluations now faithfully represent the current pipeline.
+
+### MAE corpus — 6 dates, 48 races (updated Run 58)
+| Dates | Races | V1 MAE | V2 MAE | Delta |
+|---|---|---|---|---|
+| 2026-03-14, 2026-03-07, 2026-02-28 | 24 | 4.779 | 4.733 | −0.046 (V2 better) |
+| 2026-04-05, 2026-03-28, 2026-03-21 | 24 | 5.233 | 5.279 | +0.046 (V1 better) |
+| **Combined** | **48** | **5.006** | **5.006** | **0.000 — tied** |
+
+V2 remains current. Delta is noise-level; V2 design philosophy (form-heavy, reduced career-stat overlap) is sound. Need 72+ races for statistical signal.
 
 ---
 
-## LANE 2 — RESEARCH ✓ DONE (Run 51)
+## LANE 2 — DONE
+
+### [x] atgHistoricalApi.ts console cleanup — DONE (Run 54)
+27 raw `console.*` calls → `log.debug`/`log.warn`. `import { log }` added. Emoji prefixes stripped.
+`isXanderDebug` gate and `usedFallback` gate preserved. Fallback-path calls are `log.warn`.
 
 ### [x] H1 — galloped race dates invisible to form calculator — DONE (Run 51)
 **Done.** `gallopDates` computed in `horseProcessing.ts`, added to `HorseRawKmTime`, injected as `{ place: 15, date }` in both code paths of `horseNormalizationProcessor.ts`. A galloped last race now adds +0.24 s form penalty instead of being silently ignored. 3 new tests confirm behaviour.
@@ -45,21 +62,33 @@ Run 46 changed: form weight 0.5→0.8, FORM_SCALE_S 0.30→0.40, FORM_MAX_RECENT
 
 ---
 
-## Open — lower priority (after LANE 1 evaluation)
+## Open — next priority
 
-### [x] H2 — Single best time bias — DONE (Run 53)
-`horseProcessing.ts:208` `processedTimes[0]` → average of top-2 when ≥2 valid times available.
-`bestRecordTime` still holds the actual fastest individual record.
-`validationStats.best3TimesUsed` updated to reflect actual count (1 or 2).
-4 new tests added. tsc clean, 143 tests pass.
+### [x] G1 — gallopCount wiring gap — DONE (prior to Run 55, found stale)
+`horseProcessing.ts` lines 249-255 compute `gallopCount`, `gallopDates`, `disqualificationCount` from `recentTen` and return them. `confidenceFlags.ts:128` reads `rawTimeData?.gallopCount ?? 0` correctly. gallopRisk UI chip is wired. Thread was already implemented — ACTIVE_THREADS had stale entry.
 
-### H3 — Field-size-blind form
-`calculateFormAdjustment` uses absolute bands (1st/2nd/3rd/etc) regardless of field size.
-Fix: percentile-based bands. 6th in 7 ≠ 6th in 16.
+### [x] H3 — POOR band threshold — DONE (Run 57)
+`FORM_POOR_THRESHOLD = 9` added to `normalizationConstants.ts`. MID band now 6–8, POOR band 9+.
+9th/10th finishes: +0.24s (was +0.12s). tsc clean, 156 tests pass.
 
-### H4 — Layoff threshold miscalibrated
-`LAYOFF_THRESHOLD_DAYS = 21` misses peak-season rest intervals of 10–14 days.
-Fix: reduce to 14d.
+### H4 — Layoff threshold 21d → 14d — READY TO EXECUTE (researched Run 59)
+
+**Rationale:** Typical V85 rest = 10–14d. 21d threshold is too forgiving — horses with 15–21d rest (common after a normal double-rest week) are currently penalty-free. 14d threshold correctly separates regular weekly rhythm from genuine layoffs.
+
+**Step 1 DONE (Run 55):** 9 tests added to `normalizationPipeline.test.ts` covering all key cases. 153 tests total, all pass.
+
+**Step 2 — execute (4 changes, 1 run):**
+1. `normalizationConstants.ts` line 178: `LAYOFF_THRESHOLD_DAYS = 21` → `14`
+2. `eval-mae.mjs` line 93: `LAYOFF_THRESH = 21` → `14` **(critical — mirrors H3 sync pattern from Run 58)**
+3. Update test (line 609): `'returns 0 at exactly the threshold (21 days)'` → assert `calculateLayoffAdjustment(21)` ≈ 0.080s (was 0). Description: "21 days is above new 14d threshold".
+4. Update tests (lines 622, 629): rewrite "just above threshold" as 15d (excess=1, penalty≈0.012s) and "one scale unit" as 44d = 14+30 (excess=30, penalty≈0.267s).
+
+**Net scoring impact:** A horse with 21d rest gets +0.080s raw × 0.6 weight = **+0.048s net penalty** (was 0). Meaningful separation in tight fields.
+
+**MAE evaluator note:** eval-mae.mjs varies weight vectors only — it cannot A/B test the threshold constant. After the change, run eval on existing dates (2026-03-14, 2026-03-07, 2026-02-28) to confirm no regression.
+
+### MAE corpus expansion
+Run eval-mae.mjs on 2–3 more dates to reach 72 races. More statistical power needed before V1/V2 direction is clear. Candidate dates: try 2026-02-21, 2026-02-14, 2026-01-31.
 
 ### MAE-driven weight presets
 Use accumulated MAE data to surface tuning suggestions in WeightManager. Requires more MAE data to be useful; consider after more evaluations are done.

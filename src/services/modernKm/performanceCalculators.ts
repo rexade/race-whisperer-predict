@@ -15,6 +15,7 @@ import {
   FORM_SCORE_GOOD,
   FORM_SCORE_MID,
   FORM_SCORE_POOR,
+  FORM_POOR_THRESHOLD,
   FORM_SCALE_S,
   FORM_MAX_RECENT_RACES,
   FORM_FALLBACK_BASELINE_PCT,
@@ -184,7 +185,7 @@ export const calculateFormAdjustment = (
       if      (race.place === 1)                        score = FORM_SCORE_WIN;
       else if (race.place >= 2 && race.place <= 3)      score = FORM_SCORE_PLACE;
       else if (race.place >= 4 && race.place <= 5)      score = FORM_SCORE_GOOD;
-      else if (race.place >= 6 && race.place <= 10)     score = FORM_SCORE_MID;
+      else if (race.place >= 6 && race.place <= FORM_POOR_THRESHOLD - 1) score = FORM_SCORE_MID;
       else                                              score = FORM_SCORE_POOR;
 
       formScore   += score * weight;

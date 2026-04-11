@@ -17,6 +17,7 @@ import {
   calculateHorseWinPercentageAdjustment,
   calculateEarningsPerStartAdjustment,
   calculateFormAdjustment,
+  calculateLayoffAdjustment,
 } from '../performanceCalculators';
 
 import {
@@ -232,6 +233,25 @@ describe('calculateFormAdjustment', () => {
     const gallopInjected = [{ place: 15, date: '2026-01-10' }];
     const adj = calculateFormAdjustment(gallopInjected);
     expect(adj).toBeGreaterThan(0);
+    expect(adj).toBeCloseTo(0.24, 5);
+  });
+
+  // FORM_POOR_THRESHOLD boundary tests (threshold = 9)
+  it('place=8 is still MID band → +0.12s (boundary below POOR)', () => {
+    // FORM_SCORE_MID=0.3, single race → avg=0.3 → adj=0.3*0.40=+0.12
+    const adj = calculateFormAdjustment([{ place: 8, date: '2026-01-10' }]);
+    expect(adj).toBeCloseTo(0.12, 5);
+  });
+
+  it('place=9 enters POOR band → +0.24s (new lower threshold)', () => {
+    // FORM_SCORE_POOR=0.6, single race → avg=0.6 → adj=0.6*0.40=+0.24
+    const adj = calculateFormAdjustment([{ place: 9, date: '2026-01-10' }]);
+    expect(adj).toBeCloseTo(0.24, 5);
+  });
+
+  it('place=10 is POOR (was MID before threshold change) → +0.24s', () => {
+    // Before: place 10 was FORM_SCORE_MID (+0.12s). After: FORM_SCORE_POOR (+0.24s).
+    const adj = calculateFormAdjustment([{ place: 10, date: '2026-01-10' }]);
     expect(adj).toBeCloseTo(0.24, 5);
   });
 });
@@ -572,5 +592,68 @@ describe('calculateGallopReliabilityPenalty', () => {
     const p3 = calculateGallopReliabilityPenalty(3, 0);
     expect(p2).toBeGreaterThan(p1);
     expect(p3).toBeGreaterThan(p2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// performanceCalculators — calculateLayoffAdjustment
+// ---------------------------------------------------------------------------
+// Constants: LAYOFF_THRESHOLD_DAYS=21, LAYOFF_SCALE_DAYS=30, LAYOFF_MAX_S=0.35
+// Formula: 0.35 * tanh((days - 21) / 30)  when days > 21, else 0
+
+describe('calculateLayoffAdjustment', () => {
+  it('returns 0 for 0 days (fresh horse)', () => {
+    expect(calculateLayoffAdjustment(0)).toBe(0);
+  });
+
+  it('returns 0 at exactly the threshold (21 days)', () => {
+    expect(calculateLayoffAdjustment(21)).toBe(0);
+  });
+
+  it('returns 0 below the threshold (14 days)', () => {
+    expect(calculateLayoffAdjustment(14)).toBe(0);
+  });
+
+  it('returns 0 for non-finite input', () => {
+    expect(calculateLayoffAdjustment(NaN)).toBe(0);
+    expect(calculateLayoffAdjustment(Infinity)).toBe(0);
+  });
+
+  it('returns small penalty just above threshold (22 days → ~0.012 s)', () => {
+    // excess=1, 0.35 * tanh(1/30) ≈ 0.01166
+    const adj = calculateLayoffAdjustment(22);
+    expect(adj).toBeGreaterThan(0);
+    expect(adj).toBeCloseTo(0.012, 2);
+  });
+
+  it('returns ~0.267 s at one scale-unit past threshold (51 days)', () => {
+    // excess=30, 0.35 * tanh(1) ≈ 0.35 * 0.7616 = 0.267
+    expect(calculateLayoffAdjustment(51)).toBeCloseTo(0.267, 2);
+  });
+
+  it('returns ~0.343 s for a 90-day layoff', () => {
+    // excess=69, 0.35 * tanh(2.3) ≈ 0.343
+    expect(calculateLayoffAdjustment(90)).toBeCloseTo(0.343, 2);
+  });
+
+  it('approaches LAYOFF_MAX_S (0.35 s) asymptotically for very long layoffs', () => {
+    // excess=159, 0.35 * tanh(5.3) ≈ 0.35 * 0.9999 ≈ 0.350
+    const adj = calculateLayoffAdjustment(180);
+    expect(adj).toBeGreaterThan(0.34);
+    expect(adj).toBeLessThanOrEqual(0.35);
+  });
+
+  it('is always positive (penalty, never a bonus)', () => {
+    expect(calculateLayoffAdjustment(22)).toBeGreaterThan(0);
+    expect(calculateLayoffAdjustment(60)).toBeGreaterThan(0);
+    expect(calculateLayoffAdjustment(365)).toBeGreaterThan(0);
+  });
+
+  it('is monotonically increasing with days beyond threshold', () => {
+    const d30 = calculateLayoffAdjustment(30);
+    const d60 = calculateLayoffAdjustment(60);
+    const d90 = calculateLayoffAdjustment(90);
+    expect(d60).toBeGreaterThan(d30);
+    expect(d90).toBeGreaterThan(d60);
   });
 });
