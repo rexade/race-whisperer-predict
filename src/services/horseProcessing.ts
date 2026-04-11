@@ -205,16 +205,23 @@ export const processHorseKmTimes = async (
       return (a as any)._sortIndex - (b as any)._sortIndex; // Stable fallback
     });
 
-  // Use single best (fastest) time only; records are already filtered to ≤5 months upstream
+  // Use average of top-2 fastest times when ≥2 available — reduces false-favorite
+  // inflation for boom-or-bust horses with one outlier fast time.
+  // With only 1 valid time, fall back to that single record.
   let bestTime: KmTime = { minutes: 0, seconds: 0, tenths: 0 };
   let bestRecordTime: KmTime = { minutes: 0, seconds: 0, tenths: 0 };
   const hasBestTime = processedTimes.length > 0;
 
   if (hasBestTime) {
-    const fastestRecord = processedTimes[0].normalizedTime;
-    bestTime = { ...fastestRecord };
-    bestRecordTime = { ...fastestRecord };
-    log.debug(`[horseProcessing] ${horseName} best time: ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
+    if (processedTimes.length >= 2) {
+      const sec1 = toSeconds(processedTimes[0].normalizedTime.minutes, processedTimes[0].normalizedTime.seconds, processedTimes[0].normalizedTime.tenths ?? 0);
+      const sec2 = toSeconds(processedTimes[1].normalizedTime.minutes, processedTimes[1].normalizedTime.seconds, processedTimes[1].normalizedTime.tenths ?? 0);
+      bestTime = secondsToKmParts((sec1 + sec2) / 2);
+    } else {
+      bestTime = { ...processedTimes[0].normalizedTime };
+    }
+    bestRecordTime = { ...processedTimes[0].normalizedTime }; // Always the actual fastest record
+    log.debug(`[horseProcessing] ${horseName} best time (${processedTimes.length >= 2 ? 'avg top-2' : 'single'}): ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
   } else {
     log.warn(`[horseProcessing] ${horseName}: no valid times`);
   }
@@ -226,7 +233,7 @@ export const processHorseKmTimes = async (
     disqualified,
     galloped,
     missingKmTimes,
-    best3TimesUsed: hasBestTime ? 1 : 0
+    best3TimesUsed: hasBestTime ? Math.min(processedTimes.length, 2) : 0
   };
   HorseDebugger.logValidationStats(horseId, horseName, validationStats);
 
@@ -244,6 +251,7 @@ export const processHorseKmTimes = async (
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 10);
   const gallopCount = recentTen.filter(r => r.galloped === true).length;
+  const gallopDates = recentTen.filter(r => r.galloped === true).map(r => r.date).filter(Boolean) as string[];
   const disqualificationCount = recentTen.filter(r => r.disqualified === true).length;
 
   // Get telemetry breakdown for statistics fallback
@@ -300,6 +308,7 @@ export const processHorseKmTimes = async (
     usedStatisticsFallback,
     gallopRate: totalRecords > 0 ? galloped / totalRecords : 0,
     gallopCount,
+    gallopDates,
     disqualificationCount,
     lastRaceDate: lastRaceDate ?? undefined,
     consistencyScore: (() => {

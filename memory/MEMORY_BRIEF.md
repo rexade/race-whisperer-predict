@@ -1,5 +1,5 @@
-# Memory Brief — MUTATE #41
-*2026-04-11 00:00 — pre-run context*
+# Memory Brief — MUTATE #46
+*2026-04-11 09:00 — pre-run context*
 
 ## Palace context (L0+L1)
 Lab: Pi Pulse incubator — Raspberry Pi 5 (testpi), /home/admin/lab
@@ -24,6 +24,6 @@ Owner: admin
 
 ## Open threads
 ### Evaluate Run 46 weight rebalance — compare vs baseline
-### gallopCount wiring gap — confirmed production bug
-### BUG: gallopCount never populated in horseProcessing.ts
-### U1 — Dark foundation (FIRST)
+### [x] H1 — galloped race dates invisible to form calculator — DONE (Run 51)
+### [x] U2 — Surface polish — DONE (Run 51)
+### [x] U1 — Dark foundation — DONE (Run 50/MUTATE)

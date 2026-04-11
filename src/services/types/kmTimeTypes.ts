@@ -43,6 +43,10 @@ export interface HorseRawKmTime {
   usedInvalidTimeFallback?: boolean;
   /** Number of gallop (stride-break) races in the last 10 historical starts. */
   gallopCount?: number;
+  /** Dates (YYYY-MM-DD) of galloped races in the last 10 historical starts.
+   *  Injected into the form calculator so that a galloped last race is penalised,
+   *  not silently ignored. */
+  gallopDates?: string[];
   /** Number of disqualified races in the last 10 historical starts. */
   disqualificationCount?: number;
   warning?: {

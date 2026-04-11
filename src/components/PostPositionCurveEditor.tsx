@@ -169,7 +169,7 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
         </div>
         
         {startMethod === 'auto' && (
-          <div className="text-xs text-blue-600 text-center">
+          <div className="text-xs text-muted-foreground text-center">
             Positions 13-15 are for rare extended auto races
           </div>
         )}

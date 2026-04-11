@@ -1,11 +1,7 @@
-# Drift Feedback — 2026-04-10 21:06
+# Drift Feedback — 2026-04-11 07:37
 
-DIRECTION: The project is heading towards a more flexible and adaptable system that can handle various types of projects without hardwiring specific configurations. This is evident from the changes made, such as making ProjectPanel generic and allowing it to load from any mounted project via configuration.
-
-STRONGEST: The project is headed in the right direction with respect to flexibility and adaptability. By allowing ProjectPanel to be configured based on its mount, the team has removed a significant barrier for compatibility across different use cases.
-
-WEAKEST: There are concerns about the complexity introduced by adding integration tests and potentially refactoring existing codebase. These new tests could add unnecessary overhead or complexity during development cycles.
-
-DRIFT: Yes, the project is currently drifting slightly from its initial goal of being simple enough for anyone to run their own experiments with just a few lines of configuration. The addition of these integration tests seems like an overreach at this stage, but they will likely serve as valuable tools once fully integrated into the workflow.
-
-Next: Merging `calculateGallopReliabilityPenalty` and `calculateRiskAdjustment` functions should replace the need for separate functions, simplifying the calculation process further while still providing accurate results.
+DIRECTION: The project is heading towards a fully functioning and user-gated release, where it will be evaluated on whether it meets the criteria set by the seed. It's also likely to continue developing its features and expanding its capabilities as users decide which improvements are most needed.
+STRONGEST: The project has seen significant progress in terms of improving performance metrics such as passing tests and running smoothly on certain platforms. This indicates that the software continues to evolve and meet the needs of its users more effectively each time around.
+WEAKEST: The project still faces challenges in maintaining high-quality code while ensuring compatibility across various environments and devices. Additionally, the ongoing issue with ghost/whisper/oracle remains a concern for the team.
+DRIFT: Yes, the project appears to be shifting focus slightly from its initial goals. While it aims to become incubated, both the routing aspect and the development of these projects remain open to decisions based on user feedback or input. However, this does not necessarily indicate drifting away from the original vision; rather, it shows a natural evolution as the project grows and adapts to different audiences over time.
+Next: The next step should involve thoroughly reviewing all issues and concerns regarding compatibility across environments and devices before making any major changes. Ensuring these aspects aligns with the future goals and objectives of the project will be crucial in achieving a successful launch. Additionally, engaging with users who have already tested the project and providing them with an opportunity to express their opinions on how best to proceed forward seems like a useful next action.

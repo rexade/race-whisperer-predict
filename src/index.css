@@ -38,11 +38,11 @@
   }
 }
 
-/* ATG Design System - Inspired by ATG.se */
+/* Pi Pulse design language — cyan accent, consistent across light and dark */
 
 @layer base {
   :root {
-    /* ATG Color Palette - Based on ATG.se brand colors */
+    /* Light mode — cyan palette (mirrors dark mode hue, lighter values) */
     --background: 0 0% 98%;
     --foreground: 220 15% 20%;
 
@@ -52,45 +52,45 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 15% 20%;
 
-    /* Primary: ATG Dark Blue */
-    --primary: 214 84% 22%;
+    /* Primary: Deep Cyan */
+    --primary: 188 84% 22%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 214 84% 18%;
+    --primary-hover: 188 84% 18%;
 
-    /* Secondary: ATG Light Blue/Gray */
+    /* Secondary: Light Gray */
     --secondary: 210 20% 96%;
-    --secondary-foreground: 214 84% 22%;
+    --secondary-foreground: 188 84% 22%;
 
     /* Muted: Subtle Gray */
     --muted: 210 20% 96%;
     --muted-foreground: 220 15% 45%;
 
-    /* Accent: ATG Blue */
-    --accent: 214 95% 45%;
+    /* Accent: Cyan */
+    --accent: 188 86% 45%;
     --accent-foreground: 0 0% 100%;
-    --accent-hover: 214 95% 40%;
+    --accent-hover: 188 86% 40%;
 
     /* Destructive: Error Red */
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Success: ATG Green */
+    /* Success: Green */
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
 
-    /* Warning: ATG Orange */
+    /* Warning: Orange */
     --warning: 32 95% 44%;
     --warning-foreground: 0 0% 100%;
 
     /* Border and Input */
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 214 95% 45%;
+    --ring: 188 86% 45%;
 
-    /* ATG Specific Colors */
-    --atg-navy: 214 84% 22%;
-    --atg-blue: 214 95% 45%;
-    --atg-light-blue: 210 40% 90%;
+    /* Semantic color aliases */
+    --atg-navy: 188 84% 22%;
+    --atg-blue: 188 86% 45%;
+    --atg-light-blue: 188 40% 90%;
     --atg-orange: 32 95% 44%;
     --atg-red: 0 84% 60%;
     --atg-green: 142 76% 36%;
@@ -105,7 +105,7 @@
     --atg-gray-800: 220 15% 15%;
     --atg-gray-900: 220 15% 10%;
 
-    /* ATG Gradients */
+    /* Gradients */
     --gradient-hero: linear-gradient(135deg, hsl(var(--atg-navy)), hsl(var(--atg-blue)));
     --gradient-card: linear-gradient(180deg, hsl(var(--card)), hsl(var(--atg-gray-50)));
     --gradient-accent: linear-gradient(135deg, hsl(var(--atg-blue)), hsl(var(--accent-hover)));
@@ -126,38 +126,38 @@
     --radius-lg: 0.75rem;
 
     /* Sidebar colors */
-    --sidebar-background: 214 84% 22%;
+    --sidebar-background: 188 84% 22%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 214 95% 45%;
+    --sidebar-primary: 188 86% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 210 20% 96%;
-    --sidebar-accent-foreground: 214 84% 22%;
+    --sidebar-accent-foreground: 188 84% 22%;
     --sidebar-border: 220 15% 15%;
-    --sidebar-ring: 214 95% 45%;
+    --sidebar-ring: 188 86% 45%;
   }
 
   .dark {
-    /* Dark mode with ATG-inspired adjustments */
-    --background: 225 65% 10%;
-    --foreground: 0 0% 95%;
+    /* Pi Pulse dark palette — pure black foundation, cyan accent */
+    --background: 0 0% 3%;
+    --foreground: 210 40% 96%;
 
-    --card: 225 65% 12%;
-    --card-foreground: 0 0% 95%;
+    --card: 0 0% 6%;
+    --card-foreground: 210 40% 96%;
 
-    --popover: 225 65% 12%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 0 0% 6%;
+    --popover-foreground: 210 40% 96%;
 
-    --primary: 220 82% 46%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 188 86% 53%;
+    --primary-foreground: 0 0% 3%;
 
-    --secondary: 225 30% 20%;
-    --secondary-foreground: 0 0% 95%;
+    --secondary: 0 0% 9%;
+    --secondary-foreground: 210 40% 96%;
 
-    --muted: 225 30% 15%;
-    --muted-foreground: 0 0% 65%;
+    --muted: 0 0% 9%;
+    --muted-foreground: 215 19% 35%;
 
-    --accent: 220 82% 46%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 188 86% 53%;
+    --accent-foreground: 0 0% 3%;
 
     --destructive: 4 77% 56%;
     --destructive-foreground: 0 0% 100%;
@@ -168,27 +168,27 @@
     --warning: 57 100% 48%;
     --warning-foreground: 0 0% 0%;
 
-    --border: 225 30% 20%;
-    --input: 225 30% 20%;
-    --ring: 220 82% 46%;
+    --border: 0 0% 10%;
+    --input: 0 0% 10%;
+    --ring: 188 86% 53%;
 
-    --sidebar-background: 225 65% 8%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 220 82% 46%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 225 30% 15%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 225 30% 15%;
-    --sidebar-ring: 220 82% 46%;
+    --sidebar-background: 0 0% 3%;
+    --sidebar-foreground: 210 40% 96%;
+    --sidebar-primary: 188 86% 53%;
+    --sidebar-primary-foreground: 0 0% 3%;
+    --sidebar-accent: 0 0% 9%;
+    --sidebar-accent-foreground: 210 40% 96%;
+    --sidebar-border: 0 0% 10%;
+    --sidebar-ring: 188 86% 53%;
 
-    /* Dark mode ATG colors */
-    --atg-header: 225 65% 8%;
-    --atg-light-blue: 220 60% 25%;
-    --atg-blue: 220 82% 56%;
+    /* ATG semantic colors — kept for components that reference them */
+    --atg-header: 0 0% 3%;
+    --atg-light-blue: 188 86% 25%;
+    --atg-blue: 188 86% 53%;
     --atg-yellow: 57 100% 58%;
     --atg-red: 4 77% 66%;
     --atg-green: 123 40% 54%;
-    --atg-gray: 225 30% 15%;
+    --atg-gray: 0 0% 9%;
     --atg-dark-gray: 0 0% 70%;
   }
 }

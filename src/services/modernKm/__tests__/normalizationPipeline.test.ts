@@ -224,6 +224,16 @@ describe('calculateFormAdjustment', () => {
   it('fallback baseline (10 %) → returns 0', () => {
     expect(calculateFormAdjustment(undefined, 10)).toBeCloseTo(0, 5);
   });
+
+  it('gallop-injected race (place=15) produces a penalty, not zero', () => {
+    // A horse whose only recent race was a gallop — horseNormalizationProcessor injects
+    // it as { place: 15, date } so the form calc penalises rather than ignoring it.
+    // FORM_SCORE_POOR=0.6, FORM_SCALE_S=0.40 → adj = +0.24 (positive = penalty = slower)
+    const gallopInjected = [{ place: 15, date: '2026-01-10' }];
+    const adj = calculateFormAdjustment(gallopInjected);
+    expect(adj).toBeGreaterThan(0);
+    expect(adj).toBeCloseTo(0.24, 5);
+  });
 });
 
 // ---------------------------------------------------------------------------

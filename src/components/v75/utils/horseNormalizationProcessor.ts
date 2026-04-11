@@ -1,5 +1,5 @@
 
-import { KmTime } from '../../../services/types/kmTimeTypes';
+import { KmTime, HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 import {
   applyModernKmNormalization,
   NormalizationWeights,
@@ -74,7 +74,7 @@ export const applyHorseNormalization = (
   extractedData: ExtractedHorseData,
   weights: NormalizationWeights,
   postPositionCurves?: PostPositionCurves,
-  rawTimeData?: { allTimes?: Array<{ raceDate: string; finishOrder?: number }> }
+  rawTimeData?: HorseRawKmTime
 ) => {
   log.debug(`🔍 STRICT NORMALIZATION - Horse ${horse.horseId} (${extractedData.safeHorseName}):`);
   log.debug(`  - Has raw KM time: ${!!rawKmTime}`);
@@ -143,6 +143,9 @@ export const applyHorseNormalization = (
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 10);
     }
+    // Inject galloped races as place=15 so the form calculator penalises them
+    const gallopEntries = rawTimeData?.gallopDates?.map(d => ({ place: 15, date: d })) ?? [];
+    if (gallopEntries.length > 0) recentRaces = [...(recentRaces ?? []), ...gallopEntries];
 
     const factors: ModernNormalizationFactors = {
       postPosition: horse.postPosition,
@@ -204,6 +207,9 @@ export const applyHorseNormalization = (
       log.debug(`  📊 Found ${recentRaces.length} recent races for form calculation`);
     }
   }
+  // Inject galloped races as place=15 so the form calculator penalises them
+  const gallopEntries = rawTimeData?.gallopDates?.map(d => ({ place: 15, date: d })) ?? [];
+  if (gallopEntries.length > 0) recentRaces = [...(recentRaces ?? []), ...gallopEntries];
 
   const factors: ModernNormalizationFactors = {
     postPosition: horse.postPosition,
