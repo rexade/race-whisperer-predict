@@ -3,15 +3,15 @@
   "managed_by": "pi-pulse",
   "registered": "2026-04-08",
   "last_run": "2026-04-11",
-  "run_count": 58,
+  "run_count": 61,
   "health": "green",
-  "current_focus": "Run 58 MUTATE: eval-mae.mjs H3 sync (POOR band <= 10 \u2192 <= 8). MAE corpus expanded to 48 races / 6 dates. V1/V2 tied at 5.006 combined MAE.",
+  "current_focus": "Run 61 MUTATE: MAE-driven weight presets. WeightPreset interface gains maeScore/raceCount. V2 empirical preset (5.288 MAE, 72 races) added. WeightManager now has a Quick Presets selector.",
   "open_threads": 2,
-  "next_run_goal": "H4 step 2 — lower LAYOFF_THRESHOLD_DAYS 21\u219214 (tests pre-written, MAE tie is not a blocker). Or expand MAE corpus to 72+ races for more signal.",
+  "next_run_goal": "Investigate Jan-Feb high-MAE pattern (~5.8 vs Mar ~4.7-5.2). Or design V3 weight candidate (boost form 0.8→1.0, reduce postPosition 0.9→0.7) and test with eval-mae.mjs.",
   "accuracy": {
-    "rankMAE_combined": 5.006,
-    "races_combined": 48,
-    "dates_combined": 6,
+    "rankMAE_combined": 5.288,
+    "races_combined": 72,
+    "dates_combined": 9,
     "gameType": "V85",
     "evalScript": "scripts/eval-mae.mjs",
     "batches": [
@@ -30,9 +30,17 @@
         "v1MAE": 5.233,
         "v2MAE": 5.279,
         "verdict": "V1 slightly better"
+      },
+      {
+        "dates": ["2026-02-21", "2026-02-14", "2026-01-31"],
+        "report": "reports/mae-auto-2026-02-21.json",
+        "races": 24,
+        "v1MAE": 5.858,
+        "v2MAE": 5.853,
+        "verdict": "V2 slightly better"
       }
     ],
-    "label": "v2 weights (Run 46) — autonomous eval, 6 dates, 48 races. V1/V2 tied.",
+    "label": "v2 weights (Run 46) — autonomous eval, 9 dates, 72 races. V2 marginally better (−0.002 MAE combined).",
     "v1Baseline": {
       "rankMAE": 5.289,
       "winPct": 30.6,

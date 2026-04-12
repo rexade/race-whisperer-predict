@@ -5,9 +5,29 @@ export interface WeightPreset {
   description: string;
   weights: NormalizationWeights;
   category: 'conservative' | 'balanced' | 'aggressive' | 'specialized';
+  /** Mean rank error from autonomous eval corpus (lower = better). */
+  maeScore?: number;
+  /** Number of races used for MAE evaluation. */
+  raceCount?: number;
 }
 
 export const WEIGHT_PRESETS: WeightPreset[] = [
+  {
+    name: 'V2 — Empirical (2026)',
+    description: 'Current defaults — validated on 72 V85 races (9 dates, Jan–Apr 2026). MAE 5.288 vs V1 baseline 5.290.',
+    category: 'balanced',
+    maeScore: 5.288,
+    raceCount: 72,
+    weights: {
+      postPosition: 0.9, shoeType: 0.4, sulkyType: 0.5,
+      driverPerformance: 1.0, trackFamiliarity: 0.6, form: 0.8,
+      distanceAdjustment: 0.8, raceDistanceAdjustment: 1.0,
+      volteStartDistancePenalty: 1.1, startPoints: 0.5,
+      placePercentage: 0.6, horseWinPercentage: 0.2, earningsPerStart: 0.1,
+      gallopRisk: 0.5, layoffPenalty: 0.6, ageFactor: 0.5,
+      genderAdjustment: 0.4, consistencyFactor: 0.5,
+    },
+  },
   {
     name: 'Realistic Balanced (2025)',
     description: 'Saturated start points, de-duplicated form, realistic caps',

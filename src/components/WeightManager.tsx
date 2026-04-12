@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Settings, RotateCcw, ChevronDown, ChevronRight, Save, Upload, Download, Info, TrendingUp } from "lucide-react";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
+import { WEIGHT_PRESETS, type WeightPreset } from '../services/modernKm/presetWeights';
 import { PostPositionCurveEditor, PostPositionCurves, getDefaultPostPositionCurves } from './PostPositionCurveEditor';
 import { useToast } from "@/hooks/use-toast";
 
@@ -32,6 +33,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({
     driver: true,
     distance: true
   });
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleWeightChange = (factor: keyof NormalizationWeights, value: number[]) => {
@@ -166,6 +168,11 @@ const WeightManager: React.FC<WeightManagerProps> = ({
       }
     };
     input.click();
+  };
+
+  const applyPreset = (preset: WeightPreset) => {
+    setSelectedPreset(preset.name);
+    onWeightsChange(preset.weights);
   };
 
   const toggleCategory = (category: string) => {
@@ -372,6 +379,36 @@ const WeightManager: React.FC<WeightManagerProps> = ({
             </TabsList>
             
             <TabsContent value="weights" className="space-y-6 mt-6">
+              {/* Quick Presets */}
+              <div className="space-y-2 border border-border/50 rounded-lg p-3 bg-muted/20">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quick Presets</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {WEIGHT_PRESETS.map(preset => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => applyPreset(preset)}
+                      className={`px-2.5 py-1 rounded text-xs border transition-colors ${
+                        selectedPreset === preset.name
+                          ? 'bg-primary/15 border-primary/40 text-foreground font-medium'
+                          : 'bg-background border-border text-muted-foreground hover:bg-muted hover:text-foreground hover:border-primary/30'
+                      }`}
+                    >
+                      {preset.name}
+                      {preset.maeScore != null && (
+                        <span className="ml-1 text-[10px] text-primary/80">{preset.maeScore} MAE</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+                {selectedPreset && (() => {
+                  const p = WEIGHT_PRESETS.find(x => x.name === selectedPreset);
+                  return p ? (
+                    <p className="text-xs text-muted-foreground">{p.description}</p>
+                  ) : null;
+                })()}
+              </div>
+
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start sm:gap-4">
                 <p className="text-sm text-muted-foreground sm:flex-1">
                   Adjust the weights to control how much each factor affects the final normalized time.

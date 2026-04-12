@@ -90,7 +90,7 @@ const FORM_GALLOP_PL  =  15;   // galloped → treated as place 15
 const GALLOP_MAX_S    = 0.50;
 const GALLOP_SCALE    = 0.15;
 
-const LAYOFF_THRESH   = 21;    // days
+const LAYOFF_THRESH   = 14;    // days
 const LAYOFF_SCALE_D  = 30;
 const LAYOFF_MAX_S    = 0.35;
 

@@ -175,7 +175,7 @@ export const FORM_FALLBACK_SCALE_S = 0.01 as const;
 // ---------------------------------------------------------------------------
 
 /** Minimum days since last race before any penalty is applied. */
-export const LAYOFF_THRESHOLD_DAYS = 21 as const;
+export const LAYOFF_THRESHOLD_DAYS = 14 as const;
 
 /** tanh scale for layoff.  At 30 days past threshold → tanh(1) ≈ 76 % of cap. */
 export const LAYOFF_SCALE_DAYS = 30 as const;

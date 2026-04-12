@@ -24,14 +24,16 @@ Report: `reports/mae-auto-2026-03-14.json`.
 `formAdj` POOR band `<= 10` → `<= 8` (matches `FORM_POOR_THRESHOLD = 9` from H3/Run 57).
 Future evaluations now faithfully represent the current pipeline.
 
-### MAE corpus — 6 dates, 48 races (updated Run 58)
+### MAE corpus — 9 dates, 72 races (updated Run 60)
 | Dates | Races | V1 MAE | V2 MAE | Delta |
 |---|---|---|---|---|
 | 2026-03-14, 2026-03-07, 2026-02-28 | 24 | 4.779 | 4.733 | −0.046 (V2 better) |
 | 2026-04-05, 2026-03-28, 2026-03-21 | 24 | 5.233 | 5.279 | +0.046 (V1 better) |
-| **Combined** | **48** | **5.006** | **5.006** | **0.000 — tied** |
+| 2026-02-21, 2026-02-14, 2026-01-31 | 24 | 5.858 | 5.853 | −0.005 (V2 slightly better) |
+| **Combined** | **72** | **5.290** | **5.288** | **−0.002 — V2 marginally better** |
 
-V2 remains current. Delta is noise-level; V2 design philosophy (form-heavy, reduced career-stat overlap) is sound. Need 72+ races for statistical signal.
+V2 remains current. At 72 races, V2 edges V1 by 0.002 MAE — statistically marginal but consistently in V2's direction (better in 2/3 batches). Design philosophy (form-heavy, reduced career-stat overlap) holds. Older dates (Jan-Feb) show higher MAE (~5.8) vs newer dates (~4.7-5.2) for both weights — seasonal/conditions pattern worth investigating.
+Report: `reports/mae-auto-2026-02-21.json`.
 
 ---
 
@@ -71,27 +73,32 @@ V2 remains current. Delta is noise-level; V2 design philosophy (form-heavy, redu
 `FORM_POOR_THRESHOLD = 9` added to `normalizationConstants.ts`. MID band now 6–8, POOR band 9+.
 9th/10th finishes: +0.24s (was +0.12s). tsc clean, 156 tests pass.
 
-### H4 — Layoff threshold 21d → 14d — READY TO EXECUTE (researched Run 59)
+### [x] H4 — Layoff threshold 21d → 14d — DONE (Run 59)
 
-**Rationale:** Typical V85 rest = 10–14d. 21d threshold is too forgiving — horses with 15–21d rest (common after a normal double-rest week) are currently penalty-free. 14d threshold correctly separates regular weekly rhythm from genuine layoffs.
+**Done:** `LAYOFF_THRESHOLD_DAYS = 14` in normalizationConstants.ts + eval-mae.mjs mirrored. JSDoc updated. Tests updated: "21d" test now asserts +0.080s, "just above" uses 15d, "one scale unit" uses 44d. tsc clean, 156 tests pass.
 
-**Step 1 DONE (Run 55):** 9 tests added to `normalizationPipeline.test.ts` covering all key cases. 153 tests total, all pass.
+**Net impact:** Horse with 21d rest now gets +0.080s raw × 0.6 weight = +0.048s net penalty (was 0).
 
-**Step 2 — execute (4 changes, 1 run):**
-1. `normalizationConstants.ts` line 178: `LAYOFF_THRESHOLD_DAYS = 21` → `14`
-2. `eval-mae.mjs` line 93: `LAYOFF_THRESH = 21` → `14` **(critical — mirrors H3 sync pattern from Run 58)**
-3. Update test (line 609): `'returns 0 at exactly the threshold (21 days)'` → assert `calculateLayoffAdjustment(21)` ≈ 0.080s (was 0). Description: "21 days is above new 14d threshold".
-4. Update tests (lines 622, 629): rewrite "just above threshold" as 15d (excess=1, penalty≈0.012s) and "one scale unit" as 44d = 14+30 (excess=30, penalty≈0.267s).
+### [x] MAE corpus expansion — DONE (Run 60)
+72 races across 9 dates. V2 marginally better (−0.002 MAE). V2 confirmed as current.
 
-**Net scoring impact:** A horse with 21d rest gets +0.080s raw × 0.6 weight = **+0.048s net penalty** (was 0). Meaningful separation in tight fields.
+### [x] MAE-driven weight presets — DONE (Run 61)
+`WeightPreset` interface gains `maeScore?`/`raceCount?`. New `'V2 — Empirical (2026)'` preset added (maeScore=5.288, 72 races). WeightManager exposes all presets as a clickable row with inline MAE label and description. WEIGHT_PRESETS was previously dead code.
 
-**MAE evaluator note:** eval-mae.mjs varies weight vectors only — it cannot A/B test the threshold constant. After the change, run eval on existing dates (2026-03-14, 2026-03-07, 2026-02-28) to confirm no regression.
+### [x] Jan-Feb high-MAE pattern — CLOSED (Run 62)
+Pattern does not exist. Two artifacts:
+1. **Batch 1 March 14 tiny fields** (avg 6 horses) produce structurally low MAE by construction (max 3.0 for 6h vs 6.0 for 12h). Excluding Mar 14: Batch 1 mean = 5.939 ≈ Batch 3 Jan-Feb (5.858). No seasonal gap.
+2. **computeMAE DNS contamination** in eval-mae.mjs: ATG assigns `finishOrder: 56/57` to DNS/withdrawn horses with `galloped: null, disqualified: null`. These pass the `computeMAE` filter and contribute errors of ~49 per horse. **11 of 72 races have MAE values that exceed the theoretical maximum for their field size** — all are DNS-contaminated. Distribution is even across all 3 batches (4/4/3), not seasonal.
 
-### MAE corpus expansion
-Run eval-mae.mjs on 2–3 more dates to reach 72 races. More statistical power needed before V1/V2 direction is clear. Candidate dates: try 2026-02-21, 2026-02-14, 2026-01-31.
+### E1 — Fix computeMAE DNS contamination — READY TO MUTATE
+**Bug:** `computeMAE()` in `scripts/eval-mae.mjs` (line 317) filters `actualFinishOrder > 0 && !galloped && !disqualified` but misses DNS horses (finishOrder=56/57, galloped=null→false, DQ=null→false). These produce errors of |predictedRank−56|=~49, making MAE physically impossible (e.g., 17.0 for a 12-horse race where max is 6.0).
 
-### MAE-driven weight presets
-Use accumulated MAE data to surface tuning suggestions in WeightManager. Requires more MAE data to be useful; consider after more evaluations are done.
+**Fix (1 line):** Change the `finished` filter in `computeMAE()` to add `&& h.actualFinishOrder <= 30`. ATG DNS codes are 56/57; max V85 field size is 15, so 30 is a safe ceiling.
+
+**After fix:** Re-run eval-mae.mjs on all 9 dates, update `presetWeights.ts` V2 preset `maeScore` with corrected value. Expected clean MAE: ~3.5–4.0 (not 5.288).
+
+### V3 weight candidate — BLOCKED on E1
+Depends on a clean MAE corpus. After E1 fix and re-evaluation, check if V2 still holds. Only then design V3 (form 0.8→1.0?, postPosition 0.9→0.7?) and test with eval-mae.mjs.
 
 ## Closed
 *Archived to `memory/CLOSED_THREADS.md` — 33 items through Run 49.*

@@ -1,5 +1,5 @@
-# Memory Brief — RESEARCH #55
-*2026-04-11 20:00 — pre-run context*
+# Memory Brief — RESEARCH #59
+*2026-04-12 00:00 — pre-run context*
 
 ## Palace context (L0+L1)
 Lab: Pi Pulse incubator — Raspberry Pi 5 (testpi), /home/admin/lab
@@ -25,5 +25,5 @@ Owner: admin
 ## Open threads
 ### [x] Evaluate Run 46 weight rebalance — DONE (Run 54)
 ### [x] eval-mae.mjs H3 sync — DONE (Run 58)
-### MAE corpus — 6 dates, 48 races (updated Run 58)
+### MAE corpus — 9 dates, 72 races (updated Run 60)
 ### [x] atgHistoricalApi.ts console cleanup — DONE (Run 54)

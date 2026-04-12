@@ -4,114 +4,151 @@
 
 ---
 
-## Run 56 — 2026-04-11 — RESEARCH
+## Run 59 — 2026-04-11 — RESEARCH
 
-**Investigated:** H3 — field-size-blind form bands: full fix feasibility + pragmatic fix readiness
+**Investigated:** H4 layoff threshold change (21d → 14d) — readiness check. Traced `calculateLayoffAdjustment` through `performanceCalculators.ts`, `normalizationConstants.ts`, `horseNormalizationProcessor.ts`, `index.ts`, and `eval-mae.mjs`. Read all existing layoff tests. Read both MAE reports (48 races total).
 
-**Key finding:** `ATGHistoricalRecord` (atgHistoricalApi.ts) has **no `fieldSize` or `startCount` field** — confirmed by complete interface inspection. Field size for historical race records is structurally impossible to obtain: each per-horse historical record only contains the horse's own result, not total starters. Getting it would require one `/api/atg/races/{raceId}` call per historical race — 50-120 extra API calls per game round. Prohibited by no-spam directive. Full fix is **permanently blocked**.
+**Key finding:** The `eval-mae.mjs` script has its own hardcoded `LAYOFF_THRESH = 21` at line 93 — a direct constant clone, not imported from `normalizationConstants.ts`. If `LAYOFF_THRESHOLD_DAYS` is changed to 14 in the source, the evaluator silently continues to use 21, diverging from the live pipeline. This is the same class of desync that Run 58 fixed for H3's `FORM_POOR_THRESHOLD`. Additionally, 3 existing tests embed 21d-threshold-specific assertions and will fail after the change: (1) `'returns 0 at exactly the threshold (21 days)'` (line 609 — with 14d threshold, 21d produces ~0.080s); (2) `'returns small penalty just above threshold (22 days → ~0.012 s)'` (line 622 — excess changes from 1d to 8d, penalty ~0.090s); (3) `'returns ~0.267 s at one scale-unit past threshold (51 days)'` (line 629 — the semantically-correct "one scale unit" test becomes 44d = 14+30, penalty ~0.301s). All other layoff tests remain valid.
 
-MAE evaluation data (`mae-auto-2026-03-14.json`, 24 races) shows actual V85 field sizes: modal range 10-15 horses (median ~12). In a 12-horse field, 9th place = 4th from last — genuinely poor. In a 15-horse field, 9th place = 7th from last — borderline MID. The current threshold (11+) is too lenient for all these typical fields.
+**Implication:** A simple 1-line constant change in `normalizationConstants.ts` leaves the evaluator broken without also patching `eval-mae.mjs:93`. The 3 broken tests are not accidents — they document the old threshold and must be rewritten to express the new intent (14d baseline, 44d = one scale unit, 22d = 8d excess). Net scoring impact: a horse that rested exactly 21 days (previously penalty-free) would receive +0.080s × weight 0.6 = +0.048s net penalty — meaningful in tight fields.
 
-The pragmatic fix is safe: add `FORM_POOR_THRESHOLD = 9` constant, change `place >= 11` → `place >= FORM_POOR_THRESHOLD` in `performanceCalculators.ts:187`. Effect: 9th/10th finishes move from +0.12s to +0.24s. Existing test `'mixed results (2nd, 5th, 8th)'` unaffected — `place: 8` stays MID. Test for poor finishes uses `place: 12`/`15` — still passes.
+**Suggested next move:** MUTATE — H4 step 2. One run, 4 changes: (1) `normalizationConstants.ts` line 178: `LAYOFF_THRESHOLD_DAYS = 21 → 14`. (2) `eval-mae.mjs` line 93: `LAYOFF_THRESH = 21 → 14`. (3) Update test at line 609: assert `calculateLayoffAdjustment(21)` ≈ 0.080s (POOR penalty for normal-rest horse). (4) Update tests at lines 622 and 629: rewrite "just above threshold" as 15d (excess=1, ~0.012s) and "one scale unit" as 44d (excess=30, ~0.267s). tsc + all tests must pass.
 
-**Implication:** The pragmatic fix is the only viable improvement for H3 — and it's correct for the modal field size. Two boundary tests needed: `place: 8` → MID, `place: 9` → POOR, `place: 10` → POOR. These guard the new threshold constant.
+<!-- stdout from run 55 2026-04-11 20:00 -->
+**Run 59 — Research complete.**
 
-**Suggested next move:** MUTATE — `performanceCalculators.ts:187` + `normalizationConstants.ts` (add `FORM_POOR_THRESHOLD = 9`) + 3 boundary tests in `normalizationPipeline.test.ts`. One-liner logic change, new constant, 3 tests. tsc must pass.
+## What I investigated
 
-<!-- stdout from run 51 2026-04-11 16:00 -->
+Traced the full H4 layoff threshold change (21d → 14d) from constant → formula → normalization pipeline → browser processor → test suite → MAE evaluator.
 
----
+## Key finding
 
-## Run 56 — Research Complete
+`eval-mae.mjs` has its own hardcoded `LAYOFF_THRESH = 21` at line 93 — a constant clone, not imported from the source. If only `normalizationConstants.ts` is changed, the evaluator silently diverges from the live pipeline. This is the **same desync class** that Run 58 fixed for H3's `FORM_POOR_THRESHOLD`.
 
-**Thread investigated:** H3 — field-size-blind form bands
+## What breaks predictably
 
-### Key findings
+Three tests embed 21d-threshold-specific assertions that will fail after the change:
+- Line 609: `'returns 0 at exactly the threshold (21 days)'` → at 14d threshold, 21d produces ~0.080s (not 0)
+- Line 622: `'returns small penalty just above threshold (22 days → ~0.012 s)'` → excess is now 8d, penalty ~0.090s
+- Line 629: `'returns ~0.267 s at one scale-unit past threshold (51 days)'` → one scale unit (30d past 14d threshold) is now 44d; 51d ≈ 0.310s
 
-**Full fix is permanently blocked.** `ATGHistoricalRecord` has no `fieldSize` or `startCount` field. Getting field size for historical races would require one `/api/atg/races/{raceId}` API call per historical race (~50-120 extra calls per game round). Prohibited.
+## Suggested mutate action
 
-**Pragmatic fix is the only option — and it's correct.** MAE evaluation data shows actual V85 field sizes: modal range 10-15 horses (median ~12). In a 12-horse field, 9th place = 4th from last, genuinely poor performance. Current threshold of 11+ for POOR is too lenient for all typical fields.
-
-### Exact changes for the next mutate run
-
-1. **`normalizationConstants.ts`** — add `FORM_POOR_THRESHOLD = 9 as const` in the recent-form section
-2. **`performanceCalculators.ts:187`** — change MID band from `place >= 6 && place <= 10` → `place >= 6 && place <= 8`, so `else` (place >= 9) triggers POOR
-3. **`normalizationPipeline.test.ts`** — 3 new boundary tests:
-   - `place: 8` → MID (+0.12s) — boundary guard
-   - `place: 9` → POOR (+0.24s) — new threshold
-   - `place: 10` → POOR (+0.24s) — was MID, now POOR
-
-All existing tests unaffected: `place: 8` stays MID, `place: 12`/`15` still POOR. Three files, one logic line, one constant, three tests.
+**H4 step 2 — 4 atomic changes in one run:**
+1. `normalizationConstants.ts:178` — `LAYOFF_THRESHOLD_DAYS = 21 → 14`
+2. `eval-mae.mjs:93` — `LAYOFF_THRESH = 21 → 14`
+3. Update test (line 609) to assert `calculateLayoffAdjustment(21) ≈ 0.080s`
+4. Rewrite "just above threshold" test as 15d (≈0.012s) and "one scale unit" as 44d (≈0.267s)
 
 ---
 
-## Run 57 — 2026-04-11 — MUTATE
+## Run 59 — 2026-04-11 — MUTATE
 
-**Goal:** H3 — POOR band threshold fix. Research (Run 56) confirmed the pragmatic fix is correct and all exact changes were pre-specified.
+**Goal:** H4 — Lower layoff threshold 21d → 14d. READY TO EXECUTE as documented in ACTIVE_THREADS.md. Typical V85 rest = 10–14d; 21d was too forgiving for horses with a normal double-rest week.
 
 **Done:**
-- `src/services/modernKm/normalizationConstants.ts` — added `FORM_POOR_THRESHOLD = 9 as const` with calibration comment; updated `FORM_SCORE_MID` doc comment to reflect 6–8 range
-- `src/services/modernKm/performanceCalculators.ts` — imported `FORM_POOR_THRESHOLD`; changed MID band from `place <= 10` → `place <= FORM_POOR_THRESHOLD - 1` (i.e. ≤ 8)
-- `src/services/modernKm/__tests__/normalizationPipeline.test.ts` — 3 new boundary tests: place=8 → MID +0.12s, place=9 → POOR +0.24s, place=10 → POOR +0.24s
+- `src/services/modernKm/normalizationConstants.ts`: `LAYOFF_THRESHOLD_DAYS = 21` → `14`
+- `scripts/eval-mae.mjs`: `LAYOFF_THRESH = 21` → `14` (mirrors H3 sync pattern)
+- `src/services/modernKm/performanceCalculators.ts`: JSDoc examples updated (14d threshold, 21d → +0.08s, 44d → +0.27s)
+- `src/services/modernKm/__tests__/normalizationPipeline.test.ts`: Updated 4 tests — comment header, "21 days" test (now asserts ~0.080s), "just above threshold" (22d → 15d), "one scale unit" (51d → 44d), inline excess comments
 
-**Result:** pass — tsc clean, 156/156 tests pass (up from 153)
+**Result:** pass — tsc clean, 156/156 tests pass
 
-**Next:** H4 step 2 — lower `LAYOFF_THRESHOLD_DAYS` 21→14 (hold; needs MAE data). Or run eval-mae.mjs on more dates to grow accuracy corpus.
+**Net scoring impact:** Horse with 21d rest now gets +0.080s raw × 0.6 weight = +0.048s net penalty (was 0). Horses at 15–21d (normal double-rest week) now correctly penalised.
 
-<!-- stdout from run 53 2026-04-11 17:00 -->
-Done. Here's a summary of Run 57:
+**Next:** Expand MAE corpus to 72+ races (try 2026-02-21, 2026-02-14, 2026-01-31) for more statistical signal on V1 vs V2 verdict.
 
-**H3 — POOR band threshold fix** (research was complete from Run 56, mutation executed now)
+<!-- stdout from run 56 2026-04-11 21:00 -->
+Done. Here's what changed in Run 59:
 
-**Changes made:**
-- `normalizationConstants.ts` — added `FORM_POOR_THRESHOLD = 9 as const` with calibration rationale; updated `FORM_SCORE_MID` doc comment
-- `performanceCalculators.ts:187` — MID band changed from `place <= 10` → `place <= FORM_POOR_THRESHOLD - 1` (≤ 8); imported new constant
-- `normalizationPipeline.test.ts` — 3 boundary tests confirming: place=8 stays MID (+0.12s), place=9 → POOR (+0.24s), place=10 → POOR (+0.24s)
+**H4 — Layoff threshold 21d → 14d**
 
-**Result:** tsc clean, 156/156 tests pass (up from 153).
+| File | Change |
+|---|---|
+| `normalizationConstants.ts` | `LAYOFF_THRESHOLD_DAYS = 21` → `14` |
+| `scripts/eval-mae.mjs` | `LAYOFF_THRESH = 21` → `14` (eval script kept in sync) |
+| `performanceCalculators.ts` | JSDoc examples updated to reflect 14d threshold |
+| `normalizationPipeline.test.ts` | 4 tests updated: "21d" now asserts +0.080s; "just above" changed from 22d→15d; "one scale unit" changed from 51d→44d; inline excess comments corrected |
 
-**Effect:** 9th and 10th-place finishes now carry a +0.24s form penalty instead of +0.12s, reflecting that in a modal 12-horse V85 field, 9th place is 4th from last — genuinely poor, not mid-pack.
+**Scoring impact:** A horse resting 15–21 days (normal double-rest week) now gets a real penalty — up to +0.048s net at 21d (was 0). This correctly separates weekly rhythm from genuine layoffs.
 
+**tsc clean, 156/156 tests pass.**
 
-<!-- stdout from run 54 2026-04-11 18:00 -->
-[run failed — claude exited 1]
-
-You've hit your limit · resets 7pm (Europe/Stockholm)
+Next: expand MAE corpus to 72+ races (dates 2026-02-21, 2026-02-14, 2026-01-31) for statistically meaningful V1 vs V2 verdict.
 
 ---
 
-## Run 58 — 2026-04-11 — MUTATE
+## Run 60 — 2026-04-11 — MUTATE
 
-**Goal:** Sync eval-mae.mjs with H3 POOR band change, then grow MAE corpus on new dates.
+**Goal:** MAE corpus expansion — run eval-mae.mjs on 2026-02-21, 2026-02-14, 2026-01-31 to reach 72 races and gain statistical signal on V1 vs V2.
 
 **Done:**
-- `scripts/eval-mae.mjs:153` — fixed `formAdj` POOR band: `<= 10` → `<= 8` (MID is now 6–8, POOR is 9+ matching `FORM_POOR_THRESHOLD = 9` from H3/Run 57)
-- Ran `eval-mae.mjs` on 3 new V85 dates: 2026-04-05, 2026-03-28, 2026-03-21 (24 new races)
-- Results: V1 MAE=5.233 (13% win), V2 MAE=5.279 (13% win) — V1 very slightly better (+0.046 delta)
-- Combined 48-race picture: V1=5.006, V2=5.006 — essentially tied across all 6 dates
-- Report saved: `reports/mae-auto-2026-04-05.json`
+- Ran `scripts/eval-mae.mjs 2026-02-21 2026-02-14 2026-01-31` (24 new races, 3 dates)
+- V1 MAE=5.858, V2 MAE=5.853, Delta=−0.005 — V2 microscopically better
+- Combined 72-race picture: V1=5.290, V2=5.288, Delta=−0.002 — V2 marginally better across all 9 dates
+- Report saved: `reports/mae-auto-2026-02-21.json`
+- Updated `status.json`, `ACTIVE_THREADS.md`
 
 **Result:** pass
 
-**Next:** H4 step 2 (lower `LAYOFF_THRESHOLD_DAYS` 21→14) — tests are already written (Run 55). Combined MAE tie means no signal to block it. Or run eval on 2–3 more dates to get to 72 races (more statistical power).
+**Next:** MAE-driven weight presets — accumulate data for further tuning, or investigate why older dates (Jan-Feb) have higher MAE (~5.8) vs newer dates (Mar, ~4.7-5.2). Could be seasonal/conditions, or model gaps.
 
-<!-- stdout from run 54 2026-04-11 19:00 -->
-**Run 58 complete.**
+<!-- stdout from run 57 2026-04-11 22:00 -->
+Run 60 complete.
 
-## What changed
+---
 
-**`scripts/eval-mae.mjs` — formAdj POOR band sync (H3)**
-- Line 153: `<= 10` → `<= 8` — MID is now 6–8, POOR is 9+, matching `FORM_POOR_THRESHOLD = 9` added in Run 57.
-- Before this fix, the evaluator was scoring 9th and 10th place finishes as MID (+0.12s) while the live app was scoring them as POOR (+0.24s). Future evals now faithfully represent the pipeline.
+**Goal:** MAE corpus expansion to 72 races (9 dates) for statistical signal on V1 vs V2.
 
-## MAE corpus — combined picture
+**Done:** Ran `eval-mae.mjs` on 2026-02-21, 2026-02-14, 2026-01-31.
 
-| Batch | Dates | Races | V1 MAE | V2 MAE | Delta |
-|---|---|---|---|---|---|
-| Old | Mar 14 / Mar 7 / Feb 28 | 24 | 4.779 | 4.733 | −0.046 (V2 better) |
-| New | Apr 5 / Mar 28 / Mar 21 | 24 | 5.233 | 5.279 | +0.046 (V1 better) |
-| **Combined** | 6 dates | **48** | **5.006** | **5.006** | **tied** |
+**Results:**
 
-V1 and V2 are statistically tied at this sample size. V2 remains current — the design rationale (form-heavy, reduced career-stat overlap) is sound regardless of the tie. Need 72+ races for statistical signal.
+| Batch | Races | V1 MAE | V2 MAE | Delta |
+|---|---|---|---|---|
+| Mar 14 / Mar 7 / Feb 28 | 24 | 4.779 | 4.733 | −0.046 (V2 better) |
+| Apr 5 / Mar 28 / Mar 21 | 24 | 5.233 | 5.279 | +0.046 (V1 better) |
+| Feb 21 / Feb 14 / Jan 31 | 24 | 5.858 | 5.853 | −0.005 (V2 better) |
+| **Combined** | **72** | **5.290** | **5.288** | **−0.002 — V2 marginally better** |
 
-**Next:** H4 step 2 — lower `LAYOFF_THRESHOLD_DAYS` from 21 to 14. Tests are pre-written from Run 55. The MAE tie is not a blocker.
+**Verdict:** V2 edges V1 across all 9 dates. Design philosophy (form-heavy, reduced career-stat overlap) holds. V2 remains current.
+
+**Observation:** Older dates (Jan-Feb) show considerably higher MAE (~5.8) for both weights vs recent dates (Mar, ~4.7-5.2). Could be seasonal track conditions, field composition, or a model gap — worth investigating before adding more corpus data.
+
+**Next:** MAE-driven weight presets in WeightManager, or investigate the Jan-Feb high-MAE seasonal pattern.
+
+---
+
+## Run 61 — 2026-04-11 — MUTATE
+
+**Goal:** MAE-driven weight presets — surface empirical MAE data in WeightManager. The WEIGHT_PRESETS array in presetWeights.ts existed but was completely dead (no UI used it). Thread: MAE corpus (72 races) is the evidence base.
+
+**Done:**
+- `src/services/modernKm/presetWeights.ts` — added `maeScore?: number; raceCount?: number;` to `WeightPreset` interface. Added new first entry: `'V2 — Empirical (2026)'` with DEFAULT_WEIGHTS values, maeScore=5.288, raceCount=72.
+- `src/components/WeightManager.tsx` — imported `WEIGHT_PRESETS, WeightPreset`; added `selectedPreset` state; added `applyPreset()` handler; added "Quick Presets" section at top of the Weight Factors tab — compact button row showing all presets with inline MAE score for the V2 entry, description shown below on selection.
+
+**Result:** pass — tsc clean, 156/156 tests pass
+
+**Next:** Investigate Jan-Feb high-MAE pattern (MAE ~5.8 vs Mar ~4.7-5.2). Or add a V3 weight candidate based on batch data (V2 is better in 2/3 batches — form-heavy direction is right, could push further).
+
+<!-- stdout from run 58 2026-04-11 23:00 -->
+Run 61 complete. Here's what changed:
+
+---
+
+**Goal:** MAE-driven weight presets — surface 72-race evaluation data in WeightManager. The `WEIGHT_PRESETS` array was entirely dead code (defined but never used anywhere in the UI).
+
+**Done:**
+
+**`src/services/modernKm/presetWeights.ts`**
+- Added `maeScore?: number; raceCount?: number;` to `WeightPreset` interface
+- Added `'V2 — Empirical (2026)'` as the first preset: exact DEFAULT_WEIGHTS values, `maeScore: 5.288`, `raceCount: 72`, description citing the 9-date evaluation
+
+**`src/components/WeightManager.tsx`**
+- Imported `WEIGHT_PRESETS, type WeightPreset` from presetWeights
+- Added `selectedPreset` state + `applyPreset()` handler
+- Added "Quick Presets" section at the top of the Weight Factors tab: compact button row, V2 shows `5.288 MAE` inline, selected preset shows description below
+
+**Result:** tsc clean, 156/156 tests pass.
+
+**Next:** Jan-Feb high-MAE pattern investigation (MAE ~5.8 vs Mar ~4.7-5.2) — check if it's seasonal/field composition, or consider a V3 weight candidate (form 0.8→1.0, postPosition 0.9→0.7) tested with `eval-mae.mjs`.

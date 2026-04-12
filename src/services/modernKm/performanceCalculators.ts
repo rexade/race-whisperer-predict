@@ -232,9 +232,10 @@ export const calculateFormAdjustment = (
  * No effect for ≤ LAYOFF_THRESHOLD_DAYS days.  Beyond that a tanh curve
  * rises to LAYOFF_MAX_S (before weight multiplier).
  *
- * Examples (threshold 21d, scale 30d, max 0.35s):
- *   21 days  → 0.00 s  (just at threshold)
- *   51 days  → +0.27 s  (1 month of rust)
+ * Examples (threshold 14d, scale 30d, max 0.35s):
+ *   14 days  → 0.00 s  (just at threshold)
+ *   21 days  → +0.08 s  (normal double-rest week)
+ *   44 days  → +0.27 s  (1 month of rust)
  *   90 days  → +0.33 s  (returning from injury)
  *  180 days+ → ≈ +0.35 s (capped)
  */

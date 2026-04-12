@@ -598,19 +598,20 @@ describe('calculateGallopReliabilityPenalty', () => {
 // ---------------------------------------------------------------------------
 // performanceCalculators — calculateLayoffAdjustment
 // ---------------------------------------------------------------------------
-// Constants: LAYOFF_THRESHOLD_DAYS=21, LAYOFF_SCALE_DAYS=30, LAYOFF_MAX_S=0.35
-// Formula: 0.35 * tanh((days - 21) / 30)  when days > 21, else 0
+// Constants: LAYOFF_THRESHOLD_DAYS=14, LAYOFF_SCALE_DAYS=30, LAYOFF_MAX_S=0.35
+// Formula: 0.35 * tanh((days - 14) / 30)  when days > 14, else 0
 
 describe('calculateLayoffAdjustment', () => {
   it('returns 0 for 0 days (fresh horse)', () => {
     expect(calculateLayoffAdjustment(0)).toBe(0);
   });
 
-  it('returns 0 at exactly the threshold (21 days)', () => {
-    expect(calculateLayoffAdjustment(21)).toBe(0);
+  it('returns ~0.080 s at 21 days (above new 14d threshold)', () => {
+    // excess=7, 0.35 * tanh(7/30) ≈ 0.35 * 0.2282 ≈ 0.080
+    expect(calculateLayoffAdjustment(21)).toBeCloseTo(0.080, 2);
   });
 
-  it('returns 0 below the threshold (14 days)', () => {
+  it('returns 0 at exactly the new threshold (14 days)', () => {
     expect(calculateLayoffAdjustment(14)).toBe(0);
   });
 
@@ -619,25 +620,25 @@ describe('calculateLayoffAdjustment', () => {
     expect(calculateLayoffAdjustment(Infinity)).toBe(0);
   });
 
-  it('returns small penalty just above threshold (22 days → ~0.012 s)', () => {
+  it('returns small penalty just above threshold (15 days → ~0.012 s)', () => {
     // excess=1, 0.35 * tanh(1/30) ≈ 0.01166
-    const adj = calculateLayoffAdjustment(22);
+    const adj = calculateLayoffAdjustment(15);
     expect(adj).toBeGreaterThan(0);
     expect(adj).toBeCloseTo(0.012, 2);
   });
 
-  it('returns ~0.267 s at one scale-unit past threshold (51 days)', () => {
+  it('returns ~0.267 s at one scale-unit past threshold (44 days)', () => {
     // excess=30, 0.35 * tanh(1) ≈ 0.35 * 0.7616 = 0.267
-    expect(calculateLayoffAdjustment(51)).toBeCloseTo(0.267, 2);
+    expect(calculateLayoffAdjustment(44)).toBeCloseTo(0.267, 2);
   });
 
   it('returns ~0.343 s for a 90-day layoff', () => {
-    // excess=69, 0.35 * tanh(2.3) ≈ 0.343
+    // excess=76, 0.35 * tanh(76/30) ≈ 0.35 * 0.9872 ≈ 0.345 (within toBeCloseTo precision)
     expect(calculateLayoffAdjustment(90)).toBeCloseTo(0.343, 2);
   });
 
   it('approaches LAYOFF_MAX_S (0.35 s) asymptotically for very long layoffs', () => {
-    // excess=159, 0.35 * tanh(5.3) ≈ 0.35 * 0.9999 ≈ 0.350
+    // excess=166, 0.35 * tanh(166/30) ≈ 0.35 * 1.0000 ≈ 0.350
     const adj = calculateLayoffAdjustment(180);
     expect(adj).toBeGreaterThan(0.34);
     expect(adj).toBeLessThanOrEqual(0.35);
