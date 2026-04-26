@@ -205,8 +205,10 @@ export class V75ResultsFetcher {
           horseId = item.horse?.id || 0;
           horseName = item.horse?.name || 'Unknown';
           postPosition = item.number || item.postPosition || 0;
-          time = item.result.kmTime ? formatKmTime(item.result.kmTime) : 'N/A';
-          kmTime = item.result.kmTime || null;
+          const rawKmTime = item.result.kmTime;
+          const hasNumericKmTime = rawKmTime && typeof rawKmTime.minutes === 'number' && typeof rawKmTime.seconds === 'number';
+          time = hasNumericKmTime ? formatKmTime(rawKmTime) : 'N/A';
+          kmTime = hasNumericKmTime ? rawKmTime : null;
           driver = item.driver ?
             `${item.driver.firstName || ''} ${item.driver.lastName || ''}`.trim() :
             'Unknown Driver';

@@ -20,10 +20,11 @@ export const ensureStringForDisplay = (value: any): string => {
   return String(value || 'Unknown Horse');
 };
 
-export const formatKmTime = (time: { minutes: number; seconds: number; tenths: number } | null | undefined) => {
+export const formatKmTime = (time: { minutes?: number; seconds?: number; tenths?: number; code?: string } | null | undefined) => {
   if (!time) return '—';
-  if (time.minutes === 0 && time.seconds === 0 && time.tenths === 0) return '—';
-  return `${time.minutes}:${time.seconds.toString().padStart(2, '0')}.${time.tenths}`;
+  if (typeof time.minutes !== 'number' || typeof time.seconds !== 'number') return '—';
+  if (time.minutes === 0 && time.seconds === 0 && (time.tenths ?? 0) === 0) return '—';
+  return `${time.minutes}:${time.seconds.toString().padStart(2, '0')}.${time.tenths ?? 0}`;
 };
 
 export const formatAdjustment = (adjustment: number) => {
