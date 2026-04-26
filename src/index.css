@@ -154,7 +154,7 @@
     --secondary-foreground: 210 40% 96%;
 
     --muted: 0 0% 9%;
-    --muted-foreground: 215 19% 35%;
+    --muted-foreground: 215 19% 55%;
 
     --accent: 188 86% 53%;
     --accent-foreground: 0 0% 3%;
@@ -171,6 +171,16 @@
     --border: 0 0% 10%;
     --input: 0 0% 10%;
     --ring: 188 86% 53%;
+
+    --primary-hover: 188 86% 47%;
+    --accent-hover: 188 86% 47%;
+
+    /* Dark-tuned shadows — heavier opacity for black backgrounds */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.5);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.6), 0 4px 6px -4px rgb(0 0 0 / 0.5);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.7), 0 8px 10px -6px rgb(0 0 0 / 0.6);
+    --shadow-glow: 0 0 20px hsl(var(--accent) / 0.35);
 
     --sidebar-background: 0 0% 3%;
     --sidebar-foreground: 210 40% 96%;
@@ -311,8 +321,13 @@
 
   .card-modern:hover {
     transform: translateY(-2px);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    box-shadow: var(--shadow-xl, 0 20px 25px -5px rgba(0, 0, 0, 0.1));
     border-color: hsl(var(--primary) / 0.3);
+  }
+
+  /* Cyan glow — used on top-ranked rows and focused elements */
+  .shadow-glow {
+    box-shadow: var(--shadow-glow, 0 0 20px hsl(188 86% 53% / 0.35));
   }
 
   /* Gradient text */

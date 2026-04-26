@@ -156,6 +156,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
   };
 
   const getRowStyle = (rank: number) => {
+    if (rank === 1) return "bg-transparent sm:bg-primary/5 sm:border-l-4 border-l-transparent sm:border-l-primary sm:shadow-glow";
     if (rank <= 3) return "bg-transparent sm:bg-primary/5 sm:border-l-4 border-l-transparent sm:border-l-primary sm:shadow-sm";
     return "bg-transparent sm:bg-card sm:hover:bg-muted/30";
   };
@@ -377,38 +378,6 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
               <TooltipContent>Earnings per start (class indicator)</TooltipContent>
             </Tooltip>
 
-            {/* Km time detail from records */}
-            {latestKmTime && (latestKmTime.first200 != null || latestKmTime.last200 != null || latestKmTime.best100 != null || latestKmTime.actualKMTime != null || latestKmTime.slipstreamDistance != null) && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div
-                    className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground cursor-default"
-                    aria-label={kmTimeTooltip}
-                  >
-                    {latestKmTime.first200 != null && (
-                      <span><span className="font-medium text-foreground/90">First 200:</span> <span className="tabular-nums">{latestKmTime.first200}</span></span>
-                    )}
-                    {latestKmTime.last200 != null && (
-                      <span><span className="font-medium text-foreground/90">Last 200:</span> <span className="tabular-nums">{latestKmTime.last200}</span></span>
-                    )}
-                    {latestKmTime.best100 != null && latestKmTime.best100 !== 'x' && (
-                      <span><span className="font-medium text-foreground/90">Best 100:</span> <span className="tabular-nums">{latestKmTime.best100}</span>{latestKmTime.best100start != null && latestKmTime.best100stop != null ? ` (${latestKmTime.best100start}–${latestKmTime.best100stop}m)` : ''}</span>
-                    )}
-                    {latestKmTime.actualKMTime != null && latestKmTime.actualKMTime !== 'N/A' && (
-                      <span><span className="font-medium text-foreground/90">Km:</span> <span className="tabular-nums">{latestKmTime.actualKMTime}</span></span>
-                    )}
-                    {latestKmTime.actualDistanceRan != null && typeof latestKmTime.actualDistanceRan === 'number' && (
-                      <span><span className="font-medium text-foreground/90">Dist:</span> <span className="tabular-nums">{latestKmTime.actualDistanceRan}m</span></span>
-                    )}
-                    {latestKmTime.slipstreamDistance != null && latestKmTime.slipstreamDistance !== 'N/A' && typeof latestKmTime.slipstreamDistance === 'number' && (
-                      <span><span className="font-medium text-foreground/90">Slip:</span> <span className="tabular-nums">{latestKmTime.slipstreamDistance}m</span></span>
-                    )}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>{kmTimeTooltip}</TooltipContent>
-              </Tooltip>
-            )}
-
             {/* Home Track — only if different from race track */}
             {horse.homeTrack && horse.homeTrack !== horse.track && (
               <div className="flex items-center gap-1">
@@ -440,6 +409,29 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
 
       {showDebug && (
         <div id={`breakdown-${horse.horseId}`} className="bg-muted/50 sm:border-b sm:border-border/50">
+          {/* Sectional km-time details — only shown in debug panel */}
+          {latestKmTime && (latestKmTime.first200 != null || latestKmTime.last200 != null || latestKmTime.best100 != null || latestKmTime.actualKMTime != null || latestKmTime.slipstreamDistance != null) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground px-3 pt-2 pb-1">
+              {latestKmTime.first200 != null && (
+                <span><span className="font-medium text-foreground/80">First 200:</span> <span className="tabular-nums">{latestKmTime.first200}</span></span>
+              )}
+              {latestKmTime.last200 != null && (
+                <span><span className="font-medium text-foreground/80">Last 200:</span> <span className="tabular-nums">{latestKmTime.last200}</span></span>
+              )}
+              {latestKmTime.best100 != null && latestKmTime.best100 !== 'x' && (
+                <span><span className="font-medium text-foreground/80">Best 100:</span> <span className="tabular-nums">{latestKmTime.best100}</span>{latestKmTime.best100start != null && latestKmTime.best100stop != null ? ` (${latestKmTime.best100start}–${latestKmTime.best100stop}m)` : ''}</span>
+              )}
+              {latestKmTime.actualKMTime != null && latestKmTime.actualKMTime !== 'N/A' && (
+                <span><span className="font-medium text-foreground/80">Km:</span> <span className="tabular-nums">{latestKmTime.actualKMTime}</span></span>
+              )}
+              {latestKmTime.actualDistanceRan != null && typeof latestKmTime.actualDistanceRan === 'number' && (
+                <span><span className="font-medium text-foreground/80">Dist:</span> <span className="tabular-nums">{latestKmTime.actualDistanceRan}m</span></span>
+              )}
+              {latestKmTime.slipstreamDistance != null && latestKmTime.slipstreamDistance !== 'N/A' && typeof latestKmTime.slipstreamDistance === 'number' && (
+                <span><span className="font-medium text-foreground/80">Slip:</span> <span className="tabular-nums">{latestKmTime.slipstreamDistance}m</span></span>
+              )}
+            </div>
+          )}
           <V75TimeCalculationDebug horse={horse} />
         </div>
       )}
