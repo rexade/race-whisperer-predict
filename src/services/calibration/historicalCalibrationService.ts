@@ -43,6 +43,11 @@ export type CalibrationDataset = DateCalibrationData[];
 export interface CalibrationEvaluation {
   /** Mean absolute error: |predicted rank − actual position|, estimated horses excluded */
   rankMAE: number;
+  /**
+   * Average rank we gave to the actual race winner across all races.
+   * 1.0 = always ranked winner first (perfect). This is the primary optimization target.
+   */
+  winnerRankMAE: number;
   /** Mean absolute error of predicted km time vs actual km time in seconds */
   timeMAE: number | null;
   /** Fraction of predicted top-3 picks that actually placed top-3 */
@@ -295,6 +300,8 @@ export async function evaluateWeights(
   let topPicksTotal = 0;
   let winCorrect = 0;
   let winTotal = 0;
+  let winnerRankSum = 0;
+  let winnerRacesCount = 0;
   let horsesEvaluated = 0;
   let estimatedHorsesSkipped = 0;
   let racesEvaluated = 0;
@@ -312,24 +319,29 @@ export async function evaluateWeights(
 
         if (!result.analysisComplete || result.horses.length === 0) continue;
 
-        // Use the full-field rank as assigned by RaceScoreCalculator (rank 1-N
-        // among ALL horses). Estimated horses are skipped from the MAE but their
-        // presence in the field still affects the rank numbers of real horses —
-        // this is correct behaviour, matching how V75PredictionComparator works.
         const realHorseCount = result.horses.filter(h => !h.modernNormalizedResult?.isEstimated).length;
         if (realHorseCount === 0) continue;
 
         estimatedHorsesSkipped += result.horses.length - realHorseCount;
         racesEvaluated++;
 
-        // Predicted winner = horse with rank 1 among all horses
-        const predictedWinner = result.horses.find(h => h.rank === 1);
-        const actualWinnerEntry = predictedWinner ? race.actualResults.get(predictedWinner.horseId) : undefined;
-        winTotal++;
-        if (actualWinnerEntry?.position === 1) winCorrect++;
+        // Find the actual winner (position === 1) and look up what rank WE gave them.
+        // This is the primary optimization signal: lower = closer to picking the winner first.
+        let actualWinnerHorseId: number | undefined;
+        for (const [horseId, actual] of race.actualResults) {
+          if (actual.position === 1) { actualWinnerHorseId = horseId; break; }
+        }
+        if (actualWinnerHorseId !== undefined) {
+          const predictedForWinner = result.horses.find(h => h.horseId === actualWinnerHorseId);
+          if (predictedForWinner?.rank !== undefined) {
+            winnerRankSum += predictedForWinner.rank;
+            winnerRacesCount++;
+            winTotal++;
+            if (predictedForWinner.rank === 1) winCorrect++;
+          }
+        }
 
         for (const horse of result.horses) {
-          // Skip estimated fallback horses — they don't respond to weights
           if (horse.modernNormalizedResult?.isEstimated) {
             estimatedHorsesSkipped++;
             continue;
@@ -338,11 +350,9 @@ export async function evaluateWeights(
           const actual = race.actualResults.get(horse.horseId);
           if (actual === undefined || !horse.rank) continue;
 
-          // horse.rank is 1-N among the full field; actual.position is also 1-N
           totalRankError += Math.abs(horse.rank - actual.position);
           horsesEvaluated++;
 
-          // Time MAE
           if (horse.modernNormalizedResult?.modernNormalizedTime && actual.kmTime) {
             const t = horse.modernNormalizedResult.modernNormalizedTime;
             const predS = t.minutes * 60 + t.seconds + t.tenths * 0.1;
@@ -351,7 +361,6 @@ export async function evaluateWeights(
             timeCount++;
           }
 
-          // Top-3 accuracy
           if (horse.rank <= 3) {
             topPicksTotal++;
             if (actual.position <= 3) topPicksCorrect++;
@@ -365,6 +374,7 @@ export async function evaluateWeights(
 
   return {
     rankMAE:               horsesEvaluated > 0 ? totalRankError / horsesEvaluated : 999,
+    winnerRankMAE:         winnerRacesCount > 0 ? winnerRankSum / winnerRacesCount : 999,
     timeMAE:               timeCount > 0 ? totalTimeDiffS / timeCount : null,
     topPickAccuracy:       topPicksTotal > 0 ? topPicksCorrect / topPicksTotal : 0,
     winAccuracy:           winTotal > 0 ? winCorrect / winTotal : 0,

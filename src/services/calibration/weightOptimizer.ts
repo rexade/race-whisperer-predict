@@ -46,6 +46,7 @@ const WEIGHT_KEYS: (keyof NormalizationWeights)[] = [
   'shoeType',
   'sulkyType',
   'driverPerformance',
+  'driverForm',
   'trackFamiliarity',
   'form',
   'distanceAdjustment',
@@ -97,7 +98,9 @@ export async function optimizeWeights(
     : { auto: { ...DEFAULT_AUTO_CURVE }, volte: { ...DEFAULT_VOLTE_CURVE } };
 
   const initialEval = await evaluateWeights(dataset, initial, startCurves);
-  const initialMAE = initialEval.rankMAE;
+  // Optimize for winner rank (avg rank given to actual winner) — directly maximises win rate.
+  // Lower is better: 1.0 = always ranked the winner first.
+  const initialMAE = initialEval.winnerRankMAE;
 
   let bestWeights = copyWeights(initial);
   let bestCurves = startCurves;
@@ -121,8 +124,8 @@ export async function optimizeWeights(
           if (candidate[key] === bestWeights[key]) continue;
 
           const eval_ = await evaluateWeights(dataset, candidate, bestCurves);
-          if (eval_.rankMAE < bestMAE) {
-            bestMAE = eval_.rankMAE;
+          if (eval_.winnerRankMAE < bestMAE) {
+            bestMAE = eval_.winnerRankMAE;
             bestWeights = candidate;
             improved = true;
             break;
@@ -135,7 +138,7 @@ export async function optimizeWeights(
           currentMAE: bestMAE,
           bestMAE,
           step: weightStep,
-          message: `Pass ${pass}/${MAX_PASSES} · weights · step=${weightStep.toFixed(3)} · MAE=${bestMAE.toFixed(4)}`,
+          message: `Pass ${pass}/${MAX_PASSES} · weights · step=${weightStep.toFixed(3)} · WinnerRank=${bestMAE.toFixed(4)}`,
         });
       }
     }
@@ -152,8 +155,8 @@ export async function optimizeWeights(
             candidate[startType][pos] = newVal;
 
             const eval_ = await evaluateWeights(dataset, bestWeights, candidate);
-            if (eval_.rankMAE < bestMAE) {
-              bestMAE = eval_.rankMAE;
+            if (eval_.winnerRankMAE < bestMAE) {
+              bestMAE = eval_.winnerRankMAE;
               bestCurves = candidate;
               improved = true;
               break;
@@ -166,7 +169,7 @@ export async function optimizeWeights(
             currentMAE: bestMAE,
             bestMAE,
             step: curveStep,
-            message: `Pass ${pass}/${MAX_PASSES} · curves (${startType} pos ${pos}) · step=${curveStep.toFixed(3)} · MAE=${bestMAE.toFixed(4)}`,
+            message: `Pass ${pass}/${MAX_PASSES} · curves (${startType} pos ${pos}) · step=${curveStep.toFixed(3)} · WinnerRank=${bestMAE.toFixed(4)}`,
           });
         }
       }
@@ -180,13 +183,13 @@ export async function optimizeWeights(
 
   const finalEval = await evaluateWeights(dataset, bestWeights, bestCurves);
   const improvementPct =
-    initialMAE > 0 ? ((initialMAE - finalEval.rankMAE) / initialMAE) * 100 : 0;
+    initialMAE > 0 ? ((initialMAE - finalEval.winnerRankMAE) / initialMAE) * 100 : 0;
 
   return {
     optimizedWeights: bestWeights,
     optimizedCurves: bestCurves,
     initialMAE,
-    finalMAE: finalEval.rankMAE,
+    finalMAE: finalEval.winnerRankMAE,
     improvementPct,
     passesCompleted: pass,
     initialEvaluation: initialEval,
