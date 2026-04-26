@@ -1,4 +1,3 @@
-import { HorseDebugger } from '../debugging/horseDebugger';
 import { log } from '@/lib/logger';
 
 export interface EquipmentValidationResult {
@@ -26,9 +25,6 @@ export class EquipmentValidator {
       warnings: []
     };
 
-    // Log equipment data for debugging
-    HorseDebugger.logEquipmentData(horseId, horseName, sulkyType, frontShoes, backShoes);
-
     // Validate and correct sulky type
     let correctedSulkyType = "VA"; // Default fallback
     if (sulkyType === null || sulkyType === undefined) {
@@ -36,7 +32,6 @@ export class EquipmentValidator {
     } else if (typeof sulkyType !== 'string') {
       if (String(sulkyType).includes('[object Object]')) {
         result.errors.push(`CRITICAL: Sulky type corrupted to [object Object]`);
-        HorseDebugger.logDataCorruption(horseId, horseName, 'sulkyType', sulkyType);
         result.isValid = false;
       } else {
         correctedSulkyType = String(sulkyType);

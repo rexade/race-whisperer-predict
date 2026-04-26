@@ -1,5 +1,5 @@
 import { ResultLikeRecord, StartMethod, Distance } from './recordsFallback';
-import { HorseDebugger } from '../debugging/horseDebugger';
+import { log } from '@/lib/logger';
 
 /**
  * Extended race endpoint structure for fallback data extraction
@@ -73,7 +73,7 @@ export async function fetchExtendedRaceData(
     
     for (const url of candidates) {
       try {
-        console.log(`📡 [Extended Fallback] Trying: ${url}`);
+        log.debug(`[Extended Fallback] Trying: ${url}`);
         
         // Add timeout and retry logic
         const controller = new AbortController();
@@ -86,19 +86,19 @@ export async function fetchExtendedRaceData(
           });
           
           if (response.ok) {
-            console.log(`✅ [Extended Fallback] Success: ${url}`);
+            log.debug(`[Extended Fallback] Success: ${url}`);
             const data = await response.json();
             
             // Cache the result
             extendedRaceCache.set(raceId, data);
             return data;
           }
-          console.warn(`⚠️ [Extended Fallback] ${url} -> ${response.status}`);
+          log.debug(`[Extended Fallback] ${url} -> ${response.status}`);
         } finally {
           clearTimeout(timeout);
         }
       } catch (err) {
-        console.warn(`⚠️ [Extended Fallback] ${url} failed:`, err);
+        log.debug(`[Extended Fallback] ${url} failed:`, err);
       }
     }
     
@@ -106,7 +106,7 @@ export async function fetchExtendedRaceData(
     extendedRaceCache.set(raceId, null);
     return null;
   } catch (error) {
-    console.error('❌ [Extended Fallback] Error fetching extended race data:', error);
+    log.warn('[Extended Fallback] Error fetching extended race data:', error);
     extendedRaceCache.set(raceId, null);
     return null;
   }
@@ -133,7 +133,7 @@ export function extractRecordsFromExtended(
   // Keep provenance flag for telemetry
   if (horse.results?.records?.length) {
     if (debugLog) {
-      console.log(`📄 [Extended] Found ${horse.results.records.length} results.records for ${horse.name}`);
+      log.debug(`[Extended] Found ${horse.results.records.length} results.records for ${horse.name}`);
     }
     return horse.results.records.map(r => ({
       ...r,
@@ -145,7 +145,7 @@ export function extractRecordsFromExtended(
   const lifeRecords = horse.statistics?.life?.records ?? [];
   if (lifeRecords.length > 0) {
     if (debugLog) {
-      console.log(`📊 [Extended] Found ${lifeRecords.length} life records for ${horse.name}`);
+      log.debug(`[Extended] Found ${lifeRecords.length} life records for ${horse.name}`);
     }
     records.push(...lifeRecords.map(r => ({
       ...r,
@@ -158,7 +158,7 @@ export function extractRecordsFromExtended(
     .flatMap((year: any) => year.records ?? []);
   if (yearRecords.length > 0) {
     if (debugLog) {
-      console.log(`📊 [Extended] Found ${yearRecords.length} year records for ${horse.name}`);
+      log.debug(`[Extended] Found ${yearRecords.length} year records for ${horse.name}`);
     }
     records.push(...yearRecords.map(r => ({
       ...r,
@@ -169,7 +169,7 @@ export function extractRecordsFromExtended(
   // 4️⃣ Ultimate fallback: use horse.record.time (single best time)
   if (records.length === 0 && horse.record?.time) {
     if (debugLog) {
-      console.log(`🔴 [Extended] Using horse.record.time fallback for ${horse.name}`);
+      log.debug(`[Extended] Using horse.record.time fallback for ${horse.name}`);
     }
     
     // Guard against missing statistics
@@ -259,44 +259,11 @@ export function logExtendedFallbackUsage(
     const hasRealResults = records.some(r => r.meta?.source === 'results' && r.meta?.extended === true);
     
     if (isLastResort) {
-      HorseDebugger.log(
-        horseId,
-        horseName,
-        'EXTENDED_API_FALLBACK_USED',
-        {
-          recordCount: records.length,
-          source: 'horse.record.time',
-          confidence: 0.5,
-          fallbackType: 'last-resort'
-        }
-      );
-      console.log(`📡 [EXTENDED Fallback] ${horseName}: used horse.record.time (confidence: 0.5)`);
+      log.debug(`[Extended Fallback] ${horseName}: used horse.record.time (confidence: 0.5)`);
     } else if (hasRealResults) {
-      HorseDebugger.log(
-        horseId,
-        horseName,
-        'EXTENDED_API_USED',
-        {
-          recordCount: records.length,
-          source: 'extended.results.records',
-          confidence: 1.0,
-          fallbackType: 'real-results-via-extended'
-        }
-      );
-      console.log(`📡 [EXTENDED Source] ${horseName}: used real results from extended endpoint (confidence: 1.0)`);
+      log.debug(`[Extended Source] ${horseName}: used real results from extended endpoint (confidence: 1.0)`);
     } else {
-      HorseDebugger.log(
-        horseId,
-        horseName,
-        'EXTENDED_API_FALLBACK_USED',
-        {
-          recordCount: records.length,
-          sources: records.map(r => r.meta?.source).filter(Boolean),
-          confidence: 0.7,
-          fallbackType: 'statistics-via-extended'
-        }
-      );
-      console.log(`📡 [EXTENDED Fallback] ${horseName}: used extended API statistics (confidence: 0.7)`);
+      log.debug(`[Extended Fallback] ${horseName}: used extended API statistics (confidence: 0.7)`);
     }
   }
 }

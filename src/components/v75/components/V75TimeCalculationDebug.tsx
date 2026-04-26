@@ -2,10 +2,8 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button';
 
 import { V75HorseResult } from '../types/raceResultTypes';
-import { useXanderDebugger } from '../hooks/useXanderDebugger';
 import V75RaceHistoryBreakdown from './V75RaceHistoryBreakdown';
 import { formatKmTime } from '../utils/v75DisplayUtils';
 
@@ -14,33 +12,15 @@ interface V75TimeCalculationDebugProps {
 }
 
 export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = ({ horse }) => {
-  const { getLiveDebugLogs, exportDebugReport, clearLogs } = useXanderDebugger();
-  // Get live debug logs for this specific horse
-  const horseLogs = getLiveDebugLogs().filter(log =>
-    log.horseId === horse.horseId ||
-    log.horseName.toLowerCase().includes(horse.horseName.toLowerCase())
-  );
-
   const getTimeCalculationData = () => {
-    const historicalDataLog = horseLogs.find(log => log.stage === 'HISTORICAL_DATA_RECEIVED');
-
-    // Get detailed processed times for breakdown (single best time, ≤5 months)
-    const processedTimesDetailLog = horseLogs.find(log =>
-      log.stage === 'PROCESSED_TIMES' && log.data?.processedTimes
-    );
-    const historicalRaces = processedTimesDetailLog?.data?.processedTimes || [];
-    // Value actually used for ranking and normalization (may include confidence penalty)
     const rawKmTimeUsed = horse.rawKmTime;
-    // Best from history before any confidence adjustment (from log)
-    const bestFromHistory = historicalRaces[0]?.normalizedTime ?? processedTimesDetailLog?.data?.bestTime;
-
     return {
-      historicalRecords: historicalDataLog?.data?.length || 0,
-      processedTimes: historicalRaces,
-      historicalRaces,
-      bestTime: rawKmTimeUsed, // Changed from best3Average
+      historicalRecords: 0,
+      processedTimes: [] as any[],
+      historicalRaces: [] as any[],
+      bestTime: rawKmTimeUsed,
       rawKmTime: rawKmTimeUsed,
-      bestFromHistory,
+      bestFromHistory: undefined,
       modernNormalizedTime: horse.modernNormalizedResult?.modernNormalizedTime,
       adjustments: horse.modernNormalizedResult?.adjustments
     };
@@ -55,24 +35,6 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
           <div className="flex items-center gap-2">
             <span>Normalization Breakdown — {horse.horseName}</span>
             <Badge variant="outline">ID: {horse.horseId}</Badge>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearLogs}
-              className="text-[11px] sm:text-xs"
-            >
-              Clear Logs
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={exportDebugReport}
-              className="text-[11px] sm:text-xs"
-            >
-              Export
-            </Button>
           </div>
         </CardTitle>
       </CardHeader>

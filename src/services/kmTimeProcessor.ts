@@ -2,7 +2,6 @@ import { ATGStartInfo } from './atgApi';
 import { HorseRawKmTime, KmTime, ProcessedKmTime } from './types/kmTimeTypes';
 import { processHorseKmTimes } from './horseProcessing';
 import { fetchHorseHistoricalData, processHistoricalRecords, ATGHistoricalRecord } from './atgHistoricalApi';
-import { HorseDebugger } from './debugging/horseDebugger';
 import { DataValidator } from './debugging/dataValidator';
 import { extractRecordsFromStatistics, originIncludesStatistics, getSourceConfidenceMultiplier } from './utils/recordsFallback';
 import { toSeconds, secondsToKmParts } from './utils/robustTimeConversion';
@@ -39,13 +38,6 @@ export const calculateRawKmTimesForRaceWithId = async (
 
       log.debug(`Processing horse ${i + 1}/${starts.length}: ${horseName} (ID: ${horseId})`);
 
-      // Enhanced debugging for target horses
-      HorseDebugger.log(horseId, horseName, 'FETCH_START', {
-        raceId,
-        postPosition,
-        horseData: start.horse
-      });
-
       log.debug(`[KmTimeProcessor] Fetching historical data for ${horseName}...`);
       const historicalData = await fetchHorseHistoricalData(raceId, postPosition);
 
@@ -75,10 +67,6 @@ export const calculateRawKmTimesForRaceWithId = async (
           records = statsFallback as any;
           usingStatisticsFallback = true;
 
-          HorseDebugger.log(horseId, horseName, 'STATISTICS_FALLBACK_USED', {
-            statisticsRecordsFound: statsFallback.length,
-            sampleRecord: statsFallback[0]
-          });
         }
       }
 
@@ -117,17 +105,6 @@ export const calculateRawKmTimesForRaceWithId = async (
         log.debug(`[KmTimeProcessor] Extended fallback attempted: ${extendedDataFetched ? 'yes' : 'no'}`);
         log.debug(`[KmTimeProcessor] This horse will get zero time and be excluded from analysis`);
 
-        HorseDebugger.log(horseId, horseName, 'NO_HISTORICAL_DATA', {
-          historicalDataExists: !!historicalData,
-          hasHorse: !!historicalData?.horse,
-          hasResults: !!historicalData?.horse?.results,
-          hasRecords: !!historicalData?.horse?.results?.records,
-          recordsLength: historicalData?.horse?.results?.records?.length || 0,
-          statisticsFallbackAttempted: true,
-          extendedFallbackAttempted: extendedDataFetched,
-          statisticsRecordsFound: 0
-        });
-
         rawKmTimes.push({
           horseId: start.horse.id,
           horseName: start.horse.name,
@@ -141,9 +118,6 @@ export const calculateRawKmTimesForRaceWithId = async (
 
       const dataSourceLabel = usingExtendedFallback ? '(from extended API)' : usingStatisticsFallback ? '(from statistics)' : '';
       log.debug(`[KmTimeProcessor] Historical data found for ${horseName}: ${records.length} records ${dataSourceLabel}`);
-
-      // Enhanced debugging for historical data
-      HorseDebugger.logHistoricalData(horseId, horseName, records);
 
       // Validate historical records
       const rawRecords = records;
@@ -197,12 +171,6 @@ export const calculateRawKmTimesForRaceWithId = async (
         };
 
         pendingConfidenceOverride = WARNING_CONFIDENCE;
-
-        HorseDebugger.log(horseId, horseName, 'INVALID_TIME_FALLBACK_USED', {
-          reason: bestInvalid.dropReason ?? 'invalid',
-          time: bestTime,
-          confidence: WARNING_CONFIDENCE,
-        });
 
         rawKmTimes.push({
           horseId: start.horse.id,
@@ -265,11 +233,6 @@ export const calculateRawKmTimesForRaceWithId = async (
               confidenceMultiplier: CONF,
             });
 
-            HorseDebugger.log(horseId, horseName, 'EXTENDED_SINGLE_RECORD_USED', {
-              time: bestTime,
-              confidence: CONF,
-            });
-
             continue;
           }
         }
@@ -305,16 +268,6 @@ export const calculateRawKmTimesForRaceWithId = async (
       if (metadata.usedFallback) {
         log.debug(`   TIME WINDOW FALLBACK: Using historical data (${metadata.oldestRecordDate} to ${metadata.newestRecordDate})`);
       }
-
-      HorseDebugger.log(horseId, horseName, 'PROCESSED_HISTORICAL_RECORDS', {
-        rawRecordsCount: rawRecords.length,
-        validRecordsCount: validRecords.length,
-        filteredOut: rawRecords.length - validRecords.length,
-        sampleRecord: validRecords[0],
-        dataSource: metadata.dataSource,
-        usedFallback: metadata.usedFallback,
-        dateRange: `${metadata.oldestRecordDate} to ${metadata.newestRecordDate}`
-      });
 
       const historicalRaces = validRecords.map(record => ({
         raceId: record.race.id,

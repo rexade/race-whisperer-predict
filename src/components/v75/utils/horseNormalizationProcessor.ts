@@ -7,9 +7,7 @@ import {
   PostPositionCurves
 } from '../../../services/modernKm/index';
 import { ExtractedHorseData } from './horseDataExtractor';
-import { HorseDebugger } from '../../../services/debugging/horseDebugger';
 import { EquipmentValidator } from '../../../services/validation/equipmentValidator';
-import { EquipmentDebugger } from '../../../services/debugging/equipmentDebugger';
 import { log } from '@/lib/logger';
 
 /**
@@ -79,15 +77,6 @@ export const applyHorseNormalization = (
   log.debug(`🔍 STRICT NORMALIZATION - Horse ${horse.horseId} (${extractedData.safeHorseName}):`);
   log.debug(`  - Has raw KM time: ${!!rawKmTime}`);
 
-  // ENHANCED: Log equipment extraction and validate
-  EquipmentDebugger.logEquipmentExtraction(
-    horse.horseId || 0,
-    extractedData.safeHorseName,
-    { sulky: horse.sulky, shoes: horse.shoes, equipment: horse.equipment },
-    extractedData,
-    'horseNormalizationProcessor'
-  );
-
   const equipmentValidation = EquipmentValidator.validateAndCorrectEquipmentData(
     horse.horseId || 0,
     extractedData.safeHorseName,
@@ -96,34 +85,12 @@ export const applyHorseNormalization = (
     extractedData.backShoesStr
   );
 
-  EquipmentDebugger.logEquipmentValidation(
-    horse.horseId || 0,
-    extractedData.safeHorseName,
-    equipmentValidation,
-    {
-      sulkyType: extractedData.sulkyTypeString,
-      frontShoes: extractedData.frontShoesStr,
-      backShoes: extractedData.backShoesStr
-    }
-  );
-
   // Use corrected equipment data for normalization
   const correctedEquipment = equipmentValidation.correctedData || {
     sulkyType: extractedData.sulkyTypeString,
     frontShoes: extractedData.frontShoesStr,
     backShoes: extractedData.backShoesStr
   };
-
-  HorseDebugger.log(horse.horseId, extractedData.safeHorseName, 'NORMALIZATION_START', {
-    hasRawKmTime: !!rawKmTime,
-    rawKmTime: rawKmTime,
-    extractedData: extractedData,
-    raceInfo: {
-      distance: race.distance,
-      startMethod: race.startMethod,
-      postPosition: horse.postPosition
-    }
-  });
 
   // STRICT: Only process horses with actual raw KM times for predictions
   if (!rawKmTime) {
@@ -244,23 +211,10 @@ export const applyHorseNormalization = (
 
   const result = applyModernKmNormalization(rawKmTime, factors, weights, postPositionCurves);
 
-  // Log modern normalization breakdown
-  if (result) {
-    HorseDebugger.logModernNormalizationBreakdown(
-      horse.horseId,
-      extractedData.safeHorseName,
-      rawKmTime,
-      result.adjustments,
-      result.modernNormalizedTime
-    );
-  }
-
   // Mark as from raw data — will be stored for post-race comparison
   result.isEstimated = false;
 
   log.debug(`  - Final normalized time: ${result.modernNormalizedTime.minutes}:${result.modernNormalizedTime.seconds.toString().padStart(2, '0')}.${result.modernNormalizedTime.tenths} (FROM RAW DATA - WILL BE CACHED)`);
-
-  HorseDebugger.logFinalResult(horse.horseId, extractedData.safeHorseName, rawKmTime, result);
 
   return result;
 };

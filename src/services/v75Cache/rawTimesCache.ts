@@ -40,7 +40,21 @@ export class RawTimesCache {
 
     try {
       const cacheKey = this.getRawTimeCacheKey(raceId);
-      localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+      const serialized = JSON.stringify(cacheData);
+      try {
+        localStorage.setItem(cacheKey, serialized);
+      } catch {
+        // Storage full — evict old raw-times and analysis entries, then retry once
+        Object.keys(localStorage)
+          .filter(k => k.startsWith('v75_raw_times_') || k.startsWith('v75_race_analysis_') || k.startsWith('v75_mae_'))
+          .forEach(k => localStorage.removeItem(k));
+        try {
+          localStorage.setItem(cacheKey, serialized);
+        } catch {
+          log.warn('[RawTimesCache] Storage still full after eviction — skipping cache');
+          return;
+        }
+      }
 
       log.info(`✅ [RawTimesCache] Successfully cached for race ${raceNumber} (${cachedRawTimes.length} horses)`);
 

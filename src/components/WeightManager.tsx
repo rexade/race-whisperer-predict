@@ -520,7 +520,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({
                               <div className="flex items-center gap-2">
                                 <Input
                                   type="number"
-                                  value={weights[factor.key].toFixed(1)}
+                                  value={(weights[factor.key] ?? 0).toFixed(1)}
                                   onChange={(e) => handleDirectWeightChange(factor.key, e.target.value)}
                                   className="w-16 h-8 text-center text-sm"
                                   min="0"
@@ -533,7 +533,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({
                               </div>
                             </div>
                             <Slider
-                              value={[weights[factor.key]]}
+                              value={[weights[factor.key] ?? 0]}
                               onValueChange={(value) => handleWeightChange(factor.key, value)}
                               max={2.0}
                               min={0.0}
@@ -558,7 +558,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({
                   {weightCategories.flatMap(category => category.factors).map((factor) => (
                     <div key={factor.key} className="flex justify-between">
                       <span className="text-foreground">{factor.label}:</span>
-                      <span className="font-mono font-medium text-primary">{weights[factor.key].toFixed(1)}</span>
+                      <span className="font-mono font-medium text-primary">{(weights[factor.key] ?? 0).toFixed(1)}</span>
                     </div>
                   ))}
                 </div>

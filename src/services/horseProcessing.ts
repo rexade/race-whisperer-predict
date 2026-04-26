@@ -2,7 +2,6 @@ import { ProcessedKmTime, HorseRawKmTime } from './types/kmTimeTypes';
 import { KmTime } from './utils/kmTimeUtils';
 import { convertToKmTime } from './utils/timeConversion';
 import { normalizeKmTimeSimplified } from './utils/kmTimeNormalization';
-import { HorseDebugger } from './debugging/horseDebugger';
 import { DataValidator } from './debugging/dataValidator';
 import { getSourceConfidenceMultiplier, getStatisticsBreakdown } from './utils/recordsFallback';
 import { toSeconds, secondsToKmParts, isOutlierTime, createRecordKey } from './utils/robustTimeConversion';
@@ -58,11 +57,6 @@ export const processHorseKmTimes = async (
   if (!historicalRaces || historicalRaces.length === 0) {
     log.warn(`[horseProcessing] ${horseName}: no historical records`);
 
-    HorseDebugger.log(horseId, horseName, 'NO_HISTORICAL_RECORDS', {
-      historicalRacesLength: historicalRaces?.length || 0,
-      historicalRaces: historicalRaces
-    });
-
     return {
       horseId,
       horseName,
@@ -74,7 +68,6 @@ export const processHorseKmTimes = async (
   }
 
   log.debug(`[horseProcessing] ${horseName} — ${historicalRaces.length} records validated`);
-  HorseDebugger.logHistoricalData(horseId, horseName, historicalRaces);
 
   // Track why records are dropped - for debugging
   const dropReasons = {
@@ -124,11 +117,6 @@ export const processHorseKmTimes = async (
     if (!raceValidation.isValid && !isStatsSource) {
       dropReasons.invalidShape++;
       log.error(`[horseProcessing] invalid km time for ${horseName} race ${race.date}:`, raceValidation.errors);
-      HorseDebugger.log(horseId, horseName, 'INVALID_RACE_DATA', {
-        date: race.date,
-        validation: raceValidation,
-        raceData: race
-      });
       continue;
     }
 
@@ -143,17 +131,6 @@ export const processHorseKmTimes = async (
       );
 
       log.debug(`[horseProcessing] ${race.date}: ${originalKmTime.minutes}:${originalKmTime.seconds.toString().padStart(2, '0')}.${originalKmTime.tenths} → ${normalizedKmTime.minutes}:${normalizedKmTime.seconds.toString().padStart(2, '0')}.${normalizedKmTime.tenths} (${race.distance}m ${race.startMethod}, place ${race.finishOrder})`);
-
-      // Log each historical normalization step
-      HorseDebugger.logHistoricalNormalization(horseId, horseName, {
-        date: race.date,
-        distance: race.distance,
-        startMethod: race.startMethod,
-        kmTime: `${originalKmTime.minutes}:${originalKmTime.seconds.toString().padStart(2, '0')}.${originalKmTime.tenths}`,
-        place: race.finishOrder,
-        galloped: race.galloped,
-        disqualified: race.disqualified
-      }, normalizedKmTime);
 
       // Check for outliers (warn but don't drop)
       const outlierCheck = isOutlierTime(normalizedKmTime);
@@ -235,15 +212,10 @@ export const processHorseKmTimes = async (
     missingKmTimes,
     best3TimesUsed: hasBestTime ? Math.min(processedTimes.length, 2) : 0
   };
-  HorseDebugger.logValidationStats(horseId, horseName, validationStats);
-
   log.debug(`[horseProcessing] ${horseName}: ${processedTimes.length} valid times`);
   if (!hasBestTime) {
     log.warn(`[horseProcessing] ${horseName}: no valid times — ${historicalRaces.length} records, drops:`, dropReasons);
   }
-
-  // Enhanced debugging for final results
-  HorseDebugger.logProcessedTimes(horseId, horseName, processedTimes, bestTime);
 
   // Compute gallop/DQ counts for last 10 starts (all races, including galloped/DQ ones)
   const recentTen = [...historicalRaces]
@@ -265,12 +237,6 @@ export const processHorseKmTimes = async (
   if (usedStatisticsFallback) {
     log.debug(`[horseProcessing] ${horseName} stats fallback: ${statsBreakdown.statisticsRecords}/${statsBreakdown.totalRecords} records`);
 
-    HorseDebugger.log(horseId, horseName, 'STATISTICS_FALLBACK_TELEMETRY', {
-      statisticsRecords: statsBreakdown.statisticsRecords,
-      resultsRecords: statsBreakdown.resultsRecords,
-      totalRecords: statsBreakdown.totalRecords,
-      distanceBreakdown: statsBreakdown.distanceBreakdown
-    });
   }
 
   // Apply confidence weighting for statistics-sourced records
@@ -288,9 +254,7 @@ export const processHorseKmTimes = async (
     log.debug(`[horseProcessing] ${horseName} confidence ${confidenceMultiplier}x: ${rawBestTime.minutes}:${rawBestTime.seconds.toString().padStart(2, '0')}.${rawBestTime.tenths} → ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
   }
 
-  if (HorseDebugger.shouldDebugHorse(horseName)) {
-    log.debug(`[horseProcessing] ${horseName}: ${processedTimes.length} valid / ${historicalRaces.length} total, confidence ${confidenceMultiplier}x, final ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
-  }
+  log.debug(`[horseProcessing] ${horseName}: ${processedTimes.length} valid / ${historicalRaces.length} total, confidence ${confidenceMultiplier}x, final ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
 
   return {
     horseId,

@@ -11,7 +11,6 @@ import {
   calculateRobustShoeAdjustment,
   calculateRobustSulkyAdjustment
 } from './equipmentCalculators';
-import { EquipmentDebugger } from '../debugging/equipmentDebugger';
 import { calculateDriverAdjustment } from './driverCalculators';
 import {
   calculateStartPointsAdjustment,
@@ -101,10 +100,6 @@ export const applyModernKmNormalization = (
   // Equipment
   const shoeResult  = calculateRobustShoeAdjustment(factors.shoesFront, factors.shoesBack, factors.horseId);
   const sulkyResult = calculateRobustSulkyAdjustment(factors.sulkyType, factors.horseId);
-  if (factors.horseId !== undefined) {
-    EquipmentDebugger.logEquipmentCalculation(factors.horseId, factors.horseName ?? 'Unknown', 'shoes',  { front: factors.shoesFront, back: factors.shoesBack }, shoeResult);
-    EquipmentDebugger.logEquipmentCalculation(factors.horseId, factors.horseName ?? 'Unknown', 'sulky',  factors.sulkyType, sulkyResult);
-  }
   adjustments.equipment = (shoeResult.adjustment + sulkyResult.adjustment) * weights.shoeType;
 
   // Driver

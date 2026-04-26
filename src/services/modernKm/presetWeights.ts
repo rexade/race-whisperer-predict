@@ -41,6 +41,7 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
       placePercentage: 0.6, horseWinPercentage: 0.2, earningsPerStart: 0.1,
       gallopRisk: 0.5, layoffPenalty: 0.6, ageFactor: 0.5,
       genderAdjustment: 0.4, consistencyFactor: 0.5,
+      driverForm: 0,
     },
   },
   {
@@ -57,6 +58,7 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
       placePercentage: 0.6, horseWinPercentage: 0.2, earningsPerStart: 0.1,
       gallopRisk: 0.5, layoffPenalty: 0.6, ageFactor: 0.5,
       genderAdjustment: 0.4, consistencyFactor: 0.5,
+      driverForm: 0,
     },
   },
   {
@@ -71,6 +73,7 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
       placePercentage: 0.6, horseWinPercentage: 0.4, earningsPerStart: 0.2,
       gallopRisk: 0.5, layoffPenalty: 0.6, ageFactor: 0.5,
       genderAdjustment: 0.4, consistencyFactor: 0.3,
+      driverForm: 0,
     }
   },
   {
@@ -85,6 +88,7 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
       placePercentage: 0.6, horseWinPercentage: 0.7, earningsPerStart: 0.4,
       gallopRisk: 0.3, layoffPenalty: 0.4, ageFactor: 0.3,
       genderAdjustment: 0.2, consistencyFactor: 0.2,
+      driverForm: 0,
     }
   },
   {
@@ -99,6 +103,7 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
       placePercentage: 0.9, horseWinPercentage: 1.0, earningsPerStart: 0.7,
       gallopRisk: 0.5, layoffPenalty: 0.6, ageFactor: 0.5,
       genderAdjustment: 0.4, consistencyFactor: 0.4,
+      driverForm: 0,
     }
   },
   {
@@ -113,6 +118,7 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
       placePercentage: 1.3, horseWinPercentage: 1.4, earningsPerStart: 1.1,
       gallopRisk: 0.8, layoffPenalty: 0.9, ageFactor: 0.7,
       genderAdjustment: 0.5, consistencyFactor: 0.6,
+      driverForm: 0,
     }
   },
   {
@@ -127,6 +133,7 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
       placePercentage: 0.7, horseWinPercentage: 0.8, earningsPerStart: 0.5,
       gallopRisk: 0.5, layoffPenalty: 0.5, ageFactor: 0.4,
       genderAdjustment: 0.3, consistencyFactor: 0.3,
+      driverForm: 0,
     }
   },
   {
@@ -141,6 +148,7 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
       placePercentage: 1.4, horseWinPercentage: 1.5, earningsPerStart: 1.2,
       gallopRisk: 0.7, layoffPenalty: 0.7, ageFactor: 0.6,
       genderAdjustment: 0.4, consistencyFactor: 0.5,
+      driverForm: 0,
     }
   }
 ];
