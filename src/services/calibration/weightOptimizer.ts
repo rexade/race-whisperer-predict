@@ -98,9 +98,13 @@ export async function optimizeWeights(
     : { auto: { ...DEFAULT_AUTO_CURVE }, volte: { ...DEFAULT_VOLTE_CURVE } };
 
   const initialEval = await evaluateWeights(dataset, initial, startCurves);
-  // Optimize for winner rank (avg rank given to actual winner) — directly maximises win rate.
-  // Lower is better: 1.0 = always ranked the winner first.
-  const initialMAE = initialEval.winnerRankMAE;
+  // Optimise for Mean Reciprocal Rank of the actual winner.
+  // MRR = mean(1/rank_given_to_winner). Range 0–1, higher is better.
+  // Rank 1 → 1.0, rank 2 → 0.5, rank 3 → 0.33 …
+  // The jump from rank 2→1 (+0.5) is 10× larger than rank 5→4 (+0.05),
+  // so coordinate descent is strongly pulled toward getting winners to #1.
+  // Store as negative so existing "lower is better" comparisons still work.
+  const initialMAE = -initialEval.winnerMRR;
 
   let bestWeights = copyWeights(initial);
   let bestCurves = startCurves;
@@ -124,8 +128,8 @@ export async function optimizeWeights(
           if (candidate[key] === bestWeights[key]) continue;
 
           const eval_ = await evaluateWeights(dataset, candidate, bestCurves);
-          if (eval_.winnerRankMAE < bestMAE) {
-            bestMAE = eval_.winnerRankMAE;
+          if (-eval_.winnerMRR < bestMAE) {
+            bestMAE = -eval_.winnerMRR;
             bestWeights = candidate;
             improved = true;
             break;
@@ -138,7 +142,7 @@ export async function optimizeWeights(
           currentMAE: bestMAE,
           bestMAE,
           step: weightStep,
-          message: `Pass ${pass}/${MAX_PASSES} · weights · step=${weightStep.toFixed(3)} · WinnerRank=${bestMAE.toFixed(4)}`,
+          message: `Pass ${pass}/${MAX_PASSES} · weights · step=${weightStep.toFixed(3)} · MRR=${(-bestMAE).toFixed(4)}`,
         });
       }
     }
@@ -155,8 +159,8 @@ export async function optimizeWeights(
             candidate[startType][pos] = newVal;
 
             const eval_ = await evaluateWeights(dataset, bestWeights, candidate);
-            if (eval_.winnerRankMAE < bestMAE) {
-              bestMAE = eval_.winnerRankMAE;
+            if (-eval_.winnerMRR < bestMAE) {
+              bestMAE = -eval_.winnerMRR;
               bestCurves = candidate;
               improved = true;
               break;
@@ -169,7 +173,7 @@ export async function optimizeWeights(
             currentMAE: bestMAE,
             bestMAE,
             step: curveStep,
-            message: `Pass ${pass}/${MAX_PASSES} · curves (${startType} pos ${pos}) · step=${curveStep.toFixed(3)} · WinnerRank=${bestMAE.toFixed(4)}`,
+            message: `Pass ${pass}/${MAX_PASSES} · curves (${startType} pos ${pos}) · step=${curveStep.toFixed(3)} · MRR=${(-bestMAE).toFixed(4)}`,
           });
         }
       }
@@ -182,14 +186,16 @@ export async function optimizeWeights(
   }
 
   const finalEval = await evaluateWeights(dataset, bestWeights, bestCurves);
-  const improvementPct =
-    initialMAE > 0 ? ((initialMAE - finalEval.winnerRankMAE) / initialMAE) * 100 : 0;
+  // improvementPct: positive = better MRR (higher win rate)
+  const initialMRR = -initialMAE;
+  const finalMRR = finalEval.winnerMRR;
+  const improvementPct = initialMRR > 0 ? ((finalMRR - initialMRR) / initialMRR) * 100 : 0;
 
   return {
     optimizedWeights: bestWeights,
     optimizedCurves: bestCurves,
-    initialMAE,
-    finalMAE: finalEval.winnerRankMAE,
+    initialMAE: initialMRR,   // expose as positive MRR for display
+    finalMAE: finalMRR,
     improvementPct,
     passesCompleted: pass,
     initialEvaluation: initialEval,

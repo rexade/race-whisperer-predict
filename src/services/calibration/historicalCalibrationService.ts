@@ -45,9 +45,16 @@ export interface CalibrationEvaluation {
   rankMAE: number;
   /**
    * Average rank we gave to the actual race winner across all races.
-   * 1.0 = always ranked winner first (perfect). This is the primary optimization target.
+   * 1.0 = always ranked winner first (perfect).
    */
   winnerRankMAE: number;
+  /**
+   * Mean Reciprocal Rank — average of (1 / rank_given_to_winner).
+   * Range 0–1. Higher = better. Rank 1 → 1.0, rank 2 → 0.5, rank 3 → 0.33.
+   * This is the primary optimization target: the jump from rank 2→1 (+0.5)
+   * dwarfs rank 5→4 (+0.05), so the optimizer is pulled hard toward actual wins.
+   */
+  winnerMRR: number;
   /** Mean absolute error of predicted km time vs actual km time in seconds */
   timeMAE: number | null;
   /** Fraction of predicted top-3 picks that actually placed top-3 */
@@ -301,6 +308,7 @@ export async function evaluateWeights(
   let winCorrect = 0;
   let winTotal = 0;
   let winnerRankSum = 0;
+  let winnerMRRSum = 0;
   let winnerRacesCount = 0;
   let horsesEvaluated = 0;
   let estimatedHorsesSkipped = 0;
@@ -335,6 +343,7 @@ export async function evaluateWeights(
           const predictedForWinner = result.horses.find(h => h.horseId === actualWinnerHorseId);
           if (predictedForWinner?.rank !== undefined) {
             winnerRankSum += predictedForWinner.rank;
+            winnerMRRSum += 1 / predictedForWinner.rank;
             winnerRacesCount++;
             winTotal++;
             if (predictedForWinner.rank === 1) winCorrect++;
@@ -375,6 +384,7 @@ export async function evaluateWeights(
   return {
     rankMAE:               horsesEvaluated > 0 ? totalRankError / horsesEvaluated : 999,
     winnerRankMAE:         winnerRacesCount > 0 ? winnerRankSum / winnerRacesCount : 999,
+    winnerMRR:             winnerRacesCount > 0 ? winnerMRRSum / winnerRacesCount : 0,
     timeMAE:               timeCount > 0 ? totalTimeDiffS / timeCount : null,
     topPickAccuracy:       topPicksTotal > 0 ? topPicksCorrect / topPicksTotal : 0,
     winAccuracy:           winTotal > 0 ? winCorrect / winTotal : 0,
