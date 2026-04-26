@@ -91,6 +91,8 @@ export interface NormalizationWeights {
   ageFactor: number;
   genderAdjustment: number;
   consistencyFactor: number;
+  /** Driver × horse form: win rate of current driver on this horse (recent starts). 0 = off. */
+  driverForm?: number;
 }
 
 // Balanced weights — v3 (2026-04-26)

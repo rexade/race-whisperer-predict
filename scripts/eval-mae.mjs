@@ -58,6 +58,12 @@ const V3 = {
   form: 1.0, gallopRisk: 0.5, layoffPenalty: 0.6, consistencyFactor: 0.5,
 };
 
+// V4 — candidate: V3 + driver form (win rate of current driver on this horse)
+const V4 = {
+  ...V3,
+  driverForm: 0.8,
+};
+
 // ---------------------------------------------------------------------------
 // Constants (from normalizationConstants.ts)
 // ---------------------------------------------------------------------------
@@ -70,6 +76,9 @@ const VOLTE_ADV_S     = 1.0;   // subtract for volte historical records
 const DRIVER_BASELINE = 0.12;
 const DRIVER_SCALE    = 0.10;
 const DRIVER_CAP_S    = 0.30;
+
+const DRIVER_FORM_BASELINE = 0.15;  // expected win rate for driver on this horse
+const DRIVER_FORM_MAX_S    = 0.20;  // max ±0.20s adjustment
 
 const SP_BASELINE     = 1200;
 const SP_ALPHA        = 0.60;
@@ -169,6 +178,14 @@ function gallopAdj(gallopRate) {
   return GALLOP_MAX_S * Math.tanh(gallopRate / GALLOP_SCALE);
 }
 
+function driverFormAdj(driverHorseWinRate) {
+  // Positive win rate vs baseline → faster prediction (negative adjustment)
+  // null = no data → no adjustment
+  if (driverHorseWinRate === null) return 0;
+  const delta = driverHorseWinRate - DRIVER_FORM_BASELINE;
+  return -DRIVER_FORM_MAX_S * Math.tanh(delta / 0.15);
+}
+
 function layoffAdj(days) {
   if (!Number.isFinite(days) || days <= LAYOFF_THRESH) return 0;
   return LAYOFF_MAX_S * Math.tanh((days - LAYOFF_THRESH) / LAYOFF_SCALE_D);
@@ -216,8 +233,8 @@ function normalizeHistoricalKmTime(kmTimeObj, dist, startMethod) {
 // Historical data processing
 // ---------------------------------------------------------------------------
 
-function processHistory(records, evalDate) {
-  if (!records || records.length === 0) return { rawKmTime: null, recentRaces: [], gallopRate: 0, layoffDays: null, consistencyScore: null };
+function processHistory(records, evalDate, currentDriverId = null) {
+  if (!records || records.length === 0) return { rawKmTime: null, recentRaces: [], gallopRate: 0, layoffDays: null, consistencyScore: null, driverHorseWinRate: null };
 
   const cutoff = new Date(evalDate);
   cutoff.setMonth(cutoff.getMonth() - 5);
@@ -282,7 +299,18 @@ function processHistory(records, evalDate) {
     consistencyScore = Math.sqrt(variance);
   }
 
-  return { rawKmTime, recentRaces, gallopRate, layoffDays, consistencyScore };
+  // Driver × horse form: win rate of current driver on this specific horse (last 6 starts with driver)
+  let driverHorseWinRate = null;
+  if (currentDriverId) {
+    const withDriver = sorted.filter(r => !r.disqualified && r.driver?.id === currentDriverId);
+    if (withDriver.length >= 2) {
+      const recent = withDriver.slice(0, 6);
+      const wins = recent.filter(r => !r.galloped && parseInt(String(r.place ?? ''), 10) === 1).length;
+      driverHorseWinRate = wins / recent.length;
+    }
+  }
+
+  return { rawKmTime, recentRaces, gallopRate, layoffDays, consistencyScore, driverHorseWinRate };
 }
 
 // ---------------------------------------------------------------------------
@@ -302,7 +330,8 @@ function scoreHorse(horse, hist, fieldMedianKm, weights) {
     + formAdj(hist.recentRaces)                            * weights.form
     + gallopAdj(hist.gallopRate)                           * weights.gallopRisk
     + layoffAdj(hist.layoffDays)                           * weights.layoffPenalty
-    + consistencyAdj(hist.consistencyScore)                * weights.consistencyFactor;
+    + consistencyAdj(hist.consistencyScore)                * weights.consistencyFactor
+    + driverFormAdj(hist.driverHorseWinRate)               * (weights.driverForm ?? 0);
 }
 
 function rankHorses(horses, hists, weights) {
@@ -361,6 +390,7 @@ function extractHorse(start) {
     winPercentage:   life.winPercentage   ?? 1500,  // basis points
     earningsSek:   totalStarts > 0 ? totalEarnings / totalStarts : 3000,
     driverWinPct:  start.driver?.statistics?.winPercentage ?? 0.12,
+    driverId:      start.driver?.id ?? null,
     actualFinishOrder: start.result?.finishOrder ?? 0,
     galloped:      start.result?.galloped    ?? false,
     disqualified:  start.result?.disqualified ?? false,
@@ -406,7 +436,7 @@ async function evalDate(date) {
       try {
         const h = await fetchJSON(`${ATG_BASE}/races/${raceIds[ri]}/start/${horse.startNum}`);
         const records = h?.horse?.results?.records ?? [];
-        hist = processHistory(records, date);
+        hist = processHistory(records, date, horse.driverId);
       } catch (_) { /* no history — use defaults */ }
       hists.push(hist);
     }
@@ -414,20 +444,24 @@ async function evalDate(date) {
     const rankedV1 = rankHorses(horses, hists, V1);
     const rankedV2 = rankHorses(horses, hists, V2);
     const rankedV3 = rankHorses(horses, hists, V3);
+    const rankedV4 = rankHorses(horses, hists, V4);
     const maeV1 = computeMAE(rankedV1);
     const maeV2 = computeMAE(rankedV2);
     const maeV3 = computeMAE(rankedV3);
+    const maeV4 = computeMAE(rankedV4);
     const winV1 = didWin(rankedV1);
     const winV2 = didWin(rankedV2);
     const winV3 = didWin(rankedV3);
+    const winV4 = didWin(rankedV4);
 
     const histCoverage = hists.filter(h => h.rawKmTime !== null).length;
+    const driverFormCoverage = hists.filter(h => h.driverHorseWinRate !== null).length;
     const label = n => n != null ? n.toFixed(2) : 'n/a';
     console.log(
-      `  Race ${race.number ?? ri+1}: V1=${label(maeV1)} (${winV1?'W':'-'}) | V2=${label(maeV2)} (${winV2?'W':'-'}) | V3=${label(maeV3)} (${winV3?'W':'-'}) — ${horses.length}h, ${histCoverage}/${horses.length} km-times`
+      `  Race ${race.number ?? ri+1}: V1=${label(maeV1)} (${winV1?'W':'-'}) | V2=${label(maeV2)} (${winV2?'W':'-'}) | V3=${label(maeV3)} (${winV3?'W':'-'}) | V4=${label(maeV4)} (${winV4?'W':'-'}) — ${horses.length}h, km:${histCoverage}/${horses.length} drv:${driverFormCoverage}/${horses.length}`
     );
 
-    raceResults.push({ raceId: raceIds[ri], raceNumber: race.number ?? ri+1, horseCount: horses.length, histCoverage, maeV1, maeV2, maeV3, winV1, winV2, winV3 });
+    raceResults.push({ raceId: raceIds[ri], raceNumber: race.number ?? ri+1, horseCount: horses.length, histCoverage, driverFormCoverage, maeV1, maeV2, maeV3, maeV4, winV1, winV2, winV3, winV4 });
   }
 
   return { date, gameId: game.id, gameType: 'V85', raceResults };
@@ -462,14 +496,18 @@ async function main() {
   const sumV1 = races.reduce((s, r) => s + (r.maeV1 ?? 0), 0);
   const sumV2 = races.reduce((s, r) => s + (r.maeV2 ?? 0), 0);
   const sumV3 = races.reduce((s, r) => s + (r.maeV3 ?? 0), 0);
+  const sumV4 = races.reduce((s, r) => s + (r.maeV4 ?? 0), 0);
   const winsV1 = races.filter(r => r.winV1).length;
   const winsV2 = races.filter(r => r.winV2).length;
   const winsV3 = races.filter(r => r.winV3).length;
+  const winsV4 = races.filter(r => r.winV4).length;
   const meanV1 = +(sumV1 / n).toFixed(3);
   const meanV2 = +(sumV2 / n).toFixed(3);
   const meanV3 = +(sumV3 / n).toFixed(3);
+  const meanV4 = +(sumV4 / n).toFixed(3);
   const delta  = +((sumV2 - sumV1) / n).toFixed(3);
   const deltaV3vsV2 = +((sumV3 - sumV2) / n).toFixed(3);
+  const deltaV4vsV3 = +((sumV4 - sumV3) / n).toFixed(3);
 
   const verdict = delta < -0.2 ? 'V2 clearly better'
     : delta < 0 ? 'V2 slightly better'
@@ -483,6 +521,12 @@ async function main() {
     : deltaV3vsV2 < 0.2 ? 'V2 slightly better than V3'
     : 'V2 clearly better than V3';
 
+  const verdictV4 = deltaV4vsV3 < -0.2 ? 'V4 clearly better than V3'
+    : deltaV4vsV3 < 0 ? 'V4 slightly better than V3'
+    : deltaV4vsV3 === 0 ? 'V4 same as V3'
+    : deltaV4vsV3 < 0.2 ? 'V3 slightly better than V4'
+    : 'V3 clearly better than V4';
+
   const V2_BASELINE_MAE = 2.690;
   const v3Recommendation = meanV3 < V2_BASELINE_MAE
     ? `Adopt V3: MAE ${meanV3} < baseline ${V2_BASELINE_MAE}. Update DEFAULT_WEIGHTS (form 1.0, postPosition 0.7) and add V3 preset to presetWeights.ts.`
@@ -495,8 +539,10 @@ async function main() {
     v1: { meanMAE: meanV1, winRate: +(winsV1/n).toFixed(3), wins: winsV1 },
     v2: { meanMAE: meanV2, winRate: +(winsV2/n).toFixed(3), wins: winsV2 },
     v3: { meanMAE: meanV3, winRate: +(winsV3/n).toFixed(3), wins: winsV3, weights: 'form:1.0,postPosition:0.7' },
+    v4: { meanMAE: meanV4, winRate: +(winsV4/n).toFixed(3), wins: winsV4, weights: 'V3+driverForm:0.8' },
     delta: { mae: delta, verdict },
     deltaV3vsV2: { mae: deltaV3vsV2, verdict: verdictV3 },
+    deltaV4vsV3: { mae: deltaV4vsV3, verdict: verdictV4 },
     baseline: { source: 'browser full-pipeline, 49 races, 17 dates', meanMAE: 5.289, winRate: 0.306 },
     recommendation: delta <= 0
       ? 'Keep V2 weights. Update status.json accuracy field.'
@@ -511,8 +557,10 @@ async function main() {
   console.log(`V1 MAE:   ${meanV1}   win% ${(winsV1/n*100).toFixed(0)}%`);
   console.log(`V2 MAE:   ${meanV2}   win% ${(winsV2/n*100).toFixed(0)}%`);
   console.log(`V3 MAE:   ${meanV3}   win% ${(winsV3/n*100).toFixed(0)}%  (form:1.0 postPos:0.7)`);
+  console.log(`V4 MAE:   ${meanV4}   win% ${(winsV4/n*100).toFixed(0)}%  (V3+driverForm:0.8)`);
   console.log(`V1→V2:    ${delta >= 0 ? '+' : ''}${delta}  → ${verdict}`);
   console.log(`V2→V3:    ${deltaV3vsV2 >= 0 ? '+' : ''}${deltaV3vsV2}  → ${verdictV3}`);
+  console.log(`V3→V4:    ${deltaV4vsV3 >= 0 ? '+' : ''}${deltaV4vsV3}  → ${verdictV4}`);
   console.log(`V3 verdict: ${v3Recommendation}`);
 
   const outFile = join(ROOT, 'reports', `mae-auto-${dates[0]}.json`);

@@ -13,6 +13,21 @@ export interface WeightPreset {
 
 export const WEIGHT_PRESETS: WeightPreset[] = [
   {
+    name: 'V4 — Driver Form (candidate)',
+    description: 'V3 + driver×horse form signal (win rate of current driver on this horse, last 6 starts). Candidate — run eval to confirm.',
+    category: 'balanced',
+    weights: {
+      postPosition: 0.7, shoeType: 0.4, sulkyType: 0.5,
+      driverPerformance: 1.0, trackFamiliarity: 0.6, form: 1.0,
+      distanceAdjustment: 0.8, raceDistanceAdjustment: 1.0,
+      volteStartDistancePenalty: 1.1, startPoints: 0.5,
+      placePercentage: 0.6, horseWinPercentage: 0.2, earningsPerStart: 0.1,
+      gallopRisk: 0.5, layoffPenalty: 0.6, ageFactor: 0.5,
+      genderAdjustment: 0.4, consistencyFactor: 0.5,
+      driverForm: 0.8,
+    },
+  },
+  {
     name: 'V3 — Empirical (2026)',
     description: 'Current defaults — form boosted to 1.0, postPosition reduced to 0.7. 78 V85 races (10 dates, Jan–Apr 2026). MAE 2.815 — best on full corpus.',
     category: 'balanced',
