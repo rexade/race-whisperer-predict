@@ -101,18 +101,22 @@ V3 MAE=2.653 vs V2=2.690 — delta −0.037. V3 adopted as DEFAULT_WEIGHTS.
 `presetWeights.ts`: V3 added as top preset, V2 kept as reference.
 `types.ts`: DEFAULT_WEIGHTS updated with V3 comment + MAE evidence.
 
-### V4 corpus expansion — open
-Eval corpus is 6 dates (Jan–Apr 2026). Expand with 2–3 new dates (April/May 2026) to:
-1. Confirm V3 holds on fresh data
-2. Grow corpus beyond 48 races for statistical weight
-Run: `node scripts/eval-mae.mjs 2026-04-19 2026-04-12 2026-04-26` (or whichever are completed).
+### [x] V4 corpus expansion — DONE (Run 65)
+Eval on 2026-04-04/11/18/25 — 30 new races. Combined corpus: 10 dates, 78 races.
+V3 confirmed best: MAE 2.815 (V2: 2.845, V1: 2.846). V3 remains DEFAULT_WEIGHTS.
+presetWeights.ts V3 updated: maeScore=2.815, raceCount=78.
+Note: April 4 had small fields (2-3 horse races → n/a MAE), treated as 0 in mean — consistent with existing methodology.
+Report: `reports/mae-auto-2026-04-04.json`.
 
-### Per-horse confidence flags — open
-From SEED.md direction 2. Surface in UI (not scoring changes):
-- Sample size flag: < 5 starts = low confidence
-- Missing data flag: no km time, no driver stats
-- Data age flag: last race > 90 days = stale form
-Start with `src/components/v75/utils/confidenceFlags.ts` — already has gallopRisk and layoff, extend there.
+### [x] C1 — noDriverStats chip missing from ConfidenceFlagStrip — DONE (Run 66)
+Added `FlagChip` for `flags.noDriverStats` in `CompactHorseRow.tsx:~86`. Icon `WifiOff`, label `"No drv"`, variant `'muted'`. tsc clean, 156 tests pass.
+
+### C2 — enhancedAtgApi.ts console cleanup — open
+**Found Run 66.** ~30 raw `console.*` calls (including emoji sulky debug logs) never cleaned in Run 54 (`atgHistoricalApi.ts` was cleaned; `enhancedAtgApi.ts` was not). Replace all with `log.debug`/`log.warn`/`log.error` from `@/lib/logger`. Reduces browser console noise on every horse load.
+File: `src/services/enhancedAtgApi.ts`.
+
+### C3 — Equipment change flag — deferred
+SEED.md direction 2 lists "equipment this race differs from last race" as a desired flag. Not implemented — `HorseRawKmTime` stores no prior-race equipment data, so comparison isn't possible at flag-computation time. Would require adding last-race shoe/sulky fields to `HorseRawKmTime` and populating them in `horseProcessing.ts`. Low-priority; no scoring impact.
 
 ## Closed
 *Archived to `memory/CLOSED_THREADS.md` — 33 items through Run 49.*

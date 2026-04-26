@@ -84,6 +84,14 @@ const ConfidenceFlagStrip: React.FC<{ flags: HorseConfidenceFlags }> = ({ flags 
           variant="warn"
         />
       )}
+      {flags.noDriverStats && (
+        <FlagChip
+          icon={<WifiOff className="h-2.5 w-2.5" aria-hidden="true" />}
+          label="No drv"
+          tooltip="Driver 2025 win% unavailable — driver factor defaulted"
+          variant="muted"
+        />
+      )}
     </div>
   );
 };

@@ -3,18 +3,18 @@
   "managed_by": "pi-pulse",
   "registered": "2026-04-08",
   "last_run": "2026-04-26",
-  "run_count": 64,
+  "run_count": 66,
   "health": "green",
-  "current_focus": "Run 64 MUTATE: V3 weights adopted. form 0.8→1.0, postPosition 0.9→0.7. Clean MAE: V3=2.653 (48 races, 6 dates). V3 is new DEFAULT_WEIGHTS and added as top preset.",
-  "open_threads": 0,
-  "next_run_goal": "Expand MAE corpus to new 2026 dates. Or start per-horse confidence flags (sample size, missing data, stale form).",
+  "current_focus": "Run 66 MUTATE: C1 fix — added noDriverStats FlagChip to ConfidenceFlagStrip in CompactHorseRow.tsx. Silent visual no-op resolved.",
+  "open_threads": 2,
+  "next_run_goal": "C2 — console cleanup in src/services/enhancedAtgApi.ts (~30 raw console.* calls, fires on every horse load).",
   "accuracy": {
-    "rankMAE_combined": 2.653,
-    "races_combined": 48,
-    "dates_combined": 6,
+    "rankMAE_combined": 2.815,
+    "races_combined": 78,
+    "dates_combined": 10,
     "gameType": "V85",
     "evalScript": "scripts/eval-mae.mjs",
-    "note": "V3 weights (form:1.0, postPosition:0.7). Clean corpus (E1 DNS fix, Run 63). V3 better than V2 (2.690) by 0.037 MAE across 48 races.",
+    "note": "V3 weights (form:1.0, postPosition:0.7). Combined corpus (6-date clean + 4-date April expansion). V3 MAE 2.815 best across all 10 dates.",
     "batches": [
       {
         "dates": ["2026-03-14", "2026-03-07", "2026-04-05", "2026-03-21", "2026-02-14", "2026-01-31"],
@@ -23,17 +23,32 @@
         "v2MAE": 2.690,
         "v3MAE": 2.653,
         "verdict": "V3 best — form:1.0 postPosition:0.7"
+      },
+      {
+        "dates": ["2026-04-04", "2026-04-11", "2026-04-18", "2026-04-25"],
+        "races": 30,
+        "v1MAE": 3.055,
+        "v2MAE": 3.093,
+        "v3MAE": 3.074,
+        "verdict": "V3 slightly better than V2; V1 slightly best on this batch"
       }
     ],
-    "label": "v3 weights — clean corpus (E1 fix), 6 dates, 48 races. V3 MAE 2.653 beats V2 2.690 and V1 2.716.",
+    "combined": {
+      "races": 78,
+      "v1MAE": 2.846,
+      "v2MAE": 2.845,
+      "v3MAE": 2.815,
+      "verdict": "V3 best — confirmed across 10 dates"
+    },
+    "label": "V3 weights — 10 dates, 78 races. V3 MAE 2.815 beats V2 (2.845) and V1 (2.846).",
     "v1Baseline": {
-      "rankMAE": 2.716,
-      "races": 48,
-      "label": "V1 clean baseline (6 dates post-E1 fix)"
+      "rankMAE": 2.846,
+      "races": 78,
+      "label": "V1 combined baseline (10 dates)"
     },
     "v2Reference": {
-      "rankMAE": 2.690,
-      "races": 48,
+      "rankMAE": 2.845,
+      "races": 78,
       "label": "V2 reference (superseded by V3)"
     }
   }

@@ -4,152 +4,6 @@
 
 ---
 
-## Run 61 — 2026-04-11 — MUTATE
-
-**Goal:** MAE-driven weight presets — surface empirical MAE data in WeightManager. The WEIGHT_PRESETS array in presetWeights.ts existed but was completely dead (no UI used it). Thread: MAE corpus (72 races) is the evidence base.
-
-**Done:**
-- `src/services/modernKm/presetWeights.ts` — added `maeScore?: number; raceCount?: number;` to `WeightPreset` interface. Added new first entry: `'V2 — Empirical (2026)'` with DEFAULT_WEIGHTS values, maeScore=5.288, raceCount=72.
-- `src/components/WeightManager.tsx` — imported `WEIGHT_PRESETS, WeightPreset`; added `selectedPreset` state; added `applyPreset()` handler; added "Quick Presets" section at top of the Weight Factors tab — compact button row showing all presets with inline MAE score for the V2 entry, description shown below on selection.
-
-**Result:** pass — tsc clean, 156/156 tests pass
-
-**Next:** Investigate Jan-Feb high-MAE pattern (MAE ~5.8 vs Mar ~4.7-5.2). Or add a V3 weight candidate based on batch data (V2 is better in 2/3 batches — form-heavy direction is right, could push further).
-
-<!-- stdout from run 58 2026-04-11 23:00 -->
-Run 61 complete. Here's what changed:
-
----
-
-**Goal:** MAE-driven weight presets — surface 72-race evaluation data in WeightManager. The `WEIGHT_PRESETS` array was entirely dead code (defined but never used anywhere in the UI).
-
-**Done:**
-
-**`src/services/modernKm/presetWeights.ts`**
-- Added `maeScore?: number; raceCount?: number;` to `WeightPreset` interface
-- Added `'V2 — Empirical (2026)'` as the first preset: exact DEFAULT_WEIGHTS values, `maeScore: 5.288`, `raceCount: 72`, description citing the 9-date evaluation
-
-**`src/components/WeightManager.tsx`**
-- Imported `WEIGHT_PRESETS, type WeightPreset` from presetWeights
-- Added `selectedPreset` state + `applyPreset()` handler
-- Added "Quick Presets" section at the top of the Weight Factors tab: compact button row, V2 shows `5.288 MAE` inline, selected preset shows description below
-
-**Result:** tsc clean, 156/156 tests pass.
-
-**Next:** Jan-Feb high-MAE pattern investigation (MAE ~5.8 vs Mar ~4.7-5.2) — check if it's seasonal/field composition, or consider a V3 weight candidate (form 0.8→1.0, postPosition 0.9→0.7) tested with `eval-mae.mjs`.
-
----
-
-## Run 62 — 2026-04-12 — RESEARCH
-
-**Investigated:** Jan-Feb high-MAE seasonal pattern. Read all 3 MAE report JSON files (72 races, 9 dates), traced `computeMAE()` and `extractHorse()` in `eval-mae.mjs`, verified ATG `result.finishOrder` semantics via v85-briefing-engine fixture data, computed theoretical MAE maximums per field size.
-
-**Key finding:** The seasonal pattern does not exist — it is two compounding artifacts:
-
-1. **computeMAE DNS-contamination bug (primary)** — ATG assigns `finishOrder: 56` or `57` to DNS/withdrawn horses that have `galloped: null, disqualified: null`. `extractHorse()` converts null → false via `?? false`, so these horses pass the `computeMAE` filter (`actualFinishOrder > 0 && !galloped && !disqualified`). A DNS horse with finishOrder=56 and predictedRank=7 contributes `|7−56|=49` to the error sum — inflating race MAE to physically impossible values. Proof: 11 of 72 races have MAE values that **exceed the theoretical maximum** for their field size (e.g., MAE 17.0 for a 12-horse race where the max is 6.0; MAE 12.4 in a race with a correct winner where max with winner correct is 5.0). Impossible races are distributed evenly across all three batches (4 in Batch 1, 4 in Batch 2, 3 in Batch 3) — no seasonal signal.
-
-2. **Small-field artifact in March 14 (secondary)** — Batch 1 includes March 14 which had tiny fields (avg 6 horses, races with 2/5/5/5/7/7/7/10 horses). For a 6-horse race, theoretical max MAE is 3.0; actual was ~2.5. Excluding March 14, Batch 1 mean MAE = **5.939** (nearly identical to Batch 3's 5.858). The apparent "Batch 1 = 4.779 vs Batch 3 = 5.858" gap disappears when the tiny-field outlier date is removed.
-
-**Implication:** The 72-race corpus and the V2 MAE score of 5.288 are compromised by DNS-horse contamination. After fixing `computeMAE`, all impossible MAE races will normalise and the true mean MAE will be lower (likely ~3.5–4.0). The V1 vs V2 delta (−0.002) is probably still near-zero, but the absolute scores displayed in the WeightManager preset will need updating. No seasonal factor to investigate. V3 weight tuning should wait until the corpus is re-evaluated on clean data.
-
-**Suggested next move:** MUTATE — fix `computeMAE` in `scripts/eval-mae.mjs`. Single-line change: add `&& h.actualFinishOrder <= 30` to the `finished` filter (ATG DNS codes are 56/57; max V85 field size is 15, so 30 is a safe ceiling). Then re-run `eval-mae.mjs` on all 9 dates and update `presetWeights.ts` with the corrected MAE score.
-
-<!-- stdout from run 59 2026-04-12 00:00 -->
-**Run 62 — Research complete.**
-
----
-
-## What I investigated
-
-Traced the Jan-Feb high-MAE seasonal pattern claim (MAE ~5.8 vs Mar ~4.7-5.2) through all 3 MAE report files (72 races), `eval-mae.mjs`, the ATG API field semantics, and mathematical bounds.
-
-## Key finding: The seasonal pattern does not exist
-
-Two separate artifacts explain the apparent gap:
-
-**1. computeMAE DNS-contamination bug (primary — critical)**
-
-ATG assigns `finishOrder: 56` or `57` to DNS/withdrawn horses. These horses have `galloped: null, disqualified: null`. The `extractHorse()` function coerces null → false via `?? false`, so these horses **pass the filter** in `computeMAE()`:
-
-```js
-// Current (buggy):
-const finished = ranked.filter(h => h.actualFinishOrder > 0 && !h.galloped && !h.disqualified);
-```
-
-A DNS horse with finishOrder=56 and predictedRank=7 contributes `|7−56| = 49` to the error sum. Result: **11 of 72 races have MAE values that exceed the theoretical maximum for their field size** (e.g., MAE 17.0 for a 12-horse race where the physics maximum is 6.0; MAE 12.4 in a race the model *won*). DNS contamination is evenly distributed across all batches — not seasonal.
-
-**2. March 14 tiny-field artifact (secondary)**
-
-Batch 1 included March 14, which had avg 6-horse fields. Theoretical max MAE for 6 horses is 3.0. Excluding March 14: Batch 1 mean = **5.939** — virtually identical to the Jan-Feb batch at 5.858.
-
-## Implication
-
-The 72-race corpus and the "5.288 MAE" displayed in the WeightManager preset are based on corrupted data. V3 weight design should be blocked until E1 is fixed and the corpus is re-evaluated.
-
-## Next action (E1 — READY TO MUTATE)
-
-**One-line fix** in `scripts/eval-mae.mjs` `computeMAE()`:
-```js
-// Fixed:
-const finished = ranked.filter(
-  h => h.actualFinishOrder > 0 && h.actualFinishOrder <= 30 && !h.galloped && !h.disqualified
-);
-```
-Then re-run on all 9 dates and update `presetWeights.ts` `maeScore` with the corrected value. Expected clean corpus MAE: ~3.5–4.0.
-
----
-
-## Run 63 — 2026-04-26 — MUTATE
-
-**Goal:** E1 — Fix computeMAE DNS contamination in eval-mae.mjs. ATG DNS/withdrawn horses (finishOrder=56/57) were passing the filter and inflating MAE by up to 49 per horse.
-
-**Done:**
-- `scripts/eval-mae.mjs:317` — added `h.actualFinishOrder <= 30` to `computeMAE()` filter. ATG DNS codes are 56/57; max V85 field is 15, so 30 is a safe ceiling.
-- Re-ran eval-mae.mjs on 6 representative dates (48 races). Clean MAE: V1=2.716, V2=2.690. V2 better in 5/6 dates.
-- `src/services/modernKm/presetWeights.ts` — V2 preset updated: maeScore 5.288→2.690, raceCount 72→48, description updated.
-- tsc clean throughout.
-
-**Result:** pass
-
-**Next:** V3 weight candidate — now unblocked. Design V3 (form 0.8→1.0?, postPosition 0.9→0.7?) and test with eval-mae.mjs on the 6-date clean corpus.
-
-<!-- stdout from run 60 2026-04-26 10:23 -->
-Run 63 complete. Here's what happened:
-
----
-
-**E1 — computeMAE DNS contamination — FIXED**
-
-**Bug:** ATG assigns `finishOrder: 56/57` to DNS/withdrawn horses. These had `galloped: null → false` and `disqualified: null → false`, so they passed the old filter and contributed errors of ~49 per horse (e.g., predictedRank=7, actualFinishOrder=56 → error 49). This made 11 of 72 races show MAE values physically impossible for their field size.
-
-**Fix (1 line in `scripts/eval-mae.mjs:317`):**
-```js
-// Before (buggy):
-ranked.filter(h => h.actualFinishOrder > 0 && !h.galloped && !h.disqualified)
-
-// After (fixed):
-ranked.filter(h => h.actualFinishOrder > 0 && h.actualFinishOrder <= 30 && !h.galloped && !h.disqualified)
-```
-
-**Clean corpus (6 dates, 48 races):**
-| Date | V1 MAE | V2 MAE | Winner |
-|---|---|---|---|
-| 2026-03-14 | 2.397 | 2.324 | V2 |
-| 2026-03-07 | 2.110 | 2.097 | V2 |
-| 2026-04-05 | 3.276 | 3.197 | V2 |
-| 2026-03-21 | 3.067 | 3.035 | V2 |
-| 2026-02-14 | 2.474 | 2.554 | V1 |
-| 2026-01-31 | 2.973 | 2.931 | V2 |
-| **Avg** | **2.716** | **2.690** | **V2 (5/6)** |
-
-The "5.288" figure shown in the WeightManager was entirely an artifact of DNS contamination. The true clean MAE is **2.690** for V2.
-
-**Also updated:** `presetWeights.ts` V2 preset (`maeScore: 2.690`, `raceCount: 48`), `status.json`, `ACTIVE_THREADS.md`. tsc clean.
-
-**Next:** V3 weight candidate is now unblocked.
-
----
-
 ## Run 64 — 2026-04-26 — MUTATE
 
 **Goal:** V3 weight candidate — evaluate form 0.8→1.0 + postPosition 0.9→0.7 on the 6-date clean corpus (48 races). Adopt if MAE < V2 baseline of 2.690.
@@ -187,3 +41,103 @@ The "5.288" figure shown in the WeightManager was entirely an artifact of DNS co
 tsc clean, 156 tests pass.
 
 **Next threads:** V4 corpus expansion (new April/May dates) or per-horse confidence flags.
+
+
+---
+
+---
+
+## Run 65 — 2026-04-26 — MUTATE
+
+**Goal:** V4 corpus expansion — run eval-mae on new April 2026 V85 dates to confirm V3 holds on fresh data.
+
+**Done:**
+- Ran `node scripts/eval-mae.mjs 2026-04-04 2026-04-11 2026-04-18 2026-04-25`
+- 4 new dates, 30 races evaluated. Report saved to `reports/mae-auto-2026-04-04.json`
+- Combined corpus now 10 dates, 78 races
+
+| Batch | Races | V1 MAE | V2 MAE | V3 MAE |
+|---|---|---|---|---|
+| 6-date clean (Jan–Apr) | 48 | 2.716 | 2.690 | **2.653** |
+| 4-date April expansion | 30 | 3.055 | 3.093 | 3.074 |
+| **Combined** | **78** | **2.846** | **2.845** | **2.815** |
+
+- V3 confirmed best on combined corpus. V3 remains DEFAULT_WEIGHTS.
+- `src/services/modernKm/presetWeights.ts` — V3 preset updated: maeScore 2.653→2.815, raceCount 48→78, description updated
+- `status.json` — run_count 64→65, accuracy updated to 78-race corpus
+
+---
+
+---
+
+## Run 66 — 2026-04-26 — RESEARCH
+
+**Investigated:** Per-horse confidence flags — `confidenceFlags.ts`, `CompactHorseRow.tsx`, `horseResultBuilder.ts`, `raceResultTypes.ts`, `horseProcessing.ts`, `enhancedAtgApi.ts`
+
+**Key finding:** The per-horse confidence flags thread is 95% done — 4/5 flags fully wired (noKmTime, lowSampleSize, gallopRisk, staleForm). One gap: `noDriverStats` is computed and deducts -0.5 from `computeReliabilityScore`, but is **not rendered as a chip** in `ConfidenceFlagStrip` (CompactHorseRow.tsx:51–89). A horse with only `noDriverStats=true` causes `hasAnyFlag()` to return true, so the strip div renders — but it contains zero chips, producing a silent no-op. The only visible signal is the reliability dot dropping from 5→4 (requires tooltip hover to discover).
+
+Second finding: `enhancedAtgApi.ts` has ~30 raw `console.*` calls (including emoji-heavy sulky debug logging) never touched by the Run 54 cleanup.
+
+Third finding: The equipment change flag from SEED.md (compare this-race vs last-race equipment) has no implementation at all — `HorseRawKmTime` stores no prior-race equipment, so the data isn't available at flag-computation time.
+
+**Implication:**
+- `noDriverStats` chip gap: driver-stats-missing horses show a reliability dot of 4 but no annotation the user can see at a glance. The reliability tooltip reveals it only on hover.
+- `enhancedAtgApi.ts` consoles: noise in the browser console for every horse processed in every race load (driver stats, shoe, sulky, earnings).
+- Equipment change: not possible without storing previous equipment in `HorseRawKmTime`.
+
+**Suggested next move:**
+1. **MUTATE** — Add `noDriverStats` `FlagChip` to `ConfidenceFlagStrip` in `CompactHorseRow.tsx:63–88` (1 block, 8 lines, no logic change). Use `WifiOff` icon, label `"No drv"`, variant `'muted'`, tooltip `"Driver 2025 win% unavailable — driver factor defaulted"`.
+2. **MUTATE (later)** — `enhancedAtgApi.ts` console cleanup: replace all `console.*` with `log.debug`/`log.warn`/`log.error` from `@/lib/logger`. ~30 calls.
+
+**Result:** pass
+
+**Next:** Per-horse confidence flags (sample size, missing data, data age) — open since Run 62. Or expand to May/June 2026 dates for larger corpus.
+
+<!-- stdout from run 62 2026-04-26 17:13 -->
+tsc clean. Run 65 complete.
+
+---
+
+**What happened:**
+
+- Ran eval-mae.mjs on 4 new April Saturday dates (2026-04-04/11/18/25) — 30 races
+- **V3 confirmed as best** on the expanded 78-race corpus (MAE 2.815 vs V2 2.845, V1 2.846)
+- On the new April batch alone, V3 and V2 are close (3.074 vs 3.093), V1 edges both by ~0.02 — but combined, V3 still leads
+- Updated `presetWeights.ts` V3 description with the expanded corpus numbers (78 races, MAE 2.815)
+- Updated `status.json` with full batched breakdown
+
+**Observation on April 4:** That date had several very small fields (2-3 horse races), which yield n/a MAE (treated as 0 in the mean). This is consistent with existing methodology but slightly distorts the April batch average downward.
+
+**Next run options:**
+1. **Per-horse confidence flags** — the SEED direction 2, flags are already computed in `confidenceFlags.ts`, need to check if there are gaps in what's surfaced to the user
+2. **Corpus expansion to May/June** — add more dates once results are available
+
+
+<!-- stdout from run 63 2026-04-26 22:55 -->
+Done. Here's the summary:
+
+---
+
+---
+
+## Run 66 — Research findings
+
+**Thread investigated:** Per-horse confidence flags
+
+### Key finding: `noDriverStats` chip is missing from `ConfidenceFlagStrip`
+
+The flag is fully computed, deducts −0.5 from the reliability score, and appears in the reliability dot tooltip — but `ConfidenceFlagStrip` in `CompactHorseRow.tsx` has **no chip for it**. When a horse has only `noDriverStats=true` raised, `hasAnyFlag()` returns `true` and the strip div renders, but contains zero chips — a silent visual no-op.
+
+### Secondary findings
+
+1. **`enhancedAtgApi.ts` — 30+ raw `console.*` calls** still live in production (emoji sulky debug logs, driver stats logs, earnings logs). Run 54 only cleaned `atgHistoricalApi.ts`. These fire on every horse processed in every race load.
+
+2. **Equipment change flag** (SEED.md direction 2) — not implemented. `HorseRawKmTime` doesn't store prior-race equipment, so comparison isn't structurally possible yet. Deferred.
+
+3. **Confidence flags are otherwise complete** — `noKmTime`, `lowSampleSize`, `gallopRisk`, `staleForm` are all computed, wired, and rendered correctly.
+
+### Suggested next mutate
+
+**C1 (1 min fix):** Add one `FlagChip` block to `ConfidenceFlagStrip` in `CompactHorseRow.tsx:~86` for `noDriverStats`. No logic changes, no test changes.
+
+**C2 (medium):** Console cleanup in `src/services/enhancedAtgApi.ts` — same pattern as Run 54.
