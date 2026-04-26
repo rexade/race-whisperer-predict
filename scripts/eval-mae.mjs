@@ -51,6 +51,13 @@ const V2 = {
   form: 0.8, gallopRisk: 0.5, layoffPenalty: 0.6, consistencyFactor: 0.5,
 };
 
+// V3 — candidate (Run64): form 0.8→1.0, postPosition 0.9→0.7
+const V3 = {
+  startPoints: 0.5, placePercentage: 0.6, horseWinPercentage: 0.2,
+  earningsPerStart: 0.1, driverPerformance: 1.0, postPosition: 0.7,
+  form: 1.0, gallopRisk: 0.5, layoffPenalty: 0.6, consistencyFactor: 0.5,
+};
+
 // ---------------------------------------------------------------------------
 // Constants (from normalizationConstants.ts)
 // ---------------------------------------------------------------------------
@@ -314,7 +321,8 @@ function rankHorses(horses, hists, weights) {
 }
 
 function computeMAE(ranked) {
-  const finished = ranked.filter(h => h.actualFinishOrder > 0 && !h.galloped && !h.disqualified);
+  // actualFinishOrder 56/57 = ATG DNS codes — exclude. Max V85 field is 15, so <= 30 is a safe ceiling.
+  const finished = ranked.filter(h => h.actualFinishOrder > 0 && h.actualFinishOrder <= 30 && !h.galloped && !h.disqualified);
   if (finished.length < 2) return null;
   const sum = finished.reduce((s, h) => s + Math.abs(h.predictedRank - h.actualFinishOrder), 0);
   return +(sum / finished.length).toFixed(3);
@@ -405,18 +413,21 @@ async function evalDate(date) {
 
     const rankedV1 = rankHorses(horses, hists, V1);
     const rankedV2 = rankHorses(horses, hists, V2);
+    const rankedV3 = rankHorses(horses, hists, V3);
     const maeV1 = computeMAE(rankedV1);
     const maeV2 = computeMAE(rankedV2);
+    const maeV3 = computeMAE(rankedV3);
     const winV1 = didWin(rankedV1);
     const winV2 = didWin(rankedV2);
+    const winV3 = didWin(rankedV3);
 
     const histCoverage = hists.filter(h => h.rawKmTime !== null).length;
     const label = n => n != null ? n.toFixed(2) : 'n/a';
     console.log(
-      `  Race ${race.number ?? ri+1}: V1=${label(maeV1)} (${winV1?'W':'-'}) | V2=${label(maeV2)} (${winV2?'W':'-'}) — ${horses.length}h, ${histCoverage}/${horses.length} km-times`
+      `  Race ${race.number ?? ri+1}: V1=${label(maeV1)} (${winV1?'W':'-'}) | V2=${label(maeV2)} (${winV2?'W':'-'}) | V3=${label(maeV3)} (${winV3?'W':'-'}) — ${horses.length}h, ${histCoverage}/${horses.length} km-times`
     );
 
-    raceResults.push({ raceId: raceIds[ri], raceNumber: race.number ?? ri+1, horseCount: horses.length, histCoverage, maeV1, maeV2, winV1, winV2 });
+    raceResults.push({ raceId: raceIds[ri], raceNumber: race.number ?? ri+1, horseCount: horses.length, histCoverage, maeV1, maeV2, maeV3, winV1, winV2, winV3 });
   }
 
   return { date, gameId: game.id, gameType: 'V85', raceResults };
@@ -450,11 +461,15 @@ async function main() {
 
   const sumV1 = races.reduce((s, r) => s + (r.maeV1 ?? 0), 0);
   const sumV2 = races.reduce((s, r) => s + (r.maeV2 ?? 0), 0);
+  const sumV3 = races.reduce((s, r) => s + (r.maeV3 ?? 0), 0);
   const winsV1 = races.filter(r => r.winV1).length;
   const winsV2 = races.filter(r => r.winV2).length;
+  const winsV3 = races.filter(r => r.winV3).length;
   const meanV1 = +(sumV1 / n).toFixed(3);
   const meanV2 = +(sumV2 / n).toFixed(3);
+  const meanV3 = +(sumV3 / n).toFixed(3);
   const delta  = +((sumV2 - sumV1) / n).toFixed(3);
+  const deltaV3vsV2 = +((sumV3 - sumV2) / n).toFixed(3);
 
   const verdict = delta < -0.2 ? 'V2 clearly better'
     : delta < 0 ? 'V2 slightly better'
@@ -462,17 +477,31 @@ async function main() {
     : delta < 0.2 ? 'V1 slightly better'
     : 'V1 clearly better';
 
+  const verdictV3 = deltaV3vsV2 < -0.2 ? 'V3 clearly better than V2'
+    : deltaV3vsV2 < 0 ? 'V3 slightly better than V2'
+    : deltaV3vsV2 === 0 ? 'V3 same as V2'
+    : deltaV3vsV2 < 0.2 ? 'V2 slightly better than V3'
+    : 'V2 clearly better than V3';
+
+  const V2_BASELINE_MAE = 2.690;
+  const v3Recommendation = meanV3 < V2_BASELINE_MAE
+    ? `Adopt V3: MAE ${meanV3} < baseline ${V2_BASELINE_MAE}. Update DEFAULT_WEIGHTS (form 1.0, postPosition 0.7) and add V3 preset to presetWeights.ts.`
+    : `Keep V2: V3 MAE ${meanV3} >= baseline ${V2_BASELINE_MAE}. V2 remains default.`;
+
   const summary = {
     evaluatedAt: new Date().toISOString(),
     dates,
     raceCount: n,
     v1: { meanMAE: meanV1, winRate: +(winsV1/n).toFixed(3), wins: winsV1 },
     v2: { meanMAE: meanV2, winRate: +(winsV2/n).toFixed(3), wins: winsV2 },
+    v3: { meanMAE: meanV3, winRate: +(winsV3/n).toFixed(3), wins: winsV3, weights: 'form:1.0,postPosition:0.7' },
     delta: { mae: delta, verdict },
+    deltaV3vsV2: { mae: deltaV3vsV2, verdict: verdictV3 },
     baseline: { source: 'browser full-pipeline, 49 races, 17 dates', meanMAE: 5.289, winRate: 0.306 },
     recommendation: delta <= 0
       ? 'Keep V2 weights. Update status.json accuracy field.'
       : 'Consider reverting to V1. Revert DEFAULT_WEIGHTS in modernKm/types.ts and normalizationConstants.ts.',
+    v3Recommendation,
     rawResults: allResults,
   };
 
@@ -481,8 +510,10 @@ async function main() {
   console.log(`Races:    ${n}`);
   console.log(`V1 MAE:   ${meanV1}   win% ${(winsV1/n*100).toFixed(0)}%`);
   console.log(`V2 MAE:   ${meanV2}   win% ${(winsV2/n*100).toFixed(0)}%`);
-  console.log(`Delta:    ${delta >= 0 ? '+' : ''}${delta}  → ${verdict}`);
-  console.log(`Action:   ${summary.recommendation}`);
+  console.log(`V3 MAE:   ${meanV3}   win% ${(winsV3/n*100).toFixed(0)}%  (form:1.0 postPos:0.7)`);
+  console.log(`V1→V2:    ${delta >= 0 ? '+' : ''}${delta}  → ${verdict}`);
+  console.log(`V2→V3:    ${deltaV3vsV2 >= 0 ? '+' : ''}${deltaV3vsV2}  → ${verdictV3}`);
+  console.log(`V3 verdict: ${v3Recommendation}`);
 
   const outFile = join(ROOT, 'reports', `mae-auto-${dates[0]}.json`);
   mkdirSync(join(ROOT, 'reports'), { recursive: true });

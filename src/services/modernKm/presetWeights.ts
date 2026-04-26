@@ -13,11 +13,27 @@ export interface WeightPreset {
 
 export const WEIGHT_PRESETS: WeightPreset[] = [
   {
-    name: 'V2 — Empirical (2026)',
-    description: 'Current defaults — validated on 72 V85 races (9 dates, Jan–Apr 2026). MAE 5.288 vs V1 baseline 5.290.',
+    name: 'V3 — Empirical (2026)',
+    description: 'Current defaults — form boosted to 1.0, postPosition reduced to 0.7. 48 V85 races (6 dates, Jan–Apr 2026). MAE 2.653 — best on corpus.',
     category: 'balanced',
-    maeScore: 5.288,
-    raceCount: 72,
+    maeScore: 2.653,
+    raceCount: 48,
+    weights: {
+      postPosition: 0.7, shoeType: 0.4, sulkyType: 0.5,
+      driverPerformance: 1.0, trackFamiliarity: 0.6, form: 1.0,
+      distanceAdjustment: 0.8, raceDistanceAdjustment: 1.0,
+      volteStartDistancePenalty: 1.1, startPoints: 0.5,
+      placePercentage: 0.6, horseWinPercentage: 0.2, earningsPerStart: 0.1,
+      gallopRisk: 0.5, layoffPenalty: 0.6, ageFactor: 0.5,
+      genderAdjustment: 0.4, consistencyFactor: 0.5,
+    },
+  },
+  {
+    name: 'V2 — Empirical (2026)',
+    description: 'Previous defaults — validated on 48 V85 races (6 dates, Jan–Apr 2026). MAE 2.690. Superseded by V3.',
+    category: 'balanced',
+    maeScore: 2.690,
+    raceCount: 48,
     weights: {
       postPosition: 0.9, shoeType: 0.4, sulkyType: 0.5,
       driverPerformance: 1.0, trackFamiliarity: 0.6, form: 0.8,

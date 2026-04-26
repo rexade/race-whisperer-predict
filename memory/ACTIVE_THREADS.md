@@ -90,15 +90,29 @@ Pattern does not exist. Two artifacts:
 1. **Batch 1 March 14 tiny fields** (avg 6 horses) produce structurally low MAE by construction (max 3.0 for 6h vs 6.0 for 12h). Excluding Mar 14: Batch 1 mean = 5.939 ≈ Batch 3 Jan-Feb (5.858). No seasonal gap.
 2. **computeMAE DNS contamination** in eval-mae.mjs: ATG assigns `finishOrder: 56/57` to DNS/withdrawn horses with `galloped: null, disqualified: null`. These pass the `computeMAE` filter and contribute errors of ~49 per horse. **11 of 72 races have MAE values that exceed the theoretical maximum for their field size** — all are DNS-contaminated. Distribution is even across all 3 batches (4/4/3), not seasonal.
 
-### E1 — Fix computeMAE DNS contamination — READY TO MUTATE
-**Bug:** `computeMAE()` in `scripts/eval-mae.mjs` (line 317) filters `actualFinishOrder > 0 && !galloped && !disqualified` but misses DNS horses (finishOrder=56/57, galloped=null→false, DQ=null→false). These produce errors of |predictedRank−56|=~49, making MAE physically impossible (e.g., 17.0 for a 12-horse race where max is 6.0).
+### [x] E1 — Fix computeMAE DNS contamination — DONE (Run 63)
+`computeMAE()` in `scripts/eval-mae.mjs` now filters `h.actualFinishOrder <= 30` to exclude ATG DNS codes (56/57).
+Clean corpus (6 dates, 48 races): V1 MAE=2.716, V2 MAE=2.690. V2 better in 5/6 dates.
+`presetWeights.ts` V2 preset updated: maeScore 5.288→2.690, raceCount 72→48.
 
-**Fix (1 line):** Change the `finished` filter in `computeMAE()` to add `&& h.actualFinishOrder <= 30`. ATG DNS codes are 56/57; max V85 field size is 15, so 30 is a safe ceiling.
+### [x] V3 weight candidate — DONE (Run 64)
+V3 (form:1.0, postPosition:0.7) evaluated on 6-date clean corpus (48 races).
+V3 MAE=2.653 vs V2=2.690 — delta −0.037. V3 adopted as DEFAULT_WEIGHTS.
+`presetWeights.ts`: V3 added as top preset, V2 kept as reference.
+`types.ts`: DEFAULT_WEIGHTS updated with V3 comment + MAE evidence.
 
-**After fix:** Re-run eval-mae.mjs on all 9 dates, update `presetWeights.ts` V2 preset `maeScore` with corrected value. Expected clean MAE: ~3.5–4.0 (not 5.288).
+### V4 corpus expansion — open
+Eval corpus is 6 dates (Jan–Apr 2026). Expand with 2–3 new dates (April/May 2026) to:
+1. Confirm V3 holds on fresh data
+2. Grow corpus beyond 48 races for statistical weight
+Run: `node scripts/eval-mae.mjs 2026-04-19 2026-04-12 2026-04-26` (or whichever are completed).
 
-### V3 weight candidate — BLOCKED on E1
-Depends on a clean MAE corpus. After E1 fix and re-evaluation, check if V2 still holds. Only then design V3 (form 0.8→1.0?, postPosition 0.9→0.7?) and test with eval-mae.mjs.
+### Per-horse confidence flags — open
+From SEED.md direction 2. Surface in UI (not scoring changes):
+- Sample size flag: < 5 starts = low confidence
+- Missing data flag: no km time, no driver stats
+- Data age flag: last race > 90 days = stale form
+Start with `src/components/v75/utils/confidenceFlags.ts` — already has gallopRisk and layoff, extend there.
 
 ## Closed
 *Archived to `memory/CLOSED_THREADS.md` — 33 items through Run 49.*

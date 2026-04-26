@@ -1,5 +1,5 @@
-# Memory Brief — RESEARCH #59
-*2026-04-12 00:00 — pre-run context*
+# Memory Brief — MUTATE #62
+*2026-04-26 17:13 — pre-run context*
 
 ## Palace context (L0+L1)
 Lab: Pi Pulse incubator — Raspberry Pi 5 (testpi), /home/admin/lab

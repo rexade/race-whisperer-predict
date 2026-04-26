@@ -1,0 +1,116 @@
+{
+  "evaluatedAt": "2026-04-26T08:27:56.591Z",
+  "dates": [
+    "2026-03-07"
+  ],
+  "raceCount": 8,
+  "v1": {
+    "meanMAE": 2.11,
+    "winRate": 0.5,
+    "wins": 4
+  },
+  "v2": {
+    "meanMAE": 2.097,
+    "winRate": 0.5,
+    "wins": 4
+  },
+  "delta": {
+    "mae": -0.012,
+    "verdict": "V2 slightly better"
+  },
+  "baseline": {
+    "source": "browser full-pipeline, 49 races, 17 dates",
+    "meanMAE": 5.289,
+    "winRate": 0.306
+  },
+  "recommendation": "Keep V2 weights. Update status.json accuracy field.",
+  "rawResults": [
+    {
+      "date": "2026-03-07",
+      "gameId": "V85_2026-03-07_18_5",
+      "gameType": "V85",
+      "raceResults": [
+        {
+          "raceId": "2026-03-07_18_5",
+          "raceNumber": 5,
+          "horseCount": 8,
+          "histCoverage": 8,
+          "maeV1": 1.571,
+          "maeV2": 1.429,
+          "winV1": true,
+          "winV2": true
+        },
+        {
+          "raceId": "2026-03-07_18_6",
+          "raceNumber": 6,
+          "horseCount": 12,
+          "histCoverage": 12,
+          "maeV1": 1.7,
+          "maeV2": 1.5,
+          "winV1": true,
+          "winV2": true
+        },
+        {
+          "raceId": "2026-03-07_18_7",
+          "raceNumber": 7,
+          "horseCount": 6,
+          "histCoverage": 6,
+          "maeV1": 0.4,
+          "maeV2": 0.4,
+          "winV1": true,
+          "winV2": true
+        },
+        {
+          "raceId": "2026-03-07_18_8",
+          "raceNumber": 8,
+          "horseCount": 15,
+          "histCoverage": 15,
+          "maeV1": 3.778,
+          "maeV2": 3.778,
+          "winV1": false,
+          "winV2": false
+        },
+        {
+          "raceId": "2026-03-07_18_9",
+          "raceNumber": 9,
+          "horseCount": 12,
+          "histCoverage": 12,
+          "maeV1": 2.143,
+          "maeV2": 2.429,
+          "winV1": false,
+          "winV2": false
+        },
+        {
+          "raceId": "2026-03-07_18_10",
+          "raceNumber": 10,
+          "horseCount": 10,
+          "histCoverage": 10,
+          "maeV1": 2.2,
+          "maeV2": 2.2,
+          "winV1": false,
+          "winV2": false
+        },
+        {
+          "raceId": "2026-03-07_18_11",
+          "raceNumber": 11,
+          "horseCount": 12,
+          "histCoverage": 12,
+          "maeV1": 2.286,
+          "maeV2": 2.143,
+          "winV1": true,
+          "winV2": true
+        },
+        {
+          "raceId": "2026-03-07_18_12",
+          "raceNumber": 12,
+          "horseCount": 12,
+          "histCoverage": 12,
+          "maeV1": 2.8,
+          "maeV2": 2.9,
+          "winV1": false,
+          "winV2": false
+        }
+      ]
+    }
+  ]
+}

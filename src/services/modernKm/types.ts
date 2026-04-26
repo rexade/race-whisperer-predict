@@ -93,19 +93,18 @@ export interface NormalizationWeights {
   consistencyFactor: number;
 }
 
-// Balanced weights — v2 (2026-04-10)
-// Key changes vs v1:
-//   form 0.5→0.8   — recent form is the strongest real-time signal; boost it
-//   horseWinPercentage 0.4→0.2 — largely captured by startPoints+placePercentage; reduce overlap
-//   earningsPerStart 0.2→0.1  — class/purse inflation bias; minimal marginal value
-//   consistencyFactor 0.3→0.5 — consistent finishers rank more predictably; reward it
+// Balanced weights — v3 (2026-04-26)
+// Key changes vs v2:
+//   form 0.8→1.0       — form is the strongest per-race signal; boost to full weight
+//   postPosition 0.9→0.7 — post position influence capped; strong form should dominate
+// MAE eval (48 races, 6 dates, Jan–Apr 2026): V3=2.653, V2=2.690, V1=2.716
 export const DEFAULT_WEIGHTS: NormalizationWeights = {
-  postPosition: 0.9,          // meaningful, but not decisive alone
+  postPosition: 0.7,          // meaningful, but capped — form should dominate
   shoeType: 0.4,              // equipment helps, but rarely game-breaking
   sulkyType: 0.5,
   driverPerformance: 1.0,     // kusk tabell ±0.30 s/km; 1.0 = visa exakt tabellvärde
   trackFamiliarity: 0.6,
-  form: 0.8,                  // recent form — primary current-condition signal
+  form: 1.0,                  // recent form — primary current-condition signal
   distanceAdjustment: 0.8,    // horse's preferred distance vs race distance
   raceDistanceAdjustment: 1.0,// global course length effect from 2140 reference
   volteStartDistancePenalty: 1.1, // standing start/extra distance hurts
@@ -114,7 +113,7 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   horseWinPercentage: 0.2,    // overlap with place% and startPoints — reduced
   earningsPerStart: 0.1,      // class/purse inflation bias — minimal
   gallopRisk: 0.5,            // penalty for horses with history of breaking gait
-  layoffPenalty: 0.6,         // penalty for extended rest period (21+ days)
+  layoffPenalty: 0.6,         // penalty for extended rest period (14+ days)
   ageFactor: 0.5,             // age-based adjustment (peak 5–7yo)
   genderAdjustment: 0.4,      // mare penalty in mixed-gender fields
   consistencyFactor: 0.5,     // consistent finishers rank more predictably

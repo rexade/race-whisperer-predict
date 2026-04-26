@@ -2,51 +2,39 @@
   "project": "race-whisperer-predict",
   "managed_by": "pi-pulse",
   "registered": "2026-04-08",
-  "last_run": "2026-04-11",
-  "run_count": 61,
+  "last_run": "2026-04-26",
+  "run_count": 64,
   "health": "green",
-  "current_focus": "Run 61 MUTATE: MAE-driven weight presets. WeightPreset interface gains maeScore/raceCount. V2 empirical preset (5.288 MAE, 72 races) added. WeightManager now has a Quick Presets selector.",
-  "open_threads": 2,
-  "next_run_goal": "Investigate Jan-Feb high-MAE pattern (~5.8 vs Mar ~4.7-5.2). Or design V3 weight candidate (boost form 0.8→1.0, reduce postPosition 0.9→0.7) and test with eval-mae.mjs.",
+  "current_focus": "Run 64 MUTATE: V3 weights adopted. form 0.8→1.0, postPosition 0.9→0.7. Clean MAE: V3=2.653 (48 races, 6 dates). V3 is new DEFAULT_WEIGHTS and added as top preset.",
+  "open_threads": 0,
+  "next_run_goal": "Expand MAE corpus to new 2026 dates. Or start per-horse confidence flags (sample size, missing data, stale form).",
   "accuracy": {
-    "rankMAE_combined": 5.288,
-    "races_combined": 72,
-    "dates_combined": 9,
+    "rankMAE_combined": 2.653,
+    "races_combined": 48,
+    "dates_combined": 6,
     "gameType": "V85",
     "evalScript": "scripts/eval-mae.mjs",
+    "note": "V3 weights (form:1.0, postPosition:0.7). Clean corpus (E1 DNS fix, Run 63). V3 better than V2 (2.690) by 0.037 MAE across 48 races.",
     "batches": [
       {
-        "dates": ["2026-03-14", "2026-03-07", "2026-02-28"],
-        "report": "reports/mae-auto-2026-03-14.json",
-        "races": 24,
-        "v1MAE": 4.779,
-        "v2MAE": 4.733,
-        "verdict": "V2 slightly better"
-      },
-      {
-        "dates": ["2026-04-05", "2026-03-28", "2026-03-21"],
-        "report": "reports/mae-auto-2026-04-05.json",
-        "races": 24,
-        "v1MAE": 5.233,
-        "v2MAE": 5.279,
-        "verdict": "V1 slightly better"
-      },
-      {
-        "dates": ["2026-02-21", "2026-02-14", "2026-01-31"],
-        "report": "reports/mae-auto-2026-02-21.json",
-        "races": 24,
-        "v1MAE": 5.858,
-        "v2MAE": 5.853,
-        "verdict": "V2 slightly better"
+        "dates": ["2026-03-14", "2026-03-07", "2026-04-05", "2026-03-21", "2026-02-14", "2026-01-31"],
+        "races": 48,
+        "v1MAE": 2.716,
+        "v2MAE": 2.690,
+        "v3MAE": 2.653,
+        "verdict": "V3 best — form:1.0 postPosition:0.7"
       }
     ],
-    "label": "v2 weights (Run 46) — autonomous eval, 9 dates, 72 races. V2 marginally better (−0.002 MAE combined).",
+    "label": "v3 weights — clean corpus (E1 fix), 6 dates, 48 races. V3 MAE 2.653 beats V2 2.690 and V1 2.716.",
     "v1Baseline": {
-      "rankMAE": 5.289,
-      "winPct": 30.6,
-      "top3Pct": 52.5,
-      "races": 49,
-      "label": "pre-Run 46 baseline (V75, browser eval)"
+      "rankMAE": 2.716,
+      "races": 48,
+      "label": "V1 clean baseline (6 dates post-E1 fix)"
+    },
+    "v2Reference": {
+      "rankMAE": 2.690,
+      "races": 48,
+      "label": "V2 reference (superseded by V3)"
     }
   }
 }
