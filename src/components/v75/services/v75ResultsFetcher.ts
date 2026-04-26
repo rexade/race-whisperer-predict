@@ -101,15 +101,24 @@ export class V75ResultsFetcher {
     });
 
     const raceStatus = (raceInfo.status || '').toLowerCase();
-    const isRaceFinished = raceStatus === 'finished' ||
+    // Primary: known finished-status strings
+    const statusFinished = raceStatus === 'finished' ||
       raceStatus === 'results' ||
       raceStatus === 'result' ||
-      raceStatus === 'completed';
+      raceStatus === 'completed' ||
+      raceStatus === 'final' ||
+      raceStatus === 'closed' ||
+      raceStatus === 'race_complete';
+    // Fallback: starts array already has finish positions → race is done regardless of status label
+    const startsHaveResults = Array.isArray(raceInfo.starts) &&
+      raceInfo.starts.some((s: any) => (s.result?.finalPosition ?? s.result?.finishOrder) > 0);
+    const isRaceFinished = statusFinished || startsHaveResults;
 
     log.debug(`🔍 Race ${raceId} status check:`, {
       originalStatus: raceInfo.status,
       normalizedStatus: raceStatus,
-      isFinished: isRaceFinished
+      isFinished: isRaceFinished,
+      startsHaveResults,
     });
 
     if (!isRaceFinished) {

@@ -231,7 +231,10 @@ export async function collectCalibrationData(
             });
             V75CacheService.storeRawTimes(date, gameInfo.gameId, race.raceId, race.raceNumber, rawTimesForCache).catch(() => {});
           } catch {
-            return null;
+            // km-time history fetch failed (rate limit or network) — keep the race
+            // with empty rawKmTimes. evaluateWeights will use statistical fallback
+            // for horses without real km data; the race still contributes to MAE.
+            rawKmTimes = [];
           }
         }
 
