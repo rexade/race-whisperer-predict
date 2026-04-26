@@ -2,6 +2,10 @@ import { log } from '@/lib/logger';
 import { RaceAnalysisData, RaceAnalysisSummary, RaceMAEResult } from './types';
 
 export class RaceAnalysisCache {
+  private static get storage(): Storage | null {
+    return typeof localStorage !== 'undefined' ? localStorage : null;
+  }
+
   /**
    * Store race analysis results for post-race comparison
    */
@@ -43,7 +47,11 @@ export class RaceAnalysisCache {
         log.debug(`  ${horse.horseName}: ${horse.predictedTime?.minutes}:${horse.predictedTime?.seconds}.${horse.predictedTime?.tenths}`);
       });
 
-      localStorage.setItem(key, JSON.stringify(analysisData));
+      if (!this.storage) {
+        log.debug('Race analysis storage skipped (worker context — no localStorage)');
+        return;
+      }
+      this.storage.setItem(key, JSON.stringify(analysisData));
 
       log.debug(`Race analysis stored successfully`);
       
@@ -59,21 +67,9 @@ export class RaceAnalysisCache {
   static async getRaceAnalysis(raceId: string): Promise<RaceAnalysisData | null> {
     try {
       const key = `v75_race_analysis_${raceId}`;
-      const stored = localStorage.getItem(key);
-      
+      const stored = this.storage?.getItem(key);
+
       if (!stored) {
-        log.debug(`No race analysis found for race ${raceId}`);
-
-        // Debug: List all available race analysis keys
-        const allKeys = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key?.startsWith('v75_race_analysis_')) {
-            allKeys.push(key);
-          }
-        }
-        log.debug(`Found ${allKeys.length} race analysis entries:`, allKeys);
-
         return null;
       }
 
@@ -103,7 +99,7 @@ export class RaceAnalysisCache {
   static async clearRaceAnalysis(raceId: string): Promise<void> {
     try {
       const key = `v75_race_analysis_${raceId}`;
-      localStorage.removeItem(key);
+      this.storage?.removeItem(key);
       log.debug(`Cleared race analysis for race ${raceId}`);
     } catch (error) {
       log.warn('Error clearing race analysis:', error);
@@ -117,13 +113,14 @@ export class RaceAnalysisCache {
     try {
       const analyses: RaceAnalysisSummary[] = [];
       
-      log.debug(`Scanning localStorage for race analyses...`);
+      const store = this.storage;
+      if (!store) return [];
 
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        
+      for (let i = 0; i < store.length; i++) {
+        const key = store.key(i);
+
         if (key?.startsWith('v75_race_analysis_')) {
-          const stored = localStorage.getItem(key);
+          const stored = store.getItem(key);
           if (stored) {
             const analysisData = JSON.parse(stored);
             analyses.push({

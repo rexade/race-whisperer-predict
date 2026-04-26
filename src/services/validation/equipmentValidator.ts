@@ -1,4 +1,5 @@
 import { HorseDebugger } from '../debugging/horseDebugger';
+import { log } from '@/lib/logger';
 
 export interface EquipmentValidationResult {
   isValid: boolean;
@@ -80,12 +81,7 @@ export class EquipmentValidator {
     };
 
     // Log final validation result
-    console.log(`🛡️ Equipment validation for ${horseName}:`, {
-      isValid: result.isValid,
-      errors: result.errors,
-      warnings: result.warnings,
-      correctedData: result.correctedData
-    });
+    log.debug(`🛡️ Equipment validation for ${horseName}:`, result.correctedData);
 
     return result;
   }

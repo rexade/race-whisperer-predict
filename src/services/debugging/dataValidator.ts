@@ -1,4 +1,5 @@
 import { KmTime } from '../types/kmTimeTypes';
+import { log } from '@/lib/logger';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -75,6 +76,8 @@ export class DataValidator {
 
     if (!record.kmTime) {
       result.warnings.push(`${context}: Missing KM time`);
+    } else if (record.kmTime.code || record.galloped || record.disqualified) {
+      // ATG returns {code: 'u'} for galloped/DNF races — not an error, just skip
     } else {
       const kmTimeValidation = this.validateKmTime(record.kmTime, `${context} KM time`);
       result.errors.push(...kmTimeValidation.errors);
@@ -144,15 +147,11 @@ export class DataValidator {
     const warnings = results.flatMap(r => r.warnings);
 
     if (errors.length > 0) {
-      console.error(`❌ ${context} Validation Errors:`, errors);
+      log.debug(`❌ ${context} Validation Errors:`, errors);
     }
 
     if (warnings.length > 0) {
-      console.warn(`⚠️ ${context} Validation Warnings:`, warnings);
-    }
-
-    if (errors.length === 0 && warnings.length === 0) {
-      console.log(`✅ ${context} Validation: All checks passed`);
+      log.debug(`⚠️ ${context} Validation Warnings:`, warnings);
     }
   }
 }

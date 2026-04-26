@@ -14,7 +14,7 @@ export class HorseDebugger {
   private static STORAGE_KEY = 'xander_debug_logs_v1';
   private static debugLogs: HorseDebugInfo[] = [];
   private static targetHorses: string[] = [];
-  private static debugAllHorses = true; // Debug all horses by default
+  private static debugAllHorses = false; // Only debug targeted horses (e.g. Xander)
   private static isHydrated = false;
 
   private static hydrateFromStorage(): void {
@@ -297,6 +297,7 @@ export class HorseDebugger {
   }
 
   static logDataCorruption(horseId: number, horseName: string, fieldName: string, corruptedValue: any): void {
+    if (!this.shouldDebugHorse(horseName)) return;
     log.warn(`🐎 [XANDER DEBUG] DATA_CORRUPTION_DETECTED: Horse ${horseName} (ID: ${horseId}) field="${fieldName}" value="${corruptedValue}" (${typeof corruptedValue})`);
 
     this.debugLogs.push({
