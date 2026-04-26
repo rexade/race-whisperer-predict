@@ -2153,3 +2153,23 @@ The `ConfidenceFlagStrip` was missing a chip for `noDriverStats`. When that was 
 
 **Next:** C2 — replace ~30 raw `console.*` calls in `src/services/enhancedAtgApi.ts` with `log.debug`/`log.warn`/`log.error` (same pattern as Run 54's `atgHistoricalApi.ts` cleanup).
 
+
+## Run 67 — 2026-04-26 — MUTATE
+
+**Goal:** C2 — enhancedAtgApi.ts console cleanup. ~45 raw `console.*` calls (including emoji sulky debug blocks) on every horse load.
+**Done:** `src/services/enhancedAtgApi.ts` — added `import { log } from '@/lib/logger'`, replaced all `console.log`→`log.debug`, `console.warn`→`log.warn`, `console.error`→`log.error`. Stripped emoji prefixes from all messages.
+**Result:** pass — tsc clean, 156 tests pass.
+**Next:** C3 (equipment change flag) is still deferred (needs HorseRawKmTime changes). Consider expanding MAE corpus or investigating V4 weight candidate.
+
+<!-- stdout from run 66 2026-04-26 23:27 -->
+Done. Run 67 complete.
+
+**C2 — enhancedAtgApi.ts console cleanup**
+
+- Added `import { log } from '@/lib/logger'` at the top
+- Replaced all ~45 raw `console.*` calls: `console.log`→`log.debug`, `console.warn`→`log.warn`, `console.error`→`log.error`
+- Stripped emoji prefixes (`🛷`, `💰`, `✅`, `❌`, `⚠️`) from all log messages
+- tsc clean, 156 tests pass
+
+**Open threads:** C3 (equipment change flag, deferred — needs `HorseRawKmTime` schema changes) is the only remaining open item. Everything else through Run 67 is closed.
+

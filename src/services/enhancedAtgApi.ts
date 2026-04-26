@@ -1,3 +1,5 @@
+import { log } from '@/lib/logger';
+
 export interface EnhancedHorseData {
   horseId: number;
   name: string;
@@ -52,17 +54,17 @@ export interface EnhancedRaceData {
  * ENHANCED: Fetch enhanced race data with comprehensive sulky debugging
  */
 export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRaceData> => {
-  console.log(`\n=== Fetching enhanced race data for: ${raceId} ===`);
-  
+  log.debug(`Fetching enhanced race data for: ${raceId}`);
+
   try {
     const response = await fetch(`/api/atg/races/${raceId}`);
-    
+
     if (!response.ok) {
       throw new Error(`Failed to fetch race data: ${response.statusText}`);
     }
-    
+
     const data = await response.json();
-    console.log("ATG Race Data received:", {
+    log.debug("ATG Race Data received:", {
       raceId: data.id,
       startsCount: data.starts?.length || 0,
       distance: data.distance,
@@ -73,15 +75,15 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
       raceType: data.raceType,
       startTime: data.startTime
     });
-    
+
     // ENHANCED: Comprehensive sulky analysis for enhanced API
     if (data.starts && data.starts.length > 0) {
-      console.log(`\n🛷 ENHANCED API COMPREHENSIVE SULKY DEBUG for race ${raceId}:`);
-      
+      log.debug(`Enhanced API sulky debug for race ${raceId}:`);
+
       // Log the entire structure of the first few horses to understand API format
       for (let j = 0; j < Math.min(3, data.starts.length); j++) {
         const start = data.starts[j];
-        console.log(`🛷 Enhanced API - Horse ${j + 1} (${start.horse?.name}) COMPLETE STRUCTURE:`, {
+        log.debug(`Enhanced API - Horse ${j + 1} (${start.horse?.name}) COMPLETE STRUCTURE:`, {
           fullStart: JSON.stringify(start, null, 2),
           horse: start.horse,
           horseSulky: start.horse?.sulky,
@@ -92,7 +94,7 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
           driverSulky: start.driver?.sulky
         });
       }
-      
+
       // Check for sulky data across all horses
       const sulkyAnalysis = data.starts.map((start: any, index: number) => {
         const possibleSulkyPaths = {
@@ -107,7 +109,7 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
           startSulkyTypeCode: start.sulky?.type?.code,
           equipmentSulkyTypeCode: start.equipment?.sulky?.type?.code
         };
-        
+
         return {
           horseIndex: index,
           horseName: start.horse?.name,
@@ -115,14 +117,14 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
           foundSulkyData: Object.values(possibleSulkyPaths).some(val => val !== undefined && val !== null)
         };
       });
-      
-      console.log(`🛷 Enhanced API SULKY ANALYSIS for race ${raceId}:`, sulkyAnalysis);
-      
+
+      log.debug(`Enhanced API sulky analysis for race ${raceId}:`, sulkyAnalysis);
+
       // Count horses with sulky data
-      const horsesWithSulky = sulkyAnalysis.filter(h => h.foundSulkyData).length;
-      console.log(`🛷 Enhanced API SULKY SUMMARY: ${horsesWithSulky}/${data.starts.length} horses have sulky data`);
+      const horsesWithSulky = sulkyAnalysis.filter((h: { foundSulkyData: boolean }) => h.foundSulkyData).length;
+      log.debug(`Enhanced API sulky summary: ${horsesWithSulky}/${data.starts.length} horses have sulky data`);
     }
-    
+
     // Extract race information including enhanced fields
     const raceInfo = {
       raceId: data.id,
@@ -132,7 +134,7 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
       track: data.track.name,
       // Extract enhanced race data
       name: data.name || "Unknown Race",
-      date: data.date || "Unknown Date", 
+      date: data.date || "Unknown Date",
       prize: data.prize || 0,
       raceType: data.raceType || data.sport || "", // Try race type or sport classification
       startTime: data.startTime || data.scheduledStartTime || "", // Try multiple time fields
@@ -143,63 +145,63 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
         missingData: [] as string[]
       }
     };
-    
+
     // Track post positions to detect duplicates
     const postPositionMap = new Map<number, number>(); // position -> count
     const postPositions: number[] = [];
-    
-    console.log("\n=== Processing horse starts with enhanced data extraction ===");
-    console.log(`Race type identified as: ${raceInfo.raceType}`);
-    console.log(`Start time identified as: ${raceInfo.startTime}`);
-    
+
+    log.debug("Processing horse starts with enhanced data extraction");
+    log.debug(`Race type identified as: ${raceInfo.raceType}`);
+    log.debug(`Start time identified as: ${raceInfo.startTime}`);
+
     // Process each horse start - get ALL data from main race endpoint
     for (let index = 0; index < (data.starts || []).length; index++) {
       const start = data.starts[index];
-      
+
       try {
         const postPos = start.postPosition;
         postPositions.push(postPos);
         postPositionMap.set(postPos, (postPositionMap.get(postPos) || 0) + 1);
-        
-        console.log(`Processing horse "${start.horse.name}" (ID: ${start.horse.id}) - Post Position: ${postPos}`);
-        console.log(`  Horse distance: ${start.distance || data.distance}m vs Race distance: ${data.distance}m`);
-        
-        // Debug earnings data structure 
-        console.log(`💰 Earnings debug for ${start.horse.name}:`, {
+
+        log.debug(`Processing horse "${start.horse.name}" (ID: ${start.horse.id}) - Post Position: ${postPos}`);
+        log.debug(`  Horse distance: ${start.distance || data.distance}m vs Race distance: ${data.distance}m`);
+
+        // Debug earnings data structure
+        log.debug(`Earnings debug for ${start.horse.name}:`, {
           lifeStatistics: start.horse.statistics?.life,
           totalEarnings: start.horse.statistics?.life?.earnings,
           totalStarts: start.horse.statistics?.life?.starts,
           directEarningsPerStart: start.horse.statistics?.life?.earningsPerStart,
           hasDirectField: start.horse.statistics?.life?.earningsPerStart !== undefined
         });
-        
+
         // Debug driver statistics structure
-        console.log(`Driver statistics for ${start.driver.firstName} ${start.driver.lastName}:`, {
+        log.debug(`Driver statistics for ${start.driver.firstName} ${start.driver.lastName}:`, {
           statistics: start.driver.statistics,
           years: start.driver.statistics?.years,
           year2025: start.driver.statistics?.years?.['2025'],
           winPercentage2025: start.driver.statistics?.years?.['2025']?.winPercentage
         });
-        
+
         // Get driver 2025 win percentage from correct path
         const winPercentage2025 = start.driver.statistics?.years?.['2025']?.winPercentage || 0;
-        
-        console.log(`Driver 2025 win percentage resolved to: ${winPercentage2025}% from path: statistics.years.2025.winPercentage`);
-        
+
+        log.debug(`Driver 2025 win percentage resolved to: ${winPercentage2025}% from path: statistics.years.2025.winPercentage`);
+
         // ENHANCED: Debug shoes structure with detailed logging
-        console.log(`Shoes data for ${start.horse.name}:`, {
+        log.debug(`Shoes data for ${start.horse.name}:`, {
           shoes: start.horse.shoes,
           front: start.horse.shoes?.front,
           back: start.horse.shoes?.back,
           frontHasShoe: start.horse.shoes?.front?.hasShoe,
           backHasShoe: start.horse.shoes?.back?.hasShoe
         });
-        
+
         // ENHANCED: Comprehensive sulky debugging for enhanced API
-        console.log(`🛷 Enhanced API - COMPREHENSIVE SULKY DEBUG for horse: ${start.horse.name}`);
-        console.log(`🛷 Enhanced API - Full start object keys:`, Object.keys(start || {}));
-        console.log(`🛷 Enhanced API - Full horse object:`, start.horse ? Object.keys(start.horse) : 'NO HORSE OBJECT');
-        
+        log.debug(`Enhanced API - sulky debug for horse: ${start.horse.name}`);
+        log.debug(`Enhanced API - Full start object keys:`, Object.keys(start || {}));
+        log.debug(`Enhanced API - Full horse object:`, start.horse ? Object.keys(start.horse) : 'NO HORSE OBJECT');
+
         // Check ALL possible sulky data locations
         const sulkyDataSources = {
           startSulky: start.sulky,
@@ -212,39 +214,39 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
           startSulkyTypeCode: start.sulky?.type?.code,
           equipmentSulkyTypeCode: start.equipment?.sulky?.type?.code
         };
-        
-        console.log(`🛷 Enhanced API - ALL POSSIBLE sulky data sources:`, JSON.stringify(sulkyDataSources, null, 2));
-        
+
+        log.debug(`Enhanced API - ALL POSSIBLE sulky data sources:`, JSON.stringify(sulkyDataSources, null, 2));
+
         let sulkyTypeCode = 'VA'; // Default to Vanlig (normal)
         let sulkySource = 'default';
-        
+
         // Enhanced API often uses .type.code structure - check that first
         if (start.horse?.sulky?.type?.code) {
           sulkyTypeCode = String(start.horse.sulky.type.code);
           sulkySource = 'start.horse.sulky.type.code';
-          console.log(`🛷 Enhanced API - Found sulky type in start.horse.sulky.type.code:`, sulkyTypeCode);
+          log.debug(`Enhanced API - Found sulky type in start.horse.sulky.type.code:`, sulkyTypeCode);
         } else if (start.sulky?.type?.code) {
           sulkyTypeCode = String(start.sulky.type.code);
           sulkySource = 'start.sulky.type.code';
-          console.log(`🛷 Enhanced API - Found sulky type in start.sulky.type.code:`, sulkyTypeCode);
+          log.debug(`Enhanced API - Found sulky type in start.sulky.type.code:`, sulkyTypeCode);
         } else if (start.equipment?.sulky?.type?.code) {
           sulkyTypeCode = String(start.equipment.sulky.type.code);
           sulkySource = 'start.equipment.sulky.type.code';
-          console.log(`🛷 Enhanced API - Found sulky type in start.equipment.sulky.type.code:`, sulkyTypeCode);
+          log.debug(`Enhanced API - Found sulky type in start.equipment.sulky.type.code:`, sulkyTypeCode);
         } else if (start.horse?.sulky?.type) {
           sulkyTypeCode = String(start.horse.sulky.type);
           sulkySource = 'start.horse.sulky.type';
-          console.log(`🛷 Enhanced API - Found sulky type in start.horse.sulky.type:`, sulkyTypeCode);
+          log.debug(`Enhanced API - Found sulky type in start.horse.sulky.type:`, sulkyTypeCode);
         } else if (start.sulky?.type) {
           sulkyTypeCode = String(start.sulky.type);
           sulkySource = 'start.sulky.type';
-          console.log(`🛷 Enhanced API - Found sulky type in start.sulky.type:`, sulkyTypeCode);
+          log.debug(`Enhanced API - Found sulky type in start.sulky.type:`, sulkyTypeCode);
         } else if (start.equipment?.sulky?.type) {
           sulkyTypeCode = String(start.equipment.sulky.type);
           sulkySource = 'start.equipment.sulky.type';
-          console.log(`🛷 Enhanced API - Found sulky type in start.equipment.sulky.type:`, sulkyTypeCode);
+          log.debug(`Enhanced API - Found sulky type in start.equipment.sulky.type:`, sulkyTypeCode);
         } else {
-          console.log(`🛷 Enhanced API - NO SULKY DATA FOUND! Using default VA. Checked paths:`, {
+          log.debug(`Enhanced API - No sulky data found. Using default VA. Checked paths:`, {
             'start.horse?.sulky?.type?.code': start.horse?.sulky?.type?.code,
             'start.sulky?.type?.code': start.sulky?.type?.code,
             'start.equipment?.sulky?.type?.code': start.equipment?.sulky?.type?.code,
@@ -253,13 +255,13 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
             'start.equipment?.sulky?.type': start.equipment?.sulky?.type
           });
         }
-        
-        console.log(`🛷 Enhanced API - FINAL sulky processing result:`, { 
-          sulkyTypeCode, 
+
+        log.debug(`Enhanced API - Final sulky processing result:`, {
+          sulkyTypeCode,
           sulkySource,
-          originalValue: sulkyDataSources[sulkySource as keyof typeof sulkyDataSources] 
+          originalValue: sulkyDataSources[sulkySource as keyof typeof sulkyDataSources]
         });
-        
+
         const enhancedHorse: EnhancedHorseData = {
           horseId: start.horse.id,
           name: start.horse.name,
@@ -281,12 +283,12 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
               const directEarningsPerStart = start.horse.statistics?.life?.earningsPerStart;
               if (directEarningsPerStart !== undefined && directEarningsPerStart !== null) {
                 // API provides earningsPerStart directly, assume it's in öre
-                console.log(`💰 Using direct API earningsPerStart: ${directEarningsPerStart} öre for ${start.horse.name}`);
+                log.debug(`Using direct API earningsPerStart: ${directEarningsPerStart} ore for ${start.horse.name}`);
                 return directEarningsPerStart;
               }
-              
+
               // Fallback: calculate from total earnings and starts
-              console.log(`💰 Calculating earningsPerStart from totals for ${start.horse.name}`);
+              log.debug(`Calculating earningsPerStart from totals for ${start.horse.name}`);
               return calculateEarningsPerStart(
                 start.horse.statistics?.life?.earnings || 0,
                 start.horse.statistics?.life?.starts || 1
@@ -303,8 +305,8 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
             experience: start.driver.statistics?.starts || 0
           }
         };
-        
-        console.log(`✅ Enhanced API - Final extracted horse data:`, {
+
+        log.debug(`Enhanced API - Final extracted horse data:`, {
           horseId: enhancedHorse.horseId,
           name: enhancedHorse.name,
           shoesFront: enhancedHorse.shoes.front,
@@ -313,71 +315,70 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
           sulkySource: sulkySource,
           earningsPerStart: enhancedHorse.statistics.earningsPerStart
         });
-        
+
         raceInfo.horses.push(enhancedHorse);
-        
+
       } catch (error) {
-        console.error(`Error processing horse ${start.horse?.name || 'Unknown'} at index ${index}:`, error);
+        log.error(`Error processing horse ${start.horse?.name || 'Unknown'} at index ${index}:`, error);
         raceInfo.dataQuality.missingData.push(`Horse at position ${start.postPosition}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
-    
+
     // Validate post positions and detect duplicates
-    console.log("\n=== Post Position Analysis ===");
-    console.log("Post positions found:", postPositions);
-    
+    log.debug("Post Position Analysis — positions found:", postPositions);
+
     const duplicatePositions: number[] = [];
     postPositionMap.forEach((count, position) => {
       if (count > 1) {
         duplicatePositions.push(position);
-        console.warn(`⚠️  DUPLICATE POST POSITION DETECTED: Position ${position} appears ${count} times`);
+        log.warn(`Duplicate post position detected: Position ${position} appears ${count} times`);
       }
     });
-    
+
     raceInfo.dataQuality.duplicatePositions = duplicatePositions;
     raceInfo.dataQuality.hasValidPostPositions = duplicatePositions.length === 0;
-    
+
     if (duplicatePositions.length > 0) {
-      console.error(`❌ Race data quality issue: Found ${duplicatePositions.length} duplicate post positions`);
+      log.error(`Race data quality issue: Found ${duplicatePositions.length} duplicate post positions`);
       raceInfo.dataQuality.hasValidPostPositions = false;
     } else {
-      console.log("✅ All post positions are unique");
+      log.debug("All post positions are unique");
     }
-    
+
     // Validate expected vs actual horse count
     const expectedHorses = Math.max(...postPositions);
     const actualHorses = raceInfo.horses.length;
-    
-    console.log(`Expected horses (max post position): ${expectedHorses}`);
-    console.log(`Actual horses processed: ${actualHorses}`);
-    
+
+    log.debug(`Expected horses (max post position): ${expectedHorses}`);
+    log.debug(`Actual horses processed: ${actualHorses}`);
+
     if (expectedHorses !== actualHorses) {
-      console.warn(`⚠️  Horse count mismatch: Expected ${expectedHorses}, got ${actualHorses}`);
+      log.warn(`Horse count mismatch: Expected ${expectedHorses}, got ${actualHorses}`);
     }
-    
-    console.log(`\n✅ Enhanced race data processed: ${raceInfo.horses.length} horses with enhanced factors`);
-    console.log(`   Race Type: ${raceInfo.raceType || 'Not specified'}`);
-    console.log(`   Start Time: ${raceInfo.startTime || 'Not specified'}`);
-    console.log(`   Data Quality: ${raceInfo.dataQuality.hasValidPostPositions ? 'GOOD' : 'ISSUES'}`);
-    
+
+    log.debug(`Enhanced race data processed: ${raceInfo.horses.length} horses`);
+    log.debug(`  Race Type: ${raceInfo.raceType || 'Not specified'}`);
+    log.debug(`  Start Time: ${raceInfo.startTime || 'Not specified'}`);
+    log.debug(`  Data Quality: ${raceInfo.dataQuality.hasValidPostPositions ? 'GOOD' : 'ISSUES'}`);
+
     return raceInfo;
-    
+
   } catch (error) {
-    console.error("❌ Error fetching enhanced race data:", error);
+    log.error("Error fetching enhanced race data:", error);
     throw error;
   }
 };
 
 const calculateEarningsPerStart = (totalEarnings: number, totalStarts: number): number => {
   if (totalStarts === 0) return 0;
-  
+
   // Calculate earnings per start and convert to öre (Swedish cents)
   // ATG API provides earnings in SEK, but our calculations expect öre
   const earningsPerStartSek = totalEarnings / totalStarts;
   const earningsPerStartOre = Math.round(earningsPerStartSek * 100);
-  
-  console.log(`💰 Earnings calculation: ${totalEarnings} SEK / ${totalStarts} starts = ${earningsPerStartSek.toFixed(0)} SEK/start = ${earningsPerStartOre} öre/start`);
-  
+
+  log.debug(`Earnings calculation: ${totalEarnings} SEK / ${totalStarts} starts = ${earningsPerStartSek.toFixed(0)} SEK/start = ${earningsPerStartOre} ore/start`);
+
   return earningsPerStartOre;
 };
 

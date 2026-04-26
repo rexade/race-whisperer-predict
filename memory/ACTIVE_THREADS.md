@@ -111,9 +111,8 @@ Report: `reports/mae-auto-2026-04-04.json`.
 ### [x] C1 — noDriverStats chip missing from ConfidenceFlagStrip — DONE (Run 66)
 Added `FlagChip` for `flags.noDriverStats` in `CompactHorseRow.tsx:~86`. Icon `WifiOff`, label `"No drv"`, variant `'muted'`. tsc clean, 156 tests pass.
 
-### C2 — enhancedAtgApi.ts console cleanup — open
-**Found Run 66.** ~30 raw `console.*` calls (including emoji sulky debug logs) never cleaned in Run 54 (`atgHistoricalApi.ts` was cleaned; `enhancedAtgApi.ts` was not). Replace all with `log.debug`/`log.warn`/`log.error` from `@/lib/logger`. Reduces browser console noise on every horse load.
-File: `src/services/enhancedAtgApi.ts`.
+### [x] C2 — enhancedAtgApi.ts console cleanup — DONE (Run 67)
+~45 raw `console.*` calls replaced with `log.debug`/`log.warn`/`log.error`. `import { log }` added. Emoji prefixes stripped. tsc clean, 156 tests pass.
 
 ### C3 — Equipment change flag — deferred
 SEED.md direction 2 lists "equipment this race differs from last race" as a desired flag. Not implemented — `HorseRawKmTime` stores no prior-race equipment data, so comparison isn't possible at flag-computation time. Would require adding last-race shoe/sulky fields to `HorseRawKmTime` and populating them in `horseProcessing.ts`. Low-priority; no scoring impact.

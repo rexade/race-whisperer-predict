@@ -4,49 +4,6 @@
 
 ---
 
-## Run 64 — 2026-04-26 — MUTATE
-
-**Goal:** V3 weight candidate — evaluate form 0.8→1.0 + postPosition 0.9→0.7 on the 6-date clean corpus (48 races). Adopt if MAE < V2 baseline of 2.690.
-
-**Done:**
-- `scripts/eval-mae.mjs`: Added `V3` weight object + extended evalDate/summary to score and report V3 alongside V1/V2
-- Ran eval on all 6 clean dates: **V3 MAE=2.653, V2=2.690, V1=2.716** — V3 wins by −0.037 vs V2
-- `src/services/modernKm/types.ts`: `DEFAULT_WEIGHTS` updated to V3 (form 1.0, postPosition 0.7). Comment updated with MAE evidence.
-- `src/services/modernKm/presetWeights.ts`: `V3 — Empirical (2026)` added as top preset (maeScore=2.653, raceCount=48). V2 kept as reference preset.
-- `status.json`: run_count 63→64, accuracy updated to V3 (2.653), next_run_goal updated
-- tsc clean, 156 tests pass
-
-**Result:** pass
-
-**Next:** Expand MAE corpus to new 2026 dates (April/May), or start per-horse confidence flags.
-
-<!-- stdout from run 61 2026-04-26 15:18 -->
-**Run 64 complete.**
-
-## What changed
-
-**V3 weights adopted as new default** — backed by 48-race clean corpus:
-
-| Weights | MAE (48 races) | Delta |
-|---|---|---|
-| V1 (pre-Run46) | 2.716 | baseline |
-| V2 (Run46) | 2.690 | −0.026 |
-| **V3 (Run64)** | **2.653** | **−0.037 vs V2** |
-
-**Changes (form 0.8→1.0, postPosition 0.9→0.7):**
-- `src/services/modernKm/types.ts` — `DEFAULT_WEIGHTS` updated to V3 with MAE evidence in comment
-- `src/services/modernKm/presetWeights.ts` — `V3 — Empirical (2026)` added as top preset (maeScore=2.653); V2 kept as reference entry
-- `scripts/eval-mae.mjs` — V3 weight object + V3 scoring added to evalDate/summary/output
-
-tsc clean, 156 tests pass.
-
-**Next threads:** V4 corpus expansion (new April/May dates) or per-horse confidence flags.
-
-
----
-
----
-
 ## Run 65 — 2026-04-26 — MUTATE
 
 **Goal:** V4 corpus expansion — run eval-mae on new April 2026 V85 dates to confirm V3 holds on fresh data.
@@ -141,3 +98,38 @@ The flag is fully computed, deducts −0.5 from the reliability score, and appea
 **C1 (1 min fix):** Add one `FlagChip` block to `ConfidenceFlagStrip` in `CompactHorseRow.tsx:~86` for `noDriverStats`. No logic changes, no test changes.
 
 **C2 (medium):** Console cleanup in `src/services/enhancedAtgApi.ts` — same pattern as Run 54.
+
+---
+
+## Run 66 — 2026-04-26 — MUTATE
+
+**Goal:** C1 — add missing `noDriverStats` chip to `ConfidenceFlagStrip`. A horse with only this flag raised caused the strip div to render empty (silent visual no-op). `hasAnyFlag()` correctly returns `true` for it; the rendering just never showed it.
+
+**Done:**
+- `src/components/v75/components/CompactHorseRow.tsx` line ~86: added `FlagChip` for `flags.noDriverStats` — icon `WifiOff`, label `"No drv"`, tooltip `"Driver 2025 win% unavailable — driver factor defaulted"`, variant `'muted'`. `WifiOff` was already imported.
+
+**Result:** pass — tsc clean, 156 tests pass.
+
+**Next:** C2 — console cleanup in `src/services/enhancedAtgApi.ts` (~30 raw `console.*` calls, fires on every horse load).
+
+<!-- stdout from run 65 2026-04-26 23:05 -->
+Done. Here's what happened:
+
+**C1 — noDriverStats chip** — fixed in `CompactHorseRow.tsx:~86`
+
+The `ConfidenceFlagStrip` was missing a chip for `noDriverStats`. When that was the only flag raised on a horse, `hasAnyFlag()` returned `true`, the strip `<div>` rendered, but contained zero visible chips — silent visual no-op. Added:
+
+```tsx
+{flags.noDriverStats && (
+  <FlagChip
+    icon={<WifiOff className="h-2.5 w-2.5" aria-hidden="true" />}
+    label="No drv"
+    tooltip="Driver 2025 win% unavailable — driver factor defaulted"
+    variant="muted"
+  />
+)}
+```
+
+`WifiOff` was already imported. No logic changes. tsc clean, 156 tests pass.
+
+**Next:** C2 — replace ~30 raw `console.*` calls in `src/services/enhancedAtgApi.ts` with `log.debug`/`log.warn`/`log.error` (same pattern as Run 54's `atgHistoricalApi.ts` cleanup).
