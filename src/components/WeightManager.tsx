@@ -309,12 +309,20 @@ const WeightManager: React.FC<WeightManagerProps> = ({
           typicalRange: '-0.4s to +0.4s',
           baseEffect: 'Top drivers: -0.2s, Poor drivers: +0.2s'
         },
-        { 
-          key: 'trackFamiliarity' as keyof NormalizationWeights, 
-          label: 'Track Familiarity', 
+        {
+          key: 'trackFamiliarity' as keyof NormalizationWeights,
+          label: 'Track Familiarity',
           description: 'Home track advantage',
           typicalRange: '-0.2s to 0s',
           baseEffect: 'Home track typically -0.1s advantage'
+        },
+        {
+          key: 'driverForm' as keyof NormalizationWeights,
+          label: 'Driver Form',
+          description: 'Recent driver performance trend across last 20 starts',
+          typicalRange: '-0.2s to +0.2s',
+          baseEffect: 'Hot streak → faster; cold stretch → slower',
+          isNew: true
         },
       ]
     },

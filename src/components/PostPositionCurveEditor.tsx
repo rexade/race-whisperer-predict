@@ -133,7 +133,7 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
         position: i,
         adjustment: adjustment,
         label: `Pos ${i}`,
-        fill: adjustment >= 0 ? '#ef4444' : '#22c55e'
+        fill: adjustment >= 0 ? 'hsl(var(--destructive))' : 'hsl(var(--success))'
       });
     }
     return data;
@@ -147,7 +147,7 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
       <div className="space-y-3">
         <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
           {relevantPositions.map((position) => (
-            <div key={position} className="bg-white p-2 rounded border border-gray-200">
+            <div key={position} className="bg-card p-2 rounded border border-border">
               <div className="text-center mb-1">
                 <Label className="text-xs font-medium">P{position}</Label>
               </div>
@@ -160,7 +160,7 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
                 className="w-full h-2 mb-1"
               />
               <div className="text-center">
-                <span className="text-xs text-gray-600">
+                <span className="text-xs text-muted-foreground">
                   {curves[startMethod][position] >= 0 ? '+' : ''}{curves[startMethod][position]?.toFixed(2) || '0.00'}s
                 </span>
               </div>
@@ -178,27 +178,26 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
   };
 
   return (
-    <Card className="border-purple-200">
-      <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
-        <CardTitle className="flex items-center justify-between text-purple-800">
+    <Card className="border-border">
+      <CardHeader className="bg-muted/30">
+        <CardTitle className="flex items-center justify-between text-foreground">
           <div className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
+            <TrendingUp className="h-5 w-5 text-primary" />
             Post Position Curve Editor
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={exportCurves}
-              className="text-purple-700 border-purple-300"
             >
               Export
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={resetToDefaults}
-              className="flex items-center gap-2 text-purple-700 border-purple-300"
+              className="flex items-center gap-2"
             >
               <RotateCcw className="h-4 w-4" />
               Reset
@@ -208,19 +207,19 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
       </CardHeader>
       
       <CardContent className="space-y-6 pt-6">
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-muted-foreground">
           <p className="mb-2">
-            <strong>Customize post position adjustments</strong> for auto and volte start methods. 
+            <strong className="text-foreground">Customize post position adjustments</strong> for auto and volte start methods.
             Negative values favor the position (faster), positive values penalize it (slower).
           </p>
           <div className="flex items-center gap-4 text-xs">
             <div className="flex items-center gap-1">
-              <TrendingDown className="h-3 w-3 text-green-600" />
-              <span className="text-green-600">Negative = Advantage</span>
+              <TrendingDown className="h-3 w-3" style={{ color: 'hsl(var(--success))' }} />
+              <span style={{ color: 'hsl(var(--success))' }}>Negative = Advantage</span>
             </div>
             <div className="flex items-center gap-1">
-              <TrendingUp className="h-3 w-3 text-red-600" />
-              <span className="text-red-600">Positive = Penalty</span>
+              <TrendingUp className="h-3 w-3" style={{ color: 'hsl(var(--destructive))' }} />
+              <span style={{ color: 'hsl(var(--destructive))' }}>Positive = Penalty</span>
             </div>
           </div>
         </div>
@@ -238,7 +237,7 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
           </TabsList>
           
           <TabsContent value="auto" className="space-y-6">
-            <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="bg-muted/30 p-4 rounded-lg">
               <h3 className="font-medium mb-3">Auto Start Curve Visualization</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={getChartData('auto')}>
@@ -259,7 +258,7 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
           </TabsContent>
           
           <TabsContent value="volte" className="space-y-6">
-            <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="bg-muted/30 p-4 rounded-lg">
               <h3 className="font-medium mb-3">Volte Start Curve Visualization</h3>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={getChartData('volte')}>

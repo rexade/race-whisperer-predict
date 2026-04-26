@@ -119,4 +119,5 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   ageFactor: 0.5,             // age-based adjustment (peak 5–7yo)
   genderAdjustment: 0.4,      // mare penalty in mixed-gender fields
   consistencyFactor: 0.5,     // consistent finishers rank more predictably
+  driverForm: 0.8,            // driver recent form trend (last 20 starts)
 };
