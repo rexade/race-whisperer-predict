@@ -72,13 +72,16 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
 
   const handleCopyWeights = () => {
     if (!state.optimizationResult) return;
-    const w = state.optimizationResult.optimizedWeights;
-    const keys = Object.keys(WEIGHT_LABELS) as (keyof NormalizationWeights)[];
-    const lines = keys.map(k => {
-      const v = (w[k] ?? 0).toFixed(3);
-      return `      ${k}: ${v},`;
-    });
-    const snippet = `weights: {\n${lines.join('\n')}\n    }`;
+    const r = state.optimizationResult;
+    const w = r.optimizedWeights;
+    // Use all keys present in optimizedWeights so nothing is dropped
+    const keys = Object.keys(w) as (keyof NormalizationWeights)[];
+    const lines = keys.map(k => `      ${k}: ${(w[k] ?? 0).toFixed(3)},`);
+    const header = [
+      `    // Calibrated ${new Date().toISOString().split('T')[0]}`,
+      `    // MRR: ${r.initialMAE.toFixed(3)} → ${r.finalMAE.toFixed(3)}  Win: ${(r.finalEvaluation.winAccuracy * 100).toFixed(1)}%  Top-3: ${(r.finalEvaluation.topPickAccuracy * 100).toFixed(1)}%  Passes: ${r.passesCompleted}`,
+    ].join('\n');
+    const snippet = `${header}\n    weights: {\n${lines.join('\n')}\n    }`;
     navigator.clipboard.writeText(snippet).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
