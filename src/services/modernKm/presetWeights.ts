@@ -13,6 +13,33 @@ export interface WeightPreset {
 
 export const WEIGHT_PRESETS: WeightPreset[] = [
   {
+    name: 'V7 — Calibrated (2026-04-27)',
+    description: 'MRR 0.489→0.518, Win 34.0%, Top-3 46.7%. From V6: shoeType↓0.225, distanceAdjustment↑1.2, raceDistanceAdjustment↓0.9, volteStart↑1.2, placePercentage↑0.8, genderAdjustment↑0.5, trackFamiliarity→0.',
+    category: 'balanced',
+    weights: {
+      postPosition: 0.700,
+      shoeType: 0.225,
+      sulkyType: 0.500,
+      driverPerformance: 1.200,
+      driverForm: 2.000,
+      trackFamiliarity: 0.000,
+      form: 0.900,
+      distanceAdjustment: 1.200,
+      raceDistanceAdjustment: 0.900,
+      volteStartDistancePenalty: 1.200,
+      startPoints: 0.500,
+      placePercentage: 0.800,
+      horseWinPercentage: 0.200,
+      earningsPerStart: 0.100,
+      gallopRisk: 0.500,
+      layoffPenalty: 0.600,
+      ageFactor: 0.500,
+      genderAdjustment: 0.500,
+      consistencyFactor: 0.500,
+      trainerPerformance: 0.700,
+    },
+  },
+  {
     name: 'V6 — Calibrated (2026-04-27)',
     description: 'MRR 0.485→0.541, Win 37.3%, Top-3 49.2%. Key shifts vs V5: postPosition↑0.9, trackFamiliarity↓0.1, driverPerformance↑1.2, shoeType↓0.275, volteStart↓1.0.',
     category: 'balanced',
