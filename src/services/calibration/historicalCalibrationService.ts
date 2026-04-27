@@ -218,6 +218,10 @@ export async function collectCalibrationData(
             validTimesCount: c.validTimesCount || 3,
             isNotifiee: false,
             dataSource: 'recent' as const,
+            gallopRate: c.gallopRate,
+            lastRaceDate: c.lastRaceDate,
+            consistencyScore: c.consistencyScore,
+            gallopDates: c.gallopDates,
           }));
         } else {
           const atgStarts = race.horses.map((horse: any) => ({
@@ -239,7 +243,12 @@ export async function collectCalibrationData(
             rawKmTimes = await calculateRawKmTimesForRaceWithId(race.raceId, atgStarts);
             const rawTimesForCache = rawKmTimes.map(rt => {
               const h = race.horses.find((x: any) => x.horseId === rt.horseId);
-              return { horseId: rt.horseId, horseName: rt.horseName, postPosition: h?.postPosition || 1, bestTime: rt.rawBestTime ?? rt.bestTime, validTimesCount: rt.validTimesCount };
+              return {
+                horseId: rt.horseId, horseName: rt.horseName, postPosition: h?.postPosition || 1,
+                bestTime: rt.rawBestTime ?? rt.bestTime, validTimesCount: rt.validTimesCount,
+                gallopRate: rt.gallopRate, lastRaceDate: rt.lastRaceDate,
+                consistencyScore: rt.consistencyScore, gallopDates: rt.gallopDates,
+              };
             });
             V75CacheService.storeRawTimes(date, gameInfo.gameId, race.raceId, race.raceNumber, rawTimesForCache).catch(() => {});
           } catch {

@@ -10,6 +10,14 @@ export interface CachedRawTime {
   };
   validTimesCount: number;
   updatedAt: string;
+  /** Fraction of historical starts where horse broke gait (0–1). Stored for calibration. */
+  gallopRate?: number;
+  /** ISO date string of most recent race. Stored for layoff calculation in calibration. */
+  lastRaceDate?: string;
+  /** Std-dev of recent finish positions. Stored for consistency factor in calibration. */
+  consistencyScore?: number;
+  /** Dates of galloped races — injected as place=15 in form calculator. */
+  gallopDates?: string[];
 }
 
 export interface CachedV75RawTimes {

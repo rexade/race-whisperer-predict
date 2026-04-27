@@ -69,6 +69,7 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
   const [monthsBack, setMonthsBack] = useState(2);
   const [cacheInfo, setCacheInfo] = useState<{ exists: boolean; ageHours: number | null; dateCount: number } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedSummary, setCopiedSummary] = useState(false);
   const { state, runDataCollection, runOptimization, runMultiStartOptimization, acceptResult, reset } = useCalibration();
 
   const handleCopyWeights = () => {
@@ -376,6 +377,29 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
       {/* Status message when done without optimization */}
       {state.phase === 'done' && !hasResult && state.progressMessage && (
         <p className="text-xs text-muted-foreground">{state.progressMessage}</p>
+      )}
+
+      {/* Multi-start run summary — copyable table */}
+      {state.runSummary && !isWorking && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Run Summary</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-xs gap-1"
+              onClick={() => {
+                navigator.clipboard.writeText(state.runSummary!);
+                setCopiedSummary(true);
+                setTimeout(() => setCopiedSummary(false), 2000);
+              }}
+            >
+              {copiedSummary ? <ClipboardCheck className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+              {copiedSummary ? 'Copied!' : 'Copy'}
+            </Button>
+          </div>
+          <pre className="text-xs font-mono bg-muted/50 rounded p-2 whitespace-pre overflow-x-auto">{state.runSummary}</pre>
+        </div>
       )}
     </div>
   );

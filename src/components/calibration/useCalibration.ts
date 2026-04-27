@@ -30,6 +30,8 @@ export interface CalibrationState {
   dataset: CalibrationDataset | null;
   baselineEval: CalibrationEvaluation | null;
   optimizationResult: OptimizationResult | null;
+  /** Per-run summary table from multi-start — each line is one run's win/MRR result. */
+  runSummary: string | null;
   error: string | null;
 }
 
@@ -41,6 +43,7 @@ const INITIAL_STATE: CalibrationState = {
   dataset: null,
   baselineEval: null,
   optimizationResult: null,
+  runSummary: null,
   error: null,
 };
 
@@ -320,7 +323,8 @@ export function useCalibration() {
     updateState({
       phase: 'done',
       optimizationResult: bestResult,
-      progressMessage: `Multi-start done · Best Win: ${(bestWin * 100).toFixed(1)}% · MRR: ${bestResult.finalMAE.toFixed(3)}\n\n${runTable}`,
+      runSummary: runTable,
+      progressMessage: `Multi-start done · Best Win: ${(bestWin * 100).toFixed(1)}% · MRR: ${bestResult.finalMAE.toFixed(3)}`,
       progressFraction: 1,
     });
   }, [state.dataset]);

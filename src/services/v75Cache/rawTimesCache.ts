@@ -15,7 +15,10 @@ export class RawTimesCache {
     gameId: string,
     raceId: string,
     raceNumber: number,
-    rawTimes: Array<{ horseId: number; horseName: string; postPosition: number; bestTime?: any; validTimesCount: number }>
+    rawTimes: Array<{
+      horseId: number; horseName: string; postPosition: number; bestTime?: any; validTimesCount: number;
+      gallopRate?: number; lastRaceDate?: string; consistencyScore?: number; gallopDates?: string[];
+    }>
   ): Promise<void> {
     log.debug(`💾 [RawTimesCache] Storing raw KM times cache for race ${raceNumber} (${raceId})`);
 
@@ -25,7 +28,11 @@ export class RawTimesCache {
       postPosition: rt.postPosition,
       rawKmTime: rt.bestTime,
       validTimesCount: rt.validTimesCount,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      gallopRate: rt.gallopRate,
+      lastRaceDate: rt.lastRaceDate,
+      consistencyScore: rt.consistencyScore,
+      gallopDates: rt.gallopDates,
     }));
 
     const cacheData: CachedV75RawTimes = {
@@ -35,7 +42,7 @@ export class RawTimesCache {
       raceNumber,
       rawTimes: cachedRawTimes,
       cachedAt: new Date().toISOString(),
-      schemaVersion: 4
+      schemaVersion: 5
     };
 
     try {
@@ -80,8 +87,8 @@ export class RawTimesCache {
       let rawTimesData: CachedV75RawTimes = JSON.parse(cachedData);
 
       // Migration from schema version 1/2/3 to 4 (Force refresh to clear penalized times and switch to Best Time logic)
-      if (!rawTimesData.schemaVersion || rawTimesData.schemaVersion < 4) {
-        log.warn(`🔄 [RawTimesCache] Cache schema v${rawTimesData.schemaVersion || 1} is outdated (v4 required). Invalidating to force fresh calculation.`);
+      if (!rawTimesData.schemaVersion || rawTimesData.schemaVersion < 5) {
+        log.warn(`🔄 [RawTimesCache] Cache schema v${rawTimesData.schemaVersion || 1} is outdated (v5 required). Invalidating to force fresh calculation.`);
         localStorage.removeItem(cacheKey);
         return null;
       }
