@@ -100,19 +100,19 @@ export interface NormalizationWeights {
   trainerPerformance?: number;
 }
 
-// Balanced weights — v9 (2026-04-27) — Win 38.7%, MRR 0.551
-// Multi-start from V6: driverPerformance↑3.0, driverForm→5.0, trainerPerformance↑3.0,
-// volteStart↑1.4, raceDistance↑1.3, distanceAdjustment↑1.2, genderAdjustment↑0.5.
+// Balanced weights — v10 (2026-04-27) — Win 40.0%, MRR 0.556
+// Multi-start from V9: trackFamiliarity↑0.1 (first non-zero), distanceAdjustment↓0.8,
+// raceDistanceAdjustment↓1.1, genderAdjustment↓0.3. Human signals still dominant.
 export const DEFAULT_WEIGHTS: NormalizationWeights = {
   postPosition: 0.900,
   shoeType: 0.275,
   sulkyType: 0.500,
   driverPerformance: 3.000,
   driverForm: 5.000,
-  trackFamiliarity: 0.000,
+  trackFamiliarity: 0.100,
   form: 0.900,
-  distanceAdjustment: 1.200,
-  raceDistanceAdjustment: 1.300,
+  distanceAdjustment: 0.800,
+  raceDistanceAdjustment: 1.100,
   volteStartDistancePenalty: 1.400,
   startPoints: 0.500,
   placePercentage: 0.600,
@@ -121,7 +121,7 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   gallopRisk: 0.500,
   layoffPenalty: 0.600,
   ageFactor: 0.500,
-  genderAdjustment: 0.500,
+  genderAdjustment: 0.300,
   consistencyFactor: 0.500,
   trainerPerformance: 3.000,
 };
