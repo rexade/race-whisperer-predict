@@ -185,6 +185,120 @@ export function useCalibration() {
   }, [state.dataset]);
 
   /**
+   * Multi-start optimization: runs the optimizer from several diverse starting
+   * configurations and returns the single best result by win accuracy.
+   * Each run is independent — different starting points explore different local optima.
+   */
+  const runMultiStartOptimization = useCallback(async (
+    currentWeights: NormalizationWeights,
+    currentCurves?: PostPositionCurves
+  ) => {
+    const dataset = datasetRef.current ?? state.dataset;
+    if (!dataset) return;
+
+    // Diverse starting configurations — covers known-good presets and extremes
+    const starts: Array<{ label: string; weights: NormalizationWeights }> = [
+      { label: 'V8', weights: {
+        postPosition: 0.700, shoeType: 0.475, sulkyType: 0.500,
+        driverPerformance: 1.000, driverForm: 2.000, trackFamiliarity: 0.000,
+        form: 0.900, distanceAdjustment: 1.000, raceDistanceAdjustment: 1.100,
+        volteStartDistancePenalty: 0.900, startPoints: 0.500,
+        placePercentage: 1.200, horseWinPercentage: 0.200, earningsPerStart: 0.100,
+        gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
+        genderAdjustment: 0.300, consistencyFactor: 0.500, trainerPerformance: 0.700,
+      }},
+      { label: 'V6', weights: {
+        postPosition: 0.900, shoeType: 0.275, sulkyType: 0.500,
+        driverPerformance: 1.200, driverForm: 2.000, trackFamiliarity: 0.000,
+        form: 0.900, distanceAdjustment: 1.000, raceDistanceAdjustment: 1.100,
+        volteStartDistancePenalty: 1.000, startPoints: 0.500,
+        placePercentage: 0.600, horseWinPercentage: 0.200, earningsPerStart: 0.100,
+        gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
+        genderAdjustment: 0.300, consistencyFactor: 0.500, trainerPerformance: 0.700,
+      }},
+      { label: 'V5', weights: {
+        postPosition: 0.700, shoeType: 0.475, sulkyType: 0.500,
+        driverPerformance: 1.000, driverForm: 2.000, trackFamiliarity: 0.300,
+        form: 0.900, distanceAdjustment: 0.800, raceDistanceAdjustment: 1.100,
+        volteStartDistancePenalty: 1.200, startPoints: 0.500,
+        placePercentage: 0.600, horseWinPercentage: 0.200, earningsPerStart: 0.100,
+        gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
+        genderAdjustment: 0.300, consistencyFactor: 0.500, trainerPerformance: 0.700,
+      }},
+      { label: 'Explore A (max drivers)', weights: {
+        postPosition: 0.700, shoeType: 0.475, sulkyType: 0.500,
+        driverPerformance: 3.000, driverForm: 5.000, trackFamiliarity: 0.300,
+        form: 0.900, distanceAdjustment: 0.800, raceDistanceAdjustment: 1.100,
+        volteStartDistancePenalty: 1.200, startPoints: 0.500,
+        placePercentage: 0.600, horseWinPercentage: 0.200, earningsPerStart: 0.100,
+        gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
+        genderAdjustment: 0.300, consistencyFactor: 0.500, trainerPerformance: 3.000,
+      }},
+      { label: 'Explore B (max stats)', weights: {
+        postPosition: 0.700, shoeType: 0.475, sulkyType: 0.500,
+        driverPerformance: 1.000, driverForm: 2.000, trackFamiliarity: 0.300,
+        form: 0.900, distanceAdjustment: 0.800, raceDistanceAdjustment: 1.100,
+        volteStartDistancePenalty: 1.200, startPoints: 1.500,
+        placePercentage: 1.500, horseWinPercentage: 1.500, earningsPerStart: 1.500,
+        gallopRisk: 2.000, layoffPenalty: 2.000, ageFactor: 2.000,
+        genderAdjustment: 1.500, consistencyFactor: 2.000, trainerPerformance: 0.700,
+      }},
+      { label: 'Current', weights: currentWeights },
+    ];
+
+    updateState({ phase: 'optimizing', progressMessage: `Multi-start: 0/${starts.length} runs…`, optimizationResult: null });
+
+    let bestResult: OptimizationResult | null = null;
+    let bestWin = -Infinity;
+
+    for (let i = 0; i < starts.length; i++) {
+      const { label, weights } = starts[i];
+      const runLabel = `Run ${i + 1}/${starts.length} from ${label}`;
+      const bestStr = bestResult ? ` · best so far: ${(bestWin * 100).toFixed(1)}%` : '';
+      updateState({
+        progressMessage: `${runLabel}${bestStr}`,
+        progressFraction: i / starts.length,
+      });
+
+      try {
+        const result = await runInWorker<OptimizationResult>(
+          () => new Worker(new URL('../../workers/calibration.worker.ts', import.meta.url), { type: 'module' }),
+          { type: 'OPTIMIZE', payload: { dataset, initialWeights: weights, initialCurves: currentCurves } },
+          'DONE',
+          (p) => {
+            const best = bestResult ? ` · best: ${(bestWin * 100).toFixed(1)}%` : '';
+            updateState({
+              progressMessage: `${runLabel}${best} · ${p.message}`,
+              progressFraction: (i + (p.maxPasses > 0 ? p.pass / p.maxPasses : 0)) / starts.length,
+            });
+          }
+        );
+
+        const winRate = result.finalEvaluation.winAccuracy;
+        if (winRate > bestWin) {
+          bestWin = winRate;
+          bestResult = result;
+        }
+      } catch (err) {
+        // Skip failed runs — log but continue
+        console.warn(`Multi-start run ${i + 1} (${label}) failed:`, err);
+      }
+    }
+
+    if (!bestResult) {
+      updateState({ phase: 'error', error: 'All multi-start runs failed.' });
+      return;
+    }
+
+    updateState({
+      phase: 'done',
+      optimizationResult: bestResult,
+      progressMessage: `Multi-start done · ${starts.length} runs · Best Win: ${(bestWin * 100).toFixed(1)}% · MRR: ${bestResult.finalMAE.toFixed(3)}`,
+      progressFraction: 1,
+    });
+  }, [state.dataset]);
+
+  /**
    * Promote the last optimization result to the new baseline.
    * Keeps the dataset loaded so the user can immediately optimize again.
    * Call this after applying optimized weights so each round improves on the last.
@@ -208,5 +322,5 @@ export function useCalibration() {
     setState(INITIAL_STATE);
   }, []);
 
-  return { state, runDataCollection, runOptimization, acceptResult, reset };
+  return { state, runDataCollection, runOptimization, runMultiStartOptimization, acceptResult, reset };
 }

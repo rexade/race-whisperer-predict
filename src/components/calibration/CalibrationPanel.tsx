@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart2, Play, Zap, Check, AlertCircle, Loader2, RefreshCw, Copy, ClipboardCheck } from 'lucide-react';
+import { BarChart2, Play, Zap, Shuffle, Check, AlertCircle, Loader2, RefreshCw, Copy, ClipboardCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NormalizationWeights } from '@/services/modernKm/types';
 import { PostPositionCurves } from '@/services/modernKm/index';
@@ -68,7 +68,7 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
   const [monthsBack, setMonthsBack] = useState(2);
   const [cacheInfo, setCacheInfo] = useState<{ exists: boolean; ageHours: number | null; dateCount: number } | null>(null);
   const [copied, setCopied] = useState(false);
-  const { state, runDataCollection, runOptimization, acceptResult, reset } = useCalibration();
+  const { state, runDataCollection, runOptimization, runMultiStartOptimization, acceptResult, reset } = useCalibration();
 
   const handleCopyWeights = () => {
     if (!state.optimizationResult) return;
@@ -198,6 +198,22 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
               ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
               : <Zap className="h-3.5 w-3.5" />}
             Optimize Weights
+          </Button>
+        )}
+
+        {hasDataset && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => runMultiStartOptimization(currentWeights, postPositionCurves)}
+            disabled={isWorking}
+            title="Run optimizer from 6 diverse starting points and keep the best result"
+            className="h-8 gap-1.5"
+          >
+            {isWorking && state.phase === 'optimizing'
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <Shuffle className="h-3.5 w-3.5" />}
+            Multi-Start
           </Button>
         )}
 
