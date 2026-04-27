@@ -1,7 +1,9 @@
 export type GameType = "V75" | "V85" | "V86" | "V65";
 
+const env = (import.meta as any).env ?? {};
+
 export const GAME_TYPE: GameType =
-  (import.meta.env.VITE_GAME_TYPE as GameType) ?? "V75";
+  (env.VITE_GAME_TYPE as GameType) ?? "V75";
 
 export const IS_DEBUG =
-  (import.meta.env.VITE_DEBUG_LOGS ?? "") === "1";
+  (env.VITE_DEBUG_LOGS ?? "") === "1";
