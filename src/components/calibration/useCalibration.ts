@@ -207,57 +207,62 @@ export function useCalibration() {
     const dataset = datasetRef.current ?? state.dataset;
     if (!dataset) return;
 
-    // V15-based starting configurations — all tuned for driverEmpirical active
+    // V19-based starting configurations — post-leakage-fix re-calibration
     const starts: Array<{ label: string; weights: NormalizationWeights }> = [
-      // V15: current best (40.0%, driverEmpirical=1.0)
-      { label: 'V15', weights: {
-        postPosition: 1.300, shoeType: 0.075, sulkyType: 0.300,
-        driverPerformance: 1.000, driverForm: 1.600, trackFamiliarity: 0.000,
-        form: 0.900, distanceAdjustment: 1.400, raceDistanceAdjustment: 0.700,
-        volteStartDistancePenalty: 1.000, startPoints: 0.500,
-        placePercentage: 1.000, horseWinPercentage: 0.200, earningsPerStart: 0.100,
-        gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
-        genderAdjustment: 0.100, consistencyFactor: 0.500, driverEmpirical: 1.000, trainerPerformance: 0.700,
+      // V19: last known best (48.7% pre-fix, form/earnings/age dominated)
+      { label: 'V19', weights: {
+        postPosition: 1.538, shoeType: 0.000, sulkyType: 0.827,
+        driverPerformance: 1.215, driverForm: 0.837, driverEmpirical: 0.000,
+        trackFamiliarity: 0.856, form: 4.922, distanceAdjustment: 2.083,
+        raceDistanceAdjustment: 3.634, volteStartDistancePenalty: 1.882,
+        startPoints: 2.355, placePercentage: 1.294, horseWinPercentage: 1.320,
+        earningsPerStart: 4.489, gallopRisk: 2.664, layoffPenalty: 1.958,
+        ageFactor: 3.098, genderAdjustment: 2.595, consistencyFactor: 1.542,
+        trainerPerformance: 0.465,
       }},
-      // HighEmpirical: push driverEmpirical and reduce driverForm — test if empirical dominates
-      { label: 'HighEmpirical', weights: {
-        postPosition: 1.200, shoeType: 0.000, sulkyType: 0.400,
-        driverPerformance: 0.800, driverForm: 0.800, trackFamiliarity: 0.000,
-        form: 1.000, distanceAdjustment: 1.400, raceDistanceAdjustment: 0.700,
-        volteStartDistancePenalty: 1.000, startPoints: 0.600,
-        placePercentage: 1.000, horseWinPercentage: 0.200, earningsPerStart: 0.100,
-        gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
-        genderAdjustment: 0.100, consistencyFactor: 0.500, driverEmpirical: 3.000, trainerPerformance: 0.700,
+      // V19+Empirical: V19 but with driverEmpirical active (was 0 — test if it helps clean data)
+      { label: 'V19+Emp', weights: {
+        postPosition: 1.538, shoeType: 0.000, sulkyType: 0.827,
+        driverPerformance: 1.215, driverForm: 0.837, driverEmpirical: 2.000,
+        trackFamiliarity: 0.856, form: 4.922, distanceAdjustment: 2.083,
+        raceDistanceAdjustment: 3.634, volteStartDistancePenalty: 1.882,
+        startPoints: 2.355, placePercentage: 1.294, horseWinPercentage: 1.320,
+        earningsPerStart: 4.489, gallopRisk: 2.664, layoffPenalty: 1.958,
+        ageFactor: 3.098, genderAdjustment: 2.595, consistencyFactor: 1.542,
+        trainerPerformance: 0.465,
       }},
-      // StrongHorse: boost horse form signals, reduce driver — what if horse matters more?
-      { label: 'StrongHorse', weights: {
-        postPosition: 1.000, shoeType: 0.000, sulkyType: 0.400,
-        driverPerformance: 0.600, driverForm: 1.200, trackFamiliarity: 0.000,
-        form: 2.000, distanceAdjustment: 1.200, raceDistanceAdjustment: 0.800,
-        volteStartDistancePenalty: 1.200, startPoints: 1.500,
-        placePercentage: 1.500, horseWinPercentage: 0.800, earningsPerStart: 0.400,
-        gallopRisk: 1.000, layoffPenalty: 1.000, ageFactor: 0.800,
-        genderAdjustment: 0.200, consistencyFactor: 1.000, driverEmpirical: 1.500, trainerPerformance: 1.200,
+      // V19+LessForm: form was likely inflated by leakage — test with form pulled back
+      { label: 'V19+LessForm', weights: {
+        postPosition: 1.538, shoeType: 0.000, sulkyType: 0.827,
+        driverPerformance: 1.215, driverForm: 0.837, driverEmpirical: 0.000,
+        trackFamiliarity: 0.856, form: 2.000, distanceAdjustment: 2.083,
+        raceDistanceAdjustment: 3.634, volteStartDistancePenalty: 1.882,
+        startPoints: 2.355, placePercentage: 1.294, horseWinPercentage: 1.320,
+        earningsPerStart: 4.489, gallopRisk: 2.664, layoffPenalty: 1.958,
+        ageFactor: 3.098, genderAdjustment: 2.595, consistencyFactor: 1.542,
+        trainerPerformance: 0.465,
       }},
-      // V14-style: V14 weights but with driverEmpirical on — compare direct
-      { label: 'V14+Emp', weights: {
-        postPosition: 1.100, shoeType: 0.000, sulkyType: 0.300,
-        driverPerformance: 1.200, driverForm: 1.600, trackFamiliarity: 0.000,
-        form: 1.100, distanceAdjustment: 1.200, raceDistanceAdjustment: 0.700,
-        volteStartDistancePenalty: 1.200, startPoints: 0.700,
-        placePercentage: 1.000, horseWinPercentage: 0.200, earningsPerStart: 0.300,
-        gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
-        genderAdjustment: 0.000, consistencyFactor: 0.500, driverEmpirical: 1.500, trainerPerformance: 0.700,
+      // V19+HighTrainer: trainer may be underweighted now that signals are clean
+      { label: 'V19+Trainer', weights: {
+        postPosition: 1.538, shoeType: 0.000, sulkyType: 0.827,
+        driverPerformance: 1.215, driverForm: 0.837, driverEmpirical: 0.000,
+        trackFamiliarity: 0.856, form: 4.922, distanceAdjustment: 2.083,
+        raceDistanceAdjustment: 3.634, volteStartDistancePenalty: 1.882,
+        startPoints: 2.355, placePercentage: 1.294, horseWinPercentage: 1.320,
+        earningsPerStart: 4.489, gallopRisk: 2.664, layoffPenalty: 1.958,
+        ageFactor: 3.098, genderAdjustment: 2.595, consistencyFactor: 1.542,
+        trainerPerformance: 3.000,
       }},
-      // HighTrainer: trainer signal pushed to ceiling — is it being underweighted?
-      { label: 'HighTrainer', weights: {
-        postPosition: 1.200, shoeType: 0.000, sulkyType: 0.300,
-        driverPerformance: 1.000, driverForm: 1.400, trackFamiliarity: 0.000,
-        form: 1.000, distanceAdjustment: 1.400, raceDistanceAdjustment: 0.700,
-        volteStartDistancePenalty: 1.000, startPoints: 0.600,
-        placePercentage: 1.000, horseWinPercentage: 0.200, earningsPerStart: 0.200,
-        gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
-        genderAdjustment: 0.100, consistencyFactor: 0.500, driverEmpirical: 1.000, trainerPerformance: 3.000,
+      // V19+Balanced: all signals pulled toward equal — escape form/earnings local optimum
+      { label: 'V19+Balanced', weights: {
+        postPosition: 1.538, shoeType: 0.000, sulkyType: 0.827,
+        driverPerformance: 1.500, driverForm: 1.500, driverEmpirical: 1.000,
+        trackFamiliarity: 0.856, form: 2.500, distanceAdjustment: 2.083,
+        raceDistanceAdjustment: 2.000, volteStartDistancePenalty: 1.882,
+        startPoints: 2.000, placePercentage: 1.500, horseWinPercentage: 1.500,
+        earningsPerStart: 2.500, gallopRisk: 2.664, layoffPenalty: 1.958,
+        ageFactor: 2.000, genderAdjustment: 1.500, consistencyFactor: 1.542,
+        trainerPerformance: 1.500,
       }},
       { label: 'Current', weights: currentWeights },
     ];
