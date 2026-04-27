@@ -61,6 +61,9 @@ export interface ModernNormalizationFactors {
   fieldStartPoints?: number[];
   // Field driver win rates — used for field-relative driverForm adjustment
   fieldDriverWinRates?: number[];
+  /** Empirical V85/V75 win rate for this driver from our calibration dataset (0–1).
+   *  More specific than ATG's career stat — absent when no calibration data exists. */
+  driverEmpiricalWinRate?: number;
   // Recent race finish positions for form calculation
   recentRaces?: Array<{ place: number; date: string }>;
   /** Fraction of historical starts where horse broke gait (0–1). */
@@ -98,6 +101,8 @@ export interface NormalizationWeights {
   consistencyFactor: number;
   /** Driver × horse form: win rate of current driver on this horse (recent starts). 0 = off. */
   driverForm?: number;
+  /** Empirical driver win rate from calibration dataset (V85/V75-specific). 0 = off. */
+  driverEmpirical?: number;
   /** Trainer win-rate adjustment weight. 0 = off. */
   trainerPerformance?: number;
 }
@@ -112,6 +117,7 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   sulkyType: 0.500,
   driverPerformance: 1.200,
   driverForm: 1.800,
+  driverEmpirical: 0.000,
   trackFamiliarity: 0.000,
   form: 0.900,
   distanceAdjustment: 1.200,

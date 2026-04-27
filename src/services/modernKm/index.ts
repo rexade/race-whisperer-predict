@@ -118,7 +118,14 @@ export const applyModernKmNormalization = (
     ) * (weights.driverForm ?? 0);
   }
 
-  log.debug(`[normalization] driver adj (perf+form) weighted=${adjustments.driver.toFixed(3)}s`);
+  // Driver empirical — V85/V75-specific win rate from our calibration dataset.
+  // More precise than ATG's career stat since it's specific to this race format.
+  if ((weights.driverEmpirical ?? 0) > 0 && factors.driverEmpiricalWinRate !== undefined) {
+    adjustments.driver += calculateDriverAdjustment(factors.driverEmpiricalWinRate)
+      * (weights.driverEmpirical ?? 0);
+  }
+
+  log.debug(`[normalization] driver adj (perf+form+empirical) weighted=${adjustments.driver.toFixed(3)}s`);
 
   // Track / distance / volte
   adjustments.track =

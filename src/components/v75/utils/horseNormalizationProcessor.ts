@@ -7,6 +7,7 @@ import {
   PostPositionCurves
 } from '../../../services/modernKm/index';
 import { ExtractedHorseData } from './horseDataExtractor';
+import { getDriverEmpiricalRate } from '../../../services/calibration/driverRatingService';
 import { EquipmentValidator } from '../../../services/validation/equipmentValidator';
 import { log } from '@/lib/logger';
 
@@ -92,6 +93,12 @@ export const applyHorseNormalization = (
     backShoes: extractedData.backShoesStr
   };
 
+  // Look up driver's empirical V85 win rate from calibration dataset (if available)
+  const driverEmpiricalWinRate = getDriverEmpiricalRate(
+    horse.driver?.firstName ?? '',
+    horse.driver?.lastName  ?? ''
+  ) ?? undefined;
+
   // Pre-compute field-level stats from all horses in this race.
   // These enable field-relative calculations (start points, driver form)
   // which are more predictive than comparing against a fixed global baseline.
@@ -156,6 +163,7 @@ export const applyHorseNormalization = (
       consistencyScore: rawTimeData?.consistencyScore,
       fieldStartPoints,
       fieldDriverWinRates,
+      driverEmpiricalWinRate,
     };
 
     const result = applyModernKmNormalization(fallbackTime, factors, weights, postPositionCurves);

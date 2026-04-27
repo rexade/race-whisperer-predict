@@ -158,11 +158,11 @@ export const calculateEarningsPerStartAdjustment = (
  *  1st          → {@link FORM_SCORE_WIN}   (strong positive form)
  *  2nd–3rd      → {@link FORM_SCORE_PLACE} (good form)
  *  4th–5th      → {@link FORM_SCORE_GOOD}  (slight positive)
- *  6th–10th     → {@link FORM_SCORE_MID}   (mid-pack → negative form)
- *  11th+        → {@link FORM_SCORE_POOR}  (poor finish)
+ *  6th–8th      → {@link FORM_SCORE_MID}   (mid-pack → negative form)
+ *  9th+         → {@link FORM_SCORE_POOR}  (poor finish — see {@link FORM_POOR_THRESHOLD})
  *
- * Adjustment range (with default scale {@link FORM_SCALE_S}):
- *  ≈ −0.05 s (perfect recent form) … +0.03 s (poor recent form)
+ * Adjustment range (with default scale {@link FORM_SCALE_S} = 0.40, weight 1.0):
+ *  ≈ −0.40 s (perfect recent form) … +0.24 s (poor recent form)
  */
 export const calculateFormAdjustment = (
   recentRaces?: Array<{ place: number; date: string }>,

@@ -47,6 +47,7 @@ const WEIGHT_KEYS: (keyof NormalizationWeights)[] = [
   'sulkyType',
   'driverPerformance',
   'driverForm',
+  'driverEmpirical',
   'trackFamiliarity',
   'form',
   'distanceAdjustment',

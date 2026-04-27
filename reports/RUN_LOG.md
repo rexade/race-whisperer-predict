@@ -2173,3 +2173,122 @@ Done. Run 67 complete.
 
 **Open threads:** C3 (equipment change flag, deferred — needs `HorseRawKmTime` schema changes) is the only remaining open item. Everything else through Run 67 is closed.
 
+
+<!-- stdout from run 67 2026-04-27 01:27 -->
+[run failed — claude exited 1]
+
+You've hit your limit · resets 5:20am (Europe/Stockholm)
+
+
+<!-- stdout from run 67 2026-04-27 03:27 -->
+[run failed — claude exited 1]
+
+You've hit your limit · resets 5:20am (Europe/Stockholm)
+
+## Run 68 — 2026-04-27 — RESEARCH
+
+**Investigated:** Production pipeline gaps — `horseNormalizationProcessor.ts`, `horseResultProcessor.ts`, `modernKm/index.ts`, `modernKm/types.ts`, `presetWeights.ts`, `eval-mae.mjs`
+
+**Key finding:** Three silent dead factors in the production pipeline:
+
+1. **`trainerWinPercentage` missing from raw km path** (`horseNormalizationProcessor.ts:182-211`). The fallback path (lines 117-147) correctly sets `trainerWinPercentage: (horse as any).trainer?.winPercentage2025 || ...`, but the primary raw-km path omits it entirely. Result: `factors.trainerWinPercentage ?? 0` = 0% for every horse with real data → constant +0.130s offset on all horses. Rankings unaffected (offset cancels), but `trainerPerformance: 0.7` produces zero differentiation, and the adjustments breakdown shows a misleading `trainer: +0.130` on every horse. Fix: 1-line addition.
+
+2. **`fieldStartPoints` never populated** — neither path in `horseNormalizationProcessor.ts` sets `factors.fieldStartPoints`. The field-aware `calculateStartPointsAdjustmentFieldAware` is never called; the fixed-baseline fallback is always used. The field-aware code and type are fully implemented but dead. Fix: collect `fieldStartPoints = race.horses.map(h => h.statistics.startPoints)` in `horseResultProcessor.ts` before the horse loop, pass into `applyHorseNormalization`.
+
+3. **`driverForm: 0.8` weight has no calculator** — `DEFAULT_WEIGHTS` includes `driverForm: 0.8` and it appears in WeightManager UI, but `applyModernKmNormalization` in `index.ts` has no `adjustments.driverForm` computation. The weight is tunable but does nothing. By contrast, `eval-mae.mjs` already implements `driverFormAdj` (win rate of current driver on this specific horse, last 6 starts) and evaluates a V4 preset (V3 + driverForm:0.8) in every eval run. No reports have been saved with V4 data on the full 10-date corpus yet.
+
+**Implication:**
+- Trainer fix: 1-line change activates trainer differentiation for all non-fallback horses. The `trainerPerformance: 0.7` weight will become real.
+- fieldStartPoints: startPoints advantage measured vs fixed 1200-pt baseline instead of the actual race field. Field-aware mode is fully written but unreachable.
+- driverForm: either implement the calculator in `index.ts` (mirrors eval-mae.mjs `driverFormAdj`) or remove it from UI. V4 eval should confirm benefit first.
+
+**Suggested next move:**
+1. **MUTATE — T1** Add `trainerWinPercentage: (horse as any).trainer?.winPercentage2025 || (horse as any).trainer?.winPercentage || 0` to the raw-km path factors in `horseNormalizationProcessor.ts:211`. 1-line fix.
+2. **MUTATE — F1** Populate `fieldStartPoints` from `race.horses` in `horseResultProcessor.ts` before the horse loop, pass into `applyHorseNormalization` as a new param — activates field-aware startPoints mode.
+3. **RESEARCH — V4** Run `node scripts/eval-mae.mjs` on the 10-date corpus to get V4 MAE. If V4 < V3, implement `calculateDriverForm` in pipeline. If not, remove `driverForm` from DEFAULT_WEIGHTS and WeightManager.
+
+
+<!-- stdout from run 67 2026-04-27 05:27 -->
+Run 68 research complete. Here's what I found:
+
+---
+
+## Three dead factors in the production pipeline
+
+### T1 — `trainerWinPercentage` missing from raw km path (HIGH)
+**`horseNormalizationProcessor.ts:182-211`** — The raw-km path (primary path, used for all horses with real data) omits `trainerWinPercentage`. The fallback path (line 129) correctly includes it. Effect: every real horse gets `calculateTrainerAdjustment(0)` = **+0.130s constant offset**. Rankings unaffected (cancels), but `trainerPerformance: 0.7` produces zero differentiation and the adjustments panel shows a misleading `trainer: +0.130` on every horse.
+
+**Fix**: 1-line addition in the raw-km path factors object.
+
+### F1 — `fieldStartPoints` never populated (MEDIUM)
+Neither path in `horseNormalizationProcessor.ts` sets `factors.fieldStartPoints`. The field-aware `calculateStartPointsAdjustmentFieldAware` (which measures advantage relative to today's field, not a fixed 1200-pt historical baseline) is fully implemented but **unreachable**. The code always falls through to the fixed-baseline calculator.
+
+**Fix**: Collect `fieldStartPoints` from `race.horses` in `horseResultProcessor.ts` before the horse loop; pass into `applyHorseNormalization`.
+
+### D1 — `driverForm: 0.8` weight has no calculator (MEDIUM, pending eval)
+`driverForm` is in `DEFAULT_WEIGHTS` and visible in WeightManager, but `applyModernKmNormalization` in `index.ts` has **no `adjustments.driverForm` computation**. The weight is tunable but does nothing. Meanwhile, `eval-mae.mjs` already implements `driverFormAdj` (driver×horse win rate, last 6 starts) and evaluates V4 — but no saved report covers the full 10-date corpus with V4. **Run V4 eval first, then decide: implement or remove the weight.**
+
+### Minor: stale docstring
+`performanceCalculators.ts:163–166` says form range is "≈ −0.05s to +0.03s" — should be **−0.40s to +0.24s** since `FORM_SCALE_S` was raised to 0.40 in Run 46.
+
+
+---
+
+## Run 69 — 2026-04-27 — MUTATE
+
+**Goal:** T1 — fix `trainerWinPercentage` missing from raw km path (HIGH priority from Run 68 research)
+**Done:**
+- `src/components/v75/utils/horseNormalizationProcessor.ts` — added `trainerWinPercentage: (horse as any).trainer?.winPercentage2025 || (horse as any).trainer?.winPercentage || 0` to the raw-km path factors object (line ~194). Mirrors the identical line already present in the fallback path (line 129). Effect: horses with real km data now receive genuine trainer adjustment instead of the constant +0.130s that was applied to every horse.
+- `src/services/modernKm/__tests__/normalizationPipeline.test.ts` — added `calculateTrainerAdjustment` import + 6-case test block: baseline 12% (fraction + percent), 0% penalty, 20% bonus, differentiation assertion, saturation near cap, NaN guard.
+**Result:** pass — tsc clean, 163/163 tests pass
+**Next:** F1 (fieldStartPoints never populated) or V4 corpus eval to resolve D1 (driverForm weight dead in production)
+
+<!-- stdout from run 68 2026-04-27 07:27 -->
+**Run 69 complete.**
+
+**What changed:**
+
+- `horseNormalizationProcessor.ts:194` — Added `trainerWinPercentage` to the raw km path factors object. Previously every horse with real km data got `calculateTrainerAdjustment(0)` = a constant +0.130s. Now the trainer's actual win rate is used, giving `trainerPerformance: 0.7` genuine differentiation power.
+
+- `normalizationPipeline.test.ts` — Added import of `calculateTrainerAdjustment` + 6 tests covering: baseline 12% (fraction + percent formats both = 0), 0% penalty (+0.167s), 20% bonus (−0.133s), differentiation assertion, saturation near cap, NaN guard.
+
+**Result:** tsc clean, 163/163 tests pass.
+
+**Next:** F1 (fieldStartPoints never populated — field-aware start-points calculator is implemented but unreachable) or V4 corpus eval to decide whether `driverForm: 0.8` weight should be implemented or removed.
+
+
+---
+
+## Run 70 — 2026-04-27 — MUTATE
+
+**Goal:** V4 corpus eval (LANE 1) to resolve D1 (driverForm weight). Also discover true state of F1/D1 in production.
+
+**Done:**
+- `scripts/eval-mae.mjs` — ran on 4 April dates (2026-04-04, -04-11, -04-18, -04-25), 30 races. V4 = V3 exactly (delta +0.000). Driver×horse win-rate coverage: 0/N across every race. Driver×horse concept provides zero benefit.
+- **Discovered**: commit `b54b3fc` (pre-session) already fixed F1 (`fieldStartPoints` populated in both paths) and added field-relative `driverForm` calculator to production pipeline (`index.ts:112-117`). Both F1 and D1 are resolved. ACTIVE_THREADS was stale.
+- `src/services/modernKm/performanceCalculators.ts:161-165` — fixed stale JSDoc: "6th–10th" → "6th–8th", "11th+" → "9th+ (FORM_POOR_THRESHOLD)", range "−0.05s…+0.03s" → "−0.40s…+0.24s" (reflects FORM_SCALE_S=0.40 set in Run 46).
+
+**Result:** pass — tsc clean, 163/163 tests pass. Report saved: `reports/mae-auto-2026-04-04.json` (V4 data).
+
+**Next:** All documented threads closed. Next meaningful work: expand MAE corpus to newer dates (2026-04-26 or later) once race results are available, or investigate new signal quality issues.
+
+<!-- stdout from run 69 2026-04-27 09:27 -->
+Run 70 complete.
+
+---
+
+**What happened:**
+
+**V4 MAE eval** — Ran `eval-mae.mjs` on the 4 April dates (30 races). V4 = V3 exactly, delta **+0.000**. Driver×horse win-rate coverage was 0/N across every race — harness drivers rarely pair with the same horse twice in recent starts. The driver×horse concept provides no benefit.
+
+**Discovery** — Commit `b54b3fc` (already in the tree before this session) had already fixed both F1 and D1:
+- `fieldStartPoints` and `fieldDriverWinRates` are collected and threaded into both normalization paths
+- Field-relative `calculateDriverFormAdjustment` is live in `index.ts:112-117` (compares driver vs field median/IQR, not driver×horse)
+- ACTIVE_THREADS was stale on both items
+
+**Mutation** — Fixed the stale JSDoc in `performanceCalculators.ts:161-165`:
+- `6th–10th → MID` → `6th–8th → MID` (FORM_POOR_THRESHOLD = 9)
+- `≈ −0.05s … +0.03s` → `≈ −0.40s … +0.24s` (FORM_SCALE_S = 0.40 since Run 46)
+
+**Result:** tsc clean, 163/163 tests pass. All documented threads now closed. One open item: MAE corpus expansion as new V85 dates complete.
+

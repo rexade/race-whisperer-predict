@@ -11,6 +11,7 @@ import {
 } from '@/services/calibration/historicalCalibrationService';
 import { getCalibrationCacheInfo } from '@/services/calibration/calibrationDatasetCache';
 import { OptimizationResult } from '@/services/calibration/weightOptimizer';
+import { computeDriverRatings, saveDriverRatings, invalidateDriverRatingCache, getDriverRatingCount } from '@/services/calibration/driverRatingService';
 
 export type CalibrationPhase =
   | 'idle'
@@ -138,11 +139,18 @@ export function useCalibration() {
         'EVAL_DONE'
       );
 
+      // Compute per-driver empirical ratings from the dataset and cache them.
+      // This runs synchronously (pure JS map operations) so no await needed.
+      const driverRatings = computeDriverRatings(dataset);
+      saveDriverRatings(driverRatings);
+      invalidateDriverRatingCache();
+      const driverCount = getDriverRatingCount();
+
       updateState({
         phase: 'done',
         dataset,
         baselineEval,
-        progressMessage: `${dataset.length} dates · ${dataset.reduce((s, d) => s + d.races.length, 0)} races · Baseline rank MAE: ${baselineEval.rankMAE.toFixed(3)} · Win: ${(baselineEval.winAccuracy * 100).toFixed(1)}%`,
+        progressMessage: `${dataset.length} dates · ${dataset.reduce((s, d) => s + d.races.length, 0)} races · ${driverCount} driver ratings · Win: ${(baselineEval.winAccuracy * 100).toFixed(1)}%`,
         progressFraction: 1,
       });
     } catch (err) {
@@ -206,7 +214,7 @@ export function useCalibration() {
         volteStartDistancePenalty: 1.000, startPoints: 0.500,
         placePercentage: 0.800, horseWinPercentage: 0.200, earningsPerStart: 0.100,
         gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
-        genderAdjustment: 0.000, consistencyFactor: 0.500, trainerPerformance: 0.700,
+        genderAdjustment: 0.000, consistencyFactor: 0.500, driverEmpirical: 1.000, trainerPerformance: 0.700,
       }},
       // Push both driver signals high — explores new ceiling (10.0) for driverForm
       { label: 'MaxDrivers', weights: {
@@ -216,7 +224,7 @@ export function useCalibration() {
         volteStartDistancePenalty: 1.400, startPoints: 0.500,
         placePercentage: 0.600, horseWinPercentage: 0.200, earningsPerStart: 0.100,
         gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
-        genderAdjustment: 0.300, consistencyFactor: 0.500, trainerPerformance: 3.000,
+        genderAdjustment: 0.300, consistencyFactor: 0.500, driverEmpirical: 1.000, trainerPerformance: 3.000,
       }},
       // V10-style layout (was best before fix) — let optimizer re-tune from old best
       { label: 'V10-style', weights: {
@@ -226,7 +234,7 @@ export function useCalibration() {
         volteStartDistancePenalty: 1.400, startPoints: 0.500,
         placePercentage: 0.600, horseWinPercentage: 0.200, earningsPerStart: 0.100,
         gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
-        genderAdjustment: 0.300, consistencyFactor: 0.500, trainerPerformance: 3.000,
+        genderAdjustment: 0.300, consistencyFactor: 0.500, driverEmpirical: 1.000, trainerPerformance: 3.000,
       }},
       // Balanced — moderate all signals, let optimizer find its own direction
       { label: 'Balanced', weights: {
@@ -236,7 +244,7 @@ export function useCalibration() {
         volteStartDistancePenalty: 1.200, startPoints: 0.700,
         placePercentage: 0.800, horseWinPercentage: 0.400, earningsPerStart: 0.200,
         gallopRisk: 0.700, layoffPenalty: 0.700, ageFactor: 0.500,
-        genderAdjustment: 0.400, consistencyFactor: 0.500, trainerPerformance: 1.500,
+        genderAdjustment: 0.400, consistencyFactor: 0.500, driverEmpirical: 1.000, trainerPerformance: 1.500,
       }},
       // Max stats — push frozen signals (gallopRisk, age, consistency) to ceiling
       { label: 'MaxStats', weights: {
@@ -246,7 +254,7 @@ export function useCalibration() {
         volteStartDistancePenalty: 1.000, startPoints: 2.000,
         placePercentage: 2.000, horseWinPercentage: 2.000, earningsPerStart: 1.500,
         gallopRisk: 3.000, layoffPenalty: 2.000, ageFactor: 2.000,
-        genderAdjustment: 1.500, consistencyFactor: 2.000, trainerPerformance: 2.000,
+        genderAdjustment: 1.500, consistencyFactor: 2.000, driverEmpirical: 1.000, trainerPerformance: 2.000,
       }},
       { label: 'Current', weights: currentWeights },
     ];

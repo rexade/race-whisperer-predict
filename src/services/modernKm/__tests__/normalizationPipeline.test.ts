@@ -29,7 +29,7 @@ import {
   calculateGallopReliabilityPenalty,
 } from '../adjustmentCalculators';
 
-import { calculateDriverAdjustment } from '../driverCalculators';
+import { calculateDriverAdjustment, calculateTrainerAdjustment } from '../driverCalculators';
 
 // ---------------------------------------------------------------------------
 // performanceCalculators
@@ -538,6 +538,49 @@ describe('calculateDriverAdjustment', () => {
   it('adjustment magnitude is symmetric around baseline', () => {
     // 9 % penalty should equal 15 % bonus in magnitude
     expect(calculateDriverAdjustment(9)).toBeCloseTo(-calculateDriverAdjustment(15), 5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// driverCalculators — calculateTrainerAdjustment
+// ---------------------------------------------------------------------------
+
+describe('calculateTrainerAdjustment', () => {
+  it('returns 0 at baseline 12 % (percent format)', () => {
+    expect(calculateTrainerAdjustment(12)).toBeCloseTo(0, 5);
+  });
+
+  it('returns 0 at baseline 12 % (fraction format)', () => {
+    expect(calculateTrainerAdjustment(0.12)).toBeCloseTo(0, 5);
+  });
+
+  it('returns positive (penalty) for 0 % trainer win rate', () => {
+    // x = (0 - 0.12) / 0.10 = -1.2, adj = -0.20 * tanh(-1.2) ≈ +0.167
+    const adj = calculateTrainerAdjustment(0);
+    expect(adj).toBeGreaterThan(0);
+    expect(adj).toBeCloseTo(0.167, 2);
+  });
+
+  it('returns negative (bonus) for 20 % trainer win rate', () => {
+    // x = (0.20 - 0.12) / 0.10 = 0.8, adj = -0.20 * tanh(0.8) ≈ -0.133
+    const adj = calculateTrainerAdjustment(20);
+    expect(adj).toBeLessThan(0);
+    expect(adj).toBeCloseTo(-0.133, 2);
+  });
+
+  it('0 % and 12 % produce different adjustments', () => {
+    expect(calculateTrainerAdjustment(0)).not.toBeCloseTo(calculateTrainerAdjustment(12), 2);
+  });
+
+  it('saturates near -0.20 for extremely high trainer win rate', () => {
+    // 60 % → near cap
+    const adj = calculateTrainerAdjustment(60);
+    expect(adj).toBeLessThan(-0.18);
+    expect(adj).toBeGreaterThanOrEqual(-0.20);
+  });
+
+  it('handles non-finite input gracefully', () => {
+    expect(Number.isFinite(calculateTrainerAdjustment(NaN))).toBe(true);
   });
 });
 
