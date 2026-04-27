@@ -33,6 +33,9 @@ export interface OptimizationResult {
   passesCompleted: number;
   initialEvaluation: CalibrationEvaluation;
   finalEvaluation: CalibrationEvaluation;
+  /** Evaluation on the held-out test set — never seen during optimization.
+   *  This is the honest win% number. Only present when testDataset was supplied. */
+  testEvaluation?: CalibrationEvaluation;
 }
 
 const MIN_WEIGHT_STEP = 0.02;
@@ -164,7 +167,10 @@ export async function optimizeWeights(
   dataset: CalibrationDataset,
   initial: NormalizationWeights,
   onProgress?: (p: OptimizationProgress) => void,
-  initialCurves?: PostPositionCurves
+  initialCurves?: PostPositionCurves,
+  /** Held-out test set — never touched during optimization.
+   *  When provided, the final weights are evaluated on it and stored as testEvaluation. */
+  testDataset?: CalibrationDataset
 ): Promise<OptimizationResult> {
   // Always optimize curves — use provided curves or fall back to the standard defaults.
   const startCurves: PostPositionCurves = initialCurves
@@ -274,6 +280,11 @@ export async function optimizeWeights(
   const finalMRR = finalEval.winnerMRR;
   const improvementPct = initialMRR > 0 ? ((finalMRR - initialMRR) / initialMRR) * 100 : 0;
 
+  // Evaluate on held-out test set if provided — this is the honest out-of-sample number
+  const testEvaluation = testDataset && testDataset.length > 0
+    ? await evaluateWeights(testDataset, bestWeights, bestCurves)
+    : undefined;
+
   return {
     optimizedWeights: bestWeights,
     optimizedCurves: bestCurves,
@@ -283,5 +294,6 @@ export async function optimizeWeights(
     passesCompleted: pass,
     initialEvaluation: initialEval,
     finalEvaluation: finalEval,
+    testEvaluation,
   };
 }

@@ -28,6 +28,8 @@ export interface CalibrationState {
   progressFraction: number;
   datesFound: number;
   dataset: CalibrationDataset | null;
+  /** Held-out test set — last 1 month, never seen by the optimizer. */
+  testDataset: CalibrationDataset | null;
   baselineEval: CalibrationEvaluation | null;
   optimizationResult: OptimizationResult | null;
   /** Per-run summary table from multi-start — each line is one run's win/MRR result. */
@@ -41,6 +43,7 @@ const INITIAL_STATE: CalibrationState = {
   progressFraction: 0,
   datesFound: 0,
   dataset: null,
+  testDataset: null,
   baselineEval: null,
   optimizationResult: null,
   runSummary: null,
@@ -81,6 +84,7 @@ function runInWorker<T>(
 export function useCalibration() {
   const [state, setState] = useState<CalibrationState>(INITIAL_STATE);
   const datasetRef = useRef<CalibrationDataset | null>(null);
+  const testDatasetRef = useRef<CalibrationDataset | null>(null);
 
   const updateState = (patch: Partial<CalibrationState>) =>
     setState(prev => ({ ...prev, ...patch }));
@@ -100,26 +104,36 @@ export function useCalibration() {
 
     try {
       const cacheInfo = getCalibrationCacheInfo(monthsBack);
-      let dates: string[] = [];
+      let allDates: string[] = [];
 
       if (!forceRefresh && cacheInfo.exists && cacheInfo.dateCount > 0) {
         updateState({ phase: 'collecting', progressMessage: `Found saved dataset (${cacheInfo.dateCount} dates). Loading…` });
       } else {
         updateState({ phase: 'fetching-dates', progressMessage: 'Scanning calendar for past games…' });
-        dates = await fetchHistoricalDates(monthsBack);
-        if (dates.length === 0) {
+        allDates = await fetchHistoricalDates(monthsBack);
+        if (allDates.length === 0) {
           updateState({ phase: 'error', error: 'No historical game dates found for the selected period.' });
           return;
         }
-        updateState({ datesFound: dates.length, phase: 'collecting', progressMessage: `Found ${dates.length} game dates. Collecting data…` });
+        updateState({ datesFound: allDates.length, phase: 'collecting', progressMessage: `Found ${allDates.length} game dates. Collecting data…` });
       }
 
+      // Split into train (older than 1 month) and test (last 1 month).
+      // The optimizer NEVER sees test dates — they are the honest evaluation set.
+      const testCutoff = new Date();
+      testCutoff.setMonth(testCutoff.getMonth() - 1);
+      const testCutoffStr = testCutoff.toISOString().split('T')[0];
+
+      const testDates  = allDates.filter(d => d >= testCutoffStr);
+      const trainDates = allDates.filter(d => d <  testCutoffStr);
+
+      // Collect training dataset (cached by monthsBack)
       const dataset = await collectCalibrationData(
-        dates,
+        trainDates,
         (p: CollectionProgress) => {
           updateState({
-            progressMessage: p.message,
-            progressFraction: p.datesTotal > 0 ? p.datesCompleted / p.datesTotal : 0,
+            progressMessage: `[Train] ${p.message}`,
+            progressFraction: p.datesTotal > 0 ? p.datesCompleted / p.datesTotal * 0.8 : 0,
           });
         },
         monthsBack,
@@ -127,13 +141,27 @@ export function useCalibration() {
       );
 
       if (dataset.length === 0) {
-        updateState({ phase: 'error', error: 'Could not collect data for any historical date.' });
+        updateState({ phase: 'error', error: 'Could not collect training data for any historical date.' });
         return;
       }
 
-      datasetRef.current = dataset;
+      // Collect test dataset — no cache key, never touches the optimizer
+      updateState({ progressMessage: `Collecting test set (${testDates.length} dates, last 1 month)…`, progressFraction: 0.8 });
+      const testDataset = await collectCalibrationData(
+        testDates,
+        (p: CollectionProgress) => {
+          updateState({
+            progressMessage: `[Test] ${p.message}`,
+            progressFraction: 0.8 + (p.datesTotal > 0 ? p.datesCompleted / p.datesTotal * 0.2 : 0),
+          });
+        }
+        // no monthsBack → not saved to calibration dataset cache
+      );
 
-      // Baseline evaluation — run in worker to avoid blocking UI
+      datasetRef.current = dataset;
+      testDatasetRef.current = testDataset.length > 0 ? testDataset : null;
+
+      // Baseline evaluation on training set — run in worker to avoid blocking UI
       updateState({ phase: 'evaluating', progressMessage: 'Computing baseline accuracy…', progressFraction: 1 });
 
       const baselineEval = await runInWorker<CalibrationEvaluation>(
@@ -149,11 +177,15 @@ export function useCalibration() {
       invalidateDriverRatingCache();
       const driverCount = getDriverRatingCount();
 
+      const trainRaces = dataset.reduce((s, d) => s + d.races.length, 0);
+      const testRaces  = testDataset.reduce((s, d) => s + d.races.length, 0);
+
       updateState({
         phase: 'done',
         dataset,
+        testDataset: testDataset.length > 0 ? testDataset : null,
         baselineEval,
-        progressMessage: `${dataset.length} dates · ${dataset.reduce((s, d) => s + d.races.length, 0)} races · ${driverCount} driver ratings · Win: ${(baselineEval.winAccuracy * 100).toFixed(1)}%`,
+        progressMessage: `Train: ${dataset.length} dates/${trainRaces} races · Test: ${testDataset.length} dates/${testRaces} races · ${driverCount} driver ratings · Baseline Win: ${(baselineEval.winAccuracy * 100).toFixed(1)}%`,
         progressFraction: 1,
       });
     } catch (err) {
@@ -170,13 +202,14 @@ export function useCalibration() {
   ) => {
     const dataset = datasetRef.current ?? state.dataset;
     if (!dataset) return;
+    const testDataset = testDatasetRef.current ?? state.testDataset ?? undefined;
 
     updateState({ phase: 'optimizing', progressMessage: 'Starting optimization…', optimizationResult: null });
 
     try {
       const result = await runInWorker<OptimizationResult>(
         () => new Worker(new URL('../../workers/calibration.worker.ts', import.meta.url), { type: 'module' }),
-        { type: 'OPTIMIZE', payload: { dataset, initialWeights: currentWeights, initialCurves: currentCurves } },
+        { type: 'OPTIMIZE', payload: { dataset, initialWeights: currentWeights, initialCurves: currentCurves, testDataset } },
         'DONE',
         (p) => updateState({
           progressMessage: p.message,
@@ -184,10 +217,13 @@ export function useCalibration() {
         })
       );
 
+      const testStr = result.testEvaluation
+        ? `  TEST Win: ${(result.testEvaluation.winAccuracy * 100).toFixed(1)}% ← truth`
+        : '';
       updateState({
         phase: 'done',
         optimizationResult: result,
-        progressMessage: `Done. Rank MAE: ${result.initialMAE.toFixed(3)} → ${result.finalMAE.toFixed(3)} · Win: ${(result.finalEvaluation.winAccuracy * 100).toFixed(1)}%`,
+        progressMessage: `Train Win: ${(result.finalEvaluation.winAccuracy * 100).toFixed(1)}%${testStr}`,
         progressFraction: 1,
       });
     } catch (err) {
@@ -206,6 +242,7 @@ export function useCalibration() {
   ) => {
     const dataset = datasetRef.current ?? state.dataset;
     if (!dataset) return;
+    const testDataset = testDatasetRef.current ?? state.testDataset ?? undefined;
 
     // V21-based starting configurations
     const starts: Array<{ label: string; weights: NormalizationWeights }> = [
@@ -286,7 +323,7 @@ export function useCalibration() {
       try {
         const result = await runInWorker<OptimizationResult>(
           () => new Worker(new URL('../../workers/calibration.worker.ts', import.meta.url), { type: 'module' }),
-          { type: 'OPTIMIZE', payload: { dataset, initialWeights: weights, initialCurves: currentCurves } },
+          { type: 'OPTIMIZE', payload: { dataset, initialWeights: weights, initialCurves: currentCurves, testDataset } },
           'DONE',
           (p) => {
             const best = bestResult ? ` · best: ${(bestWin * 100).toFixed(1)}%` : '';
@@ -299,19 +336,22 @@ export function useCalibration() {
 
         const winRate = result.finalEvaluation.winAccuracy;
         const mrr = result.finalMAE;
-        // Record this run — flag as best if it leads
+        // Pick best by TRAIN win% only — never by test (that would contaminate the blind set)
         const isBest = winRate > bestWin;
+        const testStr = result.testEvaluation
+          ? `  TEST=${( result.testEvaluation.winAccuracy * 100).toFixed(1)}%`
+          : '';
         runSummary.push(
-          `${isBest ? '★' : ' '} ${label.padEnd(14)} Win=${( winRate * 100).toFixed(1)}%  MRR=${mrr.toFixed(3)}`
+          `${isBest ? '★' : ' '} ${label.padEnd(14)} Train=${(winRate * 100).toFixed(1)}%  MRR=${mrr.toFixed(3)}${testStr}`
         );
         if (isBest) {
           bestWin = winRate;
           bestResult = result;
-          // Re-mark previous best entry (remove its ★ since a new best was found)
+          // Re-mark previous best entries
           for (let j = 0; j < runSummary.length - 1; j++) {
             runSummary[j] = runSummary[j].replace(/^★/, ' ');
           }
-          runSummary[runSummary.length - 1] = `★ ${label.padEnd(14)} Win=${(winRate * 100).toFixed(1)}%  MRR=${mrr.toFixed(3)}`;
+          runSummary[runSummary.length - 1] = `★ ${label.padEnd(14)} Train=${(winRate * 100).toFixed(1)}%  MRR=${mrr.toFixed(3)}${testStr}`;
         }
       } catch (err) {
         runSummary.push(`  ${label.padEnd(14)} FAILED`);
@@ -324,15 +364,22 @@ export function useCalibration() {
       return;
     }
 
-    const runTable = runSummary.join('\n');
+    const testWin = bestResult.testEvaluation?.winAccuracy;
+    const testLine = testWin !== undefined
+      ? `\n\nTEST (truth): ${(testWin * 100).toFixed(1)}%  MRR: ${(bestResult.testEvaluation!.winnerMRR).toFixed(3)}  Top-3: ${(bestResult.testEvaluation!.topPickAccuracy * 100).toFixed(1)}%`
+      : '';
+    const runTable = runSummary.join('\n') + testLine;
+
     updateState({
       phase: 'done',
       optimizationResult: bestResult,
       runSummary: runTable,
-      progressMessage: `Multi-start done · Best Win: ${(bestWin * 100).toFixed(1)}% · MRR: ${bestResult.finalMAE.toFixed(3)}`,
+      progressMessage: testWin !== undefined
+        ? `Multi-start done · Train: ${(bestWin * 100).toFixed(1)}% · TEST (truth): ${(testWin * 100).toFixed(1)}%`
+        : `Multi-start done · Train Win: ${(bestWin * 100).toFixed(1)}%`,
       progressFraction: 1,
     });
-  }, [state.dataset]);
+  }, [state.dataset, state.testDataset]);
 
   /**
    * Promote the last optimization result to the new baseline.
