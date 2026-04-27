@@ -198,15 +198,15 @@ export function useCalibration() {
 
     // Diverse starting configurations — post-driverForm-fix, covers new signal space
     const starts: Array<{ label: string; weights: NormalizationWeights }> = [
-      // V11: first post-fix calibration result
-      { label: 'V11', weights: {
-        postPosition: 0.700, shoeType: 0.075, sulkyType: 0.500,
-        driverPerformance: 1.200, driverForm: 2.000, trackFamiliarity: 0.000,
-        form: 1.100, distanceAdjustment: 1.000, raceDistanceAdjustment: 1.300,
+      // V12: best post-fix result (40.0%, real driverForm)
+      { label: 'V12', weights: {
+        postPosition: 1.100, shoeType: 0.275, sulkyType: 0.500,
+        driverPerformance: 1.200, driverForm: 1.800, trackFamiliarity: 0.000,
+        form: 0.900, distanceAdjustment: 1.200, raceDistanceAdjustment: 0.700,
         volteStartDistancePenalty: 1.000, startPoints: 0.500,
-        placePercentage: 0.600, horseWinPercentage: 0.400, earningsPerStart: 0.100,
+        placePercentage: 0.800, horseWinPercentage: 0.200, earningsPerStart: 0.100,
         gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
-        genderAdjustment: 0.400, consistencyFactor: 0.500, trainerPerformance: 0.700,
+        genderAdjustment: 0.000, consistencyFactor: 0.500, trainerPerformance: 0.700,
       }},
       // Push both driver signals high — explores new ceiling (10.0) for driverForm
       { label: 'MaxDrivers', weights: {
