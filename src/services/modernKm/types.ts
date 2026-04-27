@@ -100,30 +100,30 @@ export interface NormalizationWeights {
   trainerPerformance?: number;
 }
 
-// Balanced weights — v3 (2026-04-26)
-// Key changes vs v2:
-//   form 0.8→1.0       — form is the strongest per-race signal; boost to full weight
-//   postPosition 0.9→0.7 — post position influence capped; strong form should dominate
-// MAE eval (48 races, 6 dates, Jan–Apr 2026): V3=2.653, V2=2.690, V1=2.716
+// Balanced weights — v5 (2026-04-27)
+// MRR-optimized via coordinate descent against real past results.
+// Key changes vs v3: driverForm 0.8→2.0 (strongest signal found),
+//   trainerPerformance 0→0.7 (new factor), trackFamiliarity 0.6→0.3,
+//   form 1.0→0.9, volteStartDistancePenalty 1.1→1.2.
 export const DEFAULT_WEIGHTS: NormalizationWeights = {
-  postPosition: 0.7,          // meaningful, but capped — form should dominate
-  shoeType: 0.4,              // equipment helps, but rarely game-breaking
-  sulkyType: 0.5,
-  driverPerformance: 1.0,     // kusk tabell ±0.30 s/km; 1.0 = visa exakt tabellvärde
-  trackFamiliarity: 0.6,
-  form: 1.0,                  // recent form — primary current-condition signal
-  distanceAdjustment: 0.8,    // horse's preferred distance vs race distance
-  raceDistanceAdjustment: 1.0,// global course length effect from 2140 reference
-  volteStartDistancePenalty: 1.1, // standing start/extra distance hurts
-  startPoints: 0.5,           // saturated log-scale; kept moderate
-  placePercentage: 0.6,       // avoid stacking with startPoints
-  horseWinPercentage: 0.2,    // overlap with place% and startPoints — reduced
-  earningsPerStart: 0.1,      // class/purse inflation bias — minimal
-  gallopRisk: 0.5,            // penalty for horses with history of breaking gait
-  layoffPenalty: 0.6,         // penalty for extended rest period (14+ days)
-  ageFactor: 0.5,             // age-based adjustment (peak 5–7yo)
-  genderAdjustment: 0.4,      // mare penalty in mixed-gender fields
-  consistencyFactor: 0.5,     // consistent finishers rank more predictably
-  driverForm: 0.8,            // driver recent form trend (last 20 starts)
-  trainerPerformance: 0.7,   // trainer win-rate adjustment (±0.20 s/km max)
+  postPosition: 0.700,
+  shoeType: 0.475,
+  sulkyType: 0.500,
+  driverPerformance: 1.000,
+  driverForm: 2.000,          // strongest calibrated signal — driver×horse form
+  trackFamiliarity: 0.300,
+  form: 0.900,
+  distanceAdjustment: 0.800,
+  raceDistanceAdjustment: 1.100,
+  volteStartDistancePenalty: 1.200,
+  startPoints: 0.500,
+  placePercentage: 0.600,
+  horseWinPercentage: 0.200,
+  earningsPerStart: 0.100,
+  gallopRisk: 0.500,
+  layoffPenalty: 0.600,
+  ageFactor: 0.500,
+  genderAdjustment: 0.300,
+  consistencyFactor: 0.500,
+  trainerPerformance: 0.700,
 };
