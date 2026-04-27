@@ -236,9 +236,10 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
           <Stat label="Races" value={state.dataset?.reduce((s, d) => s + d.races.length, 0) ?? 0} />
           <Stat label="Horses (real data)" value={state.baselineEval.horsesEvaluated} />
           <Stat label="Estimated skipped" value={state.baselineEval.estimatedHorsesSkipped} />
-          <Stat label="MRR" value={state.baselineEval.winnerMRR.toFixed(3)} highlight />
+          <Stat label="Win %" value={`${(state.baselineEval.winAccuracy * 100).toFixed(1)}%`} highlight />
+          <Stat label="Top-3 %" value={`${(state.baselineEval.topPickAccuracy * 100).toFixed(1)}%`} highlight />
+          <Stat label="MRR" value={state.baselineEval.winnerMRR.toFixed(3)} />
           <Stat label="Winner Rank" value={state.baselineEval.winnerRankMAE.toFixed(3)} />
-          <Stat label="Win accuracy" value={`${(state.baselineEval.winAccuracy * 100).toFixed(1)}%`} highlight />
           <Stat label="Rank MAE" value={state.baselineEval.rankMAE.toFixed(3)} />
           <Stat label="Top-3 accuracy" value={`${(state.baselineEval.topPickAccuracy * 100).toFixed(1)}%`} />
           {state.baselineEval.timeMAE !== null && (
@@ -258,12 +259,14 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
             </div>
             <div className="flex flex-wrap items-center gap-4 text-sm">
               <span>
-                MRR: <span className="text-muted-foreground line-through">{state.optimizationResult.initialMAE.toFixed(3)}</span>
+                Win: <span className="text-muted-foreground line-through">{(state.optimizationResult.initialEvaluation.winAccuracy * 100).toFixed(1)}%</span>
                 {' → '}
-                <span className="font-medium text-green-500">{state.optimizationResult.finalMAE.toFixed(3)}</span>
+                <span className="font-medium text-green-500">{(state.optimizationResult.finalEvaluation.winAccuracy * 100).toFixed(1)}%</span>
               </span>
               <span>
-                Win: <span className="font-medium text-green-500">{(state.optimizationResult.finalEvaluation.winAccuracy * 100).toFixed(1)}%</span>
+                MRR: <span className="text-muted-foreground line-through">{state.optimizationResult.initialMAE.toFixed(3)}</span>
+                {' → '}
+                <span className="font-medium">{state.optimizationResult.finalMAE.toFixed(3)}</span>
               </span>
               <span>
                 Top-3: <span className="font-medium">{(state.optimizationResult.finalEvaluation.topPickAccuracy * 100).toFixed(1)}%</span>
