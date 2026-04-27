@@ -112,11 +112,19 @@ export interface HistoricalProcessingResult {
 const HISTORICAL_RECORD_MAX_MONTHS = 5;
 
 export const processHistoricalRecords = (
-  records: ATGHistoricalRecord[], 
-  debugHorseName?: string
+  records: ATGHistoricalRecord[],
+  debugHorseName?: string,
+  /** ISO date string of the race being predicted. When provided, only records strictly
+   *  BEFORE this date are used — prevents post-race data from leaking into calibration. */
+  raceDateCutoff?: string
 ): HistoricalProcessingResult => {
-  const cutoffDate = new Date();
+  // Use the race date (if given) as reference so the 5-month window is anchored to the
+  // race, not to today. This prevents future races from bleeding into form/gallopRate etc.
+  const referenceDate = raceDateCutoff ? new Date(raceDateCutoff) : new Date();
+  const cutoffDate = new Date(referenceDate);
   cutoffDate.setMonth(cutoffDate.getMonth() - HISTORICAL_RECORD_MAX_MONTHS);
+  // Strict upper bound: exclude records on-or-after the race date
+  const upperDate: Date | undefined = raceDateCutoff ? new Date(raceDateCutoff) : undefined;
 
   // Helper function to filter records by date and other criteria
   const filterRecords = (records: ATGHistoricalRecord[], ignoreTimeWindow = false) => {
@@ -169,7 +177,7 @@ export const processHistoricalRecords = (
           return false;
         }
         const raceDate = new Date(record.date);
-        const isWithinWindow = raceDate >= cutoffDate;
+        const isWithinWindow = raceDate >= cutoffDate && (!upperDate || raceDate < upperDate);
         if (!isWithinWindow) {
           filteringStats.outsideTimeWindow++;
           rejectRecord(record, `outside-${HISTORICAL_RECORD_MAX_MONTHS}-months`, source);

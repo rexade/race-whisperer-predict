@@ -240,7 +240,7 @@ export async function collectCalibrationData(
           }));
 
           try {
-            rawKmTimes = await calculateRawKmTimesForRaceWithId(race.raceId, atgStarts);
+            rawKmTimes = await calculateRawKmTimesForRaceWithId(race.raceId, atgStarts, undefined, date);
             const rawTimesForCache = rawKmTimes.map(rt => {
               const h = race.horses.find((x: any) => x.horseId === rt.horseId);
               return {

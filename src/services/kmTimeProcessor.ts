@@ -12,7 +12,10 @@ import { log } from '@/lib/logger';
 export const calculateRawKmTimesForRaceWithId = async (
   raceId: string,
   starts: ATGStartInfo[],
-  progressCallback?: (current: number, total: number) => void
+  progressCallback?: (current: number, total: number) => void,
+  /** ISO date of the race — passed to processHistoricalRecords to prevent data leakage
+   *  in calibration (only records strictly before this date are used). */
+  raceDateCutoff?: string
 ): Promise<HorseRawKmTime[]> => {
   const rawKmTimes: HorseRawKmTime[] = [];
 
@@ -126,7 +129,7 @@ export const calculateRawKmTimesForRaceWithId = async (
       );
       DataValidator.logValidationResults(validationResults, `${horseName} Historical Records`);
 
-      const processingResult = processHistoricalRecords(records, horseName);
+      const processingResult = processHistoricalRecords(records, horseName, raceDateCutoff);
       const validRecords = processingResult.records;
 
       // Collect invalid candidates from processing
