@@ -61,6 +61,7 @@ const WEIGHT_KEYS: (keyof NormalizationWeights)[] = [
   'ageFactor',
   'genderAdjustment',
   'consistencyFactor',
+  'trainerPerformance',
 ];
 
 const CURVE_POSITIONS = Array.from({ length: 15 }, (_, i) => i + 1);

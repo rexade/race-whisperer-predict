@@ -64,6 +64,12 @@ export interface V75RaceData {
     homeTrack: any; // Keep as any for now due to API inconsistency
     birthYear?: number;
     sex?: string;
+    trainer?: {
+      firstName: string;
+      lastName: string;
+      winPercentage: number;
+      winPercentage2025: number;
+    };
   }>;
 }
 
@@ -96,6 +102,12 @@ export interface V75HorseData {
   homeTrack: any; // Keep as any for now due to API inconsistency
   birthYear?: number;
   sex?: string;
+  trainer?: {
+    firstName: string;
+    lastName: string;
+    winPercentage: number;
+    winPercentage2025: number;
+  };
 }
 
 /**
@@ -373,6 +385,10 @@ const extractHorseData = (start: any): V75HorseData => {
   const driverStats = start.driver?.statistics || {};
   const driver2025Stats = start.driver?.statistics?.years?.['2025'] || {};
 
+  // Trainer statistics extraction (same structure as driver)
+  const trainerStats = start.trainer?.statistics || {};
+  const trainer2025Stats = start.trainer?.statistics?.years?.['2025'] || {};
+
   // Enhanced horse statistics extraction
   const horseLifeStats = start.horse?.statistics?.life || {};
   const totalEarnings = horseLifeStats.earnings || horseLifeStats.totalEarnings || 0;
@@ -408,5 +424,11 @@ const extractHorseData = (start: any): V75HorseData => {
     birthYear: start.horse?.birthYear || start.horse?.birth_year || 0,
     // ATG sex codes: S=sto (mare), H=hingst (stallion), V=valack (gelding)
     sex: start.horse?.sex || start.horse?.gender || '',
+    trainer: start.trainer ? {
+      firstName: start.trainer.firstName || '',
+      lastName: start.trainer.lastName || '',
+      winPercentage: trainerStats.winPercentage || 0,
+      winPercentage2025: trainer2025Stats.winPercentage || 0,
+    } : undefined,
   };
 };

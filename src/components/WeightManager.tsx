@@ -324,6 +324,14 @@ const WeightManager: React.FC<WeightManagerProps> = ({
           baseEffect: 'Hot streak → faster; cold stretch → slower',
           isNew: true
         },
+        {
+          key: 'trainerPerformance' as keyof NormalizationWeights,
+          label: 'Trainer Performance',
+          description: 'Trainer win percentage — above 12% = faster, below = slower',
+          typicalRange: '-0.2s to +0.2s',
+          baseEffect: 'Top trainers: -0.15s, Poor trainers: +0.15s',
+          isNew: true
+        },
       ]
     },
     {

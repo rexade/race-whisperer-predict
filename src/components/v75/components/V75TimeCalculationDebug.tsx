@@ -119,6 +119,7 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
                           ['Place %',            data.adjustments.placePercentage],
                           ['Horse Win %',        data.adjustments.horseWinPercentage],
                           ['Earnings/Start',     data.adjustments.earningsPerStart],
+                          ['Trainer',            data.adjustments.trainer],
                         ] as [string, number | undefined][]
                       ).map(([label, val]) => {
                         const v = val ?? 0;

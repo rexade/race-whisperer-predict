@@ -69,6 +69,19 @@ export const DRIVER_SCALE = 0.10 as const;
 export const DRIVER_CAP_S = 0.30 as const;
 
 // ---------------------------------------------------------------------------
+// Trainer performance
+// ---------------------------------------------------------------------------
+
+/** Win-percentage level at which the trainer adjustment is exactly 0 s. */
+export const TRAINER_BASELINE_WIN_PCT = 0.12 as const;  // 12 %
+
+/** tanh scale factor for trainer curve. */
+export const TRAINER_SCALE = 0.10 as const;
+
+/** Absolute cap on the trainer adjustment (±0.20 s/km — slightly softer than driver). */
+export const TRAINER_CAP_S = 0.20 as const;
+
+// ---------------------------------------------------------------------------
 // Track familiarity
 // ---------------------------------------------------------------------------
 

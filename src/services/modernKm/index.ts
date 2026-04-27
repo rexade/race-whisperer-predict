@@ -11,7 +11,7 @@ import {
   calculateRobustShoeAdjustment,
   calculateRobustSulkyAdjustment
 } from './equipmentCalculators';
-import { calculateDriverAdjustment } from './driverCalculators';
+import { calculateDriverAdjustment, calculateTrainerAdjustment } from './driverCalculators';
 import {
   calculateStartPointsAdjustment,
   calculateStartPointsAdjustmentFieldAware,
@@ -82,6 +82,7 @@ export const applyModernKmNormalization = (
     ageFactor:                 0,
     genderAdjustment:          0,
     consistencyFactor:         0,
+    trainer:                   0,
     total:                     0,
   };
 
@@ -163,6 +164,9 @@ export const applyModernKmNormalization = (
   adjustments.consistencyFactor =
     calculateConsistencyAdjustment(factors.consistencyScore ?? 0) * weights.consistencyFactor;
 
+  adjustments.trainer =
+    calculateTrainerAdjustment(factors.trainerWinPercentage ?? 0) * (weights.trainerPerformance ?? 0);
+
   // STEP 5: Total
   adjustments.total = Object.entries(adjustments)
     .filter(([key]) => key !== 'total')
@@ -190,6 +194,7 @@ export const applyModernKmNormalization = (
     ` age=${adjustments.ageFactor.toFixed(3)}` +
     ` gender=${adjustments.genderAdjustment.toFixed(3)}` +
     ` consist=${adjustments.consistencyFactor.toFixed(3)}` +
+    ` trainer=${adjustments.trainer.toFixed(3)}` +
     ` TOTAL=${adjustments.total.toFixed(3)}s`
   );
 

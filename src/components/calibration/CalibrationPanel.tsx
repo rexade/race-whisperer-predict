@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart2, Play, Zap, Check, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { BarChart2, Play, Zap, Check, AlertCircle, Loader2, RefreshCw, Copy, ClipboardCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NormalizationWeights } from '@/services/modernKm/types';
 import { PostPositionCurves } from '@/services/modernKm/index';
@@ -18,6 +18,7 @@ const WEIGHT_LABELS: Record<keyof NormalizationWeights, string> = {
   shoeType: 'Shoes (type)',
   sulkyType: 'Sulky Type',
   driverPerformance: 'Driver Performance',
+  driverForm: 'Driver Form',
   trackFamiliarity: 'Track Familiarity',
   form: 'Form',
   distanceAdjustment: 'Distance Fit',
@@ -32,6 +33,7 @@ const WEIGHT_LABELS: Record<keyof NormalizationWeights, string> = {
   ageFactor: 'Age Factor',
   genderAdjustment: 'Gender (mare)',
   consistencyFactor: 'Consistency',
+  trainerPerformance: 'Trainer Performance',
 };
 
 const MONTHS_OPTIONS = [1, 2, 3, 6];
@@ -65,7 +67,23 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
 }) => {
   const [monthsBack, setMonthsBack] = useState(2);
   const [cacheInfo, setCacheInfo] = useState<{ exists: boolean; ageHours: number | null; dateCount: number } | null>(null);
+  const [copied, setCopied] = useState(false);
   const { state, runDataCollection, runOptimization, acceptResult, reset } = useCalibration();
+
+  const handleCopyWeights = () => {
+    if (!state.optimizationResult) return;
+    const w = state.optimizationResult.optimizedWeights;
+    const keys = Object.keys(WEIGHT_LABELS) as (keyof NormalizationWeights)[];
+    const lines = keys.map(k => {
+      const v = (w[k] ?? 0).toFixed(3);
+      return `      ${k}: ${v},`;
+    });
+    const snippet = `weights: {\n${lines.join('\n')}\n    }`;
+    navigator.clipboard.writeText(snippet).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   useEffect(() => {
     setCacheInfo(getCalibrationCacheInfo(monthsBack));
@@ -254,15 +272,27 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
                 {state.optimizationResult.passesCompleted} passes
               </span>
             </div>
-            <Button
-              size="sm"
-              variant="default"
-              onClick={handleApply}
-              className="h-8 gap-1.5"
-            >
-              <Check className="h-3.5 w-3.5" />
-              Apply Weights{state.optimizationResult.optimizedCurves ? ' & Curves' : ''}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCopyWeights}
+                className="h-8 gap-1.5"
+                title="Copy optimized weights as TypeScript for presetWeights.ts"
+              >
+                {copied ? <ClipboardCheck className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? 'Copied!' : 'Copy'}
+              </Button>
+              <Button
+                size="sm"
+                variant="default"
+                onClick={handleApply}
+                className="h-8 gap-1.5"
+              >
+                <Check className="h-3.5 w-3.5" />
+                Apply Weights{state.optimizationResult.optimizedCurves ? ' & Curves' : ''}
+              </Button>
+            </div>
           </div>
 
           {/* Per-weight comparison table */}

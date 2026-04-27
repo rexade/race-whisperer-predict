@@ -25,6 +25,7 @@ export interface ModernKmNormalizedResult {
     ageFactor: number;
     genderAdjustment: number;
     consistencyFactor: number;
+    trainer: number;
     total: number;
   };
 }
@@ -43,6 +44,8 @@ export interface ModernNormalizationFactors {
   raceTrack: string;
   driverExperience: number;
   driverWinPercentage: number;
+  /** Trainer win percentage — same format as driverWinPercentage (0–1, 0–100, or basis points). */
+  trainerWinPercentage?: number;
   /** Horse's career win percentage in basis points (e.g. 434 = 4.34 %). */
   horseWinPercentage: number;
   /** Career start points (form rating). */
@@ -93,6 +96,8 @@ export interface NormalizationWeights {
   consistencyFactor: number;
   /** Driver × horse form: win rate of current driver on this horse (recent starts). 0 = off. */
   driverForm?: number;
+  /** Trainer win-rate adjustment weight. 0 = off. */
+  trainerPerformance?: number;
 }
 
 // Balanced weights — v3 (2026-04-26)
@@ -120,4 +125,5 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   genderAdjustment: 0.4,      // mare penalty in mixed-gender fields
   consistencyFactor: 0.5,     // consistent finishers rank more predictably
   driverForm: 0.8,            // driver recent form trend (last 20 starts)
+  trainerPerformance: 0.7,   // trainer win-rate adjustment (±0.20 s/km max)
 };
