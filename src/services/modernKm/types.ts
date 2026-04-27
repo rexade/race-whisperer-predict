@@ -107,29 +107,29 @@ export interface NormalizationWeights {
   trainerPerformance?: number;
 }
 
-// Balanced weights — v18 (2026-04-27) — Win 43.3%, MRR 0.576
-// Cache fix unlocked gallopRisk, consistencyFactor, earningsPerStart, placePercentage.
-// Horse-stats tier dominant: consistencyFactor 1.95, earningsPerStart 1.95, placePercentage 1.60, startPoints 1.60
+// Balanced weights — v19 (2026-04-27) — Win 48.7%, MRR 0.631
+// Post-Refresh: all signals fully trained. form 4.922, earningsPerStart 4.489, ageFactor 3.098 dominate.
+// StrongHorse start won. driverEmpirical→0, layoffPenalty 0.073→1.958, raceDistance 0→3.634.
 export const DEFAULT_WEIGHTS: NormalizationWeights = {
-  postPosition: 1.839,
-  shoeType: 0.469,
-  sulkyType: 0.300,
-  driverPerformance: 1.400,
-  driverForm: 1.149,
-  driverEmpirical: 1.986,
-  trackFamiliarity: 0.000,
-  form: 1.724,
-  distanceAdjustment: 0.758,
-  raceDistanceAdjustment: 0.000,
-  volteStartDistancePenalty: 2.017,
-  startPoints: 1.597,
-  placePercentage: 1.599,
-  horseWinPercentage: 0.000,
-  earningsPerStart: 1.946,
-  gallopRisk: 1.037,
-  layoffPenalty: 0.073,
-  ageFactor: 0.777,
-  genderAdjustment: 0.757,
-  consistencyFactor: 1.950,
-  trainerPerformance: 0.105,
+  postPosition: 1.538,
+  shoeType: 0.000,
+  sulkyType: 0.827,
+  driverPerformance: 1.215,
+  driverForm: 0.837,
+  driverEmpirical: 0.000,
+  trackFamiliarity: 0.856,
+  form: 4.922,
+  distanceAdjustment: 2.083,
+  raceDistanceAdjustment: 3.634,
+  volteStartDistancePenalty: 1.882,
+  startPoints: 2.355,
+  placePercentage: 1.294,
+  horseWinPercentage: 1.320,
+  earningsPerStart: 4.489,
+  gallopRisk: 2.664,
+  layoffPenalty: 1.958,
+  ageFactor: 3.098,
+  genderAdjustment: 2.595,
+  consistencyFactor: 1.542,
+  trainerPerformance: 0.465,
 };
