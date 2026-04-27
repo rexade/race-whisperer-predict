@@ -107,28 +107,29 @@ export interface NormalizationWeights {
   trainerPerformance?: number;
 }
 
-// Balanced weights — v17 (2026-04-27) — Win 42.0%, MRR 0.567
-// trackFamiliarity↑0.4, startPoints↑0.9 — SA keeps climbing
+// Balanced weights — v18 (2026-04-27) — Win 43.3%, MRR 0.576
+// Cache fix unlocked gallopRisk, consistencyFactor, earningsPerStart, placePercentage.
+// Horse-stats tier dominant: consistencyFactor 1.95, earningsPerStart 1.95, placePercentage 1.60, startPoints 1.60
 export const DEFAULT_WEIGHTS: NormalizationWeights = {
-  postPosition: 1.494,
-  shoeType: 0.000,
-  sulkyType: 0.500,
-  driverPerformance: 1.116,
-  driverForm: 1.600,
-  driverEmpirical: 1.500,
-  trackFamiliarity: 0.400,
-  form: 1.006,
-  distanceAdjustment: 1.600,
-  raceDistanceAdjustment: 0.700,
-  volteStartDistancePenalty: 1.600,
-  startPoints: 0.900,
-  placePercentage: 0.530,
-  horseWinPercentage: 0.400,
-  earningsPerStart: 0.275,
-  gallopRisk: 0.500,
-  layoffPenalty: 0.600,
-  ageFactor: 0.305,
-  genderAdjustment: 0.000,
-  consistencyFactor: 0.500,
-  trainerPerformance: 0.700,
+  postPosition: 1.839,
+  shoeType: 0.469,
+  sulkyType: 0.300,
+  driverPerformance: 1.400,
+  driverForm: 1.149,
+  driverEmpirical: 1.986,
+  trackFamiliarity: 0.000,
+  form: 1.724,
+  distanceAdjustment: 0.758,
+  raceDistanceAdjustment: 0.000,
+  volteStartDistancePenalty: 2.017,
+  startPoints: 1.597,
+  placePercentage: 1.599,
+  horseWinPercentage: 0.000,
+  earningsPerStart: 1.946,
+  gallopRisk: 1.037,
+  layoffPenalty: 0.073,
+  ageFactor: 0.777,
+  genderAdjustment: 0.757,
+  consistencyFactor: 1.950,
+  trainerPerformance: 0.105,
 };
