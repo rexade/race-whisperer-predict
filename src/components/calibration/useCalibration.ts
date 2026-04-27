@@ -196,52 +196,57 @@ export function useCalibration() {
     const dataset = datasetRef.current ?? state.dataset;
     if (!dataset) return;
 
-    // Diverse starting configurations — covers known-good presets and extremes
+    // Diverse starting configurations — post-driverForm-fix, covers new signal space
     const starts: Array<{ label: string; weights: NormalizationWeights }> = [
-      { label: 'V8', weights: {
-        postPosition: 0.700, shoeType: 0.475, sulkyType: 0.500,
-        driverPerformance: 1.000, driverForm: 2.000, trackFamiliarity: 0.000,
-        form: 0.900, distanceAdjustment: 1.000, raceDistanceAdjustment: 1.100,
-        volteStartDistancePenalty: 0.900, startPoints: 0.500,
-        placePercentage: 1.200, horseWinPercentage: 0.200, earningsPerStart: 0.100,
-        gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
-        genderAdjustment: 0.300, consistencyFactor: 0.500, trainerPerformance: 0.700,
-      }},
-      { label: 'V6', weights: {
-        postPosition: 0.900, shoeType: 0.275, sulkyType: 0.500,
+      // V11: first post-fix calibration result
+      { label: 'V11', weights: {
+        postPosition: 0.700, shoeType: 0.075, sulkyType: 0.500,
         driverPerformance: 1.200, driverForm: 2.000, trackFamiliarity: 0.000,
-        form: 0.900, distanceAdjustment: 1.000, raceDistanceAdjustment: 1.100,
+        form: 1.100, distanceAdjustment: 1.000, raceDistanceAdjustment: 1.300,
         volteStartDistancePenalty: 1.000, startPoints: 0.500,
-        placePercentage: 0.600, horseWinPercentage: 0.200, earningsPerStart: 0.100,
+        placePercentage: 0.600, horseWinPercentage: 0.400, earningsPerStart: 0.100,
         gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
-        genderAdjustment: 0.300, consistencyFactor: 0.500, trainerPerformance: 0.700,
+        genderAdjustment: 0.400, consistencyFactor: 0.500, trainerPerformance: 0.700,
       }},
-      { label: 'V5', weights: {
-        postPosition: 0.700, shoeType: 0.475, sulkyType: 0.500,
-        driverPerformance: 1.000, driverForm: 2.000, trackFamiliarity: 0.300,
+      // Push both driver signals high — explores new ceiling (10.0) for driverForm
+      { label: 'MaxDrivers', weights: {
+        postPosition: 0.700, shoeType: 0.275, sulkyType: 0.500,
+        driverPerformance: 4.000, driverForm: 8.000, trackFamiliarity: 0.000,
         form: 0.900, distanceAdjustment: 0.800, raceDistanceAdjustment: 1.100,
-        volteStartDistancePenalty: 1.200, startPoints: 0.500,
-        placePercentage: 0.600, horseWinPercentage: 0.200, earningsPerStart: 0.100,
-        gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
-        genderAdjustment: 0.300, consistencyFactor: 0.500, trainerPerformance: 0.700,
-      }},
-      { label: 'Explore A (max drivers)', weights: {
-        postPosition: 0.700, shoeType: 0.475, sulkyType: 0.500,
-        driverPerformance: 3.000, driverForm: 5.000, trackFamiliarity: 0.300,
-        form: 0.900, distanceAdjustment: 0.800, raceDistanceAdjustment: 1.100,
-        volteStartDistancePenalty: 1.200, startPoints: 0.500,
+        volteStartDistancePenalty: 1.400, startPoints: 0.500,
         placePercentage: 0.600, horseWinPercentage: 0.200, earningsPerStart: 0.100,
         gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
         genderAdjustment: 0.300, consistencyFactor: 0.500, trainerPerformance: 3.000,
       }},
-      { label: 'Explore B (max stats)', weights: {
-        postPosition: 0.700, shoeType: 0.475, sulkyType: 0.500,
-        driverPerformance: 1.000, driverForm: 2.000, trackFamiliarity: 0.300,
+      // V10-style layout (was best before fix) — let optimizer re-tune from old best
+      { label: 'V10-style', weights: {
+        postPosition: 0.900, shoeType: 0.275, sulkyType: 0.500,
+        driverPerformance: 3.000, driverForm: 5.000, trackFamiliarity: 0.100,
         form: 0.900, distanceAdjustment: 0.800, raceDistanceAdjustment: 1.100,
-        volteStartDistancePenalty: 1.200, startPoints: 1.500,
-        placePercentage: 1.500, horseWinPercentage: 1.500, earningsPerStart: 1.500,
-        gallopRisk: 2.000, layoffPenalty: 2.000, ageFactor: 2.000,
-        genderAdjustment: 1.500, consistencyFactor: 2.000, trainerPerformance: 0.700,
+        volteStartDistancePenalty: 1.400, startPoints: 0.500,
+        placePercentage: 0.600, horseWinPercentage: 0.200, earningsPerStart: 0.100,
+        gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
+        genderAdjustment: 0.300, consistencyFactor: 0.500, trainerPerformance: 3.000,
+      }},
+      // Balanced — moderate all signals, let optimizer find its own direction
+      { label: 'Balanced', weights: {
+        postPosition: 0.800, shoeType: 0.400, sulkyType: 0.500,
+        driverPerformance: 1.500, driverForm: 3.000, trackFamiliarity: 0.100,
+        form: 1.000, distanceAdjustment: 1.000, raceDistanceAdjustment: 1.200,
+        volteStartDistancePenalty: 1.200, startPoints: 0.700,
+        placePercentage: 0.800, horseWinPercentage: 0.400, earningsPerStart: 0.200,
+        gallopRisk: 0.700, layoffPenalty: 0.700, ageFactor: 0.500,
+        genderAdjustment: 0.400, consistencyFactor: 0.500, trainerPerformance: 1.500,
+      }},
+      // Max stats — push frozen signals (gallopRisk, age, consistency) to ceiling
+      { label: 'MaxStats', weights: {
+        postPosition: 0.700, shoeType: 0.275, sulkyType: 0.500,
+        driverPerformance: 1.200, driverForm: 2.000, trackFamiliarity: 0.000,
+        form: 1.100, distanceAdjustment: 1.000, raceDistanceAdjustment: 1.300,
+        volteStartDistancePenalty: 1.000, startPoints: 2.000,
+        placePercentage: 2.000, horseWinPercentage: 2.000, earningsPerStart: 1.500,
+        gallopRisk: 3.000, layoffPenalty: 2.000, ageFactor: 2.000,
+        genderAdjustment: 1.500, consistencyFactor: 2.000, trainerPerformance: 2.000,
       }},
       { label: 'Current', weights: currentWeights },
     ];
