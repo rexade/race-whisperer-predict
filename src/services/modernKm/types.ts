@@ -107,9 +107,8 @@ export interface NormalizationWeights {
   trainerPerformance?: number;
 }
 
-// Balanced weights — v16 (2026-04-27) — Win 41.3%, MRR 0.563
-// SA breakthrough — first result above 40%. New record MRR.
-// SA found: postPosition↑1.494, volteStart↑1.600, distance↑1.600, driverEmpirical↑1.5, trackFamiliarity↑0.2
+// Balanced weights — v17 (2026-04-27) — Win 42.0%, MRR 0.567
+// trackFamiliarity↑0.4, startPoints↑0.9 — SA keeps climbing
 export const DEFAULT_WEIGHTS: NormalizationWeights = {
   postPosition: 1.494,
   shoeType: 0.000,
@@ -117,15 +116,15 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   driverPerformance: 1.116,
   driverForm: 1.600,
   driverEmpirical: 1.500,
-  trackFamiliarity: 0.200,
+  trackFamiliarity: 0.400,
   form: 1.006,
   distanceAdjustment: 1.600,
   raceDistanceAdjustment: 0.700,
   volteStartDistancePenalty: 1.600,
-  startPoints: 0.700,
+  startPoints: 0.900,
   placePercentage: 0.530,
   horseWinPercentage: 0.400,
-  earningsPerStart: 0.300,
+  earningsPerStart: 0.275,
   gallopRisk: 0.500,
   layoffPenalty: 0.600,
   ageFactor: 0.305,
