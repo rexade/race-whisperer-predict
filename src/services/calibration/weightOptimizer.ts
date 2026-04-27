@@ -35,8 +35,8 @@ export interface OptimizationResult {
 }
 
 const MIN_WEIGHT_STEP = 0.02;
-const MAX_PASSES = 14;
-const WEIGHT_BOUNDS: [number, number] = [0.0, 3.0];
+const MAX_PASSES = 20;
+const WEIGHT_BOUNDS: [number, number] = [0.0, 5.0];
 
 const MIN_CURVE_STEP = 0.01;
 const CURVE_BOUNDS: [number, number] = [-1.5, 1.5];
@@ -111,7 +111,7 @@ export async function optimizeWeights(
   let bestCurves = startCurves;
   let bestMAE = initialMAE;
 
-  let weightStep = 0.1;
+  let weightStep = 0.2;
   let curveStep = 0.05;
   let pass = 0;
 
