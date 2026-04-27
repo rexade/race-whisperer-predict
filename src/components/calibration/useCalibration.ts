@@ -244,62 +244,62 @@ export function useCalibration() {
     if (!dataset) return;
     const testDataset = testDatasetRef.current ?? state.testDataset ?? undefined;
 
-    // V21-based starting configurations
+    // V22-based starting configurations — L2-regularized, moderate weights
     const starts: Array<{ label: string; weights: NormalizationWeights }> = [
-      // V21: current best (41.3%, trainer confirmed, driver/layoff dominate)
-      { label: 'V21', weights: {
-        postPosition: 1.597, shoeType: 2.608, sulkyType: 0.483,
-        driverPerformance: 5.125, driverForm: 0.258, driverEmpirical: 3.438,
-        trackFamiliarity: 0.721, form: 1.892, distanceAdjustment: 1.581,
-        raceDistanceAdjustment: 2.447, volteStartDistancePenalty: 1.901,
-        startPoints: 4.098, placePercentage: 0.200, horseWinPercentage: 1.047,
-        earningsPerStart: 1.848, gallopRisk: 0.000, layoffPenalty: 6.609,
-        ageFactor: 2.515, genderAdjustment: 1.111, consistencyFactor: 1.998,
-        trainerPerformance: 3.000,
+      // V22: current best (TEST 31.6%, moderate weights)
+      { label: 'V22', weights: {
+        postPosition: 1.757, shoeType: 0.000, sulkyType: 0.447,
+        driverPerformance: 3.470, driverForm: 0.395, driverEmpirical: 0.000,
+        trackFamiliarity: 0.393, form: 3.655, distanceAdjustment: 0.838,
+        raceDistanceAdjustment: 2.857, volteStartDistancePenalty: 1.237,
+        startPoints: 2.162, placePercentage: 0.200, horseWinPercentage: 0.540,
+        earningsPerStart: 2.205, gallopRisk: 0.000, layoffPenalty: 1.938,
+        ageFactor: 0.000, genderAdjustment: 2.225, consistencyFactor: 1.777,
+        trainerPerformance: 2.443,
       }},
-      // V21+Gallop: gallopRisk still zero — test if it contributes on clean data
-      { label: 'V21+Gallop', weights: {
-        postPosition: 1.597, shoeType: 2.608, sulkyType: 0.483,
-        driverPerformance: 5.125, driverForm: 0.258, driverEmpirical: 3.438,
-        trackFamiliarity: 0.721, form: 1.892, distanceAdjustment: 1.581,
-        raceDistanceAdjustment: 2.447, volteStartDistancePenalty: 1.901,
-        startPoints: 4.098, placePercentage: 0.200, horseWinPercentage: 1.047,
-        earningsPerStart: 1.848, gallopRisk: 2.000, layoffPenalty: 6.609,
-        ageFactor: 2.515, genderAdjustment: 1.111, consistencyFactor: 1.998,
-        trainerPerformance: 3.000,
+      // V22+Empirical: driverEmpirical was 0 — test if L2 regime lets it contribute
+      { label: 'V22+Emp', weights: {
+        postPosition: 1.757, shoeType: 0.000, sulkyType: 0.447,
+        driverPerformance: 3.470, driverForm: 0.395, driverEmpirical: 2.000,
+        trackFamiliarity: 0.393, form: 3.655, distanceAdjustment: 0.838,
+        raceDistanceAdjustment: 2.857, volteStartDistancePenalty: 1.237,
+        startPoints: 2.162, placePercentage: 0.200, horseWinPercentage: 0.540,
+        earningsPerStart: 2.205, gallopRisk: 0.000, layoffPenalty: 1.938,
+        ageFactor: 0.000, genderAdjustment: 2.225, consistencyFactor: 1.777,
+        trainerPerformance: 2.443,
       }},
-      // V21+Form: form is still low (1.892) — push and let SA explore
-      { label: 'V21+Form', weights: {
-        postPosition: 1.597, shoeType: 2.608, sulkyType: 0.483,
-        driverPerformance: 5.125, driverForm: 0.258, driverEmpirical: 3.438,
-        trackFamiliarity: 0.721, form: 3.500, distanceAdjustment: 1.581,
-        raceDistanceAdjustment: 2.447, volteStartDistancePenalty: 1.901,
-        startPoints: 4.098, placePercentage: 0.200, horseWinPercentage: 1.047,
-        earningsPerStart: 1.848, gallopRisk: 0.000, layoffPenalty: 6.609,
-        ageFactor: 2.515, genderAdjustment: 1.111, consistencyFactor: 1.998,
-        trainerPerformance: 3.000,
+      // V22+Age: ageFactor was 0 — test if it generalizes under L2
+      { label: 'V22+Age', weights: {
+        postPosition: 1.757, shoeType: 0.000, sulkyType: 0.447,
+        driverPerformance: 3.470, driverForm: 0.395, driverEmpirical: 0.000,
+        trackFamiliarity: 0.393, form: 3.655, distanceAdjustment: 0.838,
+        raceDistanceAdjustment: 2.857, volteStartDistancePenalty: 1.237,
+        startPoints: 2.162, placePercentage: 0.200, horseWinPercentage: 0.540,
+        earningsPerStart: 2.205, gallopRisk: 0.000, layoffPenalty: 1.938,
+        ageFactor: 2.000, genderAdjustment: 2.225, consistencyFactor: 1.777,
+        trainerPerformance: 2.443,
       }},
-      // V21+LessDriver: driverPerformance 5.125 is extreme — test if it's overfit
-      { label: 'V21+LessDriver', weights: {
-        postPosition: 1.597, shoeType: 2.608, sulkyType: 0.483,
-        driverPerformance: 2.500, driverForm: 1.000, driverEmpirical: 2.000,
-        trackFamiliarity: 0.721, form: 2.500, distanceAdjustment: 1.581,
-        raceDistanceAdjustment: 2.447, volteStartDistancePenalty: 1.901,
-        startPoints: 4.098, placePercentage: 0.200, horseWinPercentage: 1.047,
-        earningsPerStart: 1.848, gallopRisk: 0.000, layoffPenalty: 6.609,
-        ageFactor: 2.515, genderAdjustment: 1.111, consistencyFactor: 1.998,
-        trainerPerformance: 3.000,
+      // V22+Even: all non-zero weights pulled to ~2.0 — very even starting point
+      { label: 'V22+Even', weights: {
+        postPosition: 2.000, shoeType: 0.000, sulkyType: 0.500,
+        driverPerformance: 2.000, driverForm: 0.500, driverEmpirical: 0.000,
+        trackFamiliarity: 0.500, form: 2.000, distanceAdjustment: 1.000,
+        raceDistanceAdjustment: 2.000, volteStartDistancePenalty: 1.500,
+        startPoints: 2.000, placePercentage: 0.500, horseWinPercentage: 0.500,
+        earningsPerStart: 2.000, gallopRisk: 0.000, layoffPenalty: 2.000,
+        ageFactor: 0.000, genderAdjustment: 2.000, consistencyFactor: 2.000,
+        trainerPerformance: 2.000,
       }},
-      // V21+LessLayoff: layoffPenalty 6.609 is extreme — test if it's overfit
-      { label: 'V21+LessLayoff', weights: {
-        postPosition: 1.597, shoeType: 2.608, sulkyType: 0.483,
-        driverPerformance: 5.125, driverForm: 0.258, driverEmpirical: 3.438,
-        trackFamiliarity: 0.721, form: 1.892, distanceAdjustment: 1.581,
-        raceDistanceAdjustment: 2.447, volteStartDistancePenalty: 1.901,
-        startPoints: 4.098, placePercentage: 0.200, horseWinPercentage: 1.047,
-        earningsPerStart: 1.848, gallopRisk: 0.000, layoffPenalty: 2.500,
-        ageFactor: 2.515, genderAdjustment: 1.111, consistencyFactor: 1.998,
-        trainerPerformance: 3.000,
+      // V22+Gallop: gallopRisk was 0 in V22 — test with it on
+      { label: 'V22+Gallop', weights: {
+        postPosition: 1.757, shoeType: 0.000, sulkyType: 0.447,
+        driverPerformance: 3.470, driverForm: 0.395, driverEmpirical: 0.000,
+        trackFamiliarity: 0.393, form: 3.655, distanceAdjustment: 0.838,
+        raceDistanceAdjustment: 2.857, volteStartDistancePenalty: 1.237,
+        startPoints: 2.162, placePercentage: 0.200, horseWinPercentage: 0.540,
+        earningsPerStart: 2.205, gallopRisk: 2.000, layoffPenalty: 1.938,
+        ageFactor: 0.000, genderAdjustment: 2.225, consistencyFactor: 1.777,
+        trainerPerformance: 2.443,
       }},
       { label: 'Current', weights: currentWeights },
     ];

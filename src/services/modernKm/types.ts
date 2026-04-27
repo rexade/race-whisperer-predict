@@ -107,29 +107,30 @@ export interface NormalizationWeights {
   trainerPerformance?: number;
 }
 
-// Balanced weights — v21 (2026-04-27) — Win 41.3%, MRR 0.560
-// V20+Trainer start won. trainerPerformance 0.616→3.000 confirmed useful.
-// sulkyType 1.105→0.483, startPoints 3.898→4.098, distanceAdjustment 1.381→1.581.
+// Balanced weights — v22 (2026-04-27) — Train 38.2%, TEST 31.6% (truth), MRR 0.558
+// First L2-regularized result. 6-month data, held-out 1-month test set.
+// Moderate weights (max 3.655), no overfit extremes. form 3.655, driverPerf 3.470,
+// raceDistAdj 2.857, trainerPerf 2.443, genderAdj 2.225, earningsPerStart 2.205.
 export const DEFAULT_WEIGHTS: NormalizationWeights = {
-  postPosition: 1.597,
-  shoeType: 2.608,
-  sulkyType: 0.483,
-  driverPerformance: 5.125,
-  driverForm: 0.258,
-  driverEmpirical: 3.438,
-  trackFamiliarity: 0.721,
-  form: 1.892,
-  distanceAdjustment: 1.581,
-  raceDistanceAdjustment: 2.447,
-  volteStartDistancePenalty: 1.901,
-  startPoints: 4.098,
+  postPosition: 1.757,
+  shoeType: 0.000,
+  sulkyType: 0.447,
+  driverPerformance: 3.470,
+  driverForm: 0.395,
+  driverEmpirical: 0.000,
+  trackFamiliarity: 0.393,
+  form: 3.655,
+  distanceAdjustment: 0.838,
+  raceDistanceAdjustment: 2.857,
+  volteStartDistancePenalty: 1.237,
+  startPoints: 2.162,
   placePercentage: 0.200,
-  horseWinPercentage: 1.047,
-  earningsPerStart: 1.848,
+  horseWinPercentage: 0.540,
+  earningsPerStart: 2.205,
   gallopRisk: 0.000,
-  layoffPenalty: 6.609,
-  ageFactor: 2.515,
-  genderAdjustment: 1.111,
-  consistencyFactor: 1.998,
-  trainerPerformance: 3.000,
+  layoffPenalty: 1.938,
+  ageFactor: 0.000,
+  genderAdjustment: 2.225,
+  consistencyFactor: 1.777,
+  trainerPerformance: 2.443,
 };
