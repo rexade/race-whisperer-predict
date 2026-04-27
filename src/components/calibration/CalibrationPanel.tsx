@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart2, Play, Zap, Shuffle, Check, AlertCircle, Loader2, RefreshCw, Copy, ClipboardCheck } from 'lucide-react';
+import { BarChart2, Play, Zap, Shuffle, Check, AlertCircle, Loader2, RefreshCw, Copy, ClipboardCheck, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NormalizationWeights } from '@/services/modernKm/types';
 import { PostPositionCurves } from '@/services/modernKm/index';
@@ -109,6 +109,25 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
     acceptResult();
   };
 
+  const handleDownloadDataset = () => {
+    if (!state.dataset) return;
+    // Convert Maps to plain objects for JSON serialization
+    const serializable = state.dataset.map(dateData => ({
+      ...dateData,
+      races: dateData.races.map(race => ({
+        ...race,
+        actualResults: Object.fromEntries(race.actualResults),
+      })),
+    }));
+    const json = JSON.stringify(serializable, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `calibration-dataset-${monthsBack}mo.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   const autoCurveChanges = (hasResult && postPositionCurves && state.optimizationResult?.optimizedCurves)
     ? curveChanges(postPositionCurves.auto, state.optimizationResult.optimizedCurves.auto)
     : [];
@@ -186,6 +205,19 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Refresh
+          </Button>
+        )}
+
+        {hasDataset && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={handleDownloadDataset}
+            title="Download dataset as JSON for offline analysis"
+            className="h-8 gap-1.5 text-muted-foreground"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Download
           </Button>
         )}
 
