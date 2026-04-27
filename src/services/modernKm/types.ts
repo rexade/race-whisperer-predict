@@ -111,7 +111,7 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   sulkyType: 0.500,
   driverPerformance: 1.200,
   driverForm: 2.000,
-  trackFamiliarity: 0.100,
+  trackFamiliarity: 0.000,
   form: 0.900,
   distanceAdjustment: 1.000,
   raceDistanceAdjustment: 1.100,
