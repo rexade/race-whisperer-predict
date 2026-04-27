@@ -40,7 +40,7 @@ export interface OptimizationResult {
 
 const MIN_WEIGHT_STEP = 0.02;
 const MAX_PASSES = 20;
-const WEIGHT_BOUNDS: [number, number] = [0.0, 10.0];
+const WEIGHT_BOUNDS: [number, number] = [0.0, 5.0];  // capped to prevent overfitting
 
 // Simulated annealing constants
 const SA_STEPS = 400;        // exploration steps before handing off to CD
@@ -49,6 +49,29 @@ const SA_T_END   = 0.003;    // final temperature (essentially greedy)
 
 const MIN_CURVE_STEP = 0.01;
 const CURVE_BOUNDS: [number, number] = [-1.5, 1.5];
+
+// L2 regularization — penalizes extreme weights to prevent overfitting.
+// λ is tuned so a weight of ~3.0 is "comfortable" and anything above ~5.0
+// gets a noticeable penalty.  At λ=0.0008, a weight of 6.0 adds 0.029 to
+// the negative score (equivalent to ~0.03 MRR loss).
+const L2_LAMBDA = 0.0008;
+
+/** L2 penalty: λ × Σ(w²) over all weight keys. */
+function l2Penalty(w: NormalizationWeights): number {
+  let sum = 0;
+  for (const key of WEIGHT_KEYS) sum += (w[key] ?? 0) ** 2;
+  return L2_LAMBDA * sum;
+}
+
+/** Regularized score: lower is better (negative MRR + L2 penalty). */
+async function regScore(
+  dataset: CalibrationDataset,
+  weights: NormalizationWeights,
+  curves: PostPositionCurves
+): Promise<number> {
+  const eval_ = await evaluateWeights(dataset, weights, curves);
+  return -eval_.winnerMRR + l2Penalty(weights);
+}
 
 const WEIGHT_KEYS: (keyof NormalizationWeights)[] = [
   'postPosition',
@@ -105,7 +128,7 @@ async function runSAPhase(
   onProgress?: (p: OptimizationProgress) => void
 ): Promise<{ weights: NormalizationWeights; score: number }> {
   let curr = copyWeights(initial);
-  let currScore = -(await evaluateWeights(dataset, curr, curves)).winnerMRR;
+  let currScore = await regScore(dataset, curr, curves);
   let best = copyWeights(curr);
   let bestScore = currScore;
   let T = SA_T_START;
@@ -122,7 +145,7 @@ async function runSAPhase(
 
     if (Math.abs(candidate[key] - (curr[key] ?? 0)) < 0.001) continue;
 
-    const score = -(await evaluateWeights(dataset, candidate, curves)).winnerMRR;
+    const score = await regScore(dataset, candidate, curves);
     const diff = score - currScore; // positive = worse
 
     // Accept if better, or probabilistically if worse
@@ -178,13 +201,11 @@ export async function optimizeWeights(
     : { auto: { ...DEFAULT_AUTO_CURVE }, volte: { ...DEFAULT_VOLTE_CURVE } };
 
   const initialEval = await evaluateWeights(dataset, initial, startCurves);
-  // Optimise for Mean Reciprocal Rank of the actual winner.
+  // Optimise for Mean Reciprocal Rank + L2 regularization penalty.
   // MRR = mean(1/rank_given_to_winner). Range 0–1, higher is better.
-  // Rank 1 → 1.0, rank 2 → 0.5, rank 3 → 0.33 …
-  // The jump from rank 2→1 (+0.5) is 10× larger than rank 5→4 (+0.05),
-  // so coordinate descent is strongly pulled toward getting winners to #1.
-  // Store as negative so existing "lower is better" comparisons still work.
-  const initialMAE = -initialEval.winnerMRR;
+  // L2 penalty discourages extreme weights to prevent overfitting.
+  // Score = -MRR + λΣw² (lower is better).
+  const initialMAE = await regScore(dataset, initial, startCurves);
 
   // Phase 0: Simulated annealing — explore broadly before refining
   onProgress?.({
@@ -208,7 +229,7 @@ export async function optimizeWeights(
     pass++;
     let improved = false;
 
-    // --- Phase A: optimize the 13 NormalizationWeights ---
+    // --- Phase A: optimize the 21 NormalizationWeights ---
     if (weightStep >= MIN_WEIGHT_STEP) {
       for (const key of WEIGHT_KEYS) {
         for (const dir of [+weightStep, -weightStep]) {
@@ -216,9 +237,9 @@ export async function optimizeWeights(
           candidate[key] = clamp(bestWeights[key] + dir, WEIGHT_BOUNDS[0], WEIGHT_BOUNDS[1]);
           if (candidate[key] === bestWeights[key]) continue;
 
-          const eval_ = await evaluateWeights(dataset, candidate, bestCurves);
-          if (-eval_.winnerMRR < bestMAE) {
-            bestMAE = -eval_.winnerMRR;
+          const score = await regScore(dataset, candidate, bestCurves);
+          if (score < bestMAE) {
+            bestMAE = score;
             bestWeights = candidate;
             improved = true;
             break;
@@ -247,9 +268,9 @@ export async function optimizeWeights(
             if (Math.abs(newVal - current) < 0.001) continue;
             candidate[startType][pos] = newVal;
 
-            const eval_ = await evaluateWeights(dataset, bestWeights, candidate);
-            if (-eval_.winnerMRR < bestMAE) {
-              bestMAE = -eval_.winnerMRR;
+            const score = await regScore(dataset, bestWeights, candidate);
+            if (score < bestMAE) {
+              bestMAE = score;
               bestCurves = candidate;
               improved = true;
               break;
