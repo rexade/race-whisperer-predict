@@ -204,57 +204,57 @@ export function useCalibration() {
     const dataset = datasetRef.current ?? state.dataset;
     if (!dataset) return;
 
-    // Diverse starting configurations — post-driverForm-fix, covers new signal space
+    // V15-based starting configurations — all tuned for driverEmpirical active
     const starts: Array<{ label: string; weights: NormalizationWeights }> = [
-      // V12: best post-fix result (40.0%, real driverForm)
-      { label: 'V12', weights: {
-        postPosition: 1.100, shoeType: 0.275, sulkyType: 0.500,
-        driverPerformance: 1.200, driverForm: 1.800, trackFamiliarity: 0.000,
-        form: 0.900, distanceAdjustment: 1.200, raceDistanceAdjustment: 0.700,
+      // V15: current best (40.0%, driverEmpirical=1.0)
+      { label: 'V15', weights: {
+        postPosition: 1.300, shoeType: 0.075, sulkyType: 0.300,
+        driverPerformance: 1.000, driverForm: 1.600, trackFamiliarity: 0.000,
+        form: 0.900, distanceAdjustment: 1.400, raceDistanceAdjustment: 0.700,
         volteStartDistancePenalty: 1.000, startPoints: 0.500,
-        placePercentage: 0.800, horseWinPercentage: 0.200, earningsPerStart: 0.100,
+        placePercentage: 1.000, horseWinPercentage: 0.200, earningsPerStart: 0.100,
         gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
-        genderAdjustment: 0.000, consistencyFactor: 0.500, driverEmpirical: 1.000, trainerPerformance: 0.700,
+        genderAdjustment: 0.100, consistencyFactor: 0.500, driverEmpirical: 1.000, trainerPerformance: 0.700,
       }},
-      // Push both driver signals high — explores new ceiling (10.0) for driverForm
-      { label: 'MaxDrivers', weights: {
-        postPosition: 0.700, shoeType: 0.275, sulkyType: 0.500,
-        driverPerformance: 4.000, driverForm: 8.000, trackFamiliarity: 0.000,
-        form: 0.900, distanceAdjustment: 0.800, raceDistanceAdjustment: 1.100,
-        volteStartDistancePenalty: 1.400, startPoints: 0.500,
-        placePercentage: 0.600, horseWinPercentage: 0.200, earningsPerStart: 0.100,
+      // HighEmpirical: push driverEmpirical and reduce driverForm — test if empirical dominates
+      { label: 'HighEmpirical', weights: {
+        postPosition: 1.200, shoeType: 0.000, sulkyType: 0.400,
+        driverPerformance: 0.800, driverForm: 0.800, trackFamiliarity: 0.000,
+        form: 1.000, distanceAdjustment: 1.400, raceDistanceAdjustment: 0.700,
+        volteStartDistancePenalty: 1.000, startPoints: 0.600,
+        placePercentage: 1.000, horseWinPercentage: 0.200, earningsPerStart: 0.100,
         gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
-        genderAdjustment: 0.300, consistencyFactor: 0.500, driverEmpirical: 1.000, trainerPerformance: 3.000,
+        genderAdjustment: 0.100, consistencyFactor: 0.500, driverEmpirical: 3.000, trainerPerformance: 0.700,
       }},
-      // V10-style layout (was best before fix) — let optimizer re-tune from old best
-      { label: 'V10-style', weights: {
-        postPosition: 0.900, shoeType: 0.275, sulkyType: 0.500,
-        driverPerformance: 3.000, driverForm: 5.000, trackFamiliarity: 0.100,
-        form: 0.900, distanceAdjustment: 0.800, raceDistanceAdjustment: 1.100,
-        volteStartDistancePenalty: 1.400, startPoints: 0.500,
-        placePercentage: 0.600, horseWinPercentage: 0.200, earningsPerStart: 0.100,
-        gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
-        genderAdjustment: 0.300, consistencyFactor: 0.500, driverEmpirical: 1.000, trainerPerformance: 3.000,
+      // StrongHorse: boost horse form signals, reduce driver — what if horse matters more?
+      { label: 'StrongHorse', weights: {
+        postPosition: 1.000, shoeType: 0.000, sulkyType: 0.400,
+        driverPerformance: 0.600, driverForm: 1.200, trackFamiliarity: 0.000,
+        form: 2.000, distanceAdjustment: 1.200, raceDistanceAdjustment: 0.800,
+        volteStartDistancePenalty: 1.200, startPoints: 1.500,
+        placePercentage: 1.500, horseWinPercentage: 0.800, earningsPerStart: 0.400,
+        gallopRisk: 1.000, layoffPenalty: 1.000, ageFactor: 0.800,
+        genderAdjustment: 0.200, consistencyFactor: 1.000, driverEmpirical: 1.500, trainerPerformance: 1.200,
       }},
-      // Balanced — moderate all signals, let optimizer find its own direction
-      { label: 'Balanced', weights: {
-        postPosition: 0.800, shoeType: 0.400, sulkyType: 0.500,
-        driverPerformance: 1.500, driverForm: 3.000, trackFamiliarity: 0.100,
-        form: 1.000, distanceAdjustment: 1.000, raceDistanceAdjustment: 1.200,
+      // V14-style: V14 weights but with driverEmpirical on — compare direct
+      { label: 'V14+Emp', weights: {
+        postPosition: 1.100, shoeType: 0.000, sulkyType: 0.300,
+        driverPerformance: 1.200, driverForm: 1.600, trackFamiliarity: 0.000,
+        form: 1.100, distanceAdjustment: 1.200, raceDistanceAdjustment: 0.700,
         volteStartDistancePenalty: 1.200, startPoints: 0.700,
-        placePercentage: 0.800, horseWinPercentage: 0.400, earningsPerStart: 0.200,
-        gallopRisk: 0.700, layoffPenalty: 0.700, ageFactor: 0.500,
-        genderAdjustment: 0.400, consistencyFactor: 0.500, driverEmpirical: 1.000, trainerPerformance: 1.500,
+        placePercentage: 1.000, horseWinPercentage: 0.200, earningsPerStart: 0.300,
+        gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
+        genderAdjustment: 0.000, consistencyFactor: 0.500, driverEmpirical: 1.500, trainerPerformance: 0.700,
       }},
-      // Max stats — push frozen signals (gallopRisk, age, consistency) to ceiling
-      { label: 'MaxStats', weights: {
-        postPosition: 0.700, shoeType: 0.275, sulkyType: 0.500,
-        driverPerformance: 1.200, driverForm: 2.000, trackFamiliarity: 0.000,
-        form: 1.100, distanceAdjustment: 1.000, raceDistanceAdjustment: 1.300,
-        volteStartDistancePenalty: 1.000, startPoints: 2.000,
-        placePercentage: 2.000, horseWinPercentage: 2.000, earningsPerStart: 1.500,
-        gallopRisk: 3.000, layoffPenalty: 2.000, ageFactor: 2.000,
-        genderAdjustment: 1.500, consistencyFactor: 2.000, driverEmpirical: 1.000, trainerPerformance: 2.000,
+      // HighTrainer: trainer signal pushed to ceiling — is it being underweighted?
+      { label: 'HighTrainer', weights: {
+        postPosition: 1.200, shoeType: 0.000, sulkyType: 0.300,
+        driverPerformance: 1.000, driverForm: 1.400, trackFamiliarity: 0.000,
+        form: 1.000, distanceAdjustment: 1.400, raceDistanceAdjustment: 0.700,
+        volteStartDistancePenalty: 1.000, startPoints: 0.600,
+        placePercentage: 1.000, horseWinPercentage: 0.200, earningsPerStart: 0.200,
+        gallopRisk: 0.500, layoffPenalty: 0.600, ageFactor: 0.500,
+        genderAdjustment: 0.100, consistencyFactor: 0.500, driverEmpirical: 1.000, trainerPerformance: 3.000,
       }},
       { label: 'Current', weights: currentWeights },
     ];
@@ -263,6 +263,8 @@ export function useCalibration() {
 
     let bestResult: OptimizationResult | null = null;
     let bestWin = -Infinity;
+    // Per-run summary for copy-paste — tracks each run's final win% and MRR
+    const runSummary: string[] = [];
 
     for (let i = 0; i < starts.length; i++) {
       const { label, weights } = starts[i];
@@ -288,12 +290,23 @@ export function useCalibration() {
         );
 
         const winRate = result.finalEvaluation.winAccuracy;
-        if (winRate > bestWin) {
+        const mrr = result.finalMAE;
+        // Record this run — flag as best if it leads
+        const isBest = winRate > bestWin;
+        runSummary.push(
+          `${isBest ? '★' : ' '} ${label.padEnd(14)} Win=${( winRate * 100).toFixed(1)}%  MRR=${mrr.toFixed(3)}`
+        );
+        if (isBest) {
           bestWin = winRate;
           bestResult = result;
+          // Re-mark previous best entry (remove its ★ since a new best was found)
+          for (let j = 0; j < runSummary.length - 1; j++) {
+            runSummary[j] = runSummary[j].replace(/^★/, ' ');
+          }
+          runSummary[runSummary.length - 1] = `★ ${label.padEnd(14)} Win=${(winRate * 100).toFixed(1)}%  MRR=${mrr.toFixed(3)}`;
         }
       } catch (err) {
-        // Skip failed runs — log but continue
+        runSummary.push(`  ${label.padEnd(14)} FAILED`);
         console.warn(`Multi-start run ${i + 1} (${label}) failed:`, err);
       }
     }
@@ -303,10 +316,11 @@ export function useCalibration() {
       return;
     }
 
+    const runTable = runSummary.join('\n');
     updateState({
       phase: 'done',
       optimizationResult: bestResult,
-      progressMessage: `Multi-start done · ${starts.length} runs · Best Win: ${(bestWin * 100).toFixed(1)}% · MRR: ${bestResult.finalMAE.toFixed(3)}`,
+      progressMessage: `Multi-start done · Best Win: ${(bestWin * 100).toFixed(1)}% · MRR: ${bestResult.finalMAE.toFixed(3)}\n\n${runTable}`,
       progressFraction: 1,
     });
   }, [state.dataset]);

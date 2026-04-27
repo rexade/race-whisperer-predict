@@ -39,6 +39,14 @@ export function useAnalysisWorker() {
         };
 
         w.onerror = (err) => {
+            // Stale chunk after deploy → auto-reload once (sessionStorage guard)
+            const RELOAD_KEY = 'analysisWorkerReloadAt';
+            const last = Number(sessionStorage.getItem(RELOAD_KEY) ?? 0);
+            if (Date.now() - last > 15_000) {
+                sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+                window.location.reload();
+                return;
+            }
             // Reject everything pending
             for (const [, p] of pendingRef.current) p.reject(err);
             pendingRef.current.clear();
