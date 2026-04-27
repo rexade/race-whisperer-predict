@@ -297,6 +297,29 @@ export const calculateConsistencyAdjustment = (consistencyScore: number): number
   return adj;
 };
 
+/**
+ * Odds → time adjustment (seconds).
+ *
+ * Maps historical or live odds to a time bonus/penalty using a sigmoid curve.
+ * Lower odds (strong favorite) = faster predicted time.
+ *
+ *   Odds 2–4  (strong favorite):  −0.3s to −0.1s bonus
+ *   Odds 5–10 (mid-field):        roughly neutral
+ *   Odds 15+  (outsider):         +0.1s to +0.3s penalty
+ *
+ * Uses tanh centered around odds=8 (neutral point).
+ */
+const ODDS_NEUTRAL = 8;
+const ODDS_SCALE = 6;
+const ODDS_MAX_S = 0.30;
+
+export const calculateOddsAdjustment = (odds: number): number => {
+  if (!Number.isFinite(odds) || odds <= 0) return 0;
+  const adj = ODDS_MAX_S * Math.tanh((odds - ODDS_NEUTRAL) / ODDS_SCALE);
+  log.debug(`[odds] ${odds.toFixed(1)} → ${adj >= 0 ? '+' : ''}${adj.toFixed(3)}s`);
+  return adj;
+};
+
 export const calculateGallopRiskAdjustment = (gallopRate: number): number => {
   if (!Number.isFinite(gallopRate) || gallopRate <= 0) return 0;
   const rate = Math.max(0, Math.min(1, gallopRate));

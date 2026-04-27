@@ -34,6 +34,8 @@ export const processHorseKmTimes = async (
     dataSource: 'recent' | 'fallback';
     oldestRecordDate?: string;
     newestRecordDate?: string;
+    averageHistoricalOdds?: number;
+    lastOdds?: number;
   }
 ): Promise<HorseRawKmTime> => {
   let processedTimes: ProcessedKmTime[] = [];
@@ -275,6 +277,8 @@ export const processHorseKmTimes = async (
     gallopDates,
     disqualificationCount,
     lastRaceDate: lastRaceDate ?? undefined,
+    averageOdds: metadata?.averageHistoricalOdds,
+    lastOdds: metadata?.lastOdds,
     consistencyScore: (() => {
       const finishes = processedTimes
         .filter(t => t.finishOrder !== undefined && t.finishOrder > 0)

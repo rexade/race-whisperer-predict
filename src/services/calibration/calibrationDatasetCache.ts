@@ -27,6 +27,19 @@ interface SerializedHorseRawKmTime {
   rawBestTime: any;
   validTimesCount: number;
   dataSource: string;
+  gallopRate?: number;
+  gallopCount?: number;
+  gallopDates?: string[];
+  lastRaceDate?: string;
+  consistencyScore?: number;
+  disqualificationCount?: number;
+  confidenceMultiplier?: number;
+  usedStatisticsFallback?: boolean;
+  usedExtendedFallback?: boolean;
+  averageOdds?: number;
+  lastOdds?: number;
+  horseAge?: number;
+  dataSourceChain?: string;
 }
 
 interface SerializedRaceCalibrationData {
@@ -60,6 +73,19 @@ function serializeRawKmTime(rt: HorseRawKmTime): SerializedHorseRawKmTime {
     rawBestTime: rt.rawBestTime,
     validTimesCount: rt.validTimesCount,
     dataSource: rt.dataSource ?? 'recent',
+    gallopRate: rt.gallopRate,
+    gallopCount: rt.gallopCount,
+    gallopDates: rt.gallopDates,
+    lastRaceDate: rt.lastRaceDate,
+    consistencyScore: rt.consistencyScore,
+    disqualificationCount: rt.disqualificationCount,
+    confidenceMultiplier: rt.confidenceMultiplier,
+    usedStatisticsFallback: rt.usedStatisticsFallback,
+    usedExtendedFallback: rt.usedExtendedFallback,
+    averageOdds: rt.averageOdds,
+    lastOdds: rt.lastOdds,
+    horseAge: rt.horseAge,
+    dataSourceChain: rt.dataSourceChain,
   };
 }
 
@@ -73,6 +99,19 @@ function deserializeRawKmTime(s: SerializedHorseRawKmTime): HorseRawKmTime {
     allTimes: [], // stripped for storage — matches V75CacheService getRawTimes behavior
     dataSource: s.dataSource as 'recent' | 'fallback',
     isNotifiee: false,
+    gallopRate: s.gallopRate,
+    gallopCount: s.gallopCount,
+    gallopDates: s.gallopDates,
+    lastRaceDate: s.lastRaceDate,
+    consistencyScore: s.consistencyScore,
+    disqualificationCount: s.disqualificationCount,
+    confidenceMultiplier: s.confidenceMultiplier,
+    usedStatisticsFallback: s.usedStatisticsFallback,
+    usedExtendedFallback: s.usedExtendedFallback,
+    averageOdds: s.averageOdds,
+    lastOdds: s.lastOdds,
+    horseAge: s.horseAge,
+    dataSourceChain: s.dataSourceChain,
   };
 }
 

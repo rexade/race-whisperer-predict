@@ -63,6 +63,8 @@ export interface V75RaceData {
     };
     homeTrack: any; // Keep as any for now due to API inconsistency
     birthYear?: number;
+    /** Direct age from API (more reliable than birthYear which is often 0). */
+    age?: number;
     sex?: string;
     trainer?: {
       firstName: string;
@@ -101,6 +103,8 @@ export interface V75HorseData {
   };
   homeTrack: any; // Keep as any for now due to API inconsistency
   birthYear?: number;
+  /** Direct age from API (more reliable than birthYear which is often 0). */
+  age?: number;
   sex?: string;
   trainer?: {
     firstName: string;
@@ -381,13 +385,16 @@ const extractHorseData = (start: any): V75HorseData => {
     }
   }
 
-  // Enhanced driver statistics extraction
+  // Enhanced driver statistics extraction — year-aware (prefer current year)
+  const currentYear = String(new Date().getFullYear());
   const driverStats = start.driver?.statistics || {};
-  const driver2025Stats = start.driver?.statistics?.years?.['2025'] || {};
+  const driver2025Stats = start.driver?.statistics?.years?.[currentYear]
+    || start.driver?.statistics?.years?.['2025'] || {};
 
   // Trainer statistics extraction (same structure as driver)
   const trainerStats = start.trainer?.statistics || {};
-  const trainer2025Stats = start.trainer?.statistics?.years?.['2025'] || {};
+  const trainer2025Stats = start.trainer?.statistics?.years?.[currentYear]
+    || start.trainer?.statistics?.years?.['2025'] || {};
 
   // Enhanced horse statistics extraction
   const horseLifeStats = start.horse?.statistics?.life || {};
@@ -422,6 +429,7 @@ const extractHorseData = (start: any): V75HorseData => {
     },
     homeTrack: start.horse?.homeTrack || start.horse?.track || 'Unknown',
     birthYear: start.horse?.birthYear || start.horse?.birth_year || 0,
+    age: start.horse?.age || undefined,
     // ATG sex codes: S=sto (mare), H=hingst (stallion), V=valack (gelding)
     sex: start.horse?.sex || start.horse?.gender || '',
     trainer: start.trainer ? {

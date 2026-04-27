@@ -22,6 +22,8 @@ import { saveCalibrationDataset, loadCalibrationDataset, getCalibrationCacheInfo
 export interface ActualHorseResult {
   position: number;
   kmTime?: { minutes: number; seconds: number; tenths: number };
+  /** Closing odds at race finish — used as training signal for odds weight optimization. */
+  finalOdds?: number;
 }
 
 export interface RaceCalibrationData {
@@ -199,6 +201,8 @@ export async function collectCalibrationData(
             actualMap.set(finish.horseId, {
               position: finish.position,
               kmTime: finish.kmTime ?? undefined,
+              finalOdds: finish.finalOdds != null && Number.isFinite(finish.finalOdds)
+                ? finish.finalOdds : undefined,
             });
           }
         }
@@ -222,6 +226,11 @@ export async function collectCalibrationData(
             lastRaceDate: c.lastRaceDate,
             consistencyScore: c.consistencyScore,
             gallopDates: c.gallopDates,
+            // New fields preserved from cache — will be undefined for old cache entries
+            averageOdds: (c as any).averageOdds,
+            lastOdds: (c as any).lastOdds,
+            horseAge: (c as any).horseAge,
+            dataSourceChain: (c as any).dataSourceChain,
           }));
         } else {
           const atgStarts = race.horses.map((horse: any) => ({
@@ -248,6 +257,8 @@ export async function collectCalibrationData(
                 bestTime: rt.rawBestTime ?? rt.bestTime, validTimesCount: rt.validTimesCount,
                 gallopRate: rt.gallopRate, lastRaceDate: rt.lastRaceDate,
                 consistencyScore: rt.consistencyScore, gallopDates: rt.gallopDates,
+                averageOdds: rt.averageOdds, lastOdds: rt.lastOdds,
+                horseAge: rt.horseAge, dataSourceChain: rt.dataSourceChain,
               };
             });
             V75CacheService.storeRawTimes(date, gameInfo.gameId, race.raceId, race.raceNumber, rawTimesForCache).catch(() => {});

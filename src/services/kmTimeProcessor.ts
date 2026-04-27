@@ -294,6 +294,15 @@ export const calculateRawKmTimesForRaceWithId = async (
         metadata
       );
 
+      // Build data source chain for transparency (Part 4)
+      const chainParts: string[] = [];
+      const primaryCount = historicalData?.horse?.results?.records?.length ?? 0;
+      chainParts.push(`records(${primaryCount})`);
+      if (usingStatisticsFallback && !usingExtendedFallback) chainParts.push('stats→used');
+      else if (usingExtendedFallback) chainParts.push('extended→used');
+      else if (primaryCount > 0) chainParts.push('→used');
+      horseRawKmTime.dataSourceChain = chainParts.join('→');
+
       log.debug(`[KmTimeProcessor] processHorseKmTimes result for ${horseName}:`, {
         validTimesCount: horseRawKmTime.validTimesCount,
         bestTime: horseRawKmTime.bestTime,

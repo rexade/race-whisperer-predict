@@ -164,6 +164,7 @@ export const applyHorseNormalization = (
       fieldStartPoints,
       fieldDriverWinRates,
       driverEmpiricalWinRate,
+      averageOdds: rawTimeData?.averageOdds,
     };
 
     const result = applyModernKmNormalization(fallbackTime, factors, weights, postPositionCurves);
@@ -231,6 +232,8 @@ export const applyHorseNormalization = (
     consistencyScore: rawTimeData?.consistencyScore,
     fieldStartPoints,
     fieldDriverWinRates,
+    driverEmpiricalWinRate,
+    averageOdds: rawTimeData?.averageOdds,
   };
 
   const result = applyModernKmNormalization(rawKmTime, factors, weights, postPositionCurves);

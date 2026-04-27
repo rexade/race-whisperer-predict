@@ -225,7 +225,10 @@ export class V75ResultsFetcher {
             'Unknown Driver';
         }
 
-        return { position, horseId, horseName, postPosition, time, kmTime, driver };
+        // Extract closing odds from result (available on completed races)
+        const finalOdds = item.result?.finalOdds ?? item.result?.odds ?? item.pools?.vinnare?.odds ?? undefined;
+
+        return { position, horseId, horseName, postPosition, time, kmTime, driver, finalOdds };
       })
       .filter((result: any) => result.position && result.position > 0)
       .sort((a: any, b: any) => a.position - b.position);

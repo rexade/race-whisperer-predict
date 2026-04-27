@@ -49,6 +49,15 @@ export interface HorseRawKmTime {
   gallopDates?: string[];
   /** Number of disqualified races in the last 10 historical starts. */
   disqualificationCount?: number;
+  /** Mean historical odds across recent starts (market strength signal). */
+  averageOdds?: number;
+  /** Most recent race odds. */
+  lastOdds?: number;
+  /** Direct age from API (more reliable than birthYear which is often 0). */
+  horseAge?: number;
+  /** Logs which data sources were attempted and which provided data.
+   *  e.g. "records(39)→used" or "records(0)→stats(2)→used" */
+  dataSourceChain?: string;
   warning?: {
     type: 'invalid-record';
     message: string;

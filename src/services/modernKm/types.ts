@@ -26,6 +26,8 @@ export interface ModernKmNormalizedResult {
     genderAdjustment: number;
     consistencyFactor: number;
     trainer: number;
+    oddsHistorical: number;
+    oddsLive: number;
     total: number;
   };
 }
@@ -78,6 +80,10 @@ export interface ModernNormalizationFactors {
   horseSex?: string;
   /** Std-dev of recent finish positions (low = consistent, high = boom-or-bust). */
   consistencyScore?: number;
+  /** Mean historical odds across recent starts (lower = market thinks better). */
+  averageOdds?: number;
+  /** Live/current odds from the win pool (when available). */
+  liveOdds?: number;
 }
 
 export interface NormalizationWeights {
@@ -105,6 +111,10 @@ export interface NormalizationWeights {
   driverEmpirical?: number;
   /** Trainer win-rate adjustment weight. 0 = off. */
   trainerPerformance?: number;
+  /** Historical odds signal weight. Lower odds = expected faster. 0 = off. */
+  oddsHistorical?: number;
+  /** Live odds signal weight. 0 = off. */
+  oddsLive?: number;
 }
 
 // Balanced weights — v22 (2026-04-27) — Train 38.2%, TEST 31.6% (truth), MRR 0.558
@@ -133,4 +143,6 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   genderAdjustment: 0.900,
   consistencyFactor: 2.000,
   trainerPerformance: 1.500,
+  oddsHistorical: 0.000,
+  oddsLive: 0.000,
 };

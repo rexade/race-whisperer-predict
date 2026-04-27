@@ -77,7 +77,7 @@ const WEIGHT_KEYS: (keyof NormalizationWeights)[] = [
   'startPoints', 'placePercentage', 'horseWinPercentage',
   'earningsPerStart', 'gallopRisk', 'layoffPenalty',
   'ageFactor', 'genderAdjustment', 'consistencyFactor',
-  'trainerPerformance',
+  'trainerPerformance', 'oddsHistorical', 'oddsLive',
 ];
 
 const BOUNDS: [number, number] = [0.0, 5.0];

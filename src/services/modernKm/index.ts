@@ -24,6 +24,7 @@ import {
   calculateAgeFactor,
   calculateGenderAdjustment,
   calculateConsistencyAdjustment,
+  calculateOddsAdjustment,
 } from './performanceCalculators';
 import {
   calculateDistanceAdjustment,
@@ -84,6 +85,8 @@ export const applyModernKmNormalization = (
     genderAdjustment:          0,
     consistencyFactor:         0,
     trainer:                   0,
+    oddsHistorical:            0,
+    oddsLive:                  0,
     total:                     0,
   };
 
@@ -186,6 +189,16 @@ export const applyModernKmNormalization = (
   adjustments.trainer =
     calculateTrainerAdjustment(factors.trainerWinPercentage ?? 0) * (weights.trainerPerformance ?? 0);
 
+  // STEP 4b: Odds-based adjustments
+  if ((weights.oddsHistorical ?? 0) > 0 && factors.averageOdds != null) {
+    adjustments.oddsHistorical =
+      calculateOddsAdjustment(factors.averageOdds) * (weights.oddsHistorical ?? 0);
+  }
+  if ((weights.oddsLive ?? 0) > 0 && factors.liveOdds != null) {
+    adjustments.oddsLive =
+      calculateOddsAdjustment(factors.liveOdds) * (weights.oddsLive ?? 0);
+  }
+
   // STEP 5: Total
   adjustments.total = Object.entries(adjustments)
     .filter(([key]) => key !== 'total')
@@ -214,6 +227,8 @@ export const applyModernKmNormalization = (
     ` gender=${adjustments.genderAdjustment.toFixed(3)}` +
     ` consist=${adjustments.consistencyFactor.toFixed(3)}` +
     ` trainer=${adjustments.trainer.toFixed(3)}` +
+    ` oddsHist=${adjustments.oddsHistorical.toFixed(3)}` +
+    ` oddsLive=${adjustments.oddsLive.toFixed(3)}` +
     ` TOTAL=${adjustments.total.toFixed(3)}s`
   );
 

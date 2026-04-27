@@ -13,9 +13,13 @@ export interface ATGHistoricalRecord {
   race: {
     id: string;
     startMethod: string;
+    firstPrize?: number;             // Race class indicator
   };
+  odds?: number;                    // Historical odds for this start
+  finishOrder?: number;              // Numeric finish position
   track: {
     name: string;
+    condition?: string;              // "light" | "dead" | "winter" | "abandoned"
   };
   start: {
     distance: number;
@@ -105,6 +109,12 @@ export interface HistoricalProcessingResult {
       missingFields: number;
       valid: number;
     };
+    /** Dates of galloped races in the processing window. */
+    gallopDates?: string[];
+    /** Mean odds across recent starts (market signal). */
+    averageHistoricalOdds?: number;
+    /** Most recent race odds. */
+    lastOdds?: number;
   };
 }
 
@@ -329,6 +339,26 @@ export const processHistoricalRecords = (
     }
   }
   
+  // Extract gallop dates and odds metadata from all records (not just valid ones)
+  const gallopDates = records
+    .filter(r => r.galloped === true && r.date)
+    .map(r => r.date)
+    .filter(Boolean);
+
+  const oddsValues = records
+    .filter(r => r.odds != null && Number.isFinite(r.odds) && r.odds > 0)
+    .map(r => r.odds!);
+
+  const averageHistoricalOdds = oddsValues.length > 0
+    ? oddsValues.reduce((sum, v) => sum + v, 0) / oddsValues.length
+    : undefined;
+
+  // Most recent odds (sorted by date descending)
+  const sortedByDate = records
+    .filter(r => r.odds != null && Number.isFinite(r.odds) && r.odds > 0 && r.date)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const lastOdds = sortedByDate.length > 0 ? sortedByDate[0].odds : undefined;
+
   return {
     records: finalRecords,
     invalidCandidates: finalInvalidCandidates,
@@ -339,7 +369,10 @@ export const processHistoricalRecords = (
       newestRecordDate,
       totalRecordsProcessed: records.length,
       validRecordsFound: finalRecords.length,
-      filteringStats: finalStats
+      filteringStats: finalStats,
+      gallopDates,
+      averageHistoricalOdds,
+      lastOdds,
     }
   };
 };
