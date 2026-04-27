@@ -99,10 +99,11 @@ export const applyModernKmNormalization = (
     calculatePostPositionAdjustment(factors.postPosition, factors.startMethod, postPositionCurves)
     * weights.postPosition;
 
-  // Equipment
+  // Equipment — shoes and sulky weighted independently
   const shoeResult  = calculateRobustShoeAdjustment(factors.shoesFront, factors.shoesBack, factors.horseId);
   const sulkyResult = calculateRobustSulkyAdjustment(factors.sulkyType, factors.horseId);
-  adjustments.equipment = (shoeResult.adjustment + sulkyResult.adjustment) * weights.shoeType;
+  adjustments.equipment = shoeResult.adjustment * weights.shoeType
+                        + sulkyResult.adjustment * weights.sulkyType;
 
   // Driver — absolute win-rate signal
   adjustments.driver =

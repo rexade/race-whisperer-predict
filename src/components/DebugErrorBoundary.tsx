@@ -20,6 +20,17 @@ class DebugErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     console.error('ERROR BOUNDARY CAUGHT:', error);
+    // Chunk load failures happen when a new deploy invalidates old JS chunk filenames.
+    // Auto-reload once to pick up the new bundle — prevents a blank screen after deploy.
+    if (error?.message?.includes('Failed to fetch dynamically imported module') ||
+        error?.message?.includes('Importing a module script failed')) {
+      const reloadKey = 'chunkReloadAt';
+      const last = Number(sessionStorage.getItem(reloadKey) ?? 0);
+      if (Date.now() - last > 10_000) {
+        sessionStorage.setItem(reloadKey, String(Date.now()));
+        window.location.reload();
+      }
+    }
     return { hasError: true, error };
   }
 
