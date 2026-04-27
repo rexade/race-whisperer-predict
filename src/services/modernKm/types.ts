@@ -107,29 +107,29 @@ export interface NormalizationWeights {
   trainerPerformance?: number;
 }
 
-// Balanced weights — v14 (2026-04-27) — Win 40.0%, MRR 0.557
-// 40% plateau — 4th convergence. Best MRR yet. driverEmpirical not yet active.
-// vs V12: form↑1.1, volteStart↑1.2, startPoints↑0.7, placePercentage↑1.0, earningsPerStart↑0.3
+// Balanced weights — v15 (2026-04-27) — Win 40.0%, MRR 0.553
+// 40% plateau — first convergence with driverEmpirical=1.0 active.
+// postPosition↑1.3, distanceAdjustment↑1.4, driverPerformance↓1.0, genderAdjustment↑0.1
 export const DEFAULT_WEIGHTS: NormalizationWeights = {
-  postPosition: 1.100,
-  shoeType: 0.000,
+  postPosition: 1.300,
+  shoeType: 0.075,
   sulkyType: 0.300,
-  driverPerformance: 1.200,
+  driverPerformance: 1.000,
   driverForm: 1.600,
-  driverEmpirical: 0.000,
+  driverEmpirical: 1.000,
   trackFamiliarity: 0.000,
-  form: 1.100,
-  distanceAdjustment: 1.200,
+  form: 0.900,
+  distanceAdjustment: 1.400,
   raceDistanceAdjustment: 0.700,
-  volteStartDistancePenalty: 1.200,
-  startPoints: 0.700,
+  volteStartDistancePenalty: 1.000,
+  startPoints: 0.500,
   placePercentage: 1.000,
   horseWinPercentage: 0.200,
-  earningsPerStart: 0.300,
+  earningsPerStart: 0.100,
   gallopRisk: 0.500,
   layoffPenalty: 0.600,
   ageFactor: 0.500,
-  genderAdjustment: 0.000,
+  genderAdjustment: 0.100,
   consistencyFactor: 0.500,
   trainerPerformance: 0.700,
 };
