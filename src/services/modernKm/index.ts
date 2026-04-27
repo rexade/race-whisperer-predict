@@ -11,7 +11,7 @@ import {
   calculateRobustShoeAdjustment,
   calculateRobustSulkyAdjustment
 } from './equipmentCalculators';
-import { calculateDriverAdjustment, calculateTrainerAdjustment } from './driverCalculators';
+import { calculateDriverAdjustment, calculateDriverFormAdjustment, calculateTrainerAdjustment } from './driverCalculators';
 import {
   calculateStartPointsAdjustment,
   calculateStartPointsAdjustmentFieldAware,
@@ -40,6 +40,7 @@ import {
   START_POINTS_FIELD_MIN_SIZE,
   START_POINTS_FINAL_CAP_S,
   EARNINGS_MAX_BONUS_S,
+  DRIVER_CAP_S,
 } from './normalizationConstants';
 import { log } from '@/lib/logger';
 
@@ -103,10 +104,20 @@ export const applyModernKmNormalization = (
   const sulkyResult = calculateRobustSulkyAdjustment(factors.sulkyType, factors.horseId);
   adjustments.equipment = (shoeResult.adjustment + sulkyResult.adjustment) * weights.shoeType;
 
-  // Driver
+  // Driver — absolute win-rate signal
   adjustments.driver =
     calculateDriverAdjustment(factors.driverWinPercentage) * weights.driverPerformance;
-  log.debug(`[normalization] driver adj raw=${(adjustments.driver / weights.driverPerformance).toFixed(3)}s weighted=${adjustments.driver.toFixed(3)}s`);
+
+  // Driver form — field-relative signal: how does this driver rank vs others in THIS race?
+  if ((weights.driverForm ?? 0) > 0 && (factors.fieldDriverWinRates?.length ?? 0) >= 3) {
+    adjustments.driver += calculateDriverFormAdjustment(
+      factors.driverWinPercentage,
+      factors.fieldDriverWinRates!,
+      DRIVER_CAP_S
+    ) * (weights.driverForm ?? 0);
+  }
+
+  log.debug(`[normalization] driver adj (perf+form) weighted=${adjustments.driver.toFixed(3)}s`);
 
   // Track / distance / volte
   adjustments.track =

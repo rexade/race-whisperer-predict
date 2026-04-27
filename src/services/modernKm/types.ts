@@ -59,6 +59,8 @@ export interface ModernNormalizationFactors {
   horseName?: string;
   // Field-aware adjustment: all start-points values in this race's field
   fieldStartPoints?: number[];
+  // Field driver win rates — used for field-relative driverForm adjustment
+  fieldDriverWinRates?: number[];
   // Recent race finish positions for form calculation
   recentRaces?: Array<{ place: number; date: string }>;
   /** Fraction of historical starts where horse broke gait (0–1). */

@@ -58,6 +58,53 @@ export const calculateDriverAdjustment = (winPercentage: number): number => {
  *
  * @param winPercentage  Trainer win rate — accepts 0–1, 0–100, or basis-point format.
  */
+/**
+ * Driver form — field-relative driver signal.
+ *
+ * Compares THIS driver's win rate to the distribution of all drivers in the
+ * same race (median + IQR).  Unlike calculateDriverAdjustment which compares
+ * against a fixed 12% global baseline, this captures "top driver in THIS race"
+ * — a 15% win-rate driver facing a field of 10% drivers is a much bigger edge
+ * than facing a field of 18% drivers.
+ *
+ * Uses the same tanh/IQR approach as the field-aware start-points calculator.
+ * Returns 0 if fewer than 3 valid field rates are available.
+ *
+ * @param driverWinRate      This driver's win percentage (0–1, 0–100, or bp).
+ * @param fieldDriverWinRates All drivers' win rates in the race (same format).
+ * @param cap                 Maximum raw adjustment magnitude (default = DRIVER_CAP_S).
+ */
+export const calculateDriverFormAdjustment = (
+  driverWinRate: number,
+  fieldDriverWinRates: number[],
+  cap: number = DRIVER_CAP_S
+): number => {
+  const norm = (r: number): number => {
+    if (!Number.isFinite(r) || r < 0) return 0;
+    if (r > 100) return r / 10_000;
+    if (r > 1)   return r / 100;
+    return r;
+  };
+
+  const driverRate = norm(driverWinRate);
+  const rates = fieldDriverWinRates.map(norm).filter(r => Number.isFinite(r) && r >= 0).sort((a, b) => a - b);
+  if (rates.length < 3) return 0;
+
+  const q = (p: number): number => {
+    const idx = (rates.length - 1) * p;
+    const lo = Math.floor(idx), hi = Math.ceil(idx);
+    return (1 - (idx - lo)) * rates[lo] + (idx - lo) * rates[hi];
+  };
+  const median = q(0.5);
+  const iqr    = Math.max(0.02, q(0.75) - q(0.25));
+
+  const x = (driverRate - median) / iqr;
+  const adjustment = -cap * Math.tanh(x);
+
+  log.debug(`[driverForm] ${(driverRate * 100).toFixed(1)}% vs field median ${(median * 100).toFixed(1)}% (IQR ${(iqr * 100).toFixed(1)}%) → ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(3)}s`);
+  return adjustment;
+};
+
 export const calculateTrainerAdjustment = (winPercentage: number): number => {
   const wpRaw = Number.isFinite(winPercentage) ? winPercentage : 0;
 

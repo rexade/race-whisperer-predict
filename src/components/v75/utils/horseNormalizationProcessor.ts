@@ -92,6 +92,16 @@ export const applyHorseNormalization = (
     backShoes: extractedData.backShoesStr
   };
 
+  // Pre-compute field-level stats from all horses in this race.
+  // These enable field-relative calculations (start points, driver form)
+  // which are more predictive than comparing against a fixed global baseline.
+  const fieldStartPoints: number[] = (race.horses ?? [])
+    .map((h: any) => h.statistics?.startPoints ?? 0)
+    .filter((v: number) => Number.isFinite(v) && v > 0);
+  const fieldDriverWinRates: number[] = (race.horses ?? [])
+    .map((h: any) => h.driver2025WinPercentage || h.driver?.winPercentage2025 || h.driver?.winPercentage || 0)
+    .filter((v: number) => Number.isFinite(v) && v > 0);
+
   // STRICT: Only process horses with actual raw KM times for predictions
   if (!rawKmTime) {
     log.debug(`  🚫 NO RAW KM TIME - Creating fallback for UI display only`);
@@ -144,6 +154,8 @@ export const applyHorseNormalization = (
       raceYear: race.date ? parseInt(race.date.split('-')[0], 10) : new Date().getFullYear(),
       horseSex: (horse as any).sex || '',
       consistencyScore: rawTimeData?.consistencyScore,
+      fieldStartPoints,
+      fieldDriverWinRates,
     };
 
     const result = applyModernKmNormalization(fallbackTime, factors, weights, postPositionCurves);
@@ -209,6 +221,8 @@ export const applyHorseNormalization = (
     raceYear: race.date ? parseInt(race.date.split('-')[0], 10) : new Date().getFullYear(),
     horseSex: (horse as any).sex || '',
     consistencyScore: rawTimeData?.consistencyScore,
+    fieldStartPoints,
+    fieldDriverWinRates,
   };
 
   const result = applyModernKmNormalization(rawKmTime, factors, weights, postPositionCurves);
