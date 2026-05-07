@@ -101,10 +101,10 @@ async function coordinateDescent(
 }
 
 const MULTISTART_PRESET_NAMES = [
+  'V35 Experimental — V34 refined (2026-05-07)',
   'V34 Experimental — R01 curve tuned (2026-05-07)',
   'V33 Experimental — V32 fine tune (2026-05-07)',
   'V32 Experimental — backtested (2026-04-30)',
-  'V20 Empirical Multistart Experimental — hosted (2026-05-07)',
   'V20 — Clean Baseline (2026-04-27)',
 ] as const;
 
