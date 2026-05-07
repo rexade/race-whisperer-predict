@@ -52,10 +52,10 @@ const INITIAL_STATE: CalibrationState = {
 };
 
 const MULTISTART_PRESET_NAMES = [
+  'V37 Experimental — V36 refined (2026-05-08)',
   'V36 Experimental — V32 source-tuned (2026-05-08)',
   'V35 Experimental — V34 refined (2026-05-07)',
   'V34 Experimental — R01 curve tuned (2026-05-07)',
-  'V32 Experimental — backtested (2026-04-30)',
   'V20 — Clean Baseline (2026-04-27)',
 ] as const;
 

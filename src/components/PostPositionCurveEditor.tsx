@@ -22,39 +22,39 @@ interface PostPositionCurveEditorProps {
 
 // Default values from current calculator
 const DEFAULT_AUTO_ADJUSTMENTS = {
-  1: -0.30,  // Rail advantage
-  2: -0.25,  // Good position
-  3: -0.20,  // Favorable position
-  4: -0.10,  // Neutral
-  5: 0.00,   // Baseline
-  6: 0.05,   // Wide gate
-  7: 0.15,   // Outside
-  8: 0.30,   // Widest first-line draw
-  9: 0.55,   // Second tier
-  10: 0.65,  // Second tier
-  11: 0.75,  // Second tier
-  12: 0.85,  // Second tier
-  13: 0.90,  // Extended
-  14: 0.95,  // Extended
-  15: 1.00   // Extended
+  1: -0.138,
+  2: -0.075,
+  3: -0.150,
+  4: -0.250,
+  5: -0.025,
+  6: -0.050,
+  7: 0.300,
+  8: 0.350,
+  9: 0.550,
+  10: 0.750,
+  11: 0.675,
+  12: 0.800,
+  13: 1.000,
+  14: 0.875,
+  15: 0.850
 };
 
 const DEFAULT_VOLTE_ADJUSTMENTS = {
-  1: -0.25,  // Front-line advantage
-  2: -0.20,  // Good position
-  3: -0.10,  // Favourable in volt start
-  4: 0.00,   // Neutral
-  5: 0.05,   // Slight disadvantage
-  6: 0.10,   // Wider position
-  7: 0.15,   // Outside position
-  8: 0.20,   // Widest first-line
-  9: 0.40,   // Second row start
-  10: 0.50,  // Second row start
-  11: 0.60,  // Third row start
-  12: 0.70,  // Third row start
-  13: 0.75,  // Fourth row start
-  14: 0.80,  // Fourth row start
-  15: 0.85   // Fourth row start
+  1: -0.350,
+  2: -0.350,
+  3: -0.125,
+  4: 0.100,
+  5: 0.150,
+  6: -0.075,
+  7: 0.250,
+  8: 0.175,
+  9: 0.475,
+  10: 0.450,
+  11: 0.750,
+  12: 0.775,
+  13: 1.000,
+  14: 0.913,
+  15: 0.875
 };
 
 export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = ({ 

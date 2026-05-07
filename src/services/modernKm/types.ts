@@ -120,32 +120,31 @@ export interface NormalizationWeights {
   oddsLive?: number;
 }
 
-// Balanced weights — v22 (2026-04-27) — Train 38.2%, TEST 31.6% (truth), MRR 0.558
-// First L2-regularized result. 6-month data, held-out 1-month test set.
-// V23 (2026-04-27) — 5-fold CV optimized, multi-start. CV-Win 34.6%, Full-Win 34.7%, MRR 0.516.
-// form dominates (5.0), clean signals only. No overfitting (CV-Full gap 0.1pp).
+// V37 default (2026-05-08) — promoted after post-fix latest 6mo calibration.
+// Local reproduction on calibration-dataset-6mo_latest.json:
+// Win 45.1%, WTop3 67.4%, WTop5 80.6%, TopPickTop3 49.2%, MRR 0.605 over 304 races.
 export const DEFAULT_WEIGHTS: NormalizationWeights = {
-  postPosition: 1.500,
+  postPosition: 1.108,
   shoeType: 0.000,
-  sulkyType: 0.500,
-  driverPerformance: 2.200,
+  sulkyType: 0.000,
+  driverPerformance: 1.433,
   driverForm: 0.000,
-  driverEmpirical: 0.000,
-  trackFamiliarity: 0.000,
-  form: 5.000,
-  distanceAdjustment: 1.000,
-  raceDistanceAdjustment: 1.500,
-  volteStartDistancePenalty: 2.200,
-  startPoints: 2.500,
-  placePercentage: 0.400,
-  horseWinPercentage: 1.000,
-  earningsPerStart: 1.300,
+  driverEmpirical: 4.057,
+  trackFamiliarity: 0.150,
+  form: 2.364,
+  distanceAdjustment: 0.000,
+  raceDistanceAdjustment: 1.568,
+  volteStartDistancePenalty: 1.260,
+  startPoints: 1.661,
+  placePercentage: 0.919,
+  horseWinPercentage: 1.579,
+  earningsPerStart: 1.489,
   gallopRisk: 0.000,
-  layoffPenalty: 1.900,
+  layoffPenalty: 1.166,
   ageFactor: 0.000,
-  genderAdjustment: 0.900,
-  consistencyFactor: 2.000,
-  trainerPerformance: 1.500,
-  oddsHistorical: 0.000,
+  genderAdjustment: 0.758,
+  consistencyFactor: 2.240,
+  trainerPerformance: 2.059,
+  oddsHistorical: 0.134,
   oddsLive: 0.000,
 };
