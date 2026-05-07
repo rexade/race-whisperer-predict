@@ -2,54 +2,25 @@
   "project": "race-whisperer-predict",
   "managed_by": "pi-pulse",
   "registered": "2026-04-08",
-  "last_run": "2026-04-27",
+  "last_run": "2026-05-07",
   "run_count": 70,
   "health": "green",
-  "current_focus": "Run 70 MUTATE: V4 eval (driver×horse = V3 exactly, 0 coverage). Discovered F1+D1 already fixed in commit b54b3fc (field-aware startPoints + field-relative driverForm both active). Fixed stale form docstring.",
+  "status": "active",
+  "phase": "curated-main",
+  "current_focus": "Clean main is now the source of truth. Gallop/layoff correctness and postPosition propagation are merged; V32 is selectable only as an experimental preset; DEFAULT_WEIGHTS remains unchanged.",
   "open_threads": 1,
-  "next_run_goal": "MAE corpus expansion: run eval-mae.mjs on 2026-04-26 and newer completed V85 dates to grow the benchmark corpus.",
+  "next_run_goal": "Use npm run evaluate:models with a named holdout dataset before promoting any model preset to default.",
+  "repo_commit": "0b32a8e",
+  "repo_commit_subject": "Curate experimental model lift",
   "accuracy": {
-    "rankMAE_combined": 2.815,
-    "races_combined": 78,
-    "dates_combined": 10,
-    "gameType": "V85",
-    "evalScript": "scripts/eval-mae.mjs",
-    "note": "V3 weights (form:1.0, postPosition:0.7). Combined corpus (6-date clean + 4-date April expansion). V3 MAE 2.815 best across all 10 dates.",
-    "batches": [
-      {
-        "dates": ["2026-03-14", "2026-03-07", "2026-04-05", "2026-03-21", "2026-02-14", "2026-01-31"],
-        "races": 48,
-        "v1MAE": 2.716,
-        "v2MAE": 2.690,
-        "v3MAE": 2.653,
-        "verdict": "V3 best — form:1.0 postPosition:0.7"
-      },
-      {
-        "dates": ["2026-04-04", "2026-04-11", "2026-04-18", "2026-04-25"],
-        "races": 30,
-        "v1MAE": 3.055,
-        "v2MAE": 3.093,
-        "v3MAE": 3.074,
-        "verdict": "V3 slightly better than V2; V1 slightly best on this batch"
-      }
+    "defaultModel": "DEFAULT_WEIGHTS / V23",
+    "experimentalModel": "V32 Experimental — backtested",
+    "guardrail": "No model becomes default unless it beats DEFAULT on a named holdout set.",
+    "evalScript": "npm run evaluate:models -- [dataset.json]",
+    "evidenceReports": [
+      "reports/mae-auto-2026-04-25.json",
+      "reports/mae-auto-2026-05-02.json"
     ],
-    "combined": {
-      "races": 78,
-      "v1MAE": 2.846,
-      "v2MAE": 2.845,
-      "v3MAE": 2.815,
-      "verdict": "V3 best — confirmed across 10 dates"
-    },
-    "label": "V3 weights — 10 dates, 78 races. V3 MAE 2.815 beats V2 (2.845) and V1 (2.846).",
-    "v1Baseline": {
-      "rankMAE": 2.846,
-      "races": 78,
-      "label": "V1 combined baseline (10 dates)"
-    },
-    "v2Reference": {
-      "rankMAE": 2.845,
-      "races": 78,
-      "label": "V2 reference (superseded by V3)"
-    }
+    "note": "Historical V3 status was deprecated. This repo now exposes the controlled experimental-model workflow used by Pi Pulse."
   }
 }
