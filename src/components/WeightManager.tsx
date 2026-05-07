@@ -123,18 +123,21 @@ const WeightManager: React.FC<WeightManagerProps> = ({
 
   const exportWeights = () => {
     try {
-      const dataStr = JSON.stringify(weights, null, 2);
+      const dataStr = JSON.stringify({
+        weights,
+        postPositionCurves,
+      }, null, 2);
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(dataBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'v75-weights-config.json';
+      link.download = 'v75-model-config.json';
       link.click();
       URL.revokeObjectURL(url);
       
       toast({
-        title: "Weights Exported",
-        description: "Weight configuration downloaded successfully.",
+        title: "Model Exported",
+        description: "Weights and post-position curves downloaded successfully.",
       });
     } catch (error) {
       toast({
@@ -156,10 +159,20 @@ const WeightManager: React.FC<WeightManagerProps> = ({
         reader.onload = (e) => {
           try {
             const imported = JSON.parse(e.target?.result as string);
-            onWeightsChange(imported);
+            if (imported.weights) {
+              onWeightsChange(imported.weights);
+              if (imported.postPositionCurves && onPostPositionCurvesChange) {
+                onPostPositionCurvesChange(imported.postPositionCurves);
+              }
+            } else {
+              // Backward compatible with old weight-only exports.
+              onWeightsChange(imported);
+            }
             toast({
-              title: "Weights Imported",
-              description: "Weight configuration imported successfully.",
+              title: "Model Imported",
+              description: imported.weights
+                ? "Weights and post-position curves imported successfully."
+                : "Legacy weight configuration imported successfully.",
             });
           } catch (error) {
             toast({
@@ -178,6 +191,9 @@ const WeightManager: React.FC<WeightManagerProps> = ({
   const applyPreset = (preset: WeightPreset) => {
     setSelectedPreset(preset.name);
     onWeightsChange(preset.weights);
+    if (preset.postPositionCurves && onPostPositionCurvesChange) {
+      onPostPositionCurvesChange(preset.postPositionCurves);
+    }
   };
 
   const toggleCategory = (category: string) => {

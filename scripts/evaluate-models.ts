@@ -11,11 +11,13 @@ import * as path from 'path';
 import { CalibrationDataset } from '../src/services/calibration/historicalCalibrationService';
 import { RaceResultProcessor } from '../src/components/v75/services/raceResultProcessor';
 import { DEFAULT_WEIGHTS, NormalizationWeights } from '../src/services/modernKm/types';
+import { PostPositionCurves } from '../src/services/modernKm';
 import { WEIGHT_PRESETS } from '../src/services/modernKm/presetWeights';
 
 interface ModelCandidate {
   name: string;
   weights: NormalizationWeights;
+  postPositionCurves?: PostPositionCurves;
 }
 
 interface ModelMetrics {
@@ -41,7 +43,11 @@ function dateRange(dataset: CalibrationDataset): string {
 function uniqueModels(): ModelCandidate[] {
   const models: ModelCandidate[] = [
     { name: 'DEFAULT', weights: DEFAULT_WEIGHTS },
-    ...WEIGHT_PRESETS.map(preset => ({ name: preset.name, weights: preset.weights })),
+    ...WEIGHT_PRESETS.map(preset => ({
+      name: preset.name,
+      weights: preset.weights,
+      postPositionCurves: preset.postPositionCurves,
+    })),
   ];
   const seen = new Set<string>();
   return models.filter(model => {
@@ -71,7 +77,8 @@ async function evaluateModel(dataset: CalibrationDataset, model: ModelCandidate)
           race.raceData,
           race.rawKmTimes,
           model.weights,
-          dateData.date
+          dateData.date,
+          model.postPositionCurves
         );
 
         if (!result.analysisComplete || result.horses.length === 0) continue;

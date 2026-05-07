@@ -79,11 +79,15 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
     // Use all keys present in optimizedWeights so nothing is dropped
     const keys = Object.keys(w) as (keyof NormalizationWeights)[];
     const lines = keys.map(k => `      ${k}: ${(w[k] ?? 0).toFixed(3)},`);
+    const formatCurve = (curve: Record<number, number>) => Object.entries(curve)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([position, value]) => `        ${position}: ${value.toFixed(3)},`)
+      .join('\n');
     const header = [
       `    // Calibrated ${new Date().toISOString().split('T')[0]}`,
       `    // MRR: ${r.initialMAE.toFixed(3)} → ${r.finalMAE.toFixed(3)}  Win: ${(r.finalEvaluation.winAccuracy * 100).toFixed(1)}%  WTop3: ${(r.finalEvaluation.winnerTop3Accuracy * 100).toFixed(1)}%  WTop5: ${(r.finalEvaluation.winnerTop5Accuracy * 100).toFixed(1)}%  TopPickTop3: ${(r.finalEvaluation.topPickAccuracy * 100).toFixed(1)}%  Passes: ${r.passesCompleted}`,
     ].join('\n');
-    const snippet = `${header}\n    weights: {\n${lines.join('\n')}\n    }`;
+    const snippet = `${header}\n    weights: {\n${lines.join('\n')}\n    },\n    postPositionCurves: {\n      auto: {\n${formatCurve(r.optimizedCurves.auto)}\n      },\n      volte: {\n${formatCurve(r.optimizedCurves.volte)}\n      },\n    }`;
     navigator.clipboard.writeText(snippet).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);

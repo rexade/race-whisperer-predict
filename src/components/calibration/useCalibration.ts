@@ -52,11 +52,11 @@ const INITIAL_STATE: CalibrationState = {
 };
 
 const MULTISTART_PRESET_NAMES = [
+  'V34 Experimental — R01 curve tuned (2026-05-07)',
+  'V33 Experimental — V32 fine tune (2026-05-07)',
+  'V32 Experimental — backtested (2026-04-30)',
   'V20 Empirical Multistart Experimental — hosted (2026-05-07)',
   'V20 — Clean Baseline (2026-04-27)',
-  'V32 Experimental — backtested (2026-04-30)',
-  'V14 — Calibrated (2026-04-27)',
-  'Realistic Balanced (2025)',
 ] as const;
 
 function runInWorker<T>(
@@ -235,9 +235,13 @@ export function useCalibration() {
       .map(name => WEIGHT_PRESETS.find(preset => preset.name === name))
       .filter((preset): preset is NonNullable<typeof preset> => Boolean(preset));
 
-    const starts: Array<{ label: string; weights: NormalizationWeights }> = [
-      { label: 'Current', weights: currentWeights },
-      ...selectedPresets.map(preset => ({ label: preset.name, weights: preset.weights })),
+    const starts: Array<{ label: string; weights: NormalizationWeights; curves?: PostPositionCurves }> = [
+      { label: 'Current', weights: currentWeights, curves: currentCurves },
+      ...selectedPresets.map(preset => ({
+        label: preset.name,
+        weights: preset.weights,
+        curves: preset.postPositionCurves ?? currentCurves,
+      })),
     ];
 
     updateState({ phase: 'optimizing', progressMessage: `Multi-start: 0/${starts.length} runs…`, optimizationResult: null });
@@ -248,7 +252,7 @@ export function useCalibration() {
     const runSummary: Array<{ label: string; result: OptimizationResult }> = [];
 
     for (let i = 0; i < starts.length; i++) {
-      const { label, weights } = starts[i];
+      const { label, weights, curves } = starts[i];
       const runLabel = `Run ${i + 1}/${starts.length} from ${label}`;
       const bestStr = bestResult ? ` · best so far: ${(bestWin * 100).toFixed(1)}%` : '';
       updateState({
@@ -259,7 +263,7 @@ export function useCalibration() {
       try {
         const result = await runInWorker<OptimizationResult>(
           () => new Worker(new URL('../../workers/calibration.worker.ts', import.meta.url), { type: 'module' }),
-          { type: 'OPTIMIZE', payload: { dataset, initialWeights: weights, initialCurves: currentCurves, testDataset } },
+          { type: 'OPTIMIZE', payload: { dataset, initialWeights: weights, initialCurves: curves, testDataset } },
           'DONE',
           (p) => {
             const best = bestResult ? ` · best: ${(bestWin * 100).toFixed(1)}%` : '';

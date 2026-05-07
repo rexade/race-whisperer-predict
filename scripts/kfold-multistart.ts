@@ -101,11 +101,11 @@ async function coordinateDescent(
 }
 
 const MULTISTART_PRESET_NAMES = [
+  'V34 Experimental — R01 curve tuned (2026-05-07)',
+  'V33 Experimental — V32 fine tune (2026-05-07)',
+  'V32 Experimental — backtested (2026-04-30)',
   'V20 Empirical Multistart Experimental — hosted (2026-05-07)',
   'V20 — Clean Baseline (2026-04-27)',
-  'V32 Experimental — backtested (2026-04-30)',
-  'V14 — Calibrated (2026-04-27)',
-  'Realistic Balanced (2025)',
 ] as const;
 
 // Keep multistart focused. Running every historical quick preset makes hosted

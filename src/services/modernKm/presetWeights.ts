@@ -1,9 +1,12 @@
 import { NormalizationWeights } from './types';
+import type { PostPositionCurves } from './index';
 
 export interface WeightPreset {
   name: string;
   description: string;
   weights: NormalizationWeights;
+  /** Optional calibrated post-position curves. Required to reproduce curve-tuned optimizer results. */
+  postPositionCurves?: PostPositionCurves;
   category: 'conservative' | 'balanced' | 'aggressive' | 'specialized';
   /** Mean rank error from autonomous eval corpus (lower = better). */
   maeScore?: number;
@@ -12,6 +15,72 @@ export interface WeightPreset {
 }
 
 export const WEIGHT_PRESETS: WeightPreset[] = [
+  {
+    name: 'V34 Experimental — R01 curve tuned (2026-05-07)',
+    description: 'Local v2 curve-aware search from browser candidate. Includes calibrated post-position curves; weights alone do not reproduce it. v2 full: Win 40.5%, WTop3 61.7%, WTop5 76.3%, MRR 0.560. Recent 20%: Win 40.4%, WTop5 73.7%; strong coverage candidate, not default yet.',
+    category: 'balanced',
+    weights: {
+      postPosition: 2.430,
+      shoeType: 0.000,
+      sulkyType: 1.564,
+      driverPerformance: 4.233,
+      driverForm: 0.000,
+      driverEmpirical: 4.610,
+      trackFamiliarity: 0.111,
+      form: 2.045,
+      distanceAdjustment: 0.000,
+      raceDistanceAdjustment: 1.814,
+      volteStartDistancePenalty: 0.075,
+      startPoints: 2.409,
+      placePercentage: 0.000,
+      horseWinPercentage: 1.170,
+      earningsPerStart: 1.310,
+      gallopRisk: 0.283,
+      layoffPenalty: 4.720,
+      ageFactor: 0.000,
+      genderAdjustment: 0.567,
+      consistencyFactor: 0.096,
+      trainerPerformance: 1.954,
+      oddsHistorical: 0.000,
+      oddsLive: 0.000,
+    },
+    postPositionCurves: {
+      auto: {
+        1: -0.201,
+        2: 0.014,
+        3: -0.126,
+        4: -0.174,
+        5: 0.007,
+        6: 0.113,
+        7: 0.156,
+        8: 0.197,
+        9: 0.754,
+        10: 0.637,
+        11: 0.627,
+        12: 0.800,
+        13: 0.983,
+        14: 0.651,
+        15: 1.147,
+      },
+      volte: {
+        1: -0.583,
+        2: 0.066,
+        3: -0.111,
+        4: 0.105,
+        5: 0.221,
+        6: 0.286,
+        7: 0.304,
+        8: 0.141,
+        9: 0.672,
+        10: 0.405,
+        11: 0.607,
+        12: 0.892,
+        13: 1.307,
+        14: 0.894,
+        15: 0.849,
+      },
+    },
+  },
   {
     name: 'V20 Empirical Multistart Experimental — hosted (2026-05-07)',
     description: 'Hosted browser multistart candidate from the shared preset run. Reported MRR 0.369→0.567, Win 41.5%, old Top-3/top-pick-place 43.5%, Passes 20. Heavy driverEmpirical; keep experimental and holdout-test before default.',
@@ -99,6 +168,36 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
       consistencyFactor: 4.234,
       trainerPerformance: 0.000,
       oddsHistorical: 2.988,
+      oddsLive: 0.000,
+    },
+  },
+  {
+    name: 'V33 Experimental — V32 fine tune (2026-05-07)',
+    description: 'Local narrow tune from V32. Full 6mo: Win 34.3%, WTop3 61.7%, WTop5 73.4%, MRR 0.523. Early 80% split: Win 35.0%, WTop3 64.1%, WTop5 76.0%, MRR 0.536. Win unchanged vs V32; save as ranking/coverage evidence, not default.',
+    category: 'balanced',
+    weights: {
+      postPosition: 1.374,
+      shoeType: 0.000,
+      sulkyType: 0.227,
+      driverPerformance: 2.675,
+      driverForm: 1.590,
+      driverEmpirical: 0.000,
+      trackFamiliarity: 0.000,
+      form: 5.868,
+      distanceAdjustment: 0.000,
+      raceDistanceAdjustment: 1.047,
+      volteStartDistancePenalty: 0.801,
+      startPoints: 2.685,
+      placePercentage: 1.965,
+      horseWinPercentage: 1.917,
+      earningsPerStart: 0.000,
+      gallopRisk: 0.000,
+      layoffPenalty: 1.243,
+      ageFactor: 0.000,
+      genderAdjustment: 0.000,
+      consistencyFactor: 4.234,
+      trainerPerformance: 0.000,
+      oddsHistorical: 2.638,
       oddsLive: 0.000,
     },
   },
