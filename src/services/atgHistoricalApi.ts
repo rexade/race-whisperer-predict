@@ -1,5 +1,6 @@
 
 import { hasNumericKmTime } from './utils/kmTimeUtils';
+import { distanceCategoryToMeters, isAggregateRecordSource } from './utils/recordsFallback';
 import { log } from '@/lib/logger';
 
 export interface ATGHistoricalRecord {
@@ -86,7 +87,7 @@ export function clearStartCache(): void {
 export interface InvalidCandidate {
   normalizedTime: { minutes: number; seconds: number; tenths: number };
   dropReason?: string;
-  source?: 'results' | 'stats' | 'extended' | 'extended-last';
+  source?: string;
 }
 
 export interface HistoricalProcessingResult {
@@ -153,7 +154,7 @@ export const processHistoricalRecords = (
     const invalidCandidates: InvalidCandidate[] = [];
     
     // Helper to reject a record and capture it if it has a numeric time (excluding 0:00.0)
-    const rejectRecord = (record: ATGHistoricalRecord, reason: string, source: 'results' | 'stats' | 'extended' | 'extended-last') => {
+    const rejectRecord = (record: ATGHistoricalRecord, reason: string, source: string) => {
       if (hasNumericKmTime(record) && 'minutes' in record.kmTime!) {
         invalidCandidates.push({
           normalizedTime: {
@@ -168,13 +169,13 @@ export const processHistoricalRecords = (
     };
     
     const validRecords = records.filter(record => {
-      const source = ((record as any).meta?.source as 'results' | 'stats' | 'extended') || 'results';
-      const isStatisticsSource = (record as any).meta?.source === 'statistics';
+      const source = (record as any).meta?.source || 'results';
+      const isAggregateSource = isAggregateRecordSource(source);
       
       // IMPORTANT: Check statistics bypass FIRST before any date parsing
       // This prevents statistics records from being incorrectly dropped
-      if (isStatisticsSource && !record.date) {
-        // Statistics records without dates bypass time window (e.g., 'life' records)
+      if (isAggregateSource && !record.date) {
+        // Aggregate records without dates bypass time window (e.g., life/best records)
         if (isXanderDebug) {
           log.debug(`STATISTICS RECORD - Bypassing time window check`);
         }
@@ -251,10 +252,10 @@ export const processHistoricalRecords = (
       
       // Check required fields (relax for statistics records)
       const hasStartMethod = record.race?.startMethod || (record as any).meta?.startMethod;
-      const hasDistance = record.start?.distance || (record as any).meta?.distance;
+      const hasDistance = record.start?.distance || distanceCategoryToMeters((record as any).meta?.distance);
       
-      const hasRequiredFields = isStatisticsSource
-        ? hasStartMethod && hasDistance // Statistics records need less
+      const hasRequiredFields = isAggregateSource
+        ? hasStartMethod && hasDistance // Aggregate records need less
         : record.start?.distance && 
           record.race?.startMethod && 
           record.track?.name &&
@@ -315,9 +316,12 @@ export const processHistoricalRecords = (
   let newestRecordDate: string | undefined;
   
   if (finalRecords.length > 0) {
-    const dates = finalRecords.map(r => new Date(r.date)).sort((a, b) => a.getTime() - b.getTime());
-    oldestRecordDate = dates[0].toISOString().split('T')[0];
-    newestRecordDate = dates[dates.length - 1].toISOString().split('T')[0];
+    const dates = finalRecords
+      .map(r => r.date ? new Date(r.date) : null)
+      .filter((d): d is Date => d instanceof Date && !Number.isNaN(d.getTime()))
+      .sort((a, b) => a.getTime() - b.getTime());
+    oldestRecordDate = dates[0]?.toISOString().split('T')[0];
+    newestRecordDate = dates[dates.length - 1]?.toISOString().split('T')[0];
   }
   
   // Log final statistics

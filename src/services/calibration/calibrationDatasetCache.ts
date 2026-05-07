@@ -21,6 +21,7 @@ import { GAME_TYPE } from '@/config/game';
 const CACHE_KEY_PREFIX = 'calibration_dataset_';
 
 interface SerializedHorseRawKmTime {
+  horseKey?: string;
   horseId: number;
   horseName: string;
   bestTime: any;
@@ -47,11 +48,12 @@ interface SerializedRaceCalibrationData {
   raceNumber: number;
   raceData: any;
   rawKmTimes: SerializedHorseRawKmTime[];
-  // Map serialized as [[horseId, ActualHorseResult], ...]
-  actualResultsEntries: [number, ActualHorseResult][];
+  // Map serialized as [[horseKey, ActualHorseResult], ...]
+  actualResultsEntries: [string, ActualHorseResult][];
 }
 
 interface SerializedDataset {
+  schemaVersion: number;
   gameType: string;
   monthsBack: number;
   cachedAt: string;
@@ -67,6 +69,7 @@ function cacheKey(monthsBack: number): string {
 
 function serializeRawKmTime(rt: HorseRawKmTime): SerializedHorseRawKmTime {
   return {
+    horseKey: rt.horseKey,
     horseId: rt.horseId,
     horseName: rt.horseName,
     bestTime: rt.bestTime,
@@ -91,6 +94,7 @@ function serializeRawKmTime(rt: HorseRawKmTime): SerializedHorseRawKmTime {
 
 function deserializeRawKmTime(s: SerializedHorseRawKmTime): HorseRawKmTime {
   return {
+    horseKey: s.horseKey,
     horseId: s.horseId,
     horseName: s.horseName,
     bestTime: s.bestTime,
@@ -118,6 +122,7 @@ function deserializeRawKmTime(s: SerializedHorseRawKmTime): HorseRawKmTime {
 export function saveCalibrationDataset(monthsBack: number, dataset: CalibrationDataset): void {
   const key = cacheKey(monthsBack);
   const serialized: SerializedDataset = {
+    schemaVersion: 2,
     gameType: GAME_TYPE,
     monthsBack,
     cachedAt: new Date().toISOString(),
@@ -160,6 +165,7 @@ export function loadCalibrationDataset(monthsBack: number): CalibrationDataset |
 
     // Validate game type match
     if (s.gameType !== GAME_TYPE) return null;
+    if ((s.schemaVersion ?? 1) < 2) return null;
 
     const dataset: CalibrationDataset = s.dates.map(d => ({
       date: d.date,
@@ -168,7 +174,7 @@ export function loadCalibrationDataset(monthsBack: number): CalibrationDataset |
         raceNumber: r.raceNumber,
         raceData: r.raceData,
         rawKmTimes: r.rawKmTimes.map(deserializeRawKmTime),
-        actualResults: new Map<number, ActualHorseResult>(r.actualResultsEntries),
+        actualResults: new Map<string, ActualHorseResult>(r.actualResultsEntries.map(([key, value]) => [String(key), value])),
       })),
     }));
 
@@ -197,6 +203,7 @@ export function getCalibrationCacheInfo(monthsBack: number): { exists: boolean; 
     if (!raw) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
     const s: SerializedDataset = JSON.parse(raw);
     if (s.gameType !== GAME_TYPE) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
+    if ((s.schemaVersion ?? 1) < 2) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
     const ageHours = (Date.now() - new Date(s.cachedAt).getTime()) / 3_600_000;
     return { exists: true, ageHours, dateCount: s.dates.length, cachedAt: s.cachedAt };
   } catch {

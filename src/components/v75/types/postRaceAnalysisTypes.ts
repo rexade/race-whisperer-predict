@@ -17,6 +17,7 @@ export interface V75ActualResult {
   raceNumber: number;
   finishOrder: Array<{
     position: number;
+    horseKey?: string;
     horseId: number;
     horseName: string;
     postPosition: number;
@@ -34,6 +35,7 @@ export interface V75ActualResult {
 }
 
 export interface V75PredictionAccuracy {
+  horseKey?: string;
   horseId: number;
   horseName: string;
   postPosition: number;

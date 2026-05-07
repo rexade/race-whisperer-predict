@@ -88,28 +88,28 @@ async function evaluateModel(dataset: CalibrationDataset, model: ModelCandidate)
 
         races++;
         for (const horse of realHorses) {
-          const actual = race.actualResults.get(horse.horseId);
+          const actual = race.actualResults.get(horse.horseKey ?? String(horse.horseId));
           if (!actual) continue;
           rankError += Math.abs((horse.rank ?? 0) - actual.position);
           horses++;
         }
 
         const topPick = [...realHorses].sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))[0];
-        const topPickActual = topPick ? race.actualResults.get(topPick.horseId) : undefined;
+        const topPickActual = topPick ? race.actualResults.get(topPick.horseKey ?? String(topPick.horseId)) : undefined;
         if (!topPickActual) continue;
 
         if (topPickActual.position === 1) wins++;
         if (topPickActual.position <= 3) top3++;
 
-        let actualWinnerHorseId: number | undefined;
-        for (const [horseId, actual] of race.actualResults) {
+        let actualWinnerHorseKey: string | undefined;
+        for (const [horseKey, actual] of race.actualResults) {
           if (actual.position === 1) {
-            actualWinnerHorseId = horseId;
+            actualWinnerHorseKey = horseKey;
             break;
           }
         }
-        const predictedForWinner = actualWinnerHorseId !== undefined
-          ? realHorses.find(h => h.horseId === actualWinnerHorseId)
+        const predictedForWinner = actualWinnerHorseKey !== undefined
+          ? realHorses.find(h => (h.horseKey ?? String(h.horseId)) === actualWinnerHorseKey)
           : undefined;
         if (predictedForWinner?.rank !== undefined) {
           winnerRaceCount++;

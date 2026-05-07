@@ -76,7 +76,9 @@ export class V75DataConsistencyValidator {
 
             // Check if raw time exists for this horse
             if (rawTimesCache) {
-              const rawTimeExists = rawTimesCache.rawTimes.some(rt => rt.horseId === horse.horseId);
+              const rawTimeExists = rawTimesCache.rawTimes.some(rt =>
+                (rt.horseKey ?? String(rt.horseId)) === (horse.horseKey ?? String(horse.horseId))
+              );
               if (rawTimeExists) {
                 report.issues.push(`Horse ${horse.horseName} has raw time but no predicted time`);
               } else {

@@ -16,6 +16,7 @@ export class RawTimesCache {
     raceId: string,
     raceNumber: number,
     rawTimes: Array<{
+      horseKey?: string;
       horseId: number; horseName: string; postPosition: number; bestTime?: any; validTimesCount: number;
       gallopRate?: number; lastRaceDate?: string; consistencyScore?: number; gallopDates?: string[];
     }>
@@ -23,6 +24,7 @@ export class RawTimesCache {
     log.debug(`💾 [RawTimesCache] Storing raw KM times cache for race ${raceNumber} (${raceId})`);
 
     const cachedRawTimes: CachedRawTime[] = rawTimes.map(rt => ({
+      horseKey: rt.horseKey,
       horseId: rt.horseId,
       horseName: rt.horseName,
       postPosition: rt.postPosition,
@@ -42,7 +44,7 @@ export class RawTimesCache {
       raceNumber,
       rawTimes: cachedRawTimes,
       cachedAt: new Date().toISOString(),
-      schemaVersion: 5
+      schemaVersion: 6
     };
 
     try {
@@ -86,9 +88,9 @@ export class RawTimesCache {
 
       let rawTimesData: CachedV75RawTimes = JSON.parse(cachedData);
 
-      // Migration from schema version 1/2/3 to 4 (Force refresh to clear penalized times and switch to Best Time logic)
-      if (!rawTimesData.schemaVersion || rawTimesData.schemaVersion < 5) {
-        log.warn(`🔄 [RawTimesCache] Cache schema v${rawTimesData.schemaVersion || 1} is outdated (v5 required). Invalidating to force fresh calculation.`);
+      // v6 adds horseKey so null-id foreign horses cannot share cached raw times.
+      if (!rawTimesData.schemaVersion || rawTimesData.schemaVersion < 6) {
+        log.warn(`🔄 [RawTimesCache] Cache schema v${rawTimesData.schemaVersion || 1} is outdated (v6 required). Invalidating to force fresh calculation.`);
         localStorage.removeItem(cacheKey);
         return null;
       }

@@ -1,5 +1,6 @@
 
 export interface CachedRawTime {
+  horseKey?: string;
   horseId: number;
   horseName: string;
   postPosition: number;
@@ -36,6 +37,7 @@ export interface RaceAnalysisData {
   analysisDate: string;
   timestamp: string;
   horses: Array<{
+    horseKey?: string;
     horseId: number;
     horseName: string;
     postPosition: number;
@@ -57,6 +59,7 @@ export interface RaceAnalysisSummary {
 }
 
 export interface HorseMAEEntry {
+  horseKey?: string;
   horseId: number;
   horseName: string;
   predictedRank: number;

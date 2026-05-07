@@ -43,10 +43,10 @@ export function computeDriverRatings(dataset: CalibrationDataset): Map<string, n
         const name = normalizeName(fn, ln);
         if (!name) continue;
 
-        const horseId: number = horse.horseId ?? horse.id;
-        if (!horseId) continue;
+        const horseKey = horse.horseKey ?? String(horse.horseId ?? horse.id ?? '');
+        if (!horseKey) continue;
 
-        const actual = race.actualResults.get(horseId);
+        const actual = race.actualResults.get(horseKey);
         if (!actual) continue;
 
         const entry = counts.get(name) ?? { wins: 0, starts: 0 };

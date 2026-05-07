@@ -17,6 +17,7 @@ export interface ProcessedKmTime {
 }
 
 export interface HorseRawKmTime {
+  horseKey?: string;
   horseId: number;
   horseName: string;
   allTimes: ProcessedKmTime[];
@@ -64,4 +65,3 @@ export interface HorseRawKmTime {
     reason: string;
   };
 }
-

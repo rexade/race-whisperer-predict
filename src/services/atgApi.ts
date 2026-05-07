@@ -11,6 +11,7 @@ export interface ATGRaceInfo {
 }
 
 export interface ATGStartInfo {
+  horseKey?: string;
   number: number;
   distance: number;
   postPosition: number;

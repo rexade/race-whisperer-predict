@@ -109,6 +109,7 @@ export const buildHorseResult = (
   const horseResult: V75HorseResult = {
     raceNumber: race.raceNumber,
     raceId: race.raceId,
+    horseKey: horse.horseKey,
     horseId: horse.horseId,
     horseName: extractedData.safeHorseName,
     postPosition: horse.postPosition,
@@ -205,6 +206,7 @@ export const storeRaceAnalysisData = async (
       }
 
       return {
+        horseKey: horse.horseKey,
         horseId: horse.horseId,
         horseName: horse.horseName,
         postPosition: horse.postPosition,

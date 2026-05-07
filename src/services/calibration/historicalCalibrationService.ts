@@ -18,6 +18,7 @@ import { PostPositionCurves } from '@/services/modernKm/index';
 import { HorseRawKmTime } from '@/services/types/kmTimeTypes';
 import { V75CacheService } from '@/services/v75CacheService';
 import { saveCalibrationDataset, loadCalibrationDataset, getCalibrationCacheInfo } from './calibrationDatasetCache';
+import { horseKeyFromRaceHorse, horseKeyFromRawTime, makeHorseKey } from '@/services/horseIdentity';
 
 export interface ActualHorseResult {
   position: number;
@@ -31,8 +32,8 @@ export interface RaceCalibrationData {
   raceNumber: number;
   raceData: V75RaceData;
   rawKmTimes: HorseRawKmTime[];
-  /** horseId → actual finish result */
-  actualResults: Map<number, ActualHorseResult>;
+  /** horseKey → actual finish result */
+  actualResults: Map<string, ActualHorseResult>;
 }
 
 export interface DateCalibrationData {
@@ -198,11 +199,12 @@ export async function collectCalibrationData(
         const actualRace = actualResults.find(ar => ar.raceId === race.raceId);
         if (!actualRace?.finishOrder?.length) return null;
 
-        // Build actualResults map: horseId → { position, kmTime? }
-        const actualMap = new Map<number, ActualHorseResult>();
+        // Build actualResults map: horseKey → { position, kmTime? }
+        const actualMap = new Map<string, ActualHorseResult>();
         for (const finish of actualRace.finishOrder) {
-          if (finish.horseId && finish.position > 0) {
-            actualMap.set(finish.horseId, {
+          if (finish.position > 0) {
+            const horseKey = finish.horseKey ?? makeHorseKey(race.raceId, finish.horseId, finish.postPosition);
+            actualMap.set(horseKey, {
               position: finish.position,
               kmTime: finish.kmTime ?? undefined,
               finalOdds: finish.finalOdds != null && Number.isFinite(finish.finalOdds)
@@ -218,6 +220,7 @@ export async function collectCalibrationData(
 
         if (cachedRawTimes) {
           rawKmTimes = cachedRawTimes.rawTimes.map(c => ({
+            horseKey: c.horseKey,
             horseId: c.horseId,
             horseName: c.horseName || `Horse ${c.horseId}`,
             allTimes: [],
@@ -238,6 +241,7 @@ export async function collectCalibrationData(
           }));
         } else {
           const atgStarts = race.horses.map((horse: any) => ({
+            horseKey: horse.horseKey,
             horse: {
               id: horse.horseId,
               name: typeof horse.name === 'string' ? horse.name : String(horse.name),
@@ -255,9 +259,10 @@ export async function collectCalibrationData(
           try {
             rawKmTimes = await calculateRawKmTimesForRaceWithId(race.raceId, atgStarts, undefined, date);
             const rawTimesForCache = rawKmTimes.map(rt => {
-              const h = race.horses.find((x: any) => x.horseId === rt.horseId);
+              const rtKey = horseKeyFromRawTime(rt);
+              const h = race.horses.find((x: any) => horseKeyFromRaceHorse(race.raceId, x) === rtKey);
               return {
-                horseId: rt.horseId, horseName: rt.horseName, postPosition: h?.postPosition || 1,
+                horseKey: rtKey, horseId: rt.horseId, horseName: rt.horseName, postPosition: h?.postPosition || 1,
                 bestTime: rt.rawBestTime ?? rt.bestTime, validTimesCount: rt.validTimesCount,
                 gallopRate: rt.gallopRate, lastRaceDate: rt.lastRaceDate,
                 consistencyScore: rt.consistencyScore, gallopDates: rt.gallopDates,
@@ -361,12 +366,12 @@ export async function evaluateWeights(
 
         // Find the actual winner (position === 1) and look up what rank WE gave them.
         // This is the primary optimization signal: lower = closer to picking the winner first.
-        let actualWinnerHorseId: number | undefined;
-        for (const [horseId, actual] of race.actualResults) {
-          if (actual.position === 1) { actualWinnerHorseId = horseId; break; }
+        let actualWinnerHorseKey: string | undefined;
+        for (const [horseKey, actual] of race.actualResults) {
+          if (actual.position === 1) { actualWinnerHorseKey = horseKey; break; }
         }
-        if (actualWinnerHorseId !== undefined) {
-          const predictedForWinner = result.horses.find(h => h.horseId === actualWinnerHorseId);
+        if (actualWinnerHorseKey !== undefined) {
+          const predictedForWinner = result.horses.find(h => (h.horseKey ?? String(h.horseId)) === actualWinnerHorseKey);
           if (predictedForWinner?.rank !== undefined) {
             winnerRankSum += predictedForWinner.rank;
             winnerMRRSum += 1 / predictedForWinner.rank;
@@ -384,7 +389,7 @@ export async function evaluateWeights(
             continue;
           }
 
-          const actual = race.actualResults.get(horse.horseId);
+          const actual = race.actualResults.get(horse.horseKey ?? String(horse.horseId));
           if (actual === undefined || !horse.rank) continue;
 
           totalRankError += Math.abs(horse.rank - actual.position);

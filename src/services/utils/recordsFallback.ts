@@ -1,6 +1,14 @@
 export type KmTimeParts = { minutes: number; seconds: number; tenths?: number };
 export type StartMethod = "auto" | "volte";
 export type Distance = "short" | "medium" | "long";
+export type RecordSource =
+  | 'statistics'
+  | 'results'
+  | 'record-best'
+  | 'extended-results'
+  | 'extended-statistics-life'
+  | 'extended-statistics-years'
+  | 'extended-fallback-record';
 
 export interface ResultLikeRecord {
   date?: string;
@@ -16,7 +24,7 @@ export interface ResultLikeRecord {
     distance?: Distance; 
     startMethod?: StartMethod; 
     year?: string;
-    source: 'statistics' | 'results' | 'extended-results' | 'extended-statistics-life' | 'extended-statistics-years' | 'extended-fallback-record';
+    source: RecordSource;
     isLastResort?: boolean;
     extended?: boolean; // Provenance flag: came from extended endpoint
   };
@@ -30,6 +38,20 @@ type StatRecord = {
   place?: number;
   year?: string;
 };
+
+export function distanceCategoryToMeters(distance?: Distance): number | undefined {
+  if (distance === 'short') return 1640;
+  if (distance === 'medium') return 2140;
+  if (distance === 'long') return 2640;
+  return undefined;
+}
+
+export function isAggregateRecordSource(source?: string): boolean {
+  return source === 'statistics' ||
+    source === 'record-best' ||
+    source === 'extended-fallback-record' ||
+    source?.startsWith('extended-statistics') === true;
+}
 
 /**
  * Extract records from statistics when results.records is missing
@@ -116,11 +138,88 @@ export function extractRecordsFromStatistics(horse: any): ResultLikeRecord[] {
   return out;
 }
 
+function extractBestRecordTime(horse: any): ResultLikeRecord[] {
+  const record = horse?.record;
+  if (!record?.time || typeof record.time.minutes !== 'number' || typeof record.time.seconds !== 'number') {
+    return [];
+  }
+
+  const code = String(record.code ?? '').toLowerCase();
+  const badCodes = ['0', 'it', 'dist', 'u', 'gdk', 'br', 'p', 'dq'];
+  if (badCodes.includes(code)) return [];
+
+  const isAuto = /^a/i.test(code);
+  const rawLetter = code.replace(/^a/i, '').toUpperCase();
+  const distance: Distance | undefined =
+    record.distance ||
+    (rawLetter === 'K' ? 'short' : rawLetter === 'M' ? 'medium' : rawLetter === 'L' ? 'long' : undefined);
+  const startMethod: StartMethod | undefined =
+    record.startMethod || (isAuto ? 'auto' : rawLetter ? 'volte' : undefined);
+
+  return [{
+    date: undefined,
+    kmTime: {
+      minutes: record.time.minutes,
+      seconds: record.time.seconds,
+      tenths: record.time.tenths ?? 0,
+      code,
+    },
+    place: '0',
+    race: {
+      id: `record_best_${code || 'unknown'}`,
+      startMethod,
+    },
+    track: { name: 'Unknown' },
+    start: {
+      distance: distanceCategoryToMeters(distance),
+      postPosition: 1,
+    },
+    galloped: false,
+    disqualified: false,
+    meta: {
+      code,
+      distance,
+      startMethod,
+      year: 'best',
+      source: 'record-best',
+      isLastResort: true,
+    },
+  }];
+}
+
+export function collectHorseRecordCandidates(horse: any): {
+  records: ResultLikeRecord[];
+  counts: { results: number; statistics: number; bestRecord: number; total: number };
+} {
+  const resultRecords = (horse?.results?.records ?? []).map((record: any) => ({
+    ...record,
+    meta: { ...(record.meta ?? {}), source: 'results' as const },
+  }));
+  const statisticsRecords = extractRecordsFromStatistics(horse);
+
+  // horse.record.time is a personal-best style value, not a normal historical
+  // start. Use it only when there are no normal or aggregate candidates.
+  const bestRecord = resultRecords.length === 0 && statisticsRecords.length === 0
+    ? extractBestRecordTime(horse)
+    : [];
+
+  const records = [...resultRecords, ...statisticsRecords, ...bestRecord];
+  return {
+    records,
+    counts: {
+      results: resultRecords.length,
+      statistics: statisticsRecords.length,
+      bestRecord: bestRecord.length,
+      total: records.length,
+    },
+  };
+}
+
 /**
  * Check if any records originated from statistics fallback
  */
 export function originIncludesStatistics(records: ResultLikeRecord[]): boolean {
-  return records.some(r => r.meta?.source === 'statistics');
+  return records.some(r => isAggregateRecordSource(r.meta?.source));
 }
 
 /**
@@ -130,8 +229,10 @@ export function originIncludesStatistics(records: ResultLikeRecord[]): boolean {
 export function getSourceConfidenceMultiplier(records: ResultLikeRecord[]): number {
   const hasStatistics = originIncludesStatistics(records);
   const hasResults = records.some(r => r.meta?.source === 'results');
+  const hasLastResort = records.some(r => r.meta?.isLastResort === true);
   
   if (hasResults) return 1.0; // Normal confidence - real race results present
+  if (hasLastResort) return 0.5; // Single best record only
   if (hasStatistics) return 0.7; // Reduced confidence for statistics-only
   return 1.0; // Default
 }
@@ -145,7 +246,7 @@ export function getStatisticsBreakdown(records: ResultLikeRecord[]): {
   resultsRecords: number;
   distanceBreakdown: { short: number; medium: number; long: number; unknown: number };
 } {
-  const statisticsRecords = records.filter(r => r.meta?.source === 'statistics');
+  const statisticsRecords = records.filter(r => isAggregateRecordSource(r.meta?.source));
   const resultsRecords = records.filter(r => r.meta?.source === 'results' || !r.meta?.source);
   
   const distanceBreakdown = {

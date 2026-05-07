@@ -8,6 +8,7 @@ import { extractAndValidateHorseData } from './horseDataExtractor';
 import { applyHorseNormalization } from './horseNormalizationProcessor';
 import { buildHorseResult, storeRaceAnalysisData } from './horseResultBuilder';
 import { log } from '@/lib/logger';
+import { horseKeyFromRaceHorse, horseKeyFromRawTime } from '@/services/horseIdentity';
 
 export const processHorseResults = async (
   race: V75RaceData,
@@ -24,8 +25,8 @@ export const processHorseResults = async (
   log.debug(`  - Raw KM times available: ${rawKmTimes.length}`);
 
   for (const horse of race.horses) {
-    // Match by horseId only (no index) so each horse gets its own raw time; no cross-horse leak.
-    const rawTimeData = rawKmTimes.find(rt => rt.horseId === horse.horseId);
+    const horseKey = horseKeyFromRaceHorse(race.raceId, horse);
+    const rawTimeData = rawKmTimes.find(rt => horseKeyFromRawTime(rt) === horseKey);
     // Use un-penalized best time for normalization so final = raw + totalAdjustment (e.g. 1:11.5 + 0.04 = 1:11.54).
     // Confidence penalty is for transparency only; we do not feed penalized time into normalization.
     const rawKmTime = rawTimeData?.rawBestTime ?? rawTimeData?.bestTime;

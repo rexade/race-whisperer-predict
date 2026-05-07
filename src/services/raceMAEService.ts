@@ -3,6 +3,7 @@ import { fetchRaceData } from './atgApi';
 import { RaceAnalysisCache } from './v75Cache/raceAnalysisCache';
 import type { RaceMAEResult, HorseMAEEntry } from './v75Cache/types';
 import { log } from '@/lib/logger';
+import { makeHorseKey } from './horseIdentity';
 
 /**
  * Fetch actual race results from ATG and compute rank MAE against stored predictions.
@@ -25,26 +26,28 @@ export async function fetchAndComputeMAEForRace(raceId: string): Promise<RaceMAE
   const raceData = await fetchRaceData(raceId);
   const starts = raceData.starts ?? [];
 
-  // Build a map: horseId → actual finish order (skip horses without a clean finish)
-  const actualByHorseId = new Map<number, number>();
+  // Build a map: horseKey → actual finish order (skip horses without a clean finish)
+  const actualByHorseKey = new Map<string, number>();
   for (const start of starts) {
     const finishOrder = start.result?.finishOrder;
     if (typeof finishOrder === 'number' && finishOrder > 0) {
-      actualByHorseId.set(start.horse.id, finishOrder);
+      const horseKey = start.horseKey ?? makeHorseKey(raceId, start.horse.id, start.postPosition ?? start.number);
+      actualByHorseKey.set(horseKey, finishOrder);
     }
   }
 
-  if (actualByHorseId.size === 0) {
+  if (actualByHorseKey.size === 0) {
     log.debug(`MAE: race ${raceId} has no finish orders yet`);
     return null;
   }
 
   const matched: HorseMAEEntry[] = [];
   for (const predicted of stored.horses) {
-    const actual = actualByHorseId.get(predicted.horseId);
+    const actual = actualByHorseKey.get(predicted.horseKey ?? String(predicted.horseId));
     if (actual === undefined) continue;
     const rankError = Math.abs(predicted.rank - actual);
     matched.push({
+      horseKey: predicted.horseKey,
       horseId: predicted.horseId,
       horseName: predicted.horseName,
       predictedRank: predicted.rank,

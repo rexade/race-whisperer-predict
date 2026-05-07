@@ -15,7 +15,7 @@ export function hydrateDataset(raw: any[]): CalibrationDataset {
     races: dateData.races.map((race: any) => ({
       ...race,
       actualResults: new Map(Object.entries(race.actualResults).map(
-        ([k, v]) => [Number(k), v]
+        ([k, v]) => [String(k), v]
       )),
     })),
   }));

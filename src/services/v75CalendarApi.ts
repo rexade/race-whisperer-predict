@@ -1,6 +1,7 @@
 import { GAME_TYPE, IS_DEBUG, GameType } from "@/config/game";
 import { log } from "@/lib/logger";
 import { fetchRaceById } from "@/services/raceDataCache";
+import { makeHorseKey } from "@/services/horseIdentity";
 
 export interface V75CalendarDate {
   date: string; // YYYY-MM-DD format
@@ -37,6 +38,7 @@ export interface V75RaceData {
   date: string;
   prize: number;
   horses: Array<{
+    horseKey: string;
     horseId: number;
     name: any; // Keep as any for now due to API inconsistency
     postPosition: number;
@@ -76,6 +78,7 @@ export interface V75RaceData {
 }
 
 export interface V75HorseData {
+  horseKey: string;
   horseId: number;
   name: any; // Keep as any for now due to API inconsistency
   postPosition: number;
@@ -241,7 +244,7 @@ export const fetchRaceDataForGame = async (
         // ... abbreviated debug logic ...
       }
 
-      const horses = (raceData.starts || []).map((start: any) => extractHorseData(start));
+      const horses = (raceData.starts || []).map((start: any) => extractHorseData(start, raceData.id));
 
       v75Races.push({
         raceId: raceData.id,
@@ -323,7 +326,7 @@ export const fetchV75CalendarDates = async (year: number, month: number, gameTyp
 /**
  * Extract horse data
  */
-const extractHorseData = (start: any): V75HorseData => {
+const extractHorseData = (start: any, raceId: string): V75HorseData => {
   // Only log detailed extraction if debug logic is enabled
   if (IS_DEBUG) {
     // console.log can be used here if we genuinely need tight loop debugging,
@@ -402,10 +405,14 @@ const extractHorseData = (start: any): V75HorseData => {
   const totalStarts = horseLifeStats.starts || horseLifeStats.totalStarts || 0;
   const earningsPerStart = calculateEarningsPerStart(totalEarnings, totalStarts);
 
+  const horseId = start.horse?.id ?? start.horse?.horseId ?? 0;
+  const postPosition = start.number || start.postPosition || 0;
+
   return {
-    horseId: start.horse?.id || start.horse?.horseId || 0,
+    horseKey: makeHorseKey(raceId, horseId, postPosition),
+    horseId,
     name: start.horse?.name || 'Unknown Horse',
-    postPosition: start.number || start.postPosition || 0,
+    postPosition,
     distance: start.distance || 0,
     driver: {
       firstName: start.driver?.firstName || '',

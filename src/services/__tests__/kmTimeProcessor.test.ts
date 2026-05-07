@@ -101,6 +101,57 @@ describe('kmTimeProcessor', () => {
             expect(result[0].lastRaceDate).toBe('2026-04-10');
         });
 
+        it('should supplement real records with statistics records from the same start payload', async () => {
+            const { fetchHorseHistoricalData } = await import('../atgHistoricalApi');
+            const mockData: ATGHorseHistoricalData = {
+                horse: {
+                    name: 'Stats Supplement Horse',
+                    id: 99002,
+                    results: {
+                        records: [
+                            {
+                                date: '2026-04-10',
+                                kmTime: { minutes: 1, seconds: 17, tenths: 0 },
+                                galloped: true,
+                                place: 'U',
+                                race: { id: 'r1', startMethod: 'auto' },
+                                track: { name: 'Solvalla' },
+                                start: { distance: 2140, postPosition: 1 }
+                            }
+                        ]
+                    },
+                    statistics: {
+                        years: {
+                            '2026': {
+                                records: [
+                                    {
+                                        code: 'aM',
+                                        startMethod: 'auto',
+                                        distance: 'medium',
+                                        time: { minutes: 1, seconds: 15, tenths: 0 }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                } as any,
+                driver: { firstName: 'Test', lastName: 'Driver' },
+                postPosition: 1
+            };
+            vi.mocked(fetchHorseHistoricalData).mockResolvedValueOnce(mockData);
+
+            const starts: ATGStartInfo[] = [
+                { postPosition: 1, horse: { id: 99002, name: 'Stats Supplement Horse' } } as ATGStartInfo
+            ];
+
+            const result = await calculateRawKmTimesForRaceWithId('test-race-stats', starts);
+
+            expect(result).toHaveLength(1);
+            expect(result[0].validTimesCount).toBe(1);
+            expect(result[0].usedStatisticsFallback).toBe(true);
+            expect(result[0].rawBestTime).toEqual({ minutes: 1, seconds: 15, tenths: 0 });
+        });
+
         it('should handle invalid distance values', async () => {
             // Test that zero or negative distances are handled
             expect(true).toBe(true);

@@ -1,6 +1,7 @@
 import { log } from '@/lib/logger';
 
 export interface EnhancedHorseData {
+  horseKey?: string;
   horseId: number;
   name: string;
   postPosition: number;

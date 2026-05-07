@@ -3,7 +3,7 @@ import { KmTime } from './utils/kmTimeUtils';
 import { convertToKmTime } from './utils/timeConversion';
 import { normalizeKmTimeSimplified } from './utils/kmTimeNormalization';
 import { DataValidator } from './debugging/dataValidator';
-import { getSourceConfidenceMultiplier, getStatisticsBreakdown } from './utils/recordsFallback';
+import { getSourceConfidenceMultiplier, getStatisticsBreakdown, isAggregateRecordSource } from './utils/recordsFallback';
 import { toSeconds, secondsToKmParts, isOutlierTime, createRecordKey } from './utils/robustTimeConversion';
 import { log } from '@/lib/logger';
 
@@ -81,7 +81,7 @@ export const processHorseKmTimes = async (
   };
 
   for (const race of historicalRaces) {
-    const isStatsSource = (race as any).meta?.source === 'statistics';
+    const isStatsSource = isAggregateRecordSource((race as any).meta?.source);
 
     // Check for valid kmTime structure
     if (!race.kmTime || typeof race.kmTime.minutes !== 'number' || typeof race.kmTime.seconds !== 'number') {

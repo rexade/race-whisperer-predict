@@ -4,6 +4,7 @@ import { calculateRawKmTimesForRaceWithId } from '../../../services/kmTimeProces
 import { HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 import { log } from '@/lib/logger';
 import { IS_DEBUG } from '@/config/game';
+import { horseKeyFromRaceHorse, horseKeyFromRawTime } from '@/services/horseIdentity';
 
 export interface CacheResult {
   rawKmTimes: HorseRawKmTime[];
@@ -33,6 +34,7 @@ export const useV75Cache = () => {
       // Convert cached raw times to expected format with fallback for missing fields.
       // Cache stores un-penalized time so normalization gets base + adjustment (e.g. 1:11.5 + 0.04).
       const rawKmTimes = cachedRawTimes.rawTimes.map(cached => ({
+        horseKey: cached.horseKey,
         horseId: cached.horseId,
         horseName: cached.horseName || `Horse ${cached.horseId}`,
         allTimes: [], // Empty array for cached data
@@ -54,6 +56,7 @@ export const useV75Cache = () => {
 
     // Calculate raw times from scratch
     const atgStarts = race.horses.map((horse: any) => ({
+      horseKey: horse.horseKey,
       horse: {
         id: horse.horseId,
         name: typeof horse.name === 'string' ? horse.name : String(horse.name)
@@ -86,10 +89,12 @@ export const useV75Cache = () => {
     // We need to match horses with their post positions from the race data
     // Store un-penalized time in cache so normalization always gets base + adjustment (e.g. 1:11.5 + 0.04).
     const rawTimesForCache = rawKmTimes.map(rawTime => {
-      const horseInRace = race.horses.find((horse: any) => horse.horseId === rawTime.horseId);
+      const rawHorseKey = horseKeyFromRawTime(rawTime);
+      const horseInRace = race.horses.find((horse: any) => horseKeyFromRaceHorse(race.raceId, horse) === rawHorseKey);
       const timeToCache = rawTime.rawBestTime ?? rawTime.bestTime;
 
       return {
+        horseKey: rawHorseKey,
         horseId: rawTime.horseId,
         horseName: rawTime.horseName,
         postPosition: horseInRace?.postPosition || 1,

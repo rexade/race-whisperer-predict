@@ -14,7 +14,7 @@ export class V75CacheService {
     gameId: string,
     raceId: string,
     raceNumber: number,
-    rawTimes: Array<{ horseId: number; horseName: string; postPosition: number; best3Average?: any; validTimesCount: number }>
+    rawTimes: Array<{ horseKey?: string; horseId: number; horseName: string; postPosition: number; best3Average?: any; bestTime?: any; validTimesCount: number }>
   ): Promise<void> {
     return RawTimesCache.storeRawTimes(date, gameId, raceId, raceNumber, rawTimes);
   }
@@ -41,6 +41,7 @@ export class V75CacheService {
     raceNumber: number,
     analysisDate: string,
     horses: Array<{
+      horseKey?: string;
       horseId: number;
       horseName: string;
       postPosition: number;

@@ -9,6 +9,7 @@ import { log } from '@/lib/logger';
 import { IS_DEBUG } from '@/config/game';
 import type { V75GameInfo } from '@/services/v75CalendarApi';
 import { fetchRaceById } from '@/services/raceDataCache';
+import { makeHorseKey } from '@/services/horseIdentity';
 
 export class V75ResultsFetcher {
   /**
@@ -202,7 +203,7 @@ export class V75ResultsFetcher {
         if (item.result) {
           // Format: starts with embedded result
           position = item.result.finalPosition || item.result.finishOrder;
-          horseId = item.horse?.id || 0;
+          horseId = item.horse?.id ?? 0;
           horseName = item.horse?.name || 'Unknown';
           postPosition = item.number || item.postPosition || 0;
           const rawKmTime = item.result.kmTime;
@@ -215,7 +216,7 @@ export class V75ResultsFetcher {
         } else {
           // Format: direct results
           position = item.finalPosition || item.finishOrder || item.position;
-          horseId = item.horse?.id || item.horseId || 0;
+          horseId = item.horse?.id ?? item.horseId ?? 0;
           horseName = item.horse?.name || item.horseName || 'Unknown';
           postPosition = item.postPosition || item.number || 0;
           time = item.kmTime ? formatKmTime(item.kmTime) : (item.time || 'N/A');
@@ -228,7 +229,9 @@ export class V75ResultsFetcher {
         // Extract closing odds from result (available on completed races)
         const finalOdds = item.result?.finalOdds ?? item.result?.odds ?? item.pools?.vinnare?.odds ?? undefined;
 
-        return { position, horseId, horseName, postPosition, time, kmTime, driver, finalOdds };
+        const horseKey = makeHorseKey(raceId, horseId, postPosition);
+
+        return { position, horseId, horseKey, horseName, postPosition, time, kmTime, driver, finalOdds };
       })
       .filter((result: any) => result.position && result.position > 0)
       .sort((a: any, b: any) => a.position - b.position);

@@ -3,6 +3,7 @@ import { V75RaceData } from '../../../services/v75CalendarApi';
 import { EnhancedRaceData, EnhancedHorseData } from '../../../services/enhancedAtgApi';
 import { extractHorseNameAsString, extractTrackNameAsString } from './dataExtraction';
 import { log } from '@/lib/logger';
+import { makeHorseKey } from '@/services/horseIdentity';
 
 // Convert V75RaceData to EnhancedRaceData format for validation
 export const convertV75ToEnhancedRaceData = (v75Race: V75RaceData): EnhancedRaceData => {
@@ -10,6 +11,7 @@ export const convertV75ToEnhancedRaceData = (v75Race: V75RaceData): EnhancedRace
   log.debug(`  Race has ${v75Race.horses.length} horses with positions: ${v75Race.horses.map(h => h.postPosition).sort((a, b) => a - b).join(', ')}`);
 
   const enhancedHorses: EnhancedHorseData[] = v75Race.horses.map(horse => ({
+    horseKey: horse.horseKey,
     horseId: horse.horseId,
     name: extractHorseNameAsString(horse.name),
     postPosition: horse.postPosition,
@@ -71,6 +73,7 @@ export const convertEnhancedToV75RaceData = (enhancedRace: EnhancedRaceData): V7
     date: enhancedRace.date,
     prize: enhancedRace.prize,
     horses: enhancedRace.horses.map(horse => ({
+      horseKey: (horse as any).horseKey ?? makeHorseKey(enhancedRace.raceId, horse.horseId, horse.postPosition),
       horseId: horse.horseId,
       name: horse.name,
       postPosition: horse.postPosition,

@@ -14,6 +14,7 @@ export class RaceAnalysisCache {
     raceNumber: number,
     analysisDate: string,
     horses: Array<{
+      horseKey?: string;
       horseId: number;
       horseName: string;
       postPosition: number;

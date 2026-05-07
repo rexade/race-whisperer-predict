@@ -7,6 +7,7 @@ export type TimeSource = "normalized" | "best_raw" | "abroad" | "field_median" |
 export interface V75HorseResult {
   raceNumber: number;
   raceId: string;
+  horseKey?: string;
   horseId: number;
   horseName: string;
   postPosition: number;
