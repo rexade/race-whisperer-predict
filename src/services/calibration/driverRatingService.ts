@@ -69,11 +69,12 @@ export function computeDriverRatings(dataset: CalibrationDataset): Map<string, n
 export function saveDriverRatings(ratings: Map<string, number>): void {
   const obj: Record<string, number> = {};
   ratings.forEach((v, k) => { obj[k] = v; });
+  _cache = ratings;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
-    _cache = ratings;
   } catch {
-    // Ignore quota errors — fall back to ATG stat
+    // Ignore unavailable storage/quota errors. The in-memory cache still works
+    // for Web Workers and one-shot CLI evaluation runs.
   }
 }
 

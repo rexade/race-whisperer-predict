@@ -11,6 +11,11 @@ import { NormalizationWeights } from '@/services/modernKm/types';
 import { PostPositionCurves } from '@/services/modernKm/index';
 import { CalibrationDataset, evaluateWeights } from '@/services/calibration/historicalCalibrationService';
 import { optimizeWeights, OptimizationProgress, OptimizationResult } from '@/services/calibration/weightOptimizer';
+import { computeDriverRatings, saveDriverRatings } from '@/services/calibration/driverRatingService';
+
+function primeDriverEmpiricalRatings(dataset: CalibrationDataset): void {
+  saveDriverRatings(computeDriverRatings(dataset));
+}
 
 self.onmessage = async (event: MessageEvent) => {
   const { type, payload } = event.data;
@@ -24,6 +29,7 @@ self.onmessage = async (event: MessageEvent) => {
     };
 
     try {
+      primeDriverEmpiricalRatings(dataset);
       const result: OptimizationResult = await optimizeWeights(
         dataset,
         initialWeights,
@@ -51,6 +57,7 @@ self.onmessage = async (event: MessageEvent) => {
     };
 
     try {
+      primeDriverEmpiricalRatings(dataset);
       const result = await evaluateWeights(dataset, weights, curves);
       (self as any).postMessage({ type: 'EVAL_DONE', payload: result });
     } catch (error) {
