@@ -16,7 +16,10 @@
 // Signals included:
 //   rawKmTime (normalized to 2140m auto), postPosition, driverPerformance,
 //   startPoints, placePercentage, horseWinPercentage, earningsPerStart,
-//   form (last 5, exponential), gallopRisk, layoffPenalty, consistencyFactor
+//   form (last 5, exponential), gallopRisk, layoffPenalty, consistencyFactor (E13: 8-race window),
+//   tripDependencyModifier (E11: postPosition in recentRaces → volteDistAdj scaled 0.6–1.0)
+//   oddsHistorical (E13: all records, no 10-record cap)
+//   sulkyType (E15: AM=-0.2s, others=0 — mirrors robustEquipmentCalculators.ts)
 //
 // Output: reports/mae-auto-{first-date}.json
 
@@ -64,6 +67,16 @@ const V4 = {
   driverForm: 0.8,
 };
 
+// V32 — experimental preset candidate. kfold-v24.ts reported CV-Win 34.2%, CV-MRR 0.5233, Full-Win 34.3%.
+// E15: sulkyType:0.227 now included (AM=-0.2s, max ±0.045s impact). raceDistanceAdjustment:1.047 still omitted (race-wide constant, zero rank impact).
+const V32 = {
+  startPoints: 2.685, placePercentage: 2.215, horseWinPercentage: 1.917,
+  earningsPerStart: 0.000, driverPerformance: 2.755, postPosition: 1.374,
+  form: 5.868, gallopRisk: 0.000, layoffPenalty: 1.243, consistencyFactor: 4.234,
+  driverForm: 1.590, oddsHistorical: 2.988, volteStartDistancePenalty: 0.801,
+  sulkyType: 0.227,
+};
+
 // ---------------------------------------------------------------------------
 // Constants (from normalizationConstants.ts)
 // ---------------------------------------------------------------------------
@@ -77,13 +90,21 @@ const DRIVER_BASELINE = 0.12;
 const DRIVER_SCALE    = 0.10;
 const DRIVER_CAP_S    = 0.30;
 
-const DRIVER_FORM_BASELINE = 0.15;  // expected win rate for driver on this horse
-const DRIVER_FORM_MAX_S    = 0.20;  // max ±0.20s adjustment
+// DRIVER_FORM: field-relative IQR model — see driverFormAdj_fieldRelative() below
 
 const SP_BASELINE     = 1200;
 const SP_ALPHA        = 0.60;
-const SP_MAX_S        = 0.60;
-const SP_CAP_S        = 0.30;
+const SP_MAX_S        = 0.60;  // max raw adj for absolute log-baseline fallback
+
+// E4: field-aware startPoints constants (mirror normalizationConstants.ts)
+const SP_FIELD_MAX_IMPACT_S = 0.25;  // START_POINTS_FIELD_AWARE_MAX_IMPACT_S
+const SP_FIELD_BETA         = 2.0;   // START_POINTS_FIELD_AWARE_BETA
+const SP_FIELD_MIN_SIZE     = 3;     // START_POINTS_FIELD_MIN_SIZE
+const SP_FINAL_CAP_S        = 0.30;  // START_POINTS_FINAL_CAP_S — cap applied AFTER weight
+
+// E5: form fallback constants (mirror normalizationConstants.ts)
+const FORM_FALLBACK_BASELINE_PCT = 10;    // FORM_FALLBACK_BASELINE_PCT
+const FORM_FALLBACK_SCALE_S      = 0.01;  // FORM_FALLBACK_SCALE_S
 
 const PLACE_BASELINE  = 50;    // percent
 const PLACE_SCALE_S   = 0.001;
@@ -114,20 +135,41 @@ const CONSISTENCY_MAX = 0.15;
 const CONSISTENCY_SC  = 3.0;
 const CONSISTENCY_MIN = 3;     // min races for stdDev
 
-// Simplified auto-start post-position curve
-const POST_CURVE = {
-  1: -0.10, 2: -0.08, 3: -0.04, 4: 0.00, 5: 0.02,
-  6:  0.04, 7:  0.06, 8:  0.08, 9: 0.10, 10: 0.12,
+const ODDS_NEUTRAL    = 8;     // odds at which adjustment = 0
+const ODDS_SCALE      = 6;     // width of sigmoid
+const ODDS_MAX_S      = 0.30;  // max ±0.30s adjustment (matches performanceCalculators.ts)
+
+const VOLTE_BACK_MARKER_PENALTY_S = 0.4;  // adjustmentCalculators.ts
+
+// Post-position curves — mirrors DEFAULT_AUTO_CURVE / DEFAULT_VOLTE_CURVE in postPositionCalculator.ts
+const POST_CURVE_AUTO = {
+   1: -0.30,  2: -0.25,  3: -0.20,  4: -0.10,  5:  0.00,
+   6:  0.05,  7:  0.15,  8:  0.30,  9:  0.55, 10:  0.65,
+  11:  0.75, 12:  0.85, 13:  0.90, 14:  0.95, 15:  1.00,
 };
+const POST_CURVE_VOLTE = {
+   1: -0.25,  2: -0.20,  3: -0.10,  4:  0.00,  5:  0.05,
+   6:  0.20,  7:  0.25,  8:  0.30,  9:  0.50, 10:  0.60,
+  11:  0.75, 12:  0.85, 13:  0.90, 14:  0.95, 15:  1.00,
+};
+const POST_OVERFLOW = 1.00;
 
 // ---------------------------------------------------------------------------
 // Adjustment calculators
 // ---------------------------------------------------------------------------
 
-function postAdj(pos)      { return POST_CURVE[pos] ?? (pos > 10 ? 0.14 : 0.0); }
+function postAdj(pos, startMethod) {
+  const s = String(startMethod ?? '').trim().toLowerCase();
+  const isVolte = s.startsWith('volt') || s === 'v';
+  const curve = isVolte ? POST_CURVE_VOLTE : POST_CURVE_AUTO;
+  return curve[pos] ?? POST_OVERFLOW;
+}
 
 function driverAdj(wpRaw) {
-  const f = wpRaw > 1 ? wpRaw / 100 : wpRaw;
+  // ATG winPercentage is in basis points (e.g. 1305 = 13.05%). Mirror calculateDriverAdjustment.
+  let f = wpRaw;
+  if (wpRaw > 100) f = wpRaw / 10000;
+  else if (wpRaw > 1) f = wpRaw / 100;
   return Math.max(-DRIVER_CAP_S, Math.min(DRIVER_CAP_S,
     -DRIVER_CAP_S * Math.tanh((f - DRIVER_BASELINE) / DRIVER_SCALE)));
 }
@@ -136,7 +178,24 @@ function startPointsAdj(pts) {
   if (!Number.isFinite(pts) || pts <= 0) return 0;
   const delta = Math.log1p(pts) - Math.log1p(SP_BASELINE);
   const raw = -SP_MAX_S * Math.tanh(delta / SP_ALPHA);
-  return Math.max(-SP_CAP_S, Math.min(SP_CAP_S, Number.isFinite(raw) ? raw : 0));
+  return Number.isFinite(raw) ? raw : 0;  // no cap here — cap applied after weight in scoreHorse
+}
+
+// E4: field-aware startPoints — mirrors calculateStartPointsAdjustmentFieldAware.
+// Returns raw adj (un-capped). Cap ±SP_FINAL_CAP_S applied AFTER weight in scoreHorse.
+function fieldStartPointsAdj(pts, fieldPts) {
+  const valid = (fieldPts ?? []).filter(n => Number.isFinite(n) && n > 0).sort((a, b) => a - b);
+  if (!Number.isFinite(pts) || valid.length < SP_FIELD_MIN_SIZE) {
+    return startPointsAdj(pts);  // fallback: absolute log-baseline, no internal cap
+  }
+  const q = p => {
+    const idx = (valid.length - 1) * p;
+    const lo = Math.floor(idx), hi = Math.ceil(idx);
+    return (1 - (idx - lo)) * valid[lo] + (idx - lo) * valid[hi];
+  };
+  const median = q(0.5);
+  const iqr    = Math.max(1, q(0.75) - q(0.25));
+  return -SP_FIELD_MAX_IMPACT_S * Math.tanh((pts - median) / (iqr * SP_FIELD_BETA));
 }
 
 function placeAdj(basisPts) {
@@ -155,9 +214,17 @@ function earningsAdj(earningsSek) {
   return Math.max(adj, -0.2); // cap bonus
 }
 
-function formAdj(recentRaces) {
+function formAdj(recentRaces, winPctBasisPoints) {
   // recentRaces: [{place, date}, ...], sorted by date descending (newest first)
-  if (!recentRaces || recentRaces.length === 0) return 0;
+  // E5: when no recent history, fall back to career win-pct proxy (mirrors calculateFormAdjustment)
+  if (!recentRaces || recentRaces.length === 0) {
+    if (Number.isFinite(winPctBasisPoints)) {
+      // ATG winPercentage is in basis points (e.g. 1500 = 15%); divide by 100 → percent
+      const pct = winPctBasisPoints > 100 ? winPctBasisPoints / 100 : winPctBasisPoints;
+      return (FORM_FALLBACK_BASELINE_PCT - pct) * FORM_FALLBACK_SCALE_S;
+    }
+    return 0;
+  }
   const races = recentRaces.slice(0, FORM_MAX_RACES);
   let score = 0, weight = 0;
   races.forEach((r, i) => {
@@ -178,12 +245,27 @@ function gallopAdj(gallopRate) {
   return GALLOP_MAX_S * Math.tanh(gallopRate / GALLOP_SCALE);
 }
 
-function driverFormAdj(driverHorseWinRate) {
-  // Positive win rate vs baseline → faster prediction (negative adjustment)
-  // null = no data → no adjustment
-  if (driverHorseWinRate === null) return 0;
-  const delta = driverHorseWinRate - DRIVER_FORM_BASELINE;
-  return -DRIVER_FORM_MAX_S * Math.tanh(delta / 0.15);
+function driverFormAdj_fieldRelative(driverRate, fieldRates) {
+  // Field-relative IQR adjustment — mirrors calculateDriverFormAdjustment (driverCalculators.ts).
+  // Compares THIS driver's win rate to the field median+IQR, not a global baseline.
+  // Fires for all races with ≥3 drivers (i.e. every V85 race). Range: ±DRIVER_CAP_S.
+  const norm = r => {
+    if (!Number.isFinite(r) || r < 0) return 0;
+    if (r > 100) return r / 10_000;
+    if (r > 1)   return r / 100;
+    return r;
+  };
+  const rate  = norm(driverRate);
+  const rates = fieldRates.map(norm).filter(r => Number.isFinite(r) && r >= 0).sort((a, b) => a - b);
+  if (rates.length < 3) return 0;
+  const q = p => {
+    const idx = (rates.length - 1) * p;
+    const lo = Math.floor(idx), hi = Math.ceil(idx);
+    return (1 - (idx - lo)) * rates[lo] + (idx - lo) * rates[hi];
+  };
+  const median = q(0.5);
+  const iqr    = Math.max(0.02, q(0.75) - q(0.25));
+  return -DRIVER_CAP_S * Math.tanh((rate - median) / iqr);
 }
 
 function layoffAdj(days) {
@@ -194,6 +276,46 @@ function layoffAdj(days) {
 function consistencyAdj(stdDev) {
   if (!Number.isFinite(stdDev) || stdDev <= 0) return 0;
   return CONSISTENCY_MAX * Math.tanh(stdDev / CONSISTENCY_SC);
+}
+
+function oddsAdj(avgOdds) {
+  // Lower odds (favorite) → negative adjustment (faster prediction).
+  // Higher odds (long shot) → positive adjustment (slower prediction).
+  if (!avgOdds || !Number.isFinite(avgOdds) || avgOdds <= 0) return 0;
+  return ODDS_MAX_S * Math.tanh((avgOdds - ODDS_NEUTRAL) / ODDS_SCALE);
+}
+
+// E11: mirrors calculateTripDependencyModifier (adjustmentCalculators.ts)
+// Constants: TRIP_DEPENDENCY_OUTSIDE_THRESHOLD=7, MIN_RECORDS=4, MIN_OUTSIDE=2,
+//            MAX_MODIFIER=1.0, MIN_MODIFIER=0.6, OUTSIDE_RATE_SCALE=0.5
+function tripDependencyModifier(recentRaces) {
+  const withPos = (recentRaces ?? []).filter(r => r.postPosition !== undefined && r.postPosition > 0);
+  if (withPos.length < 4) return 1.0;
+  const outside = withPos.filter(r => r.postPosition >= 7);
+  if (outside.length < 2) return 1.0;
+  const rate = outside.filter(r => r.place <= 3).length / outside.length;
+  return Math.max(1.0 - rate * 0.5, 0.6);
+}
+
+function volteDistAdj(startMethod, preferredDistance, raceDistance, recentRaces) {
+  // Mirrors calculateVolteStartDistancePenalty (adjustmentCalculators.ts).
+  // Penalty fires when: volte race AND horse's preferred dist > race dist.
+  // E11: tripDependencyModifier now computed from recentRaces (was hardcoded 1.0).
+  const isVolte = Boolean(startMethod) && startMethod.toLowerCase().includes('volt');
+  if (!isVolte || !Number.isFinite(preferredDistance) || preferredDistance <= raceDistance) return 0;
+  return VOLTE_BACK_MARKER_PENALTY_S * tripDependencyModifier(recentRaces);
+}
+
+// E15: sulkyType — mirrors calculateRobustSulkyAdjustment (robustEquipmentCalculators.ts).
+// American sulky = -0.2s advantage; all other types = 0.
+// ATG code examples: 'AM' (American), 'VA' (Vanlig/Standard), 'FR' (French), 'LT' (Light), 'B' (Bike).
+function sulkyAdj(sulkyCode) {
+  if (!sulkyCode || typeof sulkyCode !== 'string') return 0;
+  const t = sulkyCode.toUpperCase().trim();
+  // American variants (mirrors explicit mappings + pattern matching in production)
+  if (t === 'AM' || t === 'AMERICAN' || t === 'A' || t === 'AMERIKANSK' || t === 'US') return -0.2;
+  if (t.startsWith('AM') || t.includes('AMERICAN')) return -0.2;
+  return 0; // VA, VANLIG, FR, LT, B, unknown → no adjustment
 }
 
 // ---------------------------------------------------------------------------
@@ -234,7 +356,7 @@ function normalizeHistoricalKmTime(kmTimeObj, dist, startMethod) {
 // ---------------------------------------------------------------------------
 
 function processHistory(records, evalDate, currentDriverId = null) {
-  if (!records || records.length === 0) return { rawKmTime: null, recentRaces: [], gallopRate: 0, layoffDays: null, consistencyScore: null, driverHorseWinRate: null };
+  if (!records || records.length === 0) return { rawKmTime: null, recentRaces: [], gallopRate: 0, layoffDays: null, consistencyScore: null, driverHorseWinRate: null, averageOdds: null, preferredDistance: null };
 
   const cutoff = new Date(evalDate);
   cutoff.setMonth(cutoff.getMonth() - 5);
@@ -262,6 +384,15 @@ function processHistory(records, evalDate, currentDriverId = null) {
     r.start?.distance && r.race?.startMethod
   );
 
+  // Preferred distance: median of historical race distances (used for volte back-marker penalty)
+  const validDistances = validKm
+    .map(r => r.start?.distance)
+    .filter(d => Number.isFinite(d) && d > 0)
+    .sort((a, b) => a - b);
+  const preferredDistance = validDistances.length > 0
+    ? validDistances[Math.floor(validDistances.length / 2)]
+    : null;
+
   // Normalized km times → take best 1 or avg top-2 (H2 fix)
   const normalizedTimes = validKm
     .map(r => normalizeHistoricalKmTime(r.kmTime, r.start.distance, r.race.startMethod))
@@ -280,6 +411,7 @@ function processHistory(records, evalDate, currentDriverId = null) {
     .map(r => ({
       date: r.date,
       place: r.galloped ? FORM_GALLOP_PL : parseInt(String(r.place ?? ''), 10) || 0,
+      postPosition: r.start?.postPosition ?? undefined,  // E11: enables tripDependencyModifier
     }))
     .filter(r => r.place > 0);
 
@@ -288,10 +420,15 @@ function processHistory(records, evalDate, currentDriverId = null) {
   const gallopCount = recentStarts.filter(r => r.galloped).length;
   const gallopRate = recentStarts.length > 0 ? gallopCount / recentStarts.length : 0;
 
-  // Consistency: stdDev of recent clean finish positions
-  const cleanPositions = recentRaces
-    .filter(r => r.place > 0 && r.place !== FORM_GALLOP_PL)
-    .map(r => r.place);
+  // E13: Consistency window — up to 8 races (mirrors horseProcessing.ts:283-292).
+  // Independent of recentRaces (form uses 5, consistency uses 8).
+  // source filtered to non-DQ, non-galloped (mirrors processedTimes in production).
+  const consistencyRaces = source
+    .filter(r => !r.disqualified && !r.galloped)
+    .slice(0, 8);
+  const cleanPositions = consistencyRaces
+    .map(r => parseInt(String(r.place ?? ''), 10))
+    .filter(p => Number.isFinite(p) && p > 0);
   let consistencyScore = null;
   if (cleanPositions.length >= CONSISTENCY_MIN) {
     const mean = cleanPositions.reduce((s, v) => s + v, 0) / cleanPositions.length;
@@ -310,40 +447,60 @@ function processHistory(records, evalDate, currentDriverId = null) {
     }
   }
 
-  return { rawKmTime, recentRaces, gallopRate, layoffDays, consistencyScore, driverHorseWinRate };
+  // E13: Average historical odds from ALL records (mirrors atgHistoricalApi.ts:348-354 — no slice cap).
+  const oddsRecords = sorted.filter(r => r.odds != null && Number.isFinite(r.odds) && r.odds > 0);
+  const averageOdds = oddsRecords.length > 0
+    ? oddsRecords.reduce((s, r) => s + r.odds, 0) / oddsRecords.length
+    : null;
+
+  return { rawKmTime, recentRaces, gallopRate, layoffDays, consistencyScore, driverHorseWinRate, averageOdds, preferredDistance };
 }
 
 // ---------------------------------------------------------------------------
 // Scoring
 // ---------------------------------------------------------------------------
 
-function scoreHorse(horse, hist, fieldMedianKm, weights) {
+function scoreHorse(horse, hist, fieldMedianKm, fieldDriverWinRates, fieldStartPoints, weights, startMethod, raceDistance) {
   const base = hist.rawKmTime ?? fieldMedianKm;
 
+  // E4: field-aware startPoints — cap ±SP_FINAL_CAP_S applied AFTER weight (mirrors index.ts:159–163)
+  const spRaw      = fieldStartPointsAdj(horse.startPoints, fieldStartPoints);
+  const spWeighted = spRaw * (weights.startPoints ?? 0);
+  const spCapped   = Math.max(-SP_FINAL_CAP_S, Math.min(SP_FINAL_CAP_S, spWeighted));
+
   return base
-    + postAdj(horse.postPosition)                          * weights.postPosition
-    + driverAdj(horse.driverWinPct)                        * weights.driverPerformance
-    + startPointsAdj(horse.startPoints)                    * weights.startPoints
-    + placeAdj(horse.placePercentage)                      * weights.placePercentage
-    + winAdj(horse.winPercentage)                          * weights.horseWinPercentage
-    + earningsAdj(horse.earningsSek)                       * weights.earningsPerStart
-    + formAdj(hist.recentRaces)                            * weights.form
-    + gallopAdj(hist.gallopRate)                           * weights.gallopRisk
-    + layoffAdj(hist.layoffDays)                           * weights.layoffPenalty
-    + consistencyAdj(hist.consistencyScore)                * weights.consistencyFactor
-    + driverFormAdj(hist.driverHorseWinRate)               * (weights.driverForm ?? 0);
+    + postAdj(horse.postPosition, startMethod)                             * weights.postPosition
+    + driverAdj(horse.driverWinPct)                                        * weights.driverPerformance
+    + spCapped                                                             // E4: already weighted + capped
+    + placeAdj(horse.placePercentage)                                      * weights.placePercentage
+    + winAdj(horse.winPercentage)                                          * weights.horseWinPercentage
+    + earningsAdj(horse.earningsSek)                                       * weights.earningsPerStart
+    + formAdj(hist.recentRaces, horse.winPercentage)                       * weights.form  // E5: fallback
+    + gallopAdj(hist.gallopRate)                                           * weights.gallopRisk
+    + layoffAdj(hist.layoffDays)                                           * weights.layoffPenalty
+    + consistencyAdj(hist.consistencyScore)                                * weights.consistencyFactor
+    + driverFormAdj_fieldRelative(horse.driverWinPct, fieldDriverWinRates) * (weights.driverForm ?? 0)
+    + oddsAdj(hist.averageOdds)                                            * (weights.oddsHistorical ?? 0)
+    + volteDistAdj(startMethod, hist.preferredDistance, raceDistance, hist.recentRaces) * (weights.volteStartDistancePenalty ?? 0)  // E11: pass recentRaces for tripDep
+    + sulkyAdj(horse.sulkyType)                                            * (weights.sulkyType ?? 0);  // E15: AM sulky advantage
 }
 
-function rankHorses(horses, hists, weights) {
+function rankHorses(horses, hists, weights, startMethod, raceDistance) {
   // Compute field median km time for horses without history
   const validKmTimes = hists.map(h => h.rawKmTime).filter(t => t !== null);
   const fieldMedianKm = validKmTimes.length > 0
     ? validKmTimes.sort((a, b) => a - b)[Math.floor(validKmTimes.length / 2)]
     : 76.5; // fallback neutral
 
+  // Field driver win rates for field-relative driverForm IQR adjustment
+  const fieldDriverWinRates = horses.map(h => h.driverWinPct);
+
+  // E4: field start points for field-aware startPoints adjustment
+  const fieldStartPoints = horses.map(h => h.startPoints);
+
   const scored = horses.map((h, i) => ({
     ...h,
-    score: scoreHorse(h, hists[i], fieldMedianKm, weights),
+    score: scoreHorse(h, hists[i], fieldMedianKm, fieldDriverWinRates, fieldStartPoints, weights, startMethod, raceDistance),
   }));
   scored.sort((a, b) => a.score - b.score); // lower = better
   return scored.map((h, i) => ({ ...h, predictedRank: i + 1 }));
@@ -380,6 +537,11 @@ function extractHorse(start) {
   const life = start.horse?.statistics?.life ?? {};
   const totalEarnings = life.earnings ?? 0;
   const totalStarts   = life.starts ?? 1;
+  // E15: sulkyType — mirrors enhancedAtgApi.ts fallback chain for sulky code extraction.
+  const sulkyCode = String(
+    start.horse?.sulky?.type?.code || start.sulky?.type?.code ||
+    start.equipment?.sulky?.type?.code || start.horse?.sulky?.type || 'VA'
+  );
   return {
     horseId:       start.horse?.id,
     name:          start.horse?.name ?? 'Unknown',
@@ -389,8 +551,14 @@ function extractHorse(start) {
     placePercentage: life.placePercentage ?? 5000,  // basis points
     winPercentage:   life.winPercentage   ?? 1500,  // basis points
     earningsSek:   totalStarts > 0 ? totalEarnings / totalStarts : 3000,
-    driverWinPct:  start.driver?.statistics?.winPercentage ?? 0.12,
+    driverWinPct:  (
+      start.driver?.statistics?.years?.[String(new Date().getFullYear())]?.winPercentage ||
+      start.driver?.statistics?.years?.['2025']?.winPercentage ||
+      start.driver?.statistics?.winPercentage ||
+      0
+    ),
     driverId:      start.driver?.id ?? null,
+    sulkyType:     sulkyCode,
     actualFinishOrder: start.result?.finishOrder ?? 0,
     galloped:      start.result?.galloped    ?? false,
     disqualified:  start.result?.disqualified ?? false,
@@ -432,7 +600,7 @@ async function evalDate(date) {
     const hists = [];
     for (const horse of horses) {
       await sleep(HISTORY_DELAY_MS);
-      let hist = { rawKmTime: null, recentRaces: [], gallopRate: 0, layoffDays: null, consistencyScore: null };
+      let hist = { rawKmTime: null, recentRaces: [], gallopRate: 0, layoffDays: null, consistencyScore: null, driverHorseWinRate: null, averageOdds: null, preferredDistance: null };
       try {
         const h = await fetchJSON(`${ATG_BASE}/races/${raceIds[ri]}/start/${horse.startNum}`);
         const records = h?.horse?.results?.records ?? [];
@@ -441,27 +609,32 @@ async function evalDate(date) {
       hists.push(hist);
     }
 
-    const rankedV1 = rankHorses(horses, hists, V1);
-    const rankedV2 = rankHorses(horses, hists, V2);
-    const rankedV3 = rankHorses(horses, hists, V3);
-    const rankedV4 = rankHorses(horses, hists, V4);
+    const startMethod = race.startMethod ?? 'auto';
+    const raceDistance = race.distance ?? 2140;
+    const rankedV1 = rankHorses(horses, hists, V1, startMethod, raceDistance);
+    const rankedV2 = rankHorses(horses, hists, V2, startMethod, raceDistance);
+    const rankedV3 = rankHorses(horses, hists, V3, startMethod, raceDistance);
+    const rankedV4 = rankHorses(horses, hists, V4, startMethod, raceDistance);
+    const rankedV32 = rankHorses(horses, hists, V32, startMethod, raceDistance);
     const maeV1 = computeMAE(rankedV1);
     const maeV2 = computeMAE(rankedV2);
     const maeV3 = computeMAE(rankedV3);
     const maeV4 = computeMAE(rankedV4);
+    const maeV32 = computeMAE(rankedV32);
     const winV1 = didWin(rankedV1);
     const winV2 = didWin(rankedV2);
     const winV3 = didWin(rankedV3);
     const winV4 = didWin(rankedV4);
+    const winV32 = didWin(rankedV32);
 
     const histCoverage = hists.filter(h => h.rawKmTime !== null).length;
     const driverFormCoverage = hists.filter(h => h.driverHorseWinRate !== null).length;
     const label = n => n != null ? n.toFixed(2) : 'n/a';
     console.log(
-      `  Race ${race.number ?? ri+1}: V1=${label(maeV1)} (${winV1?'W':'-'}) | V2=${label(maeV2)} (${winV2?'W':'-'}) | V3=${label(maeV3)} (${winV3?'W':'-'}) | V4=${label(maeV4)} (${winV4?'W':'-'}) — ${horses.length}h, km:${histCoverage}/${horses.length} drv:${driverFormCoverage}/${horses.length}`
+      `  Race ${race.number ?? ri+1}: V1=${label(maeV1)} (${winV1?'W':'-'}) | V2=${label(maeV2)} (${winV2?'W':'-'}) | V3=${label(maeV3)} (${winV3?'W':'-'}) | V4=${label(maeV4)} (${winV4?'W':'-'}) | V32=${label(maeV32)} (${winV32?'W':'-'}) — ${horses.length}h, km:${histCoverage}/${horses.length} drv:${driverFormCoverage}/${horses.length}`
     );
 
-    raceResults.push({ raceId: raceIds[ri], raceNumber: race.number ?? ri+1, horseCount: horses.length, histCoverage, driverFormCoverage, maeV1, maeV2, maeV3, maeV4, winV1, winV2, winV3, winV4 });
+    raceResults.push({ raceId: raceIds[ri], raceNumber: race.number ?? ri+1, horseCount: horses.length, histCoverage, driverFormCoverage, maeV1, maeV2, maeV3, maeV4, maeV32, winV1, winV2, winV3, winV4, winV32 });
   }
 
   return { date, gameId: game.id, gameType: 'V85', raceResults };
@@ -497,17 +670,21 @@ async function main() {
   const sumV2 = races.reduce((s, r) => s + (r.maeV2 ?? 0), 0);
   const sumV3 = races.reduce((s, r) => s + (r.maeV3 ?? 0), 0);
   const sumV4 = races.reduce((s, r) => s + (r.maeV4 ?? 0), 0);
+  const sumV32 = races.reduce((s, r) => s + (r.maeV32 ?? 0), 0);
   const winsV1 = races.filter(r => r.winV1).length;
   const winsV2 = races.filter(r => r.winV2).length;
   const winsV3 = races.filter(r => r.winV3).length;
   const winsV4 = races.filter(r => r.winV4).length;
+  const winsV32 = races.filter(r => r.winV32).length;
   const meanV1 = +(sumV1 / n).toFixed(3);
   const meanV2 = +(sumV2 / n).toFixed(3);
   const meanV3 = +(sumV3 / n).toFixed(3);
   const meanV4 = +(sumV4 / n).toFixed(3);
+  const meanV32 = +(sumV32 / n).toFixed(3);
   const delta  = +((sumV2 - sumV1) / n).toFixed(3);
   const deltaV3vsV2 = +((sumV3 - sumV2) / n).toFixed(3);
   const deltaV4vsV3 = +((sumV4 - sumV3) / n).toFixed(3);
+  const deltaV32vsV3 = +((sumV32 - sumV3) / n).toFixed(3);
 
   const verdict = delta < -0.2 ? 'V2 clearly better'
     : delta < 0 ? 'V2 slightly better'
@@ -527,10 +704,14 @@ async function main() {
     : deltaV4vsV3 < 0.2 ? 'V3 slightly better than V4'
     : 'V3 clearly better than V4';
 
-  const V2_BASELINE_MAE = 2.690;
-  const v3Recommendation = meanV3 < V2_BASELINE_MAE
-    ? `Adopt V3: MAE ${meanV3} < baseline ${V2_BASELINE_MAE}. Update DEFAULT_WEIGHTS (form 1.0, postPosition 0.7) and add V3 preset to presetWeights.ts.`
-    : `Keep V2: V3 MAE ${meanV3} >= baseline ${V2_BASELINE_MAE}. V2 remains default.`;
+  const verdictV32 = deltaV32vsV3 < -0.2 ? 'V32 clearly better than V3'
+    : deltaV32vsV3 < 0 ? 'V32 slightly better than V3'
+    : deltaV32vsV3 === 0 ? 'V32 same as V3'
+    : deltaV32vsV3 < 0.2 ? 'V3 slightly better than V32'
+    : 'V3 clearly better than V32';
+
+  const V2_BASELINE_MAE = 2.815;
+  const v3Recommendation = `V1-V4 are historical reference snapshots. V32 is an experimental preset candidate (form:5.868, oddsHistorical:2.988, reported CV-Win 34.2%). E4: startPoints now field-aware IQR (cap after weight). E5: formAdj fallback to career win-pct when no recent history. E7: postPosition now uses full DEFAULT_AUTO_CURVE/DEFAULT_VOLTE_CURVE (spread pos1 to 10: 0.95s auto, 0.85s volte). E10: volteStartDistancePenalty (0.801 weight, 0.4s flat, fires when volte+preferredDist>raceDist). E15: sulkyType added (AM=-0.2s, weight 0.227, max +/-0.045s). Omitted: raceDistanceAdj (race-wide constant, zero rank impact).`;
 
   const summary = {
     evaluatedAt: new Date().toISOString(),
@@ -540,13 +721,13 @@ async function main() {
     v2: { meanMAE: meanV2, winRate: +(winsV2/n).toFixed(3), wins: winsV2 },
     v3: { meanMAE: meanV3, winRate: +(winsV3/n).toFixed(3), wins: winsV3, weights: 'form:1.0,postPosition:0.7' },
     v4: { meanMAE: meanV4, winRate: +(winsV4/n).toFixed(3), wins: winsV4, weights: 'V3+driverForm:0.8' },
+    v32: { meanMAE: meanV32, winRate: +(winsV32/n).toFixed(3), wins: winsV32, weights: 'form:5.868,oddsHistorical:2.988,driverPerf:2.755,consistency:4.234 (experimental V32)' },
     delta: { mae: delta, verdict },
     deltaV3vsV2: { mae: deltaV3vsV2, verdict: verdictV3 },
     deltaV4vsV3: { mae: deltaV4vsV3, verdict: verdictV4 },
+    deltaV32vsV3: { mae: deltaV32vsV3, verdict: verdictV32 },
     baseline: { source: 'browser full-pipeline, 49 races, 17 dates', meanMAE: 5.289, winRate: 0.306 },
-    recommendation: delta <= 0
-      ? 'Keep V2 weights. Update status.json accuracy field.'
-      : 'Consider reverting to V1. Revert DEFAULT_WEIGHTS in modernKm/types.ts and normalizationConstants.ts.',
+    recommendation: 'Treat V32 as experimental. Compare V32 MAE vs V3 (2.815 benchmark) to validate whether kfold wins translate to rank accuracy before changing DEFAULT_WEIGHTS.',
     v3Recommendation,
     rawResults: allResults,
   };
@@ -554,13 +735,15 @@ async function main() {
   console.log('\n=== SUMMARY ===');
   console.log(`Dates:    ${dates.join(', ')}`);
   console.log(`Races:    ${n}`);
-  console.log(`V1 MAE:   ${meanV1}   win% ${(winsV1/n*100).toFixed(0)}%`);
-  console.log(`V2 MAE:   ${meanV2}   win% ${(winsV2/n*100).toFixed(0)}%`);
-  console.log(`V3 MAE:   ${meanV3}   win% ${(winsV3/n*100).toFixed(0)}%  (form:1.0 postPos:0.7)`);
-  console.log(`V4 MAE:   ${meanV4}   win% ${(winsV4/n*100).toFixed(0)}%  (V3+driverForm:0.8)`);
+  console.log(`V1  MAE:  ${meanV1}   win% ${(winsV1/n*100).toFixed(0)}%`);
+  console.log(`V2  MAE:  ${meanV2}   win% ${(winsV2/n*100).toFixed(0)}%`);
+  console.log(`V3  MAE:  ${meanV3}   win% ${(winsV3/n*100).toFixed(0)}%  (form:1.0 postPos:0.7)`);
+  console.log(`V4  MAE:  ${meanV4}   win% ${(winsV4/n*100).toFixed(0)}%  (V3+driverForm:0.8)`);
+  console.log(`V32 MAE:  ${meanV32}   win% ${(winsV32/n*100).toFixed(0)}%  (experimental — form:5.868, oddsHistorical:2.988)`);
   console.log(`V1→V2:    ${delta >= 0 ? '+' : ''}${delta}  → ${verdict}`);
   console.log(`V2→V3:    ${deltaV3vsV2 >= 0 ? '+' : ''}${deltaV3vsV2}  → ${verdictV3}`);
   console.log(`V3→V4:    ${deltaV4vsV3 >= 0 ? '+' : ''}${deltaV4vsV3}  → ${verdictV4}`);
+  console.log(`V3→V32:   ${deltaV32vsV3 >= 0 ? '+' : ''}${deltaV32vsV3}  → ${verdictV32}`);
   console.log(`V3 verdict: ${v3Recommendation}`);
 
   const outFile = join(ROOT, 'reports', `mae-auto-${dates[0]}.json`);

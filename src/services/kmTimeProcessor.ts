@@ -294,6 +294,22 @@ export const calculateRawKmTimesForRaceWithId = async (
         metadata
       );
 
+      // processHorseKmTimes receives validRecords with galloped races removed.
+      // Recompute gallop and last-race fields from the raw records so recent
+      // gallops still count for reliability and layoff calculations.
+      {
+        const upperBound = raceDateCutoff ? new Date(raceDateCutoff).getTime() : Infinity;
+        const sortedAllRecords = [...(records as ATGHistoricalRecord[])]
+          .filter(r => r.date && new Date(r.date).getTime() < upperBound)
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const recentTenRaw = sortedAllRecords.slice(0, 10);
+        const gallopedRaw = recentTenRaw.filter(r => r.galloped === true);
+        horseRawKmTime.gallopCount = gallopedRaw.length;
+        horseRawKmTime.gallopDates = gallopedRaw.map(r => r.date).filter(Boolean) as string[];
+        horseRawKmTime.gallopRate = recentTenRaw.length > 0 ? horseRawKmTime.gallopCount / recentTenRaw.length : 0;
+        if (sortedAllRecords[0]?.date) horseRawKmTime.lastRaceDate = sortedAllRecords[0].date;
+      }
+
       // Build data source chain for transparency (Part 4)
       const chainParts: string[] = [];
       const primaryCount = historicalData?.horse?.results?.records?.length ?? 0;

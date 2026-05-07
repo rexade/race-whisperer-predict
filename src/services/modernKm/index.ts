@@ -30,7 +30,8 @@ import {
   calculateDistanceAdjustment,
   calculateRaceDistanceAdjustment,
   calculateTrackFamiliarityAdjustment,
-  calculateVolteStartDistancePenalty
+  calculateVolteStartDistancePenalty,
+  calculateTripDependencyModifier
 } from './adjustmentCalculators';
 import {
   START_POINTS_BASELINE,
@@ -139,7 +140,8 @@ export const applyModernKmNormalization = (
     calculateDistanceAdjustment(factors.distance, factors.raceDistance) * weights.distanceAdjustment;
   adjustments.volteStartDistancePenalty =
     calculateVolteStartDistancePenalty(factors.startMethod, factors.distance, factors.raceDistance)
-    * weights.volteStartDistancePenalty;
+    * weights.volteStartDistancePenalty
+    * (factors.enableTripDependencyModifier ? calculateTripDependencyModifier(factors.recentRaces) : 1);
 
   // STEP 4: Baseline performance adjustments
   const spAdj =

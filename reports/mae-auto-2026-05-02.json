@@ -1,0 +1,203 @@
+{
+  "evaluatedAt": "2026-05-02T17:30:35.743Z",
+  "dates": [
+    "2026-05-02"
+  ],
+  "raceCount": 8,
+  "v1": {
+    "meanMAE": 3.334,
+    "winRate": 0.25,
+    "wins": 2
+  },
+  "v2": {
+    "meanMAE": 3.277,
+    "winRate": 0.25,
+    "wins": 2
+  },
+  "v3": {
+    "meanMAE": 3.267,
+    "winRate": 0.25,
+    "wins": 2,
+    "weights": "form:1.0,postPosition:0.7"
+  },
+  "v4": {
+    "meanMAE": 3.163,
+    "winRate": 0.25,
+    "wins": 2,
+    "weights": "V3+driverForm:0.8"
+  },
+  "v32": {
+    "meanMAE": 2.949,
+    "winRate": 0.375,
+    "wins": 3,
+    "weights": "form:5.868,oddsHistorical:2.988,driverPerf:2.755,consistency:4.234 (prod V32, Run 113+)"
+  },
+  "delta": {
+    "mae": -0.056,
+    "verdict": "V2 slightly better"
+  },
+  "deltaV3vsV2": {
+    "mae": -0.01,
+    "verdict": "V3 slightly better than V2"
+  },
+  "deltaV4vsV3": {
+    "mae": -0.104,
+    "verdict": "V4 slightly better than V3"
+  },
+  "deltaV32vsV3": {
+    "mae": -0.318,
+    "verdict": "V32 clearly better than V3"
+  },
+  "baseline": {
+    "source": "browser full-pipeline, 49 races, 17 dates",
+    "meanMAE": 5.289,
+    "winRate": 0.306
+  },
+  "recommendation": "V32 = current DEFAULT_WEIGHTS (Run 113+). Compare V32 MAE vs V3 (2.815 benchmark) to validate kfold wins translate to rank accuracy.",
+  "v3Recommendation": "V1–V4 are historical reference snapshots. V32 = production DEFAULT_WEIGHTS (form:5.868, oddsHistorical:2.988, CV-Win 34.2%). E4: startPoints now field-aware IQR (cap after weight). E5: formAdj fallback to career win-pct when no recent history. E7: postPosition now uses full DEFAULT_AUTO_CURVE/DEFAULT_VOLTE_CURVE (spread pos1→10: 0.95s auto, 0.85s volte). E10: volteStartDistancePenalty (0.801 weight, 0.4s flat, fires when volte+preferredDist>raceDist). Missing: sulkyType, raceDistanceAdj (race-wide constant — zero rank impact).",
+  "rawResults": [
+    {
+      "date": "2026-05-02",
+      "gameId": "V85_2026-05-02_27_5",
+      "gameType": "V85",
+      "raceResults": [
+        {
+          "raceId": "2026-05-02_27_5",
+          "raceNumber": 5,
+          "horseCount": 15,
+          "histCoverage": 14,
+          "driverFormCoverage": 0,
+          "maeV1": 4.111,
+          "maeV2": 4.111,
+          "maeV3": 4,
+          "maeV4": 4,
+          "maeV32": 3.556,
+          "winV1": false,
+          "winV2": false,
+          "winV3": false,
+          "winV4": false,
+          "winV32": false
+        },
+        {
+          "raceId": "2026-05-02_27_6",
+          "raceNumber": 6,
+          "horseCount": 12,
+          "histCoverage": 12,
+          "driverFormCoverage": 0,
+          "maeV1": 3.375,
+          "maeV2": 3.125,
+          "maeV3": 3.125,
+          "maeV4": 3.125,
+          "maeV32": 3.25,
+          "winV1": false,
+          "winV2": false,
+          "winV3": false,
+          "winV4": false,
+          "winV32": false
+        },
+        {
+          "raceId": "2026-05-02_27_7",
+          "raceNumber": 7,
+          "horseCount": 12,
+          "histCoverage": 12,
+          "driverFormCoverage": 0,
+          "maeV1": 3.364,
+          "maeV2": 3.364,
+          "maeV3": 3.364,
+          "maeV4": 3.182,
+          "maeV32": 2.636,
+          "winV1": true,
+          "winV2": true,
+          "winV3": true,
+          "winV4": true,
+          "winV32": true
+        },
+        {
+          "raceId": "2026-05-02_27_8",
+          "raceNumber": 8,
+          "horseCount": 15,
+          "histCoverage": 13,
+          "driverFormCoverage": 0,
+          "maeV1": 4.4,
+          "maeV2": 4.5,
+          "maeV3": 4.4,
+          "maeV4": 4.3,
+          "maeV32": 3.5,
+          "winV1": false,
+          "winV2": false,
+          "winV3": false,
+          "winV4": false,
+          "winV32": true
+        },
+        {
+          "raceId": "2026-05-02_27_9",
+          "raceNumber": 9,
+          "horseCount": 12,
+          "histCoverage": 12,
+          "driverFormCoverage": 0,
+          "maeV1": 3.444,
+          "maeV2": 3.444,
+          "maeV3": 3.444,
+          "maeV4": 3.222,
+          "maeV32": 3,
+          "winV1": false,
+          "winV2": false,
+          "winV3": false,
+          "winV4": false,
+          "winV32": false
+        },
+        {
+          "raceId": "2026-05-02_27_10",
+          "raceNumber": 10,
+          "horseCount": 9,
+          "histCoverage": 9,
+          "driverFormCoverage": 0,
+          "maeV1": 0.714,
+          "maeV2": 0.714,
+          "maeV3": 0.714,
+          "maeV4": 0.714,
+          "maeV32": 0.857,
+          "winV1": true,
+          "winV2": true,
+          "winV3": true,
+          "winV4": true,
+          "winV32": true
+        },
+        {
+          "raceId": "2026-05-02_27_11",
+          "raceNumber": 11,
+          "horseCount": 12,
+          "histCoverage": 12,
+          "driverFormCoverage": 0,
+          "maeV1": 3.8,
+          "maeV2": 3.5,
+          "maeV3": 3.4,
+          "maeV4": 3.3,
+          "maeV32": 3.1,
+          "winV1": false,
+          "winV2": false,
+          "winV3": false,
+          "winV4": false,
+          "winV32": false
+        },
+        {
+          "raceId": "2026-05-02_27_12",
+          "raceNumber": 12,
+          "horseCount": 15,
+          "histCoverage": 14,
+          "driverFormCoverage": 0,
+          "maeV1": 3.462,
+          "maeV2": 3.462,
+          "maeV3": 3.692,
+          "maeV4": 3.462,
+          "maeV32": 3.692,
+          "winV1": false,
+          "winV2": false,
+          "winV3": false,
+          "winV4": false,
+          "winV32": false
+        }
+      ]
+    }
+  ]
+}

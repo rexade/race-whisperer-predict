@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { calculateRawKmTimesForRaceWithId } from '../kmTimeProcessor';
 import type { ATGStartInfo } from '../atgApi';
+import type { ATGHorseHistoricalData } from '../atgHistoricalApi';
 
 // Prevent real ATG API calls during tests.
 // fetchHorseHistoricalData and fetchExtendedRaceData are the two network entry points
@@ -42,10 +43,62 @@ describe('kmTimeProcessor', () => {
             expect(result[0].horseName).toBe('Test Horse');
         });
 
-        it('should filter out gallop races from historical data', async () => {
-            // This test would require mocking the API calls
-            // For now, we're documenting the expected behavior
-            expect(true).toBe(true);
+        it('should compute gallop fields and lastRaceDate from raw records including gallops', async () => {
+            const { fetchHorseHistoricalData } = await import('../atgHistoricalApi');
+            const mockData: ATGHorseHistoricalData = {
+                horse: {
+                    name: 'Gallop Horse',
+                    id: 99001,
+                    results: {
+                        records: [
+                            // Galloped race (no valid km time — filtered out by processHistoricalRecords)
+                            {
+                                date: '2026-04-10',
+                                galloped: true,
+                                place: 'U',
+                                race: { id: 'r1', startMethod: 'auto' },
+                                track: { name: 'Solvalla' },
+                                start: { distance: 2140, postPosition: 1 }
+                            },
+                            // Valid race 1
+                            {
+                                date: '2026-03-20',
+                                kmTime: { minutes: 1, seconds: 15, tenths: 0 },
+                                place: '1',
+                                race: { id: 'r2', startMethod: 'auto' },
+                                track: { name: 'Solvalla' },
+                                start: { distance: 2140, postPosition: 1 }
+                            },
+                            // Valid race 2
+                            {
+                                date: '2026-03-06',
+                                kmTime: { minutes: 1, seconds: 16, tenths: 5 },
+                                place: '2',
+                                race: { id: 'r3', startMethod: 'auto' },
+                                track: { name: 'Solvalla' },
+                                start: { distance: 2140, postPosition: 1 }
+                            }
+                        ]
+                    }
+                },
+                driver: { firstName: 'Test', lastName: 'Driver' },
+                postPosition: 1
+            };
+            vi.mocked(fetchHorseHistoricalData).mockResolvedValueOnce(mockData);
+
+            const starts: ATGStartInfo[] = [
+                { postPosition: 1, horse: { id: 99001, name: 'Gallop Horse' } } as ATGStartInfo
+            ];
+
+            const result = await calculateRawKmTimesForRaceWithId('test-race-g1', starts);
+
+            expect(result).toHaveLength(1);
+            // Gallop fields must reflect galloped races in raw records.
+            expect(result[0].gallopCount).toBe(1);
+            expect(result[0].gallopDates).toEqual(['2026-04-10']);
+            // 1 gallop out of 3 total records
+            expect(result[0].gallopRate).toBeCloseTo(1 / 3, 5);
+            expect(result[0].lastRaceDate).toBe('2026-04-10');
         });
 
         it('should handle invalid distance values', async () => {

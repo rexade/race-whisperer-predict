@@ -147,6 +147,7 @@ export const processHorseKmTimes = async (
         distance: race.distance,
         startMethod: race.startMethod,
         finishOrder: race.finishOrder,
+        postPosition: race.postPosition,
         valid: true,
         outlier: outlierCheck.isOutlier ? outlierCheck.reason : undefined,
         raceId: race.raceId

@@ -66,8 +66,11 @@ export interface ModernNormalizationFactors {
   /** Empirical V85/V75 win rate for this driver from our calibration dataset (0–1).
    *  More specific than ATG's career stat — absent when no calibration data exists. */
   driverEmpiricalWinRate?: number;
-  // Recent race finish positions for form calculation
-  recentRaces?: Array<{ place: number; date: string }>;
+  // Recent race finish positions for form calculation.
+  // postPosition is preserved for optional trip-dependency experiments.
+  recentRaces?: Array<{ place: number; date: string; postPosition?: number }>;
+  /** Opt-in model experiment: reduce volte back-marker penalty for proven outside-trip horses. */
+  enableTripDependencyModifier?: boolean;
   /** Fraction of historical starts where horse broke gait (0–1). */
   gallopRisk?: number;
   /** Days since the horse last raced (any result including gallop/DQ). */

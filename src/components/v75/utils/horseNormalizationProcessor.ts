@@ -116,13 +116,14 @@ export const applyHorseNormalization = (
     const fallbackTime = createFallbackKmTime(horse, race, extractedData);
 
     // Extract recent races for form calculation (even for fallback, though it may be empty)
-    let recentRaces: Array<{ place: number; date: string }> | undefined;
+    let recentRaces: Array<{ place: number; date: string; postPosition?: number }> | undefined;
     if (rawTimeData?.allTimes && rawTimeData.allTimes.length > 0) {
       recentRaces = rawTimeData.allTimes
         .filter(t => t.finishOrder !== undefined && t.finishOrder > 0 && t.raceDate)
         .map(t => ({
           place: t.finishOrder!,
-          date: t.raceDate
+          date: t.raceDate,
+          postPosition: t.postPosition,
         }))
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 10);
@@ -181,13 +182,14 @@ export const applyHorseNormalization = (
   log.debug(`  ✅ Processing with raw KM time: ${rawKmTime.minutes}:${rawKmTime.seconds.toString().padStart(2, '0')}.${rawKmTime.tenths}`);
 
   // Extract recent races for form calculation
-  let recentRaces: Array<{ place: number; date: string }> | undefined;
+  let recentRaces: Array<{ place: number; date: string; postPosition?: number }> | undefined;
   if (rawTimeData?.allTimes && rawTimeData.allTimes.length > 0) {
     recentRaces = rawTimeData.allTimes
       .filter(t => t.finishOrder !== undefined && t.finishOrder > 0 && t.raceDate)
       .map(t => ({
         place: t.finishOrder!,
-        date: t.raceDate
+        date: t.raceDate,
+        postPosition: t.postPosition,
       }))
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 10); // Take up to 10 most recent races

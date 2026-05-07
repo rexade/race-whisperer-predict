@@ -12,18 +12,7 @@ import './node-polyfills';
 import * as fs from 'fs';
 import { NormalizationWeights } from '../src/services/modernKm/types';
 import { CalibrationDataset, evaluateWeights } from '../src/services/calibration/historicalCalibrationService';
-
-function hydrateDataset(raw: any[]): CalibrationDataset {
-  return raw.map(dateData => ({
-    ...dateData,
-    races: dateData.races.map((race: any) => ({
-      ...race,
-      actualResults: new Map(Object.entries(race.actualResults).map(
-        ([k, v]) => [Number(k), v]
-      )),
-    })),
-  }));
-}
+import { hydrateDataset } from './cli-common';
 
 interface FoldSplit { train: CalibrationDataset; test: CalibrationDataset }
 
@@ -83,7 +72,8 @@ function makeRng(seed: number) {
 function randomize(base: NormalizationWeights, amount: number, rng: () => number): NormalizationWeights {
   const w = { ...base };
   for (const key of WEIGHT_KEYS) {
-    w[key] = clamp(w[key] + (rng() * 2 - 1) * amount);
+    // Use ?? 0 to handle optional fields that may be undefined
+    w[key] = clamp((w[key] ?? 0) + (rng() * 2 - 1) * amount);
   }
   return w;
 }
@@ -149,23 +139,31 @@ async function optimize(
 
 // ── Starting configs ────────────────────────────────────────────────
 
-const V23: NormalizationWeights = {
-  postPosition: 1.500, shoeType: 0.000, sulkyType: 0.500,
-  driverPerformance: 2.200, driverForm: 0.000, driverEmpirical: 0.000,
-  trackFamiliarity: 0.000, form: 5.000, distanceAdjustment: 1.000,
-  raceDistanceAdjustment: 1.500, volteStartDistancePenalty: 2.200,
-  startPoints: 2.500, placePercentage: 0.400, horseWinPercentage: 1.000,
-  earningsPerStart: 1.300, gallopRisk: 0.000, layoffPenalty: 1.900,
-  ageFactor: 0.000, genderAdjustment: 0.900, consistencyFactor: 2.000,
-  trainerPerformance: 1.500,
+// V32 — experimental candidate from Run 104 (2026-04-30)
+// gallopRisk=0 (W15 noise), ageFactor=0 (W15 noise), earningsPerStart=0 (W13 noise),
+// trainerPerformance=0 (W7 noise), driverEmpirical=0 (W2 noise), oddsLive=0 (W4 noise),
+// trackFamiliarity=0 (W10 noise), genderAdjustment=0 (W17 noise), distanceAdjustment=0 (W17 noise).
+// oddsHistorical=2.988 confirmed real signal (W6). consistencyFactor=4.234 confirmed real signal (W13).
+// layoffPenalty=1.243 confirmed real signal (W15). driverPerformance=2.755 confirmed real signal (W15).
+// placePercentage=2.215 confirmed real signal (W17). horseWinPercentage=1.917 confirmed real signal (W17).
+// CV-Win 34.2%, CV-MRR 0.5233, Full 34.3%, Top3 45.2%.
+const V32: NormalizationWeights = {
+  postPosition: 1.374, shoeType: 0.000, sulkyType: 0.227,
+  driverPerformance: 2.755, driverForm: 1.590, driverEmpirical: 0.000,
+  trackFamiliarity: 0.000, form: 5.868, distanceAdjustment: 0.000,
+  raceDistanceAdjustment: 1.047, volteStartDistancePenalty: 0.801,
+  startPoints: 2.685, placePercentage: 2.215, horseWinPercentage: 1.917,
+  earningsPerStart: 0.000, gallopRisk: 0.000, layoffPenalty: 1.243,
+  ageFactor: 0.000, genderAdjustment: 0.000, consistencyFactor: 4.234,
+  trainerPerformance: 0.000, oddsHistorical: 2.988, oddsLive: 0.000,
 };
 
 const STARTS: Record<string, NormalizationWeights> = {
-  'V23': V23,
-  'V23-formMax': { ...V23, form: 8.0 },
-  'V23-jitter1': randomize(V23, 1.0, makeRng(111)),
-  'V23-jitter2': randomize(V23, 1.0, makeRng(222)),
-  'V23-jitter3': randomize(V23, 1.5, makeRng(333)),
+  'V32': V32,
+  'V32-formMax': { ...V32, form: 8.0 },
+  'V32-jitter1': randomize(V32, 1.0, makeRng(111)),
+  'V32-jitter2': randomize(V32, 1.0, makeRng(222)),
+  'V32-jitter3': randomize(V32, 1.5, makeRng(333)),
   'FormOnly': {
     postPosition: 0, shoeType: 0, sulkyType: 0,
     driverPerformance: 0, driverForm: 0, driverEmpirical: 0,
@@ -174,7 +172,7 @@ const STARTS: Record<string, NormalizationWeights> = {
     startPoints: 0, placePercentage: 0, horseWinPercentage: 0,
     earningsPerStart: 0, gallopRisk: 0, layoffPenalty: 0,
     ageFactor: 0, genderAdjustment: 0, consistencyFactor: 0,
-    trainerPerformance: 0,
+    trainerPerformance: 0, oddsHistorical: 0, oddsLive: 0,
   },
   'Spread': {
     postPosition: 2.0, shoeType: 0, sulkyType: 1.0,
@@ -184,7 +182,7 @@ const STARTS: Record<string, NormalizationWeights> = {
     startPoints: 3.0, placePercentage: 1.0, horseWinPercentage: 1.5,
     earningsPerStart: 2.0, gallopRisk: 0.5, layoffPenalty: 2.5,
     ageFactor: 0.5, genderAdjustment: 1.5, consistencyFactor: 2.5,
-    trainerPerformance: 2.0,
+    trainerPerformance: 2.0, oddsHistorical: 0.5, oddsLive: 0.5,
   },
 };
 

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Settings, RotateCcw, ChevronDown, ChevronRight, Save, Upload, Download, Info, TrendingUp } from "lucide-react";
 import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
 import { WEIGHT_PRESETS, type WeightPreset } from '../services/modernKm/presetWeights';
@@ -35,6 +36,10 @@ const WeightManager: React.FC<WeightManagerProps> = ({
   });
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const { toast } = useToast();
+  const selectedPresetDetails = selectedPreset
+    ? WEIGHT_PRESETS.find(preset => preset.name === selectedPreset)
+    : undefined;
+  const isExperimentalPreset = selectedPresetDetails?.name.toLowerCase().includes('experimental') ?? false;
 
   const handleWeightChange = (factor: keyof NormalizationWeights, value: number[]) => {
     const newWeights = {
@@ -397,7 +402,25 @@ const WeightManager: React.FC<WeightManagerProps> = ({
             <TabsContent value="weights" className="space-y-6 mt-6">
               {/* Quick Presets */}
               <div className="space-y-2 border border-border/50 rounded-lg p-3 bg-muted/20">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quick Presets</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quick Presets</p>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                          aria-label="Model honesty"
+                        >
+                          <Info className="h-3.5 w-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        Presets are comparison tools. A model should not become the default unless it beats the current default on a named holdout set.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 <div className="flex flex-wrap gap-1.5">
                   {WEIGHT_PRESETS.map(preset => (
                     <button
@@ -418,11 +441,18 @@ const WeightManager: React.FC<WeightManagerProps> = ({
                   ))}
                 </div>
                 {selectedPreset && (() => {
-                  const p = WEIGHT_PRESETS.find(x => x.name === selectedPreset);
-                  return p ? (
-                    <p className="text-xs text-muted-foreground">{p.description}</p>
+                  return selectedPresetDetails ? (
+                    <p className="text-xs text-muted-foreground">{selectedPresetDetails.description}</p>
                   ) : null;
                 })()}
+                {isExperimentalPreset && (
+                  <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-foreground">
+                    <div className="font-medium">Experimental model</div>
+                    <div className="mt-1 text-muted-foreground">
+                      Backtested on selected historical races. Use for comparison, not certainty. It is not proven as the default model yet.
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start sm:gap-4">

@@ -1,61 +1,47 @@
 /**
- * Ablation study — zero out each weight from V22, measure impact.
+ * Ablation study — zero out each weight from V23, measure impact.
  * Shows which weights are actually helping vs hurting.
  *
  * Usage:
  *   npx tsx scripts/ablation-cli.ts [dataset.json]
  */
 
-import './node-polyfills';
-import * as fs from 'fs';
+import { loadDataset } from './cli-common';
 import { NormalizationWeights } from '../src/services/modernKm/types';
 import { CalibrationDataset, evaluateWeights } from '../src/services/calibration/historicalCalibrationService';
 
-function hydrateDataset(raw: any[]): CalibrationDataset {
-  return raw.map(dateData => ({
-    ...dateData,
-    races: dateData.races.map((race: any) => ({
-      ...race,
-      actualResults: new Map(Object.entries(race.actualResults).map(
-        ([k, v]) => [Number(k), v]
-      )),
-    })),
-  }));
-}
-
-const V22: NormalizationWeights = {
-  postPosition: 1.757, shoeType: 0.000, sulkyType: 0.447,
-  driverPerformance: 3.470, driverForm: 0.395, driverEmpirical: 0.000,
-  trackFamiliarity: 0.393, form: 3.655, distanceAdjustment: 0.838,
-  raceDistanceAdjustment: 2.857, volteStartDistancePenalty: 1.237,
-  startPoints: 2.162, placePercentage: 0.200, horseWinPercentage: 0.540,
-  earningsPerStart: 2.205, gallopRisk: 0.000, layoffPenalty: 1.938,
-  ageFactor: 0.000, genderAdjustment: 2.225, consistencyFactor: 1.777,
-  trainerPerformance: 2.443,
+// V23: 5-fold CV multi-start optimized (2026-04-27). CV-Win 34.6%, Full-Win 34.7%, MRR 0.516.
+const V23: NormalizationWeights = {
+  postPosition: 1.500, shoeType: 0.000, sulkyType: 0.500,
+  driverPerformance: 2.200, driverForm: 0.000, driverEmpirical: 0.000,
+  trackFamiliarity: 0.000, form: 5.000, distanceAdjustment: 1.000,
+  raceDistanceAdjustment: 1.500, volteStartDistancePenalty: 2.200,
+  startPoints: 2.500, placePercentage: 0.400, horseWinPercentage: 1.000,
+  earningsPerStart: 1.300, gallopRisk: 0.000, layoffPenalty: 1.900,
+  ageFactor: 0.000, genderAdjustment: 0.900, consistencyFactor: 2.000,
+  trainerPerformance: 1.500,
 };
 
-const WEIGHT_KEYS = Object.keys(V22) as (keyof NormalizationWeights)[];
+const WEIGHT_KEYS = Object.keys(V23) as (keyof NormalizationWeights)[];
 
 async function main() {
   const datasetPath = process.argv[2] || 'calibration-dataset-6mo.json';
-  const raw = JSON.parse(fs.readFileSync(datasetPath, 'utf-8'));
-  const dataset = hydrateDataset(raw);
-  console.log(`Dataset: ${dataset.length} dates, ${dataset.reduce((s, d) => s + d.races.length, 0)} races\n`);
+  const dataset = loadDataset(datasetPath);
 
   // Baseline
-  const baseline = await evaluateWeights(dataset, V22);
-  console.log(`BASELINE (V22):  Win=${(baseline.winAccuracy * 100).toFixed(1)}%  MRR=${baseline.winnerMRR.toFixed(3)}\n`);
+  const baseline = await evaluateWeights(dataset, V23);
+  console.log(`BASELINE (V23):  Win=${(baseline.winAccuracy * 100).toFixed(1)}%  MRR=${baseline.winnerMRR.toFixed(3)}\n`);
 
   // Ablation: zero each weight
-  console.log('ABLATION — zeroing each weight from V22:');
+  console.log('ABLATION — zeroing each weight from V23:');
   console.log('─'.repeat(80));
 
   const results: { key: string; win: number; mrr: number; delta: number; origVal: number }[] = [];
 
   for (const key of WEIGHT_KEYS) {
-    if (V22[key] === 0) continue; // Already zero, skip
+    if (V23[key] === 0) continue; // Already zero, skip
 
-    const modified = { ...V22, [key]: 0 };
+    const modified = { ...V23, [key]: 0 };
     const result = await evaluateWeights(dataset, modified);
     const delta = result.winAccuracy - baseline.winAccuracy;
     results.push({
@@ -63,7 +49,7 @@ async function main() {
       win: result.winAccuracy * 100,
       mrr: result.winnerMRR,
       delta: delta * 100,
-      origVal: V22[key],
+      origVal: V23[key],
     });
   }
 
@@ -88,8 +74,8 @@ async function main() {
 
   for (const r of results) {
     const key = r.key as keyof NormalizationWeights;
-    const half = { ...V22, [key]: V22[key] * 0.5 };
-    const dbl = { ...V22, [key]: Math.min(V22[key] * 2, 5.0) };
+    const half = { ...V23, [key]: V23[key] * 0.5 };
+    const dbl = { ...V23, [key]: Math.min(V23[key] * 2, 5.0) };
 
     const halfResult = await evaluateWeights(dataset, half);
     const dblResult = await evaluateWeights(dataset, dbl);

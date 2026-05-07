@@ -10,18 +10,7 @@ import './node-polyfills';
 import * as fs from 'fs';
 import { NormalizationWeights } from '../src/services/modernKm/types';
 import { CalibrationDataset, evaluateWeights } from '../src/services/calibration/historicalCalibrationService';
-
-function hydrateDataset(raw: any[]): CalibrationDataset {
-  return raw.map(dateData => ({
-    ...dateData,
-    races: dateData.races.map((race: any) => ({
-      ...race,
-      actualResults: new Map(Object.entries(race.actualResults).map(
-        ([k, v]) => [Number(k), v]
-      )),
-    })),
-  }));
-}
+import { hydrateDataset } from './cli-common';
 
 // ── K-fold scoring ──────────────────────────────────────────────────────────
 
@@ -155,16 +144,16 @@ async function main() {
     console.log(`  Fold ${i + 1}: train=${folds[i].train.length} dates (${trainRaces} races), test=${folds[i].test.length} dates (${testRaces} races)`);
   }
 
-  // Starting point: V22 with driverForm zeroed (ablation winner)
+  // Starting point: V23 (current default weights — K-fold CV optimized, Run 49)
   const start: NormalizationWeights = {
-    postPosition: 1.757, shoeType: 0.000, sulkyType: 0.447,
-    driverPerformance: 3.470, driverForm: 0.000, driverEmpirical: 0.000,
-    trackFamiliarity: 0.393, form: 3.655, distanceAdjustment: 0.838,
-    raceDistanceAdjustment: 2.857, volteStartDistancePenalty: 1.237,
-    startPoints: 2.162, placePercentage: 0.200, horseWinPercentage: 0.540,
-    earningsPerStart: 2.205, gallopRisk: 0.000, layoffPenalty: 1.938,
-    ageFactor: 0.000, genderAdjustment: 2.225, consistencyFactor: 1.777,
-    trainerPerformance: 2.443,
+    postPosition: 1.500, shoeType: 0.000, sulkyType: 0.500,
+    driverPerformance: 2.200, driverForm: 0.000, driverEmpirical: 0.000,
+    trackFamiliarity: 0.000, form: 5.000, distanceAdjustment: 1.000,
+    raceDistanceAdjustment: 1.500, volteStartDistancePenalty: 2.200,
+    startPoints: 2.500, placePercentage: 0.400, horseWinPercentage: 1.000,
+    earningsPerStart: 1.300, gallopRisk: 0.000, layoffPenalty: 1.900,
+    ageFactor: 0.000, genderAdjustment: 0.900, consistencyFactor: 2.000,
+    trainerPerformance: 1.500,
   };
 
   console.log(`\nOptimizing with ${K}-fold cross-validation…`);

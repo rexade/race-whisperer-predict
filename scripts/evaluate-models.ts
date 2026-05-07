@@ -1,0 +1,168 @@
+/**
+ * Compare model presets against a named calibration dataset.
+ *
+ * Usage:
+ *   npm run evaluate:models -- [dataset.json]
+ */
+
+import { loadDataset } from './cli-common';
+import { CalibrationDataset } from '../src/services/calibration/historicalCalibrationService';
+import { RaceResultProcessor } from '../src/components/v75/services/raceResultProcessor';
+import { DEFAULT_WEIGHTS, NormalizationWeights } from '../src/services/modernKm/types';
+import { WEIGHT_PRESETS } from '../src/services/modernKm/presetWeights';
+
+interface ModelCandidate {
+  name: string;
+  weights: NormalizationWeights;
+}
+
+interface ModelMetrics {
+  name: string;
+  winRate: number;
+  top3Rate: number;
+  rankMAE: number;
+  roi: number | null;
+  roiBets: number;
+  races: number;
+  horses: number;
+}
+
+function dateRange(dataset: CalibrationDataset): string {
+  const dates = dataset.map(d => d.date).filter(Boolean).sort();
+  if (dates.length === 0) return 'n/a';
+  return dates[0] === dates[dates.length - 1] ? dates[0] : `${dates[0]} to ${dates[dates.length - 1]}`;
+}
+
+function uniqueModels(): ModelCandidate[] {
+  const models: ModelCandidate[] = [
+    { name: 'DEFAULT', weights: DEFAULT_WEIGHTS },
+    ...WEIGHT_PRESETS.map(preset => ({ name: preset.name, weights: preset.weights })),
+  ];
+  const seen = new Set<string>();
+  return models.filter(model => {
+    if (seen.has(model.name)) return false;
+    seen.add(model.name);
+    return true;
+  });
+}
+
+async function evaluateModel(dataset: CalibrationDataset, model: ModelCandidate): Promise<ModelMetrics> {
+  let rankError = 0;
+  let horses = 0;
+  let races = 0;
+  let wins = 0;
+  let top3 = 0;
+  let roiProfit = 0;
+  let roiBets = 0;
+
+  for (const dateData of dataset) {
+    for (const race of dateData.races) {
+      try {
+        const result = await RaceResultProcessor.processRaceResult(
+          race.raceData,
+          race.rawKmTimes,
+          model.weights,
+          dateData.date
+        );
+
+        if (!result.analysisComplete || result.horses.length === 0) continue;
+
+        const realHorses = result.horses.filter(h => !h.modernNormalizedResult?.isEstimated && h.rank);
+        if (realHorses.length === 0) continue;
+
+        races++;
+        for (const horse of realHorses) {
+          const actual = race.actualResults.get(horse.horseId);
+          if (!actual) continue;
+          rankError += Math.abs((horse.rank ?? 0) - actual.position);
+          horses++;
+        }
+
+        const topPick = [...realHorses].sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))[0];
+        const topPickActual = topPick ? race.actualResults.get(topPick.horseId) : undefined;
+        if (!topPickActual) continue;
+
+        if (topPickActual.position === 1) wins++;
+        if (topPickActual.position <= 3) top3++;
+
+        if (topPickActual.finalOdds != null && Number.isFinite(topPickActual.finalOdds) && topPickActual.finalOdds > 0) {
+          roiBets++;
+          roiProfit += topPickActual.position === 1 ? topPickActual.finalOdds - 1 : -1;
+        }
+      } catch {
+        // Keep model comparison robust: one malformed race should not stop the report.
+      }
+    }
+  }
+
+  return {
+    name: model.name,
+    winRate: races > 0 ? wins / races : 0,
+    top3Rate: races > 0 ? top3 / races : 0,
+    rankMAE: horses > 0 ? rankError / horses : 999,
+    roi: roiBets > 0 ? roiProfit / roiBets : null,
+    roiBets,
+    races,
+    horses,
+  };
+}
+
+function pct(value: number): string {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function fmtRoi(value: number | null, bets: number): string {
+  if (value == null) return 'n/a';
+  return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%/${bets}`;
+}
+
+async function main() {
+  if (process.argv.includes('--help') || process.argv.includes('-h')) {
+    console.log('Usage: npm run evaluate:models -- [dataset.json]');
+    console.log('');
+    console.log('Compares DEFAULT and every configured weight preset on a named holdout dataset.');
+    console.log('Outputs win-pick %, top-3 %, rank MAE, ROI when final odds are available, race count, and date range.');
+    return;
+  }
+
+  const datasetPath = process.argv[2] || 'calibration-dataset-6mo.json';
+  const dataset = loadDataset(datasetPath);
+  const range = dateRange(dataset);
+  const candidates = uniqueModels();
+  const results: ModelMetrics[] = [];
+
+  console.log(`Model holdout comparison`);
+  console.log(`Dataset: ${datasetPath}`);
+  console.log(`Date range: ${range}`);
+  console.log(`Models: ${candidates.length}`);
+  console.log('');
+
+  for (const candidate of candidates) {
+    results.push(await evaluateModel(dataset, candidate));
+  }
+
+  results.sort((a, b) => {
+    if (a.name === 'DEFAULT') return -1;
+    if (b.name === 'DEFAULT') return 1;
+    return b.winRate - a.winRate || a.rankMAE - b.rankMAE;
+  });
+
+  console.log(
+    `${'Model'.padEnd(42)} ${'Win'.padStart(7)} ${'Top-3'.padStart(7)} ${'MAE'.padStart(7)} ${'ROI/bets'.padStart(12)} ${'Races'.padStart(7)}`
+  );
+  console.log('-'.repeat(88));
+  for (const r of results) {
+    const name = r.name.length > 41 ? `${r.name.slice(0, 38)}...` : r.name;
+    console.log(
+      `${name.padEnd(42)} ${pct(r.winRate).padStart(7)} ${pct(r.top3Rate).padStart(7)} ${r.rankMAE.toFixed(3).padStart(7)} ${fmtRoi(r.roi, r.roiBets).padStart(12)} ${String(r.races).padStart(7)}`
+    );
+  }
+
+  console.log('');
+  console.log('Rule: no model becomes default unless it beats DEFAULT on a named holdout set.');
+}
+
+main().catch(err => {
+  console.error(err);
+  process.exit(1);
+});

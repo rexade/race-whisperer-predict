@@ -5,24 +5,10 @@
  *   npx tsx scripts/evaluate-cli.ts [dataset.json]
  */
 
-import './node-polyfills';
-import * as fs from 'fs';
+import { loadDataset } from './cli-common';
 import { NormalizationWeights } from '../src/services/modernKm/types';
 import { WEIGHT_PRESETS } from '../src/services/modernKm/presetWeights';
 import { CalibrationDataset, evaluateWeights, CalibrationEvaluation } from '../src/services/calibration/historicalCalibrationService';
-
-// Reconstruct Maps from plain objects (JSON serialization converted them)
-function hydrateDataset(raw: any[]): CalibrationDataset {
-  return raw.map(dateData => ({
-    ...dateData,
-    races: dateData.races.map((race: any) => ({
-      ...race,
-      actualResults: new Map(Object.entries(race.actualResults).map(
-        ([k, v]) => [Number(k), v]
-      )),
-    })),
-  }));
-}
 
 async function evaluate(dataset: CalibrationDataset, weights: NormalizationWeights, label: string): Promise<CalibrationEvaluation> {
   const result = await evaluateWeights(dataset, weights);
@@ -34,11 +20,8 @@ async function evaluate(dataset: CalibrationDataset, weights: NormalizationWeigh
 
 async function main() {
   const datasetPath = process.argv[2] || 'calibration-dataset-6mo.json';
-  console.log(`Loading ${datasetPath}…`);
-  const raw = JSON.parse(fs.readFileSync(datasetPath, 'utf-8'));
-  const dataset = hydrateDataset(raw);
+  const dataset = loadDataset(datasetPath);
   const totalRaces = dataset.reduce((s, d) => s + d.races.length, 0);
-  console.log(`Dataset: ${dataset.length} dates, ${totalRaces} races\n`);
 
   // Equal weights baseline (all = 1.0)
   const EQUAL: NormalizationWeights = {

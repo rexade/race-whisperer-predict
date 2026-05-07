@@ -10,18 +10,7 @@ import './node-polyfills';
 import * as fs from 'fs';
 import { NormalizationWeights } from '../src/services/modernKm/types';
 import { CalibrationDataset, evaluateWeights } from '../src/services/calibration/historicalCalibrationService';
-
-function hydrateDataset(raw: any[]): CalibrationDataset {
-  return raw.map(dateData => ({
-    ...dateData,
-    races: dateData.races.map((race: any) => ({
-      ...race,
-      actualResults: new Map(Object.entries(race.actualResults).map(
-        ([k, v]) => [Number(k), v]
-      )),
-    })),
-  }));
-}
+import { hydrateDataset } from './cli-common';
 
 interface FoldSplit { train: CalibrationDataset; test: CalibrationDataset }
 
