@@ -101,9 +101,9 @@ async function coordinateDescent(
 }
 
 const MULTISTART_PRESET_NAMES = [
+  'V36 Experimental — V32 source-tuned (2026-05-08)',
   'V35 Experimental — V34 refined (2026-05-07)',
   'V34 Experimental — R01 curve tuned (2026-05-07)',
-  'V33 Experimental — V32 fine tune (2026-05-07)',
   'V32 Experimental — backtested (2026-04-30)',
   'V20 — Clean Baseline (2026-04-27)',
 ] as const;
@@ -120,11 +120,11 @@ function buildStarts(): Record<string, NormalizationWeights> {
     if (preset) starts[preset.name] = preset.weights;
   }
 
-  const v32 = WEIGHT_PRESETS.find(p => p.name.toLowerCase().includes('v32'))?.weights;
-  if (v32) {
-    starts['V32 jitter 0.5 seed 111'] = jitter(v32, 0.5, makeRng(111));
-    starts['V32 jitter 0.5 seed 222'] = jitter(v32, 0.5, makeRng(222));
-    starts['V32 jitter 1.0 seed 333'] = jitter(v32, 1.0, makeRng(333));
+  const v36 = WEIGHT_PRESETS.find(p => p.name.toLowerCase().includes('v36'))?.weights;
+  if (v36) {
+    starts['V36 jitter 0.5 seed 111'] = jitter(v36, 0.5, makeRng(111));
+    starts['V36 jitter 0.5 seed 222'] = jitter(v36, 0.5, makeRng(222));
+    starts['V36 jitter 1.0 seed 333'] = jitter(v36, 1.0, makeRng(333));
   }
 
   return starts;
@@ -142,7 +142,7 @@ async function main() {
     console.log('Usage: npx tsx scripts/kfold-multistart.ts [dataset.json]');
     console.log('       npx tsx scripts/kfold-multistart.ts --list-starts');
     console.log('');
-    console.log('Runs K-fold coordinate descent from DEFAULT, the curated multistart preset shortlist, and V32 jitter starts.');
+    console.log('Runs K-fold coordinate descent from DEFAULT, the curated multistart preset shortlist, and V36 jitter starts.');
     return;
   }
 
