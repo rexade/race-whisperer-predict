@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
-import { NormalizationWeights } from '@/services/modernKm/types';
+import { DEFAULT_WEIGHTS, NormalizationWeights } from '@/services/modernKm/types';
 import { PostPositionCurves } from '@/services/modernKm/index';
+import { WEIGHT_PRESETS } from '@/services/modernKm/presetWeights';
 import {
   fetchHistoricalDates,
   collectCalibrationData,
@@ -222,63 +223,9 @@ export function useCalibration() {
     if (!dataset) return;
     const testDataset = testDatasetRef.current ?? state.testDataset ?? undefined;
 
-    // V23-based starting configurations — k-fold CV optimized, form-dominant
     const starts: Array<{ label: string; weights: NormalizationWeights }> = [
-      // V23: current best (CV-Win 34.6%, form=5.0, clean signals)
-      { label: 'V23', weights: {
-        postPosition: 1.500, shoeType: 0.000, sulkyType: 0.500,
-        driverPerformance: 2.200, driverForm: 0.000, driverEmpirical: 0.000,
-        trackFamiliarity: 0.000, form: 5.000, distanceAdjustment: 1.000,
-        raceDistanceAdjustment: 1.500, volteStartDistancePenalty: 2.200,
-        startPoints: 2.500, placePercentage: 0.400, horseWinPercentage: 1.000,
-        earningsPerStart: 1.300, gallopRisk: 0.000, layoffPenalty: 1.900,
-        ageFactor: 0.000, genderAdjustment: 0.900, consistencyFactor: 2.000,
-        trainerPerformance: 1.500,
-      }},
-      // V23+Emp: test driverEmpirical
-      { label: 'V23+Emp', weights: {
-        postPosition: 1.500, shoeType: 0.000, sulkyType: 0.500,
-        driverPerformance: 2.200, driverForm: 0.000, driverEmpirical: 2.000,
-        trackFamiliarity: 0.000, form: 5.000, distanceAdjustment: 1.000,
-        raceDistanceAdjustment: 1.500, volteStartDistancePenalty: 2.200,
-        startPoints: 2.500, placePercentage: 0.400, horseWinPercentage: 1.000,
-        earningsPerStart: 1.300, gallopRisk: 0.000, layoffPenalty: 1.900,
-        ageFactor: 0.000, genderAdjustment: 0.900, consistencyFactor: 2.000,
-        trainerPerformance: 1.500,
-      }},
-      // V23+Driver: boost driver signals
-      { label: 'V23+Driver', weights: {
-        postPosition: 1.500, shoeType: 0.000, sulkyType: 0.500,
-        driverPerformance: 4.000, driverForm: 1.000, driverEmpirical: 0.000,
-        trackFamiliarity: 0.500, form: 5.000, distanceAdjustment: 1.000,
-        raceDistanceAdjustment: 1.500, volteStartDistancePenalty: 2.200,
-        startPoints: 2.500, placePercentage: 0.400, horseWinPercentage: 1.000,
-        earningsPerStart: 1.300, gallopRisk: 0.000, layoffPenalty: 1.900,
-        ageFactor: 0.000, genderAdjustment: 0.900, consistencyFactor: 2.000,
-        trainerPerformance: 3.000,
-      }},
-      // Even: flat starting point to explore fresh landscape
-      { label: 'Even', weights: {
-        postPosition: 2.000, shoeType: 0.000, sulkyType: 0.500,
-        driverPerformance: 2.000, driverForm: 0.000, driverEmpirical: 0.000,
-        trackFamiliarity: 0.000, form: 2.000, distanceAdjustment: 1.000,
-        raceDistanceAdjustment: 2.000, volteStartDistancePenalty: 1.500,
-        startPoints: 2.000, placePercentage: 0.500, horseWinPercentage: 0.500,
-        earningsPerStart: 2.000, gallopRisk: 0.000, layoffPenalty: 2.000,
-        ageFactor: 0.000, genderAdjustment: 2.000, consistencyFactor: 2.000,
-        trainerPerformance: 2.000,
-      }},
-      // V23+Stats: boost stats-tier signals
-      { label: 'V23+Stats', weights: {
-        postPosition: 1.500, shoeType: 0.000, sulkyType: 0.500,
-        driverPerformance: 2.200, driverForm: 0.000, driverEmpirical: 0.000,
-        trackFamiliarity: 0.000, form: 5.000, distanceAdjustment: 1.000,
-        raceDistanceAdjustment: 1.500, volteStartDistancePenalty: 2.200,
-        startPoints: 2.500, placePercentage: 1.500, horseWinPercentage: 2.000,
-        earningsPerStart: 2.500, gallopRisk: 1.000, layoffPenalty: 2.500,
-        ageFactor: 1.000, genderAdjustment: 0.900, consistencyFactor: 3.000,
-        trainerPerformance: 1.500,
-      }},
+      { label: 'DEFAULT', weights: DEFAULT_WEIGHTS },
+      ...WEIGHT_PRESETS.map(preset => ({ label: preset.name, weights: preset.weights })),
       { label: 'Current', weights: currentWeights },
     ];
 

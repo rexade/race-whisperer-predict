@@ -1,8 +1,8 @@
 {
-  "evaluatedAt": "2026-05-07T20:22:15.326Z",
+  "evaluatedAt": "2026-05-07T20:27:23.283Z",
   "dataset": "calibration-dataset-6mo.json",
   "dateRange": "2025-10-25 to 2026-04-25",
-  "modelCount": 34,
+  "modelCount": 35,
   "rule": "No model becomes default unless it beats DEFAULT on a named holdout set.",
   "best": {
     "byWinPick": {
@@ -54,6 +54,16 @@
       "rankMAE": 8.380981041227805,
       "roi": 0.07662878787878792,
       "roiBets": 264,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "Even Calibrated Experimental — hosted multistart (2026-05-07)",
+      "winRate": 0.3163265306122449,
+      "top3Rate": 0.5340136054421769,
+      "rankMAE": 8.375564249172434,
+      "roi": 0.11526923076923079,
+      "roiBets": 260,
       "races": 294,
       "horses": 3323
     },
