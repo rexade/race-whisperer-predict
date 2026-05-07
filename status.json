@@ -10,7 +10,7 @@
   "current_focus": "Clean main is now the source of truth. Browser and CLI multistart now use the shared preset list; V32 and the hosted Even candidate are selectable only as experimental presets; DEFAULT_WEIGHTS remains unchanged.",
   "open_threads": 1,
   "next_run_goal": "Run hosted/browser multistart again with the shared preset list, then compare winners against DEFAULT on a named holdout dataset before promoting any model preset to default.",
-  "repo_commit": "8f4491f",
+  "repo_commit": "c245291",
   "repo_commit_subject": "Align browser multistart with presets",
   "accuracy": {
     "defaultModel": "DEFAULT_WEIGHTS / V23",
