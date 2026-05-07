@@ -10,8 +10,8 @@
   "current_focus": "Clean main is now the source of truth. Evaluation now tracks winner-in-top-3 and winner-in-top-5 separately from top-pick placement; browser multistart summaries keep the best six runs only. DEFAULT_WEIGHTS remains unchanged.",
   "open_threads": 1,
   "next_run_goal": "Use Winner Top-5 plus MRR as guardrail metrics while chasing higher win-pick rate; compare any hosted multistart winner against DEFAULT/V32 on a named holdout dataset before promotion.",
-  "repo_commit": "7213c45",
-  "repo_commit_subject": "Prime driver empirical ratings in calibration worker",
+  "repo_commit": "293f75d",
+  "repo_commit_subject": "Add winner coverage metrics",
   "accuracy": {
     "defaultModel": "DEFAULT_WEIGHTS / V23",
     "experimentalModel": "V32 Experimental — local evaluation evidence; hosted multistart now includes it",
