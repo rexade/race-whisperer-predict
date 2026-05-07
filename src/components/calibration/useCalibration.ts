@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { DEFAULT_WEIGHTS, NormalizationWeights } from '@/services/modernKm/types';
+import { NormalizationWeights } from '@/services/modernKm/types';
 import { PostPositionCurves } from '@/services/modernKm/index';
 import { WEIGHT_PRESETS } from '@/services/modernKm/presetWeights';
 import {
@@ -50,6 +50,14 @@ const INITIAL_STATE: CalibrationState = {
   runSummary: null,
   error: null,
 };
+
+const MULTISTART_PRESET_NAMES = [
+  'V20 Empirical Multistart Experimental — hosted (2026-05-07)',
+  'V20 — Clean Baseline (2026-04-27)',
+  'V32 Experimental — backtested (2026-04-30)',
+  'V14 — Calibrated (2026-04-27)',
+  'Realistic Balanced (2025)',
+] as const;
 
 function runInWorker<T>(
   workerFactory: () => Worker,
@@ -223,10 +231,13 @@ export function useCalibration() {
     if (!dataset) return;
     const testDataset = testDatasetRef.current ?? state.testDataset ?? undefined;
 
+    const selectedPresets = MULTISTART_PRESET_NAMES
+      .map(name => WEIGHT_PRESETS.find(preset => preset.name === name))
+      .filter((preset): preset is NonNullable<typeof preset> => Boolean(preset));
+
     const starts: Array<{ label: string; weights: NormalizationWeights }> = [
-      { label: 'DEFAULT', weights: DEFAULT_WEIGHTS },
-      ...WEIGHT_PRESETS.map(preset => ({ label: preset.name, weights: preset.weights })),
       { label: 'Current', weights: currentWeights },
+      ...selectedPresets.map(preset => ({ label: preset.name, weights: preset.weights })),
     ];
 
     updateState({ phase: 'optimizing', progressMessage: `Multi-start: 0/${starts.length} runs…`, optimizationResult: null });

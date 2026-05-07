@@ -100,15 +100,24 @@ async function coordinateDescent(
   return { weights: best, ...bestScore };
 }
 
-// Start from the actual quick presets plus DEFAULT. This keeps multistart aligned
-// with the UI and allows V32 Experimental to compete without making it default.
+const MULTISTART_PRESET_NAMES = [
+  'V20 Empirical Multistart Experimental — hosted (2026-05-07)',
+  'V20 — Clean Baseline (2026-04-27)',
+  'V32 Experimental — backtested (2026-04-30)',
+  'V14 — Calibrated (2026-04-27)',
+  'Realistic Balanced (2025)',
+] as const;
+
+// Keep multistart focused. Running every historical quick preset makes hosted
+// calibration painfully slow and mostly retests known-bad starts.
 function buildStarts(): Record<string, NormalizationWeights> {
   const starts: Record<string, NormalizationWeights> = {
     DEFAULT: DEFAULT_WEIGHTS,
   };
 
-  for (const preset of WEIGHT_PRESETS) {
-    starts[preset.name] = preset.weights;
+  for (const name of MULTISTART_PRESET_NAMES) {
+    const preset = WEIGHT_PRESETS.find(p => p.name === name);
+    if (preset) starts[preset.name] = preset.weights;
   }
 
   const v32 = WEIGHT_PRESETS.find(p => p.name.toLowerCase().includes('v32'))?.weights;
@@ -133,7 +142,7 @@ async function main() {
     console.log('Usage: npx tsx scripts/kfold-multistart.ts [dataset.json]');
     console.log('       npx tsx scripts/kfold-multistart.ts --list-starts');
     console.log('');
-    console.log('Runs K-fold coordinate descent from DEFAULT, every quick preset, and V32 jitter starts.');
+    console.log('Runs K-fold coordinate descent from DEFAULT, the curated multistart preset shortlist, and V32 jitter starts.');
     return;
   }
 
