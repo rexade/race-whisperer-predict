@@ -197,7 +197,7 @@ export function useCalibration() {
       );
 
       const testStr = result.testEvaluation
-        ? `  TEST Win: ${(result.testEvaluation.winAccuracy * 100).toFixed(1)}% ← truth`
+        ? `  TEST Win: ${(result.testEvaluation.winAccuracy * 100).toFixed(1)}% · WTop5: ${(result.testEvaluation.winnerTop5Accuracy * 100).toFixed(1)}% ← truth`
         : '';
       updateState({
         phase: 'done',
@@ -233,8 +233,8 @@ export function useCalibration() {
 
     let bestResult: OptimizationResult | null = null;
     let bestWin = -Infinity;
-    // Per-run summary for copy-paste — tracks each run's final win% and MRR
-    const runSummary: string[] = [];
+    // Per-run summary for copy-paste — keep only the strongest finished runs.
+    const runSummary: Array<{ label: string; result: OptimizationResult }> = [];
 
     for (let i = 0; i < starts.length; i++) {
       const { label, weights } = starts[i];
@@ -262,19 +262,12 @@ export function useCalibration() {
         const winRate = result.finalEvaluation.winAccuracy;
         const mrr = result.finalMAE;
         const isBest = winRate > bestWin;
-        runSummary.push(
-          `${isBest ? '★' : ' '} ${label.padEnd(14)} Win=${(winRate * 100).toFixed(1)}%  MRR=${mrr.toFixed(3)}`
-        );
+        runSummary.push({ label, result });
         if (isBest) {
           bestWin = winRate;
           bestResult = result;
-          for (let j = 0; j < runSummary.length - 1; j++) {
-            runSummary[j] = runSummary[j].replace(/^★/, ' ');
-          }
-          runSummary[runSummary.length - 1] = `★ ${label.padEnd(14)} Win=${(winRate * 100).toFixed(1)}%  MRR=${mrr.toFixed(3)}`;
         }
       } catch (err) {
-        runSummary.push(`  ${label.padEnd(14)} FAILED`);
         console.warn(`Multi-start run ${i + 1} (${label}) failed:`, err);
       }
     }
@@ -284,12 +277,25 @@ export function useCalibration() {
       return;
     }
 
-    const runTable = runSummary.join('\n');
+    const topRuns = [...runSummary]
+      .sort((a, b) =>
+        b.result.finalEvaluation.winAccuracy - a.result.finalEvaluation.winAccuracy
+        || b.result.finalEvaluation.winnerMRR - a.result.finalEvaluation.winnerMRR
+        || b.result.finalEvaluation.winnerTop5Accuracy - a.result.finalEvaluation.winnerTop5Accuracy
+      )
+      .slice(0, 6);
+    const runTable = topRuns
+      .map(({ label, result }) => {
+        const isWinner = result === bestResult;
+        const e = result.finalEvaluation;
+        return `${isWinner ? '★' : ' '} ${label.padEnd(14)} Win=${(e.winAccuracy * 100).toFixed(1)}%  WTop3=${(e.winnerTop3Accuracy * 100).toFixed(1)}%  WTop5=${(e.winnerTop5Accuracy * 100).toFixed(1)}%  MRR=${e.winnerMRR.toFixed(3)}`;
+      })
+      .join('\n');
     updateState({
       phase: 'done',
       optimizationResult: bestResult,
       runSummary: runTable,
-      progressMessage: `Multi-start done · Best Win: ${(bestWin * 100).toFixed(1)}% · MRR: ${bestResult.finalMAE.toFixed(3)}`,
+      progressMessage: `Multi-start done · Best Win: ${(bestWin * 100).toFixed(1)}% · WTop5: ${(bestResult.finalEvaluation.winnerTop5Accuracy * 100).toFixed(1)}% · MRR: ${bestResult.finalMAE.toFixed(3)}`,
       progressFraction: 1,
     });
   }, [state.dataset]);
@@ -308,7 +314,7 @@ export function useCalibration() {
         baselineEval: newBaseline,
         optimizationResult: null,
         phase: 'done',
-        progressMessage: `New baseline · Rank MAE: ${newBaseline.rankMAE.toFixed(3)} · Win: ${(newBaseline.winAccuracy * 100).toFixed(1)}% · Ready to optimize again`,
+        progressMessage: `New baseline · Rank MAE: ${newBaseline.rankMAE.toFixed(3)} · Win: ${(newBaseline.winAccuracy * 100).toFixed(1)}% · WTop5: ${(newBaseline.winnerTop5Accuracy * 100).toFixed(1)}% · Ready to optimize again`,
       };
     });
   }, []);

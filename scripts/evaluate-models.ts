@@ -22,6 +22,9 @@ interface ModelMetrics {
   name: string;
   winRate: number;
   top3Rate: number;
+  winnerTop3Rate: number;
+  winnerTop5Rate: number;
+  winnerMRR: number;
   rankMAE: number;
   roi: number | null;
   roiBets: number;
@@ -54,6 +57,10 @@ async function evaluateModel(dataset: CalibrationDataset, model: ModelCandidate)
   let races = 0;
   let wins = 0;
   let top3 = 0;
+  let winnerTop3 = 0;
+  let winnerTop5 = 0;
+  let winnerMRRSum = 0;
+  let winnerRaceCount = 0;
   let roiProfit = 0;
   let roiBets = 0;
 
@@ -87,6 +94,23 @@ async function evaluateModel(dataset: CalibrationDataset, model: ModelCandidate)
         if (topPickActual.position === 1) wins++;
         if (topPickActual.position <= 3) top3++;
 
+        let actualWinnerHorseId: number | undefined;
+        for (const [horseId, actual] of race.actualResults) {
+          if (actual.position === 1) {
+            actualWinnerHorseId = horseId;
+            break;
+          }
+        }
+        const predictedForWinner = actualWinnerHorseId !== undefined
+          ? realHorses.find(h => h.horseId === actualWinnerHorseId)
+          : undefined;
+        if (predictedForWinner?.rank !== undefined) {
+          winnerRaceCount++;
+          winnerMRRSum += 1 / predictedForWinner.rank;
+          if (predictedForWinner.rank <= 3) winnerTop3++;
+          if (predictedForWinner.rank <= 5) winnerTop5++;
+        }
+
         if (topPickActual.finalOdds != null && Number.isFinite(topPickActual.finalOdds) && topPickActual.finalOdds > 0) {
           roiBets++;
           roiProfit += topPickActual.position === 1 ? topPickActual.finalOdds - 1 : -1;
@@ -101,6 +125,9 @@ async function evaluateModel(dataset: CalibrationDataset, model: ModelCandidate)
     name: model.name,
     winRate: races > 0 ? wins / races : 0,
     top3Rate: races > 0 ? top3 / races : 0,
+    winnerTop3Rate: winnerRaceCount > 0 ? winnerTop3 / winnerRaceCount : 0,
+    winnerTop5Rate: winnerRaceCount > 0 ? winnerTop5 / winnerRaceCount : 0,
+    winnerMRR: winnerRaceCount > 0 ? winnerMRRSum / winnerRaceCount : 0,
     rankMAE: horses > 0 ? rankError / horses : 999,
     roi: roiBets > 0 ? roiProfit / roiBets : null,
     roiBets,
@@ -132,6 +159,40 @@ function bestByRoi(results: ModelMetrics[]): ModelMetrics | undefined {
     .sort((a, b) => (b.roi ?? -Infinity) - (a.roi ?? -Infinity) || b.winRate - a.winRate)[0];
 }
 
+function bestByWinnerTop5(results: ModelMetrics[]): ModelMetrics | undefined {
+  return [...results].sort((a, b) =>
+    b.winnerTop5Rate - a.winnerTop5Rate
+    || b.winnerMRR - a.winnerMRR
+    || b.winRate - a.winRate
+  )[0];
+}
+
+function bestByPickTop3(results: ModelMetrics[]): ModelMetrics | undefined {
+  return [...results].sort((a, b) =>
+    b.top3Rate - a.top3Rate
+    || b.winRate - a.winRate
+    || b.winnerMRR - a.winnerMRR
+  )[0];
+}
+
+function promotionCandidate(results: ModelMetrics[]): ModelMetrics | undefined {
+  const current = results.find(r => r.name === 'DEFAULT');
+  if (!current) return undefined;
+
+  return [...results]
+    .filter(r => r.name !== 'DEFAULT')
+    .filter(r => r.winRate > current.winRate)
+    .filter(r => r.winnerMRR >= current.winnerMRR)
+    .filter(r => r.winnerTop3Rate >= current.winnerTop3Rate - 0.01)
+    .filter(r => r.winnerTop5Rate >= current.winnerTop5Rate - 0.03)
+    .filter(r => r.top3Rate >= current.top3Rate - 0.03)
+    .sort((a, b) =>
+      b.winRate - a.winRate
+      || b.winnerMRR - a.winnerMRR
+      || b.winnerTop5Rate - a.winnerTop5Rate
+    )[0];
+}
+
 function writeReport(datasetPath: string, range: string, results: ModelMetrics[]): string {
   const report = {
     evaluatedAt: new Date().toISOString(),
@@ -141,6 +202,9 @@ function writeReport(datasetPath: string, range: string, results: ModelMetrics[]
     rule: 'No model becomes default unless it beats DEFAULT on a named holdout set.',
     best: {
       byWinPick: bestByWin(results),
+      byPromotionGates: promotionCandidate(results),
+      byWinnerTop5: bestByWinnerTop5(results),
+      byPickTop3: bestByPickTop3(results),
       byRankMAE: bestByMae(results),
       byROI: bestByRoi(results),
     },
@@ -157,7 +221,7 @@ async function main() {
     console.log('Usage: npm run evaluate:models -- [dataset.json]');
     console.log('');
     console.log('Compares DEFAULT and every configured weight preset on a named holdout dataset.');
-    console.log('Outputs win-pick %, top-3 %, rank MAE, ROI when final odds are available, race count, and date range.');
+    console.log('Outputs win-pick %, top-pick top-3 %, winner top-3/top-5 %, MRR, rank MAE, ROI when final odds are available, race count, and date range.');
     return;
   }
 
@@ -184,14 +248,26 @@ async function main() {
   });
 
   console.log(
-    `${'Model'.padEnd(42)} ${'Win'.padStart(7)} ${'Top-3'.padStart(7)} ${'MAE'.padStart(7)} ${'ROI/bets'.padStart(12)} ${'Races'.padStart(7)}`
+    `${'Model'.padEnd(42)} ${'Win'.padStart(7)} ${'PickT3'.padStart(7)} ${'WinT3'.padStart(7)} ${'WinT5'.padStart(7)} ${'MRR'.padStart(7)} ${'MAE'.padStart(7)} ${'ROI/bets'.padStart(12)} ${'Races'.padStart(7)}`
   );
-  console.log('-'.repeat(88));
+  console.log('-'.repeat(118));
   for (const r of results) {
     const name = r.name.length > 41 ? `${r.name.slice(0, 38)}...` : r.name;
     console.log(
-      `${name.padEnd(42)} ${pct(r.winRate).padStart(7)} ${pct(r.top3Rate).padStart(7)} ${r.rankMAE.toFixed(3).padStart(7)} ${fmtRoi(r.roi, r.roiBets).padStart(12)} ${String(r.races).padStart(7)}`
+      `${name.padEnd(42)} ${pct(r.winRate).padStart(7)} ${pct(r.top3Rate).padStart(7)} ${pct(r.winnerTop3Rate).padStart(7)} ${pct(r.winnerTop5Rate).padStart(7)} ${r.winnerMRR.toFixed(3).padStart(7)} ${r.rankMAE.toFixed(3).padStart(7)} ${fmtRoi(r.roi, r.roiBets).padStart(12)} ${String(r.races).padStart(7)}`
     );
+  }
+
+  const gated = promotionCandidate(results);
+  const coverage = bestByWinnerTop5(results);
+  const place = bestByPickTop3(results);
+  console.log('');
+  console.log(`Promotion gates: ${gated ? gated.name : 'none passed'}`);
+  if (coverage) {
+    console.log(`Coverage leader: ${coverage.name}  WinT5=${pct(coverage.winnerTop5Rate)}  Win=${pct(coverage.winRate)}  MRR=${coverage.winnerMRR.toFixed(3)}`);
+  }
+  if (place) {
+    console.log(`Place leader: ${place.name}  PickT3=${pct(place.top3Rate)}  Win=${pct(place.winRate)}`);
   }
 
   const reportPath = writeReport(datasetPath, range, results);

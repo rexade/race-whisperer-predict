@@ -61,6 +61,10 @@ export interface CalibrationEvaluation {
   timeMAE: number | null;
   /** Fraction of predicted top-3 picks that actually placed top-3 */
   topPickAccuracy: number;
+  /** Fraction of races where the actual winner was ranked in our predicted top 3 */
+  winnerTop3Accuracy: number;
+  /** Fraction of races where the actual winner was ranked in our predicted top 5 */
+  winnerTop5Accuracy: number;
   /** Fraction of races where our #1 ranked horse actually won */
   winAccuracy: number;
   racesEvaluated: number;
@@ -329,6 +333,8 @@ export async function evaluateWeights(
   let winTotal = 0;
   let winnerRankSum = 0;
   let winnerMRRSum = 0;
+  let winnerTop3Correct = 0;
+  let winnerTop5Correct = 0;
   let winnerRacesCount = 0;
   let horsesEvaluated = 0;
   let estimatedHorsesSkipped = 0;
@@ -365,6 +371,8 @@ export async function evaluateWeights(
             winnerRankSum += predictedForWinner.rank;
             winnerMRRSum += 1 / predictedForWinner.rank;
             winnerRacesCount++;
+            if (predictedForWinner.rank <= 3) winnerTop3Correct++;
+            if (predictedForWinner.rank <= 5) winnerTop5Correct++;
             winTotal++;
             if (predictedForWinner.rank === 1) winCorrect++;
           }
@@ -407,6 +415,8 @@ export async function evaluateWeights(
     winnerMRR:             winnerRacesCount > 0 ? winnerMRRSum / winnerRacesCount : 0,
     timeMAE:               timeCount > 0 ? totalTimeDiffS / timeCount : null,
     topPickAccuracy:       topPicksTotal > 0 ? topPicksCorrect / topPicksTotal : 0,
+    winnerTop3Accuracy:    winnerRacesCount > 0 ? winnerTop3Correct / winnerRacesCount : 0,
+    winnerTop5Accuracy:    winnerRacesCount > 0 ? winnerTop5Correct / winnerRacesCount : 0,
     winAccuracy:           winTotal > 0 ? winCorrect / winTotal : 0,
     racesEvaluated,
     horsesEvaluated,

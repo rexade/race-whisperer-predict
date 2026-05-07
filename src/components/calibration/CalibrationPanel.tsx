@@ -81,7 +81,7 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
     const lines = keys.map(k => `      ${k}: ${(w[k] ?? 0).toFixed(3)},`);
     const header = [
       `    // Calibrated ${new Date().toISOString().split('T')[0]}`,
-      `    // MRR: ${r.initialMAE.toFixed(3)} → ${r.finalMAE.toFixed(3)}  Win: ${(r.finalEvaluation.winAccuracy * 100).toFixed(1)}%  Top-3: ${(r.finalEvaluation.topPickAccuracy * 100).toFixed(1)}%  Passes: ${r.passesCompleted}`,
+      `    // MRR: ${r.initialMAE.toFixed(3)} → ${r.finalMAE.toFixed(3)}  Win: ${(r.finalEvaluation.winAccuracy * 100).toFixed(1)}%  WTop3: ${(r.finalEvaluation.winnerTop3Accuracy * 100).toFixed(1)}%  WTop5: ${(r.finalEvaluation.winnerTop5Accuracy * 100).toFixed(1)}%  TopPickTop3: ${(r.finalEvaluation.topPickAccuracy * 100).toFixed(1)}%  Passes: ${r.passesCompleted}`,
     ].join('\n');
     const snippet = `${header}\n    weights: {\n${lines.join('\n')}\n    }`;
     navigator.clipboard.writeText(snippet).then(() => {
@@ -288,6 +288,7 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
           <Stat label="Estimated skipped" value={state.baselineEval.estimatedHorsesSkipped} />
           <Stat label="Win %" value={`${(state.baselineEval.winAccuracy * 100).toFixed(1)}%`} highlight />
           <Stat label="Top-3 %" value={`${(state.baselineEval.topPickAccuracy * 100).toFixed(1)}%`} highlight />
+          <Stat label="Winner Top-5" value={`${(state.baselineEval.winnerTop5Accuracy * 100).toFixed(1)}%`} highlight />
           <Stat label="MRR" value={state.baselineEval.winnerMRR.toFixed(3)} />
           <Stat label="Winner Rank" value={state.baselineEval.winnerRankMAE.toFixed(3)} />
           <Stat label="Rank MAE" value={state.baselineEval.rankMAE.toFixed(3)} />
@@ -320,6 +321,8 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
               </span>
               <span>
                 Top-3: <span className="font-medium">{(state.optimizationResult.finalEvaluation.topPickAccuracy * 100).toFixed(1)}%</span>
+                {' · '}
+                Winner Top-5: <span className="font-medium">{(state.optimizationResult.finalEvaluation.winnerTop5Accuracy * 100).toFixed(1)}%</span>
               </span>
               <span className={deltaColor(state.optimizationResult.improvementPct)}>
                 {state.optimizationResult.improvementPct >= 0 ? '▲' : '▼'}{Math.abs(state.optimizationResult.improvementPct).toFixed(1)}% better
