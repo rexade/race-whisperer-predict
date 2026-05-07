@@ -95,7 +95,13 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
   };
 
   useEffect(() => {
-    setCacheInfo(getCalibrationCacheInfo(monthsBack));
+    let cancelled = false;
+    getCalibrationCacheInfo(monthsBack).then(info => {
+      if (!cancelled) setCacheInfo(info);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [monthsBack, state.phase]);
 
   const isWorking = state.phase === 'fetching-dates' || state.phase === 'collecting' || state.phase === 'evaluating' || state.phase === 'optimizing';

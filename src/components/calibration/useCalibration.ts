@@ -112,7 +112,7 @@ export function useCalibration() {
     datasetRef.current = null;
 
     try {
-      const cacheInfo = getCalibrationCacheInfo(monthsBack);
+      const cacheInfo = await getCalibrationCacheInfo(monthsBack);
       let dates: string[] = [];
 
       if (!forceRefresh && cacheInfo.exists && cacheInfo.dateCount > 0) {

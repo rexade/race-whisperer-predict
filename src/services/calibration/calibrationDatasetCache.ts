@@ -1,5 +1,5 @@
 /**
- * Calibration Dataset Cache — persistent localStorage storage.
+ * Calibration Dataset Cache — persistent IndexedDB storage.
  *
  * Historical race results never change — once a race is run, the finish
  * order is permanent.  This cache has NO TTL: data is kept indefinitely
@@ -19,6 +19,9 @@ import { HorseRawKmTime } from '@/services/types/kmTimeTypes';
 import { GAME_TYPE } from '@/config/game';
 
 const CACHE_KEY_PREFIX = 'calibration_dataset_';
+const DB_NAME = 'race_whisperer_calibration';
+const DB_VERSION = 1;
+const STORE_NAME = 'datasets';
 
 interface SerializedHorseRawKmTime {
   horseKey?: string;
@@ -65,6 +68,73 @@ interface SerializedDataset {
 
 function cacheKey(monthsBack: number): string {
   return `${CACHE_KEY_PREFIX}${GAME_TYPE}_${monthsBack}mo`;
+}
+
+function metaKey(monthsBack: number): string {
+  return `${cacheKey(monthsBack)}_meta`;
+}
+
+function hasIndexedDb(): boolean {
+  return typeof indexedDB !== 'undefined';
+}
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error ?? new Error('Failed to open calibration IndexedDB'));
+  });
+}
+
+async function idbSet(key: string, value: string): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error('Failed to save calibration dataset'));
+  });
+  db.close();
+}
+
+async function idbGet(key: string): Promise<string | null> {
+  const db = await openDb();
+  const value = await new Promise<string | null>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const request = tx.objectStore(STORE_NAME).get(key);
+    request.onsuccess = () => resolve(typeof request.result === 'string' ? request.result : null);
+    request.onerror = () => reject(request.error ?? new Error('Failed to load calibration dataset'));
+  });
+  db.close();
+  return value;
+}
+
+async function idbDelete(key: string): Promise<void> {
+  if (!hasIndexedDb()) return;
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error('Failed to delete calibration dataset'));
+  });
+  db.close();
+}
+
+async function idbClear(): Promise<void> {
+  if (!hasIndexedDb()) return;
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error('Failed to clear calibration datasets'));
+  });
+  db.close();
 }
 
 function serializeRawKmTime(rt: HorseRawKmTime): SerializedHorseRawKmTime {
@@ -119,9 +189,8 @@ function deserializeRawKmTime(s: SerializedHorseRawKmTime): HorseRawKmTime {
   };
 }
 
-export function saveCalibrationDataset(monthsBack: number, dataset: CalibrationDataset): void {
-  const key = cacheKey(monthsBack);
-  const serialized: SerializedDataset = {
+function serializeDataset(monthsBack: number, dataset: CalibrationDataset): SerializedDataset {
+  return {
     schemaVersion: 2,
     gameType: GAME_TYPE,
     monthsBack,
@@ -137,7 +206,43 @@ export function saveCalibrationDataset(monthsBack: number, dataset: CalibrationD
       })),
     })),
   };
+}
+
+function deserializeDataset(s: SerializedDataset): CalibrationDataset | null {
+  if (s.gameType !== GAME_TYPE) return null;
+  if ((s.schemaVersion ?? 1) < 2) return null;
+
+  return s.dates.map(d => ({
+    date: d.date,
+    races: d.races.map((r): RaceCalibrationData => ({
+      raceId: r.raceId,
+      raceNumber: r.raceNumber,
+      raceData: r.raceData,
+      rawKmTimes: r.rawKmTimes.map(deserializeRawKmTime),
+      actualResults: new Map<string, ActualHorseResult>(r.actualResultsEntries.map(([key, value]) => [String(key), value])),
+    })),
+  }));
+}
+
+export async function saveCalibrationDataset(monthsBack: number, dataset: CalibrationDataset): Promise<void> {
+  const key = cacheKey(monthsBack);
+  const serialized = serializeDataset(monthsBack, dataset);
   const blob = JSON.stringify(serialized);
+
+  if (hasIndexedDb()) {
+    await idbSet(key, blob);
+    localStorage.setItem(metaKey(monthsBack), JSON.stringify({
+      schemaVersion: serialized.schemaVersion,
+      gameType: serialized.gameType,
+      cachedAt: serialized.cachedAt,
+      dateCount: serialized.dates.length,
+      storage: 'indexeddb',
+    }));
+    localStorage.removeItem(key);
+    console.log(`[CalibrationCache] Saved dataset to IndexedDB: ${dataset.length} dates`);
+    return;
+  }
+
   try {
     localStorage.setItem(key, blob);
     console.log(`[CalibrationCache] Saved dataset: ${dataset.length} dates`);
@@ -156,27 +261,17 @@ export function saveCalibrationDataset(monthsBack: number, dataset: CalibrationD
   }
 }
 
-export function loadCalibrationDataset(monthsBack: number): CalibrationDataset | null {
+export async function loadCalibrationDataset(monthsBack: number): Promise<CalibrationDataset | null> {
   try {
-    const raw = localStorage.getItem(cacheKey(monthsBack));
+    const key = cacheKey(monthsBack);
+    const raw = hasIndexedDb()
+      ? (await idbGet(key)) ?? localStorage.getItem(key)
+      : localStorage.getItem(key);
     if (!raw) return null;
 
     const s: SerializedDataset = JSON.parse(raw);
-
-    // Validate game type match
-    if (s.gameType !== GAME_TYPE) return null;
-    if ((s.schemaVersion ?? 1) < 2) return null;
-
-    const dataset: CalibrationDataset = s.dates.map(d => ({
-      date: d.date,
-      races: d.races.map((r): RaceCalibrationData => ({
-        raceId: r.raceId,
-        raceNumber: r.raceNumber,
-        raceData: r.raceData,
-        rawKmTimes: r.rawKmTimes.map(deserializeRawKmTime),
-        actualResults: new Map<string, ActualHorseResult>(r.actualResultsEntries.map(([key, value]) => [String(key), value])),
-      })),
-    }));
+    const dataset = deserializeDataset(s);
+    if (!dataset) return null;
 
     const ageHours = (Date.now() - new Date(s.cachedAt).getTime()) / 3_600_000;
     console.log(`[CalibrationCache] Loaded dataset: ${dataset.length} dates (${ageHours.toFixed(1)}h old)`);
@@ -187,18 +282,31 @@ export function loadCalibrationDataset(monthsBack: number): CalibrationDataset |
   }
 }
 
-export function clearCalibrationDataset(monthsBack?: number): void {
+export async function clearCalibrationDataset(monthsBack?: number): Promise<void> {
   if (monthsBack !== undefined) {
-    localStorage.removeItem(cacheKey(monthsBack));
+    const key = cacheKey(monthsBack);
+    localStorage.removeItem(key);
+    localStorage.removeItem(metaKey(monthsBack));
+    await idbDelete(key);
   } else {
     Object.keys(localStorage)
       .filter(k => k.startsWith(CACHE_KEY_PREFIX))
       .forEach(k => localStorage.removeItem(k));
+    await idbClear();
   }
 }
 
-export function getCalibrationCacheInfo(monthsBack: number): { exists: boolean; ageHours: number | null; dateCount: number; cachedAt: string | null } {
+export async function getCalibrationCacheInfo(monthsBack: number): Promise<{ exists: boolean; ageHours: number | null; dateCount: number; cachedAt: string | null }> {
   try {
+    const metaRaw = localStorage.getItem(metaKey(monthsBack));
+    if (metaRaw) {
+      const meta = JSON.parse(metaRaw);
+      if (meta.gameType !== GAME_TYPE) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
+      if ((meta.schemaVersion ?? 1) < 2) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
+      const ageHours = (Date.now() - new Date(meta.cachedAt).getTime()) / 3_600_000;
+      return { exists: true, ageHours, dateCount: meta.dateCount ?? 0, cachedAt: meta.cachedAt };
+    }
+
     const raw = localStorage.getItem(cacheKey(monthsBack));
     if (!raw) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
     const s: SerializedDataset = JSON.parse(raw);

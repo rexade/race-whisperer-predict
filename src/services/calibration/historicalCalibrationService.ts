@@ -128,7 +128,7 @@ export async function fetchHistoricalDates(monthsBack: number): Promise<string[]
 /**
  * Phase 1: Collect all data needed for calibration.
  *
- * First checks the persistent localStorage dataset cache (3-day TTL).
+ * First checks the persistent browser dataset cache.
  * If a cached dataset exists for the requested window, returns it instantly.
  *
  * When fetching fresh data, leverages the existing V75CacheService raw-time
@@ -147,10 +147,10 @@ export async function collectCalibrationData(
 ): Promise<CalibrationDataset> {
   // Return persisted dataset if available and not forcing refresh
   if (!forceRefresh && monthsBack !== undefined) {
-    const info = getCalibrationCacheInfo(monthsBack);
+    const info = await getCalibrationCacheInfo(monthsBack);
     if (info.exists && info.dateCount > 0) {
       onProgress?.({ datesCompleted: 0, datesTotal: 1, message: `Loading cached dataset (${info.dateCount} dates, ${info.ageHours?.toFixed(0)}h old)…` });
-      const cached = loadCalibrationDataset(monthsBack);
+      const cached = await loadCalibrationDataset(monthsBack);
       if (cached) {
         onProgress?.({ datesCompleted: 1, datesTotal: 1, message: `Loaded ${cached.length} dates from cache.` });
         return cached;
@@ -308,7 +308,7 @@ export async function collectCalibrationData(
 
   // Persist so next run is instant
   if (monthsBack !== undefined && dataset.length > 0) {
-    saveCalibrationDataset(monthsBack, dataset);
+    await saveCalibrationDataset(monthsBack, dataset);
   }
 
   return dataset;
