@@ -6,6 +6,8 @@
  */
 
 import { loadDataset } from './cli-common';
+import * as fs from 'fs';
+import * as path from 'path';
 import { CalibrationDataset } from '../src/services/calibration/historicalCalibrationService';
 import { RaceResultProcessor } from '../src/components/v75/services/raceResultProcessor';
 import { DEFAULT_WEIGHTS, NormalizationWeights } from '../src/services/modernKm/types';
@@ -116,6 +118,40 @@ function fmtRoi(value: number | null, bets: number): string {
   return `${value >= 0 ? '+' : ''}${(value * 100).toFixed(1)}%/${bets}`;
 }
 
+function bestByWin(results: ModelMetrics[]): ModelMetrics | undefined {
+  return [...results].sort((a, b) => b.winRate - a.winRate || a.rankMAE - b.rankMAE)[0];
+}
+
+function bestByMae(results: ModelMetrics[]): ModelMetrics | undefined {
+  return [...results].sort((a, b) => a.rankMAE - b.rankMAE || b.winRate - a.winRate)[0];
+}
+
+function bestByRoi(results: ModelMetrics[]): ModelMetrics | undefined {
+  return [...results]
+    .filter(r => r.roi != null)
+    .sort((a, b) => (b.roi ?? -Infinity) - (a.roi ?? -Infinity) || b.winRate - a.winRate)[0];
+}
+
+function writeReport(datasetPath: string, range: string, results: ModelMetrics[]): string {
+  const report = {
+    evaluatedAt: new Date().toISOString(),
+    dataset: datasetPath,
+    dateRange: range,
+    modelCount: results.length,
+    rule: 'No model becomes default unless it beats DEFAULT on a named holdout set.',
+    best: {
+      byWinPick: bestByWin(results),
+      byRankMAE: bestByMae(results),
+      byROI: bestByRoi(results),
+    },
+    results,
+  };
+  const outPath = path.join('reports', 'model-evaluation-latest.json');
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, JSON.stringify(report, null, 2));
+  return outPath;
+}
+
 async function main() {
   if (process.argv.includes('--help') || process.argv.includes('-h')) {
     console.log('Usage: npm run evaluate:models -- [dataset.json]');
@@ -158,7 +194,10 @@ async function main() {
     );
   }
 
+  const reportPath = writeReport(datasetPath, range, results);
+
   console.log('');
+  console.log(`Saved report: ${reportPath}`);
   console.log('Rule: no model becomes default unless it beats DEFAULT on a named holdout set.');
 }
 

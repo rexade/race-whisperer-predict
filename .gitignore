@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+calibration-dataset*.json
+calibration-dataset*.zip
+calibration-dataset*.7z
 
 # Editor directories and files
 .vscode/*

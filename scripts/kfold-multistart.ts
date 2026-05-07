@@ -6,11 +6,10 @@
  *   npx tsx scripts/kfold-multistart.ts [dataset.json]
  */
 
-import './node-polyfills';
-import * as fs from 'fs';
-import { NormalizationWeights } from '../src/services/modernKm/types';
+import { DEFAULT_WEIGHTS, NormalizationWeights } from '../src/services/modernKm/types';
+import { WEIGHT_PRESETS } from '../src/services/modernKm/presetWeights';
 import { CalibrationDataset, evaluateWeights } from '../src/services/calibration/historicalCalibrationService';
-import { hydrateDataset } from './cli-common';
+import { loadDataset } from './cli-common';
 
 interface FoldSplit { train: CalibrationDataset; test: CalibrationDataset }
 
@@ -63,7 +62,7 @@ function clamp(v: number): number { return Math.max(BOUNDS[0], Math.min(BOUNDS[1
 function jitter(base: NormalizationWeights, amount: number, rng: () => number): NormalizationWeights {
   const w = { ...base };
   for (const key of WEIGHT_KEYS) {
-    w[key] = clamp(w[key] + (rng() * 2 - 1) * amount);
+    w[key] = clamp((w[key] ?? 0) + (rng() * 2 - 1) * amount);
   }
   return w;
 }
@@ -101,86 +100,61 @@ async function coordinateDescent(
   return { weights: best, ...bestScore };
 }
 
-// ── Starting configurations ──────────────────────────────────────────
+// Start from the actual quick presets plus DEFAULT. This keeps multistart aligned
+// with the UI and allows V32 Experimental to compete without making it default.
+function buildStarts(): Record<string, NormalizationWeights> {
+  const starts: Record<string, NormalizationWeights> = {
+    DEFAULT: DEFAULT_WEIGHTS,
+  };
 
-const STARTS: Record<string, NormalizationWeights> = {
-  'V22-noDrvForm': {
-    postPosition: 1.757, shoeType: 0.000, sulkyType: 0.447,
-    driverPerformance: 3.470, driverForm: 0.000, driverEmpirical: 0.000,
-    trackFamiliarity: 0.393, form: 3.655, distanceAdjustment: 0.838,
-    raceDistanceAdjustment: 2.857, volteStartDistancePenalty: 1.237,
-    startPoints: 2.162, placePercentage: 0.200, horseWinPercentage: 0.540,
-    earningsPerStart: 2.205, gallopRisk: 0.000, layoffPenalty: 1.938,
-    ageFactor: 0.000, genderAdjustment: 2.225, consistencyFactor: 1.777,
-    trainerPerformance: 2.443,
-  },
-  'FormHeavy': {
-    postPosition: 1.0, shoeType: 0.0, sulkyType: 0.5,
-    driverPerformance: 2.0, driverForm: 0.0, driverEmpirical: 0.0,
-    trackFamiliarity: 0.5, form: 5.0, distanceAdjustment: 1.0,
-    raceDistanceAdjustment: 2.0, volteStartDistancePenalty: 1.5,
-    startPoints: 2.5, placePercentage: 1.0, horseWinPercentage: 1.0,
-    earningsPerStart: 2.0, gallopRisk: 0.0, layoffPenalty: 2.0,
-    ageFactor: 0.0, genderAdjustment: 1.0, consistencyFactor: 2.0,
-    trainerPerformance: 1.5,
-  },
-  'DriverHeavy': {
-    postPosition: 2.0, shoeType: 0.0, sulkyType: 1.0,
-    driverPerformance: 5.0, driverForm: 0.0, driverEmpirical: 0.0,
-    trackFamiliarity: 0.5, form: 2.0, distanceAdjustment: 1.0,
-    raceDistanceAdjustment: 2.0, volteStartDistancePenalty: 1.0,
-    startPoints: 3.0, placePercentage: 0.5, horseWinPercentage: 0.5,
-    earningsPerStart: 1.5, gallopRisk: 0.0, layoffPenalty: 1.5,
-    ageFactor: 0.0, genderAdjustment: 1.5, consistencyFactor: 1.0,
-    trainerPerformance: 3.0,
-  },
-  'StatsHeavy': {
-    postPosition: 1.5, shoeType: 0.0, sulkyType: 0.5,
-    driverPerformance: 2.0, driverForm: 0.0, driverEmpirical: 0.0,
-    trackFamiliarity: 0.3, form: 3.0, distanceAdjustment: 1.0,
-    raceDistanceAdjustment: 2.5, volteStartDistancePenalty: 1.0,
-    startPoints: 3.0, placePercentage: 2.0, horseWinPercentage: 2.0,
-    earningsPerStart: 3.0, gallopRisk: 1.0, layoffPenalty: 2.5,
-    ageFactor: 1.0, genderAdjustment: 1.0, consistencyFactor: 3.0,
-    trainerPerformance: 2.0,
-  },
-  'Minimal': {
-    postPosition: 2.0, shoeType: 0.0, sulkyType: 0.0,
-    driverPerformance: 3.0, driverForm: 0.0, driverEmpirical: 0.0,
-    trackFamiliarity: 0.0, form: 4.0, distanceAdjustment: 0.0,
-    raceDistanceAdjustment: 3.0, volteStartDistancePenalty: 1.5,
-    startPoints: 2.0, placePercentage: 0.0, horseWinPercentage: 1.0,
-    earningsPerStart: 0.0, gallopRisk: 0.0, layoffPenalty: 2.0,
-    ageFactor: 0.0, genderAdjustment: 0.0, consistencyFactor: 0.0,
-    trainerPerformance: 0.0,
-  },
-  'KfoldV1': {  // Result from previous k-fold run
-    postPosition: 1.257, shoeType: 0, sulkyType: 0.947,
-    driverPerformance: 2.97, driverForm: 0.5, driverEmpirical: 0,
-    trackFamiliarity: 0.093, form: 4.155, distanceAdjustment: 1.338,
-    raceDistanceAdjustment: 2.957, volteStartDistancePenalty: 1.437,
-    startPoints: 2.162, placePercentage: 0.9, horseWinPercentage: 0.54,
-    earningsPerStart: 1.905, gallopRisk: 0, layoffPenalty: 1.938,
-    ageFactor: 0, genderAdjustment: 2.075, consistencyFactor: 1.777,
-    trainerPerformance: 2.443,
-  },
-};
+  for (const preset of WEIGHT_PRESETS) {
+    starts[preset.name] = preset.weights;
+  }
+
+  const v32 = WEIGHT_PRESETS.find(p => p.name.toLowerCase().includes('v32'))?.weights;
+  if (v32) {
+    starts['V32 jitter 0.5 seed 111'] = jitter(v32, 0.5, makeRng(111));
+    starts['V32 jitter 0.5 seed 222'] = jitter(v32, 0.5, makeRng(222));
+    starts['V32 jitter 1.0 seed 333'] = jitter(v32, 1.0, makeRng(333));
+  }
+
+  return starts;
+}
+
+function makeRng(seed: number) {
+  return () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 0x100000000;
+  };
+}
 
 async function main() {
+  if (process.argv.includes('--help') || process.argv.includes('-h')) {
+    console.log('Usage: npx tsx scripts/kfold-multistart.ts [dataset.json]');
+    console.log('       npx tsx scripts/kfold-multistart.ts --list-starts');
+    console.log('');
+    console.log('Runs K-fold coordinate descent from DEFAULT, every quick preset, and V32 jitter starts.');
+    return;
+  }
+
+  if (process.argv.includes('--list-starts')) {
+    const starts = buildStarts();
+    console.log(Object.keys(starts).join('\n'));
+    return;
+  }
+
   const datasetPath = process.argv[2] || 'calibration-dataset-6mo.json';
-  console.log(`Loading ${datasetPath}…`);
-  const raw = JSON.parse(fs.readFileSync(datasetPath, 'utf-8'));
-  const dataset = hydrateDataset(raw);
+  const dataset = loadDataset(datasetPath);
   const totalRaces = dataset.reduce((s, d) => s + d.races.length, 0);
-  console.log(`Dataset: ${dataset.length} dates, ${totalRaces} races\n`);
 
   const K = 5;
   const PASSES = 8;
   const folds = createFolds(dataset, K);
+  const starts = buildStarts();
 
   const results: { name: string; weights: NormalizationWeights; mrr: number; win: number }[] = [];
 
-  for (const [name, startW] of Object.entries(STARTS)) {
+  for (const [name, startW] of Object.entries(starts)) {
     console.log(`\n── ${name} ──`);
     const r = await coordinateDescent(folds, startW, PASSES);
     results.push({ name, ...r });

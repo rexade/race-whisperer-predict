@@ -1,0 +1,381 @@
+{
+  "evaluatedAt": "2026-05-07T20:22:15.326Z",
+  "dataset": "calibration-dataset-6mo.json",
+  "dateRange": "2025-10-25 to 2026-04-25",
+  "modelCount": 34,
+  "rule": "No model becomes default unless it beats DEFAULT on a named holdout set.",
+  "best": {
+    "byWinPick": {
+      "name": "V32 Experimental — backtested (2026-04-30)",
+      "winRate": 0.3197278911564626,
+      "top3Rate": 0.5476190476190477,
+      "rankMAE": 8.380981041227805,
+      "roi": 0.07662878787878792,
+      "roiBets": 264,
+      "races": 294,
+      "horses": 3323
+    },
+    "byRankMAE": {
+      "name": "Explore B — Max Stats",
+      "winRate": 0.272108843537415,
+      "top3Rate": 0.5170068027210885,
+      "rankMAE": 8.363226000601866,
+      "roi": -0.1224137931034482,
+      "roiBets": 261,
+      "races": 294,
+      "horses": 3323
+    },
+    "byROI": {
+      "name": "V15 — Calibrated (2026-04-27)",
+      "winRate": 0.2925170068027211,
+      "top3Rate": 0.5034013605442177,
+      "rankMAE": 8.434547095997592,
+      "roi": 0.454732824427481,
+      "roiBets": 262,
+      "races": 294,
+      "horses": 3323
+    }
+  },
+  "results": [
+    {
+      "name": "DEFAULT",
+      "winRate": 0.30952380952380953,
+      "top3Rate": 0.5340136054421769,
+      "rankMAE": 8.394523021366235,
+      "roi": 0.1343295019157088,
+      "roiBets": 261,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V32 Experimental — backtested (2026-04-30)",
+      "winRate": 0.3197278911564626,
+      "top3Rate": 0.5476190476190477,
+      "rankMAE": 8.380981041227805,
+      "roi": 0.07662878787878792,
+      "roiBets": 264,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V23 — K-fold CV (2026-04-27)",
+      "winRate": 0.30952380952380953,
+      "top3Rate": 0.5340136054421769,
+      "rankMAE": 8.394523021366235,
+      "roi": 0.1343295019157088,
+      "roiBets": 261,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V17 — Calibrated (2026-04-27)",
+      "winRate": 0.29931972789115646,
+      "top3Rate": 0.5102040816326531,
+      "rankMAE": 8.424616310562744,
+      "roi": 0.22758620689655168,
+      "roiBets": 261,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V18 — Cache Fix Breakthrough (2026-04-27)",
+      "winRate": 0.29931972789115646,
+      "top3Rate": 0.5102040816326531,
+      "rankMAE": 8.434547095997592,
+      "roi": 0.2612741312741314,
+      "roiBets": 259,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V16 — SA Breakthrough (2026-04-27)",
+      "winRate": 0.29591836734693877,
+      "top3Rate": 0.5034013605442177,
+      "rankMAE": 8.419500451399339,
+      "roi": 0.18885057471264374,
+      "roiBets": 261,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V15 — Calibrated (2026-04-27)",
+      "winRate": 0.2925170068027211,
+      "top3Rate": 0.5034013605442177,
+      "rankMAE": 8.434547095997592,
+      "roi": 0.454732824427481,
+      "roiBets": 262,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V19 — Post-Refresh Breakthrough (2026-04-27)",
+      "winRate": 0.2891156462585034,
+      "top3Rate": 0.5204081632653061,
+      "rankMAE": 8.395425820042131,
+      "roi": -0.0005343511450381396,
+      "roiBets": 262,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V22 — L2 Regularized (2026-04-27)",
+      "winRate": 0.2891156462585034,
+      "top3Rate": 0.5068027210884354,
+      "rankMAE": 8.418296719831478,
+      "roi": 0.0015708812260536947,
+      "roiBets": 261,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V20 — Clean Baseline (2026-04-27)",
+      "winRate": 0.2891156462585034,
+      "top3Rate": 0.5102040816326531,
+      "rankMAE": 8.47336743906109,
+      "roi": 0.14946360153256708,
+      "roiBets": 261,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V15a — driverEmpirical exploration (2026-04-27)",
+      "winRate": 0.2857142857142857,
+      "top3Rate": 0.5068027210884354,
+      "rankMAE": 8.404453806801083,
+      "roi": 0.30294339622641514,
+      "roiBets": 265,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V21 — Clean +Trainer (2026-04-27)",
+      "winRate": 0.2857142857142857,
+      "top3Rate": 0.5102040816326531,
+      "rankMAE": 8.473066506169124,
+      "roi": 0.06463601532567054,
+      "roiBets": 261,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V13 — Calibrated (2026-04-27)",
+      "winRate": 0.2755102040816326,
+      "top3Rate": 0.48639455782312924,
+      "rankMAE": 8.455612398435148,
+      "roi": 0.10900383141762453,
+      "roiBets": 261,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "Explore C — All Aggressive",
+      "winRate": 0.2755102040816326,
+      "top3Rate": 0.48299319727891155,
+      "rankMAE": 8.467649714113753,
+      "roi": 0.009923076923076937,
+      "roiBets": 260,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "Explore B — Max Stats",
+      "winRate": 0.272108843537415,
+      "top3Rate": 0.5170068027210885,
+      "rankMAE": 8.363226000601866,
+      "roi": -0.1224137931034482,
+      "roiBets": 261,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V14 — Calibrated (2026-04-27)",
+      "winRate": 0.2687074829931973,
+      "top3Rate": 0.5,
+      "rankMAE": 8.436954559133314,
+      "roi": 0.07196911196911197,
+      "roiBets": 259,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "Aggressive",
+      "winRate": 0.2653061224489796,
+      "top3Rate": 0.47278911564625853,
+      "rankMAE": 8.447788143244056,
+      "roi": -0.058431372549019575,
+      "roiBets": 255,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V12 — Calibrated (2026-04-27)",
+      "winRate": 0.2619047619047619,
+      "top3Rate": 0.4931972789115646,
+      "rankMAE": 8.448089076136021,
+      "roi": 0.07184615384615385,
+      "roiBets": 260,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V6 — Calibrated (2026-04-27)",
+      "winRate": 0.2585034013605442,
+      "top3Rate": 0.47959183673469385,
+      "rankMAE": 8.447487210352092,
+      "roi": 0.2505725190839694,
+      "roiBets": 262,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "Balanced",
+      "winRate": 0.25510204081632654,
+      "top3Rate": 0.4897959183673469,
+      "rankMAE": 8.455311465543184,
+      "roi": -0.07232558139534877,
+      "roiBets": 258,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V5 — Calibrated (2026)",
+      "winRate": 0.25510204081632654,
+      "top3Rate": 0.4897959183673469,
+      "rankMAE": 8.469455311465543,
+      "roi": 0.18105660377358487,
+      "roiBets": 265,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V7 — Calibrated (2026-04-27)",
+      "winRate": 0.25170068027210885,
+      "top3Rate": 0.47619047619047616,
+      "rankMAE": 8.450195606379777,
+      "roi": 0.1581954887218045,
+      "roiBets": 266,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V8 — Calibrated (2026-04-27)",
+      "winRate": 0.24829931972789115,
+      "top3Rate": 0.47959183673469385,
+      "rankMAE": 8.46042732470659,
+      "roi": 0.15049242424242426,
+      "roiBets": 264,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "Realistic Balanced (2025)",
+      "winRate": 0.24829931972789115,
+      "top3Rate": 0.48299319727891155,
+      "rankMAE": 8.475473969304845,
+      "roi": 0.04332046332046331,
+      "roiBets": 259,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "Equipment Focus",
+      "winRate": 0.24829931972789115,
+      "top3Rate": 0.47959183673469385,
+      "rankMAE": 8.504363526933494,
+      "roi": -0.018554687500000014,
+      "roiBets": 256,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "Performance Focus",
+      "winRate": 0.24489795918367346,
+      "top3Rate": 0.4931972789115646,
+      "rankMAE": 8.419199518507373,
+      "roi": -0.226576923076923,
+      "roiBets": 260,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V11 — Post-Fix Baseline (2026-04-27)",
+      "winRate": 0.23809523809523808,
+      "top3Rate": 0.47619047619047616,
+      "rankMAE": 8.44086668672886,
+      "roi": 0.09121212121212123,
+      "roiBets": 264,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V4 — Driver Form (candidate)",
+      "winRate": 0.23809523809523808,
+      "top3Rate": 0.47619047619047616,
+      "rankMAE": 8.47336743906109,
+      "roi": 0.2625855513307985,
+      "roiBets": 263,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "Conservative",
+      "winRate": 0.23469387755102042,
+      "top3Rate": 0.47619047619047616,
+      "rankMAE": 8.477881432440565,
+      "roi": -0.11131782945736433,
+      "roiBets": 258,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V3 — Empirical (2026)",
+      "winRate": 0.23129251700680273,
+      "top3Rate": 0.47619047619047616,
+      "rankMAE": 8.487511284983448,
+      "roi": 0.2409578544061302,
+      "roiBets": 261,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V2 — Empirical (2026)",
+      "winRate": 0.22789115646258504,
+      "top3Rate": 0.46258503401360546,
+      "rankMAE": 8.492025278362926,
+      "roi": 0.26050193050193043,
+      "roiBets": 259,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V10 — Calibrated (2026-04-27)",
+      "winRate": 0.21428571428571427,
+      "top3Rate": 0.42857142857142855,
+      "rankMAE": 8.5413782726452,
+      "roi": -0.19422480620155042,
+      "roiBets": 258,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "V9 — Calibrated (2026-04-27)",
+      "winRate": 0.20748299319727892,
+      "top3Rate": 0.42517006802721086,
+      "rankMAE": 8.541679205537164,
+      "roi": -0.20727626459143964,
+      "roiBets": 257,
+      "races": 294,
+      "horses": 3323
+    },
+    {
+      "name": "Explore A — Max Drivers",
+      "winRate": 0.20068027210884354,
+      "top3Rate": 0.41496598639455784,
+      "rankMAE": 8.547697863376467,
+      "roi": -0.2183720930232558,
+      "roiBets": 258,
+      "races": 294,
+      "horses": 3323
+    }
+  ]
+}

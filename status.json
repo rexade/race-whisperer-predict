@@ -19,8 +19,23 @@
     "evalScript": "npm run evaluate:models -- [dataset.json]",
     "evidenceReports": [
       "reports/mae-auto-2026-04-25.json",
-      "reports/mae-auto-2026-05-02.json"
+      "reports/mae-auto-2026-05-02.json",
+      "reports/model-evaluation-latest.json"
     ],
+    "latestLocalEvaluation": {
+      "dataset": "calibration-dataset-6mo.json",
+      "dateRange": "2025-10-25 to 2026-04-25",
+      "races": 294,
+      "models": 34,
+      "bestByWinPick": "V32 Experimental — backtested (2026-04-30)",
+      "bestByWinPickRate": 0.3197,
+      "defaultWinPickRate": 0.3095,
+      "bestByRankMAE": "Explore B — Max Stats",
+      "bestByRankMAEValue": 8.363,
+      "bestByROI": "V15 — Calibrated (2026-04-27)",
+      "bestByROIValue": 0.4547,
+      "savedReport": "reports/model-evaluation-latest.json"
+    },
     "note": "Historical V3 status was deprecated. This repo now exposes the controlled experimental-model workflow used by Pi Pulse."
   }
 }
