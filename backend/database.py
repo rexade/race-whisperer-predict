@@ -47,6 +47,17 @@ async def init_tables():
                 horses          JSONB NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS raw_times (
+                id              SERIAL PRIMARY KEY,
+                race_id         TEXT NOT NULL UNIQUE,
+                race_number     INTEGER NOT NULL,
+                game_id         TEXT NOT NULL,
+                race_date       TEXT NOT NULL,
+                cached_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                schema_version  INTEGER NOT NULL DEFAULT 6,
+                raw_times       JSONB NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS custom_weights (
                 id                   SERIAL PRIMARY KEY,
                 weights              JSONB NOT NULL,

@@ -16,8 +16,7 @@ const V75CacheManager: React.FC = () => {
   const { toast } = useToast();
 
   const refreshCacheInfo = () => {
-    const info = V75CacheService.getCacheInfo();
-    setCacheInfo(info);
+    V75CacheService.getCacheInfoAsync().then(info => setCacheInfo(info));
   };
 
   useEffect(() => {

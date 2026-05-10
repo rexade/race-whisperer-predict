@@ -35,6 +35,10 @@ export class V75CacheService {
     return RawTimesCache.getCacheInfo();
   }
 
+  static async getCacheInfoAsync() {
+    return RawTimesCache.getCacheInfoAsync();
+  }
+
   // Race Analysis Cache Methods
   static async storeRaceAnalysis(
     raceId: string,

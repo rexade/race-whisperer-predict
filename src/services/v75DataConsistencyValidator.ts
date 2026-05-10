@@ -149,7 +149,7 @@ export class V75DataConsistencyValidator {
     availableDates: string[];
   }> {
     try {
-      const cacheInfo = V75CacheService.getCacheInfo();
+      const cacheInfo = await V75CacheService.getCacheInfoAsync();
       const allAnalyses = await V75CacheService.getAllRaceAnalyses();
       const availableDates = [...new Set(allAnalyses.map(a => a.analysisDate))].sort().reverse();
 
