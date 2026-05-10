@@ -355,16 +355,62 @@ function normalizeHistoricalKmTime(kmTimeObj, dist, startMethod) {
 // Historical data processing
 // ---------------------------------------------------------------------------
 
-function processHistory(records, evalDate, currentDriverId = null) {
-  if (!records || records.length === 0) return { rawKmTime: null, recentRaces: [], gallopRate: 0, layoffDays: null, consistencyScore: null, driverHorseWinRate: null, averageOdds: null, preferredDistance: null };
+// ---------------------------------------------------------------------------
+// Statistics record extraction (mirrors collectHorseRecordCandidates)
+// ---------------------------------------------------------------------------
 
+const DIST_CAT_TO_M = { short: 1640, medium: 2140, long: 2640 };
+
+function extractStatisticsRecords(horse) {
+  const out = [];
+  const years = horse?.statistics?.years ?? {};
+  const life = horse?.statistics?.life ?? {};
+
+  const push = (r, year) => {
+    if (!r?.time || typeof r.time.minutes !== 'number' || typeof r.time.seconds !== 'number') return;
+    const code = (r.code ?? '').toLowerCase();
+    if (['0', 'it', 'dist', 'u', 'gdk', 'br', 'p', 'dq'].includes(code)) return;
+    const isAuto = /^a/i.test(code);
+    const letter = code.replace(/^a/i, '').toUpperCase();
+    const distCat = r.distance || (letter === 'K' ? 'short' : letter === 'M' ? 'medium' : letter === 'L' ? 'long' : undefined);
+    const startMethod = r.startMethod || (isAuto ? 'auto' : letter ? 'volte' : undefined);
+    const currentYear = new Date().getFullYear();
+    const date = year && year !== 'life'
+      ? (parseInt(year) === currentYear ? `${year}-12-31` : `${year}-06-30`)
+      : undefined;
+    out.push({
+      date,
+      kmTime: { minutes: r.time.minutes, seconds: r.time.seconds, tenths: r.time.tenths ?? 0 },
+      galloped: false, disqualified: false,
+      start: { distance: DIST_CAT_TO_M[distCat] ?? 2140, postPosition: 1 },
+      race: { startMethod: startMethod ?? 'auto' },
+      _source: 'statistics',
+    });
+  };
+
+  for (const yr of Object.keys(years)) {
+    (years[yr]?.records ?? []).forEach(r => push(r, yr));
+  }
+  (life?.records ?? []).forEach(r => push(r));
+  return out;
+}
+
+function processHistory(records, evalDate, currentDriverId = null, horse = null) {
+  // Merge results.records + statistics records (like the browser does)
+  const statsRecords = horse ? extractStatisticsRecords(horse) : [];
+  const allRecords = [...(records || []), ...statsRecords];
+
+  if (allRecords.length === 0) return { rawKmTime: null, recentRaces: [], gallopRate: 0, layoffDays: null, consistencyScore: null, driverHorseWinRate: null, averageOdds: null, preferredDistance: null };
+
+  const maxMonths = parseInt(process.env.MAX_MONTHS ?? '5', 10);
   const cutoff = new Date(evalDate);
-  cutoff.setMonth(cutoff.getMonth() - 5);
+  cutoff.setMonth(cutoff.getMonth() - maxMonths);
 
-  // All records sorted newest-first
-  const sorted = [...records]
+  // All records sorted newest-first (records without dates go to end)
+  const sorted = [...allRecords]
     .filter(r => r.date)
     .sort((a, b) => new Date(b.date) - new Date(a.date));
+  const undated = allRecords.filter(r => !r.date);
 
   // Layoff: days since any most-recent race
   const lastRaceDate = sorted[0]?.date ? new Date(sorted[0].date) : null;
@@ -375,7 +421,9 @@ function processHistory(records, evalDate, currentDriverId = null) {
 
   // Filter to recent window for km time and form
   const recentAll = sorted.filter(r => new Date(r.date) >= cutoff);
-  const source = recentAll.length > 0 ? recentAll : sorted; // fallback to all-time
+  const strict = process.env.STRICT_WINDOW === '1';
+  // In strict mode: only dated records within window. In normal mode: fallback to all (including undated stats)
+  const source = recentAll.length > 0 ? recentAll : (strict ? [] : [...sorted, ...undated]);
 
   // Valid km-time records (non-gallop, non-DQ, within window)
   const validKm = source.filter(r =>
@@ -519,6 +567,16 @@ function didWin(ranked) {
   return top ? top.actualFinishOrder === 1 : false;
 }
 
+function didTop3(ranked) {
+  const top = ranked.find(h => h.predictedRank === 1);
+  return top ? top.actualFinishOrder >= 1 && top.actualFinishOrder <= 3 : false;
+}
+
+function didTop5(ranked) {
+  const top = ranked.find(h => h.predictedRank === 1);
+  return top ? top.actualFinishOrder >= 1 && top.actualFinishOrder <= 5 : false;
+}
+
 // ---------------------------------------------------------------------------
 // API helpers
 // ---------------------------------------------------------------------------
@@ -604,7 +662,7 @@ async function evalDate(date) {
       try {
         const h = await fetchJSON(`${ATG_BASE}/races/${raceIds[ri]}/start/${horse.startNum}`);
         const records = h?.horse?.results?.records ?? [];
-        hist = processHistory(records, date, horse.driverId);
+        hist = processHistory(records, date, horse.driverId, h?.horse);
       } catch (_) { /* no history — use defaults */ }
       hists.push(hist);
     }
@@ -626,15 +684,19 @@ async function evalDate(date) {
     const winV3 = didWin(rankedV3);
     const winV4 = didWin(rankedV4);
     const winV32 = didWin(rankedV32);
+    const top3V3 = didTop3(rankedV3);
+    const top5V3 = didTop5(rankedV3);
+    const top3V32 = didTop3(rankedV32);
+    const top5V32 = didTop5(rankedV32);
 
     const histCoverage = hists.filter(h => h.rawKmTime !== null).length;
     const driverFormCoverage = hists.filter(h => h.driverHorseWinRate !== null).length;
     const label = n => n != null ? n.toFixed(2) : 'n/a';
     console.log(
-      `  Race ${race.number ?? ri+1}: V1=${label(maeV1)} (${winV1?'W':'-'}) | V2=${label(maeV2)} (${winV2?'W':'-'}) | V3=${label(maeV3)} (${winV3?'W':'-'}) | V4=${label(maeV4)} (${winV4?'W':'-'}) | V32=${label(maeV32)} (${winV32?'W':'-'}) — ${horses.length}h, km:${histCoverage}/${horses.length} drv:${driverFormCoverage}/${horses.length}`
+      `  Race ${race.number ?? ri+1}: V3=${label(maeV3)} (${winV3?'W':'-'}${top3V3?'T3':''}${top5V3&&!top3V3?'T5':''}) | V32=${label(maeV32)} (${winV32?'W':'-'}${top3V32?'T3':''}${top5V32&&!top3V32?'T5':''}) — ${horses.length}h, km:${histCoverage}/${horses.length}`
     );
 
-    raceResults.push({ raceId: raceIds[ri], raceNumber: race.number ?? ri+1, horseCount: horses.length, histCoverage, driverFormCoverage, maeV1, maeV2, maeV3, maeV4, maeV32, winV1, winV2, winV3, winV4, winV32 });
+    raceResults.push({ raceId: raceIds[ri], raceNumber: race.number ?? ri+1, horseCount: horses.length, histCoverage, driverFormCoverage, maeV1, maeV2, maeV3, maeV4, maeV32, winV1, winV2, winV3, winV4, winV32, top3V3, top5V3, top3V32, top5V32 });
   }
 
   return { date, gameId: game.id, gameType: 'V85', raceResults };
@@ -737,9 +799,13 @@ async function main() {
   console.log(`Races:    ${n}`);
   console.log(`V1  MAE:  ${meanV1}   win% ${(winsV1/n*100).toFixed(0)}%`);
   console.log(`V2  MAE:  ${meanV2}   win% ${(winsV2/n*100).toFixed(0)}%`);
-  console.log(`V3  MAE:  ${meanV3}   win% ${(winsV3/n*100).toFixed(0)}%  (form:1.0 postPos:0.7)`);
+  const t3V3 = races.filter(r => r.top3V3).length;
+  const t5V3 = races.filter(r => r.top5V3).length;
+  const t3V32 = races.filter(r => r.top3V32).length;
+  const t5V32 = races.filter(r => r.top5V32).length;
+  console.log(`V3  MAE:  ${meanV3}   win% ${(winsV3/n*100).toFixed(0)}%  top3 ${(t3V3/n*100).toFixed(0)}%  top5 ${(t5V3/n*100).toFixed(0)}%  (form:1.0 postPos:0.7)`);
   console.log(`V4  MAE:  ${meanV4}   win% ${(winsV4/n*100).toFixed(0)}%  (V3+driverForm:0.8)`);
-  console.log(`V32 MAE:  ${meanV32}   win% ${(winsV32/n*100).toFixed(0)}%  (experimental — form:5.868, oddsHistorical:2.988)`);
+  console.log(`V32 MAE:  ${meanV32}   win% ${(winsV32/n*100).toFixed(0)}%  top3 ${(t3V32/n*100).toFixed(0)}%  top5 ${(t5V32/n*100).toFixed(0)}%  (experimental)`);
   console.log(`V1→V2:    ${delta >= 0 ? '+' : ''}${delta}  → ${verdict}`);
   console.log(`V2→V3:    ${deltaV3vsV2 >= 0 ? '+' : ''}${deltaV3vsV2}  → ${verdictV3}`);
   console.log(`V3→V4:    ${deltaV4vsV3 >= 0 ? '+' : ''}${deltaV4vsV3}  → ${verdictV4}`);

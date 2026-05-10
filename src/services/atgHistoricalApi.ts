@@ -172,16 +172,17 @@ export const processHistoricalRecords = (
       const source = (record as any).meta?.source || 'results';
       const isAggregateSource = isAggregateRecordSource(source);
       
-      // IMPORTANT: Check statistics bypass FIRST before any date parsing
-      // This prevents statistics records from being incorrectly dropped
+      // Statistics records WITHOUT dates bypass time window (life/best records)
+      // Statistics WITH dates are filtered like normal records
       if (isAggregateSource && !record.date) {
-        // Aggregate records without dates bypass time window (e.g., life/best records)
-        if (isXanderDebug) {
-          log.debug(`STATISTICS RECORD - Bypassing time window check`);
+        // Undated aggregate record — only allowed in fallback pass (ignoreTimeWindow)
+        if (!ignoreTimeWindow) {
+          filteringStats.outsideTimeWindow++;
+          rejectRecord(record, 'undated-stats-strict', source);
+          return false;
         }
-        // Skip to next filter - don't check date window for stats
+        // Fallback pass: let through
       } else if (!ignoreTimeWindow) {
-        // Only check date window for non-statistics records or statistics with dates
         if (!record.date) {
           filteringStats.outsideTimeWindow++;
           rejectRecord(record, 'no-date', source);
@@ -294,11 +295,11 @@ export const processHistoricalRecords = (
   let dataSource: 'recent' | 'fallback' = 'recent';
   let finalStats = recentStats;
   
-  // Second pass: If no recent records, use fallback (all-time)
+  // Fallback: if no recent records, use all-time history (including undated stats)
   if (recentRecords.length === 0) {
     log.warn(`[${debugHorseName || 'Horse'}] No recent records found, attempting fallback to all historical data`);
     const { validRecords: fallbackRecords, invalidCandidates: fallbackInvalid, filteringStats: fallbackStats } = filterRecords(records, true);
-    
+
     if (fallbackRecords.length > 0) {
       finalRecords = fallbackRecords;
       finalInvalidCandidates = fallbackInvalid;
