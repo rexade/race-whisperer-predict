@@ -352,7 +352,7 @@ export async function evaluateWeights(
           race.raceData,
           race.rawKmTimes,
           weights,
-          dateData.date,
+          undefined, // Don't pass analysisDate — avoids DB write per evaluation step
           curves
         );
 

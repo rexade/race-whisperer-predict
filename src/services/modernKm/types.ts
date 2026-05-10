@@ -120,31 +120,31 @@ export interface NormalizationWeights {
   oddsLive?: number;
 }
 
-// V37 default (2026-05-08) — promoted after post-fix latest 6mo calibration.
-// Local reproduction on calibration-dataset-6mo_latest.json:
-// Win 45.1%, WTop3 67.4%, WTop5 80.6%, TopPickTop3 49.2%, MRR 0.605 over 304 races.
+// V39 default (2026-05-10) — V35 multi-start winner with bucketed-curve final pass.
+// MRR 0.505 → 0.576, Win 42.3%, WTop3 65.7%, WTop5 78.8%, TopPickTop3 45.7%, Passes 14.
+// Distance-bucketed curves are baked into getDefaultPostPositionCurves() too.
 export const DEFAULT_WEIGHTS: NormalizationWeights = {
-  postPosition: 1.108,
+  postPosition: 2.430,
   shoeType: 0.000,
-  sulkyType: 0.000,
-  driverPerformance: 1.433,
+  sulkyType: 1.214,
+  driverPerformance: 4.233,
   driverForm: 0.000,
-  driverEmpirical: 4.057,
-  trackFamiliarity: 0.150,
-  form: 2.364,
+  driverEmpirical: 4.585,
+  trackFamiliarity: 0.000,
+  form: 2.045,
   distanceAdjustment: 0.000,
-  raceDistanceAdjustment: 1.568,
-  volteStartDistancePenalty: 1.260,
-  startPoints: 1.661,
-  placePercentage: 0.919,
-  horseWinPercentage: 1.579,
-  earningsPerStart: 1.489,
-  gallopRisk: 0.000,
-  layoffPenalty: 1.166,
+  raceDistanceAdjustment: 1.139,
+  volteStartDistancePenalty: 0.000,
+  startPoints: 2.462,
+  placePercentage: 0.149,
+  horseWinPercentage: 1.170,
+  earningsPerStart: 1.010,
+  gallopRisk: 0.083,
+  layoffPenalty: 4.070,
   ageFactor: 0.000,
-  genderAdjustment: 0.758,
-  consistencyFactor: 2.240,
-  trainerPerformance: 2.059,
-  oddsHistorical: 0.134,
+  genderAdjustment: 0.542,
+  consistencyFactor: 0.000,
+  trainerPerformance: 1.954,
+  oddsHistorical: 0.000,
   oddsLive: 0.000,
 };

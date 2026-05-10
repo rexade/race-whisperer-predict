@@ -185,23 +185,24 @@ export const processHorseKmTimes = async (
       return (a as any)._sortIndex - (b as any)._sortIndex; // Stable fallback
     });
 
-  // Use average of top-2 fastest times when ≥2 available — reduces false-favorite
-  // inflation for boom-or-bust horses with one outlier fast time.
-  // With only 1 valid time, fall back to that single record.
+  // Average the top-3 fastest times — smooths outliers better than top-2
+  // (validated against 39 dates / 302 races: lower MAE and higher win/top3/top5).
+  // Falls back gracefully when fewer than 3 valid times are available.
   let bestTime: KmTime = { minutes: 0, seconds: 0, tenths: 0 };
   let bestRecordTime: KmTime = { minutes: 0, seconds: 0, tenths: 0 };
   const hasBestTime = processedTimes.length > 0;
 
   if (hasBestTime) {
-    if (processedTimes.length >= 2) {
-      const sec1 = toSeconds(processedTimes[0].normalizedTime.minutes, processedTimes[0].normalizedTime.seconds, processedTimes[0].normalizedTime.tenths ?? 0);
-      const sec2 = toSeconds(processedTimes[1].normalizedTime.minutes, processedTimes[1].normalizedTime.seconds, processedTimes[1].normalizedTime.tenths ?? 0);
-      bestTime = secondsToKmParts((sec1 + sec2) / 2);
+    const n = Math.min(processedTimes.length, 3);
+    if (n >= 2) {
+      const total = processedTimes.slice(0, n).reduce((sum, t) =>
+        sum + toSeconds(t.normalizedTime.minutes, t.normalizedTime.seconds, t.normalizedTime.tenths ?? 0), 0);
+      bestTime = secondsToKmParts(total / n);
     } else {
       bestTime = { ...processedTimes[0].normalizedTime };
     }
     bestRecordTime = { ...processedTimes[0].normalizedTime }; // Always the actual fastest record
-    log.debug(`[horseProcessing] ${horseName} best time (${processedTimes.length >= 2 ? 'avg top-2' : 'single'}): ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
+    log.debug(`[horseProcessing] ${horseName} best time (${n >= 2 ? `avg top-${n}` : 'single'}): ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
   } else {
     log.warn(`[horseProcessing] ${horseName}: no valid times`);
   }
@@ -213,7 +214,7 @@ export const processHorseKmTimes = async (
     disqualified,
     galloped,
     missingKmTimes,
-    best3TimesUsed: hasBestTime ? Math.min(processedTimes.length, 2) : 0
+    best3TimesUsed: hasBestTime ? Math.min(processedTimes.length, 3) : 0
   };
   log.debug(`[horseProcessing] ${horseName}: ${processedTimes.length} valid times`);
   if (!hasBestTime) {

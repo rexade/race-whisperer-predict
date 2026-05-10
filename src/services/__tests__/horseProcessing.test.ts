@@ -73,7 +73,7 @@ describe('processHorseKmTimes — gallopCount and disqualificationCount', () => 
   });
 });
 
-describe('processHorseKmTimes — top-2 time averaging (H2)', () => {
+describe('processHorseKmTimes — top-3 time averaging (H2)', () => {
   it('bestTime equals single record when only 1 valid time', async () => {
     const races = [
       baseRace({ date: '2026-01-10', raceId: 'r1', kmTime: { minutes: 1, seconds: 14, tenths: 0 } }),
@@ -85,7 +85,7 @@ describe('processHorseKmTimes — top-2 time averaging (H2)', () => {
     expect(result.bestTime.tenths).toBe(0);
   });
 
-  it('bestTime is average of top-2 when 2 valid times available', async () => {
+  it('bestTime is average of top-2 when only 2 valid times available', async () => {
     // Two races at same distance/method so normalization is identity
     const races = [
       baseRace({ date: '2026-01-10', raceId: 'r1', kmTime: { minutes: 1, seconds: 14, tenths: 0 } }), // 74.0s
@@ -108,16 +108,29 @@ describe('processHorseKmTimes — top-2 time averaging (H2)', () => {
     expect(recordTenths).toBe(740); // 1:14.0 = 74.0s
   });
 
-  it('bestTime with 3 records uses average of top-2 (not top-3)', async () => {
+  it('bestTime with 3 records uses average of top-3', async () => {
     const races = [
       baseRace({ date: '2026-01-10', raceId: 'r1', kmTime: { minutes: 1, seconds: 14, tenths: 0 } }), // 74.0s
       baseRace({ date: '2026-01-05', raceId: 'r2', kmTime: { minutes: 1, seconds: 16, tenths: 0 } }), // 76.0s
-      baseRace({ date: '2025-12-20', raceId: 'r3', kmTime: { minutes: 1, seconds: 20, tenths: 0 } }), // 80.0s
+      baseRace({ date: '2025-12-20', raceId: 'r3', kmTime: { minutes: 1, seconds: 18, tenths: 0 } }), // 78.0s
     ];
     const result = await processHorseKmTimes(13, 'ThreeHorse', races);
-    // Should be avg of top-2: (74.0 + 76.0) / 2 = 75.0s, not (74+76+80)/3 = 76.67s
+    // Avg of top-3: (74.0 + 76.0 + 78.0) / 3 = 76.0s = 1:16.0
     const totalTenths = result.bestTime.minutes * 600 + result.bestTime.seconds * 10 + result.bestTime.tenths;
-    expect(totalTenths).toBe(750);
+    expect(totalTenths).toBe(760);
+  });
+
+  it('bestTime with 4+ records still averages only the fastest 3', async () => {
+    const races = [
+      baseRace({ date: '2026-01-10', raceId: 'r1', kmTime: { minutes: 1, seconds: 14, tenths: 0 } }), // 74.0s
+      baseRace({ date: '2026-01-05', raceId: 'r2', kmTime: { minutes: 1, seconds: 16, tenths: 0 } }), // 76.0s
+      baseRace({ date: '2025-12-20', raceId: 'r3', kmTime: { minutes: 1, seconds: 18, tenths: 0 } }), // 78.0s
+      baseRace({ date: '2025-12-01', raceId: 'r4', kmTime: { minutes: 1, seconds: 25, tenths: 0 } }), // 85.0s — slow outlier, ignored
+    ];
+    const result = await processHorseKmTimes(14, 'FourHorse', races);
+    // Avg of top-3 only: (74.0 + 76.0 + 78.0) / 3 = 76.0s
+    const totalTenths = result.bestTime.minutes * 600 + result.bestTime.seconds * 10 + result.bestTime.tenths;
+    expect(totalTenths).toBe(760);
   });
 });
 

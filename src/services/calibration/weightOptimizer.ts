@@ -40,10 +40,10 @@ export interface OptimizationResult {
 
 const MIN_WEIGHT_STEP = 0.02;
 const MAX_PASSES = 20;
-const WEIGHT_BOUNDS: [number, number] = [0.0, 5.0];  // capped to prevent overfitting
+const WEIGHT_BOUNDS: [number, number] = [0.0, 7.0];  // raised from 5.0 but not too wide
 
 // Simulated annealing constants
-const SA_STEPS = 400;        // exploration steps before handing off to CD
+const SA_STEPS = 600;        // more exploration for wider bounds
 const SA_T_START = 0.05;     // initial temperature in MRR units (~0.05 MRR degradation allowed)
 const SA_T_END   = 0.003;    // final temperature (essentially greedy)
 
@@ -111,7 +111,22 @@ function copyWeights(w: NormalizationWeights): NormalizationWeights {
 }
 
 function copyCurves(c: PostPositionCurves): PostPositionCurves {
-  return { auto: { ...c.auto }, volte: { ...c.volte } };
+  const copy: PostPositionCurves = { auto: { ...c.auto }, volte: { ...c.volte } };
+  if (c.byDistance) {
+    copy.byDistance = {
+      auto: {
+        short: { ...c.byDistance.auto.short },
+        medium: { ...c.byDistance.auto.medium },
+        long: { ...c.byDistance.auto.long },
+      },
+      volte: {
+        short: { ...c.byDistance.volte.short },
+        medium: { ...c.byDistance.volte.medium },
+        long: { ...c.byDistance.volte.long },
+      },
+    };
+  }
+  return copy;
 }
 
 /**
@@ -261,33 +276,60 @@ export async function optimizeWeights(
 
     // --- Phase B: optimize per-position curve values (always runs) ---
     if (curveStep >= MIN_CURVE_STEP) {
-      for (const startType of ['auto', 'volte'] as const) {
-        for (const pos of CURVE_POSITIONS) {
-          const current = bestCurves[startType][pos] ?? 0;
-          for (const dir of [+curveStep, -curveStep]) {
-            const candidate = copyCurves(bestCurves);
-            const newVal = clamp(current + dir, CURVE_BOUNDS[0], CURVE_BOUNDS[1]);
-            if (Math.abs(newVal - current) < 0.001) continue;
-            candidate[startType][pos] = newVal;
+      // Build the list of (startType, bucket?, pos) coordinate axes to search.
+      // Legacy mode: 2 startTypes × 15 positions = 30 axes.
+      // Bucketed mode (byDistance present): 2 × 3 buckets × 15 = 90 axes.
+      type Axis =
+        | { kind: 'legacy'; startType: 'auto' | 'volte'; pos: number }
+        | { kind: 'bucketed'; startType: 'auto' | 'volte'; bucket: 'short' | 'medium' | 'long'; pos: number };
+      const axes: Axis[] = [];
+      if (bestCurves.byDistance) {
+        for (const startType of ['auto', 'volte'] as const) {
+          for (const bucket of ['short', 'medium', 'long'] as const) {
+            for (const pos of CURVE_POSITIONS) axes.push({ kind: 'bucketed', startType, bucket, pos });
+          }
+        }
+      } else {
+        for (const startType of ['auto', 'volte'] as const) {
+          for (const pos of CURVE_POSITIONS) axes.push({ kind: 'legacy', startType, pos });
+        }
+      }
 
-            const score = await regScore(dataset, bestWeights, candidate);
-            if (score < bestMAE) {
-              bestMAE = score;
-              bestCurves = candidate;
-              improved = true;
-              break;
-            }
+      for (const axis of axes) {
+        const current = axis.kind === 'legacy'
+          ? (bestCurves[axis.startType][axis.pos] ?? 0)
+          : (bestCurves.byDistance![axis.startType][axis.bucket][axis.pos] ?? 0);
+
+        for (const dir of [+curveStep, -curveStep]) {
+          const newVal = clamp(current + dir, CURVE_BOUNDS[0], CURVE_BOUNDS[1]);
+          if (Math.abs(newVal - current) < 0.001) continue;
+          const candidate = copyCurves(bestCurves);
+          if (axis.kind === 'legacy') {
+            candidate[axis.startType][axis.pos] = newVal;
+          } else {
+            candidate.byDistance![axis.startType][axis.bucket][axis.pos] = newVal;
           }
 
-          onProgress?.({
-            pass: SA_STEPS + pass,
-            maxPasses: SA_STEPS + MAX_PASSES,
-            currentMAE: bestMAE,
-            bestMAE,
-            step: curveStep,
-            message: `CD pass ${pass}/${MAX_PASSES} · curves (${startType} pos ${pos}) · step=${curveStep.toFixed(3)} · MRR=${(-bestMAE).toFixed(4)}`,
-          });
+          const score = await regScore(dataset, bestWeights, candidate);
+          if (score < bestMAE) {
+            bestMAE = score;
+            bestCurves = candidate;
+            improved = true;
+            break;
+          }
         }
+
+        const label = axis.kind === 'legacy'
+          ? `${axis.startType} pos ${axis.pos}`
+          : `${axis.startType}.${axis.bucket} pos ${axis.pos}`;
+        onProgress?.({
+          pass: SA_STEPS + pass,
+          maxPasses: SA_STEPS + MAX_PASSES,
+          currentMAE: bestMAE,
+          bestMAE,
+          step: curveStep,
+          message: `CD pass ${pass}/${MAX_PASSES} · curves (${label}) · step=${curveStep.toFixed(3)} · MRR=${(-bestMAE).toFixed(4)}`,
+        });
       }
     }
 

@@ -60,6 +60,17 @@ function curveChanges(
   return results.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
 }
 
+/** Seed byDistance from the current legacy curves so opt-in starts from a sensible baseline. */
+function withDistanceBuckets(c: PostPositionCurves): PostPositionCurves {
+  return {
+    ...c,
+    byDistance: {
+      auto:  { short: { ...c.auto },  medium: { ...c.auto },  long: { ...c.auto }  },
+      volte: { short: { ...c.volte }, medium: { ...c.volte }, long: { ...c.volte } },
+    },
+  };
+}
+
 const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
   currentWeights,
   onApplyWeights,
@@ -70,7 +81,15 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
   const [cacheInfo, setCacheInfo] = useState<{ exists: boolean; ageHours: number | null; dateCount: number } | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
+  const [bucketedCurves, setBucketedCurves] = useState(false);
   const { state, runDataCollection, runOptimization, runMultiStartOptimization, acceptResult, reset } = useCalibration();
+
+  // The curves passed to the optimizer — bucketed when toggle on, otherwise the
+  // raw legacy curves. We always seed byDistance from the current legacy curves
+  // so the bucketed start has a reasonable baseline.
+  const curvesForOptimizer = postPositionCurves
+    ? (bucketedCurves ? withDistanceBuckets(postPositionCurves) : postPositionCurves)
+    : undefined;
 
   const handleCopyWeights = () => {
     if (!state.optimizationResult) return;
@@ -87,7 +106,11 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
       `    // Calibrated ${new Date().toISOString().split('T')[0]}`,
       `    // MRR: ${r.initialMAE.toFixed(3)} → ${r.finalMAE.toFixed(3)}  Win: ${(r.finalEvaluation.winAccuracy * 100).toFixed(1)}%  WTop3: ${(r.finalEvaluation.winnerTop3Accuracy * 100).toFixed(1)}%  WTop5: ${(r.finalEvaluation.winnerTop5Accuracy * 100).toFixed(1)}%  TopPickTop3: ${(r.finalEvaluation.topPickAccuracy * 100).toFixed(1)}%  Passes: ${r.passesCompleted}`,
     ].join('\n');
-    const snippet = `${header}\n    weights: {\n${lines.join('\n')}\n    },\n    postPositionCurves: {\n      auto: {\n${formatCurve(r.optimizedCurves.auto)}\n      },\n      volte: {\n${formatCurve(r.optimizedCurves.volte)}\n      },\n    }`;
+    const bd = r.optimizedCurves.byDistance;
+    const byDistanceBlock = bd
+      ? `,\n      byDistance: {\n        auto: {\n          short: {\n${formatCurve(bd.auto.short)}\n          },\n          medium: {\n${formatCurve(bd.auto.medium)}\n          },\n          long: {\n${formatCurve(bd.auto.long)}\n          },\n        },\n        volte: {\n          short: {\n${formatCurve(bd.volte.short)}\n          },\n          medium: {\n${formatCurve(bd.volte.medium)}\n          },\n          long: {\n${formatCurve(bd.volte.long)}\n          },\n        },\n      }`
+      : '';
+    const snippet = `${header}\n    weights: {\n${lines.join('\n')}\n    },\n    postPositionCurves: {\n      auto: {\n${formatCurve(r.optimizedCurves.auto)}\n      },\n      volte: {\n${formatCurve(r.optimizedCurves.volte)}\n      }${byDistanceBlock},\n    }`;
     navigator.clipboard.writeText(snippet).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -178,6 +201,20 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
           </div>
         </div>
 
+        <label
+          className="flex items-center gap-1.5 text-xs cursor-pointer select-none"
+          title="Optimize separate post-position curves per distance bucket (≤1640m / 1641–2400m / >2400m). 90 curve params instead of 30 — overfit risk on small datasets."
+        >
+          <input
+            type="checkbox"
+            checked={bucketedCurves}
+            onChange={e => setBucketedCurves(e.target.checked)}
+            disabled={isWorking}
+            className="h-3.5 w-3.5"
+          />
+          <span className="text-muted-foreground">Distance-bucketed curves (S/M/L)</span>
+        </label>
+
         {/* Cache status badge */}
         {cacheInfo?.exists && !hasDataset && (
           <span className="text-xs text-muted-foreground border border-border rounded px-2 py-0.5">
@@ -194,7 +231,7 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
         <Button
           size="sm"
           variant="outline"
-          onClick={() => runDataCollection(monthsBack, currentWeights, false, postPositionCurves)}
+          onClick={() => runDataCollection(monthsBack, currentWeights, false, curvesForOptimizer)}
           disabled={isWorking}
           className="h-8 gap-1.5"
         >
@@ -208,7 +245,7 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => runDataCollection(monthsBack, currentWeights, true, postPositionCurves)}
+            onClick={() => runDataCollection(monthsBack, currentWeights, true, curvesForOptimizer)}
             disabled={isWorking}
             title="Re-fetch from ATG (ignores cache)"
             className="h-8 gap-1.5 text-muted-foreground"
@@ -234,7 +271,7 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
         {hasDataset && (
           <Button
             size="sm"
-            onClick={() => runOptimization(currentWeights, postPositionCurves)}
+            onClick={() => runOptimization(currentWeights, curvesForOptimizer)}
             disabled={isWorking}
             className="h-8 gap-1.5"
           >
@@ -249,9 +286,9 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
           <Button
             size="sm"
             variant="outline"
-            onClick={() => runMultiStartOptimization(currentWeights, postPositionCurves)}
+            onClick={() => runMultiStartOptimization(currentWeights, curvesForOptimizer)}
             disabled={isWorking}
-            title="Run optimizer from 6 diverse starting points and keep the best result"
+            title="Run optimizer from 5 diverse starting points and keep the best result"
             className="h-8 gap-1.5"
           >
             {isWorking && state.phase === 'optimizing'
