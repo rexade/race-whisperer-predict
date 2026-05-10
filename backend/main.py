@@ -110,6 +110,87 @@ async def delete_analysis(race_id: str):
 
 
 # ---------------------------------------------------------------------------
+# Raw Times CRUD
+# ---------------------------------------------------------------------------
+
+@app.get("/api/rawtimes")
+async def list_raw_times():
+    pool = await get_pool()
+    rows = await pool.fetch(
+        """SELECT race_id, race_number, game_id, race_date,
+                  jsonb_array_length(raw_times) AS horse_count
+           FROM raw_times ORDER BY race_date DESC, race_number"""
+    )
+    return JSONResponse([{
+        "raceId": r["race_id"],
+        "raceNumber": r["race_number"],
+        "gameId": r["game_id"],
+        "date": r["race_date"],
+        "horseCount": r["horse_count"],
+    } for r in rows])
+
+
+@app.get("/api/rawtimes/{race_id:path}")
+async def get_raw_times(race_id: str):
+    pool = await get_pool()
+    row = await pool.fetchrow(
+        "SELECT * FROM raw_times WHERE race_id = $1", race_id
+    )
+    if not row:
+        return JSONResponse(None)
+    d = dict(row)
+    rt = json.loads(d["raw_times"]) if isinstance(d["raw_times"], str) else d["raw_times"]
+    return JSONResponse({
+        "date": d["race_date"],
+        "gameId": d["game_id"],
+        "raceId": d["race_id"],
+        "raceNumber": d["race_number"],
+        "rawTimes": rt,
+        "cachedAt": str(d["cached_at"]),
+        "schemaVersion": d["schema_version"],
+    })
+
+
+@app.post("/api/rawtimes")
+async def store_raw_times(request: Request):
+    body = await request.json()
+    pool = await get_pool()
+    await pool.execute(
+        """INSERT INTO raw_times (race_id, race_number, game_id, race_date, raw_times, schema_version)
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6)
+           ON CONFLICT (race_id) DO UPDATE SET
+               race_number = EXCLUDED.race_number,
+               game_id = EXCLUDED.game_id,
+               race_date = EXCLUDED.race_date,
+               raw_times = EXCLUDED.raw_times,
+               schema_version = EXCLUDED.schema_version,
+               cached_at = NOW()
+        """,
+        body["raceId"],
+        body["raceNumber"],
+        body["gameId"],
+        body["date"],
+        json.dumps(body["rawTimes"]),
+        body.get("schemaVersion", 6),
+    )
+    return JSONResponse({"ok": True})
+
+
+@app.delete("/api/rawtimes/{race_id:path}")
+async def delete_raw_times(race_id: str):
+    pool = await get_pool()
+    await pool.execute("DELETE FROM raw_times WHERE race_id = $1", race_id)
+    return JSONResponse({"ok": True})
+
+
+@app.delete("/api/rawtimes")
+async def delete_all_raw_times():
+    pool = await get_pool()
+    await pool.execute("DELETE FROM raw_times")
+    return JSONResponse({"ok": True})
+
+
+# ---------------------------------------------------------------------------
 # MAE CRUD
 # ---------------------------------------------------------------------------
 
