@@ -74,7 +74,7 @@ export async function fetchAndComputeMAEForRace(raceId: string): Promise<RaceMAE
     horses: matched,
   };
 
-  RaceAnalysisCache.storeMAEResult(maeResult);
+  await RaceAnalysisCache.storeMAEResult(maeResult);
   log.debug(
     `MAE: race ${raceId} — meanRankError=${meanRankError.toFixed(2)} over ${matched.length} horses`,
   );
@@ -95,8 +95,8 @@ export interface AggregateMAEStats {
 }
 
 /** Read all stored MAE results and aggregate them. Returns null if none exist. */
-export function getAggregateMAEStats(): AggregateMAEStats | null {
-  const results = RaceAnalysisCache.getAllMAEResults();
+export async function getAggregateMAEStats(): Promise<AggregateMAEStats | null> {
+  const results = await RaceAnalysisCache.getAllMAEResults();
   if (results.length === 0) return null;
 
   const meanRankError =
