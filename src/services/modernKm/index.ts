@@ -241,20 +241,30 @@ export const applyModernKmNormalization = (
   };
 };
 
-export const getDefaultWeights = (): NormalizationWeights => {
+// Module-level cache for weights loaded from the API
+let _cachedWeights: NormalizationWeights | null = null;
+
+/** Fetch active custom weights from backend and populate the cache. Call once on app startup. */
+export const initWeightsFromApi = async (): Promise<NormalizationWeights> => {
   try {
-    const saved = localStorage.getItem('customDefaultWeights');
-    if (saved) {
-      const customDefaults = JSON.parse(saved);
+    const resp = await fetch('/api/weights');
+    const data = await resp.json();
+    if (data?.weights) {
       const defaultKeys = Object.keys(DEFAULT_WEIGHTS) as (keyof NormalizationWeights)[];
-      if (defaultKeys.every(key => key in customDefaults)) {
-        return customDefaults;
+      if (defaultKeys.every(key => key in data.weights)) {
+        _cachedWeights = data.weights;
+        return _cachedWeights;
       }
     }
   } catch {
-    log.warn('Failed to load custom default weights, using factory defaults');
+    log.warn('Failed to load custom weights from API, using factory defaults');
   }
-  return { ...DEFAULT_WEIGHTS };
+  _cachedWeights = { ...DEFAULT_WEIGHTS };
+  return _cachedWeights;
+};
+
+export const getDefaultWeights = (): NormalizationWeights => {
+  return _cachedWeights ?? { ...DEFAULT_WEIGHTS };
 };
 
 // Re-export types for convenience

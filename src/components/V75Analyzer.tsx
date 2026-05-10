@@ -9,7 +9,7 @@ import ErrorDisplay from "./modernAnalyzer/ErrorDisplay";
 import DebugErrorBoundary from "./DebugErrorBoundary";
 import ThemeToggle from "./ThemeToggle";
 import { useV75Analysis } from "./v75/hooks/useV75Analysis";
-import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
+import { NormalizationWeights, getDefaultWeights, initWeightsFromApi } from '../services/modernKm/index';
 import { exportV75ToExcel } from '../utils/excelExport';
 import { getAggregateMAEStats, type AggregateMAEStats } from '../services/raceMAEService';
 import { useGameInfo, useRaceData, useAvailableGameTypes } from '@/queries/v75';
@@ -32,18 +32,12 @@ const CalibrationPanel = lazy(() => import("./calibration/CalibrationPanel"));
 
 const V75Analyzer: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  const [weights, setWeights] = useState<NormalizationWeights>(() => {
-    try {
-      const saved = localStorage.getItem('customDefaultWeights');
-      if (saved) return { ...getDefaultWeights(), ...JSON.parse(saved) };
-    } catch {}
-    return getDefaultWeights();
-  });
+  const [weights, setWeights] = useState<NormalizationWeights>(getDefaultWeights);
   const [postPositionCurves, setPostPositionCurves] = useState<PostPositionCurves>(getDefaultPostPositionCurves());
   const [activeTab, setActiveTab] = useState("");
   const [showCacheManager, setShowCacheManager] = useState(false);
   const [showWeights, setShowWeights] = useState(false);
-  const [maeStats, setMaeStats] = useState<AggregateMAEStats | null>(() => getAggregateMAEStats());
+  const [maeStats, setMaeStats] = useState<AggregateMAEStats | null>(null);
   const [showCalibration, setShowCalibration] = useState(false);
   const [showInput, setShowInput] = useState(true);
   const [gameType, setGameType] = useState<GameType>(GAME_TYPE);
@@ -85,11 +79,22 @@ const V75Analyzer: React.FC = () => {
     }
   }, [weights, postPositionCurves]);
 
-  // Auto-persist weights so they survive page refresh
+  // Load weights + MAE stats from API on mount
   useEffect(() => {
-    try {
-      localStorage.setItem('customDefaultWeights', JSON.stringify(weights));
-    } catch {}
+    initWeightsFromApi().then(w => setWeights(w));
+    getAggregateMAEStats().then(s => setMaeStats(s));
+  }, []);
+
+  // Auto-persist weights to API
+  const weightsInitRef = React.useRef(false);
+  useEffect(() => {
+    // Skip the first render (initial load from API triggers this)
+    if (!weightsInitRef.current) { weightsInitRef.current = true; return; }
+    fetch('/api/weights', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ weights, postPositionCurves }),
+    }).catch(() => {});
   }, [weights]);
 
   // Update active tab when results are loaded
@@ -111,7 +116,7 @@ const V75Analyzer: React.FC = () => {
   // Refresh MAE stats when cache drawer closes (user may have computed new MAE data)
   useEffect(() => {
     if (!showCacheManager) {
-      setMaeStats(getAggregateMAEStats());
+      getAggregateMAEStats().then(s => setMaeStats(s));
     }
   }, [showCacheManager]);
 

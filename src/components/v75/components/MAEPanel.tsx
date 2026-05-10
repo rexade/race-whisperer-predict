@@ -29,9 +29,9 @@ const MAEPanel: React.FC = () => {
   const refresh = useCallback(async () => {
     const s = await RaceAnalysisCache.getAllRaceAnalyses();
     setSummaries(s);
-    const allMae = RaceAnalysisCache.getAllMAEResults();
+    const allMae = await RaceAnalysisCache.getAllMAEResults();
     setMaeMap(new Map(allMae.map(r => [r.raceId, r])));
-    setStats(getAggregateMAEStats());
+    setStats(await getAggregateMAEStats());
   }, []);
 
   useEffect(() => {

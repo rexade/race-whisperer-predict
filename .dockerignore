@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+memory
+docs
+calibration-dataset*.json
+calibration-dataset*.zip
+calibration-dataset*.7z
+*.log

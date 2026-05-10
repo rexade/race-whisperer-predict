@@ -2,9 +2,6 @@ import { log } from '@/lib/logger';
 import { RaceAnalysisData, RaceAnalysisSummary, RaceMAEResult } from './types';
 
 export class RaceAnalysisCache {
-  private static get storage(): Storage | null {
-    return typeof localStorage !== 'undefined' ? localStorage : null;
-  }
 
   /**
    * Store race analysis results for post-race comparison
@@ -28,18 +25,7 @@ export class RaceAnalysisCache {
     }>
   ): Promise<void> {
     try {
-      const key = `v75_race_analysis_${raceId}`;
-      
-      const analysisData: RaceAnalysisData = {
-        raceId,
-        raceNumber,
-        analysisDate,
-        timestamp: new Date().toISOString(),
-        horses
-      };
-      
-      // Debug logging for storage verification
-      log.debug(`Storing race analysis - Race ${raceNumber}: date=${analysisDate}, key=${key}, horses=${horses.length}`);
+      log.debug(`Storing race analysis - Race ${raceNumber}: date=${analysisDate}, raceId=${raceId}, horses=${horses.length}`);
 
       const horsesWithTimes = horses.filter(h => h.predictedTime);
       log.debug(`Horses with predicted times: ${horsesWithTimes.length}`);
@@ -48,14 +34,14 @@ export class RaceAnalysisCache {
         log.debug(`  ${horse.horseName}: ${horse.predictedTime?.minutes}:${horse.predictedTime?.seconds}.${horse.predictedTime?.tenths}`);
       });
 
-      if (!this.storage) {
-        log.debug('Race analysis storage skipped (worker context — no localStorage)');
-        return;
-      }
-      this.storage.setItem(key, JSON.stringify(analysisData));
+      await fetch('/api/analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raceId, raceNumber, analysisDate, horses }),
+      });
 
       log.debug(`Race analysis stored successfully`);
-      
+
     } catch (error) {
       log.warn('Error storing race analysis:', error);
       throw error;
@@ -63,31 +49,26 @@ export class RaceAnalysisCache {
   }
 
   /**
-   * Get stored race analysis results with enhanced debugging
+   * Get stored race analysis results
    */
   static async getRaceAnalysis(raceId: string): Promise<RaceAnalysisData | null> {
     try {
-      const key = `v75_race_analysis_${raceId}`;
-      const stored = this.storage?.getItem(key);
+      const resp = await fetch(`/api/analysis/${raceId}`);
+      const data = await resp.json();
 
-      if (!stored) {
-        return null;
-      }
+      if (!data) return null;
 
-      const analysisData = JSON.parse(stored);
+      log.debug(`Retrieved race analysis - Race ${data.raceNumber}: date=${data.analysisDate}, horses=${data.horses.length}`);
 
-      // Debug logging for retrieval verification
-      log.debug(`Retrieved race analysis - Race ${analysisData.raceNumber}: date=${analysisData.analysisDate}, horses=${analysisData.horses.length}`);
-
-      const horsesWithTimes = analysisData.horses.filter((h: any) => h.predictedTime);
+      const horsesWithTimes = data.horses.filter((h: any) => h.predictedTime);
       log.debug(`Horses with predicted times: ${horsesWithTimes.length}`);
 
       horsesWithTimes.slice(0, 3).forEach((horse: any) => {
         log.debug(`  ${horse.horseName}: ${horse.predictedTime?.minutes}:${horse.predictedTime?.seconds}.${horse.predictedTime?.tenths}`);
       });
 
-      return analysisData;
-      
+      return data;
+
     } catch (error) {
       log.warn('Error retrieving race analysis:', error);
       return null;
@@ -99,8 +80,7 @@ export class RaceAnalysisCache {
    */
   static async clearRaceAnalysis(raceId: string): Promise<void> {
     try {
-      const key = `v75_race_analysis_${raceId}`;
-      this.storage?.removeItem(key);
+      await fetch(`/api/analysis/${raceId}`, { method: 'DELETE' });
       log.debug(`Cleared race analysis for race ${raceId}`);
     } catch (error) {
       log.warn('Error clearing race analysis:', error);
@@ -112,42 +92,16 @@ export class RaceAnalysisCache {
    */
   static async getAllRaceAnalyses(): Promise<RaceAnalysisSummary[]> {
     try {
-      const analyses: RaceAnalysisSummary[] = [];
-      
-      const store = this.storage;
-      if (!store) return [];
+      const resp = await fetch('/api/analysis');
+      const analyses: RaceAnalysisSummary[] = await resp.json();
 
-      for (let i = 0; i < store.length; i++) {
-        const key = store.key(i);
-
-        if (key?.startsWith('v75_race_analysis_')) {
-          const stored = store.getItem(key);
-          if (stored) {
-            const analysisData = JSON.parse(stored);
-            analyses.push({
-              raceId: analysisData.raceId,
-              raceNumber: analysisData.raceNumber,
-              analysisDate: analysisData.analysisDate,
-              timestamp: analysisData.timestamp
-            });
-          }
-        }
-      }
-      
       log.debug(`Found ${analyses.length} race analyses in cache`);
       analyses.forEach(analysis => {
         log.debug(`  Race ${analysis.raceNumber} (${analysis.raceId}): ${analysis.analysisDate}`);
       });
-      
-      // Sort by date and race number
-      analyses.sort((a, b) => {
-        const dateCompare = b.analysisDate.localeCompare(a.analysisDate);
-        if (dateCompare !== 0) return dateCompare;
-        return a.raceNumber - b.raceNumber;
-      });
-      
+
       return analyses;
-      
+
     } catch (error) {
       log.warn('Error getting all race analyses:', error);
       return [];
@@ -156,26 +110,12 @@ export class RaceAnalysisCache {
 
   /**
    * Get cached game IDs for post-race analysis
-   * This checks if we have race analyses for a given date
    */
   static async getCachedGameIds(): Promise<string[]> {
     try {
-      const gameIds: string[] = [];
-      
-      // Check for race analyses
-      const raceAnalyses = await this.getAllRaceAnalyses();
-      
-      // Group by date to create game IDs
-      const dateSet = new Set<string>();
-      raceAnalyses.forEach(analysis => {
-        dateSet.add(analysis.analysisDate);
-      });
-      
-      // Convert dates to game ID format
-      dateSet.forEach(date => {
-        gameIds.push(`v75-${date}`);
-      });
-      
+      const resp = await fetch('/api/analysis/dates');
+      const gameIds: string[] = await resp.json();
+
       log.debug(`Found cached game IDs: ${gameIds.join(', ')}`);
       return gameIds;
 
@@ -192,16 +132,11 @@ export class RaceAnalysisCache {
     try {
       log.debug(`Checking predictions for date: ${date}`);
 
-      const raceAnalyses = await this.getAllRaceAnalyses();
-      const matchingAnalyses = raceAnalyses.filter(analysis => analysis.analysisDate === date);
+      const resp = await fetch(`/api/analysis/date/${date}`);
+      const data = await resp.json();
 
-      log.debug(`Found ${matchingAnalyses.length} analyses for ${date}`);
-      matchingAnalyses.forEach(analysis => {
-        log.debug(`  Race ${analysis.raceNumber} (${analysis.raceId}): stored on ${analysis.timestamp}`);
-      });
-
-      const hasAnalyses = matchingAnalyses.length > 0;
-      log.debug(`Predictions for ${date}: ${hasAnalyses ? 'FOUND' : 'NOT FOUND'}`);
+      const hasAnalyses = data.hasPredictions;
+      log.debug(`Predictions for ${date}: ${hasAnalyses ? 'FOUND' : 'NOT FOUND'} (${data.count} analyses)`);
 
       return hasAnalyses;
 
@@ -213,37 +148,34 @@ export class RaceAnalysisCache {
 
   // ─── MAE cache ───────────────────────────────────────────────────────────────
 
-  static storeMAEResult(maeResult: RaceMAEResult): void {
+  static async storeMAEResult(maeResult: RaceMAEResult): Promise<void> {
     try {
-      localStorage.setItem(`v75_mae_${maeResult.raceId}`, JSON.stringify(maeResult));
+      await fetch('/api/mae', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(maeResult),
+      });
       log.debug(`MAE result stored for race ${maeResult.raceId}: meanRankError=${maeResult.meanRankError.toFixed(2)}`);
     } catch (error) {
       log.warn('Error storing MAE result:', error);
     }
   }
 
-  static getMAEResult(raceId: string): RaceMAEResult | null {
+  static async getMAEResult(raceId: string): Promise<RaceMAEResult | null> {
     try {
-      const stored = localStorage.getItem(`v75_mae_${raceId}`);
-      return stored ? (JSON.parse(stored) as RaceMAEResult) : null;
+      const resp = await fetch(`/api/mae/${raceId}`);
+      const data = await resp.json();
+      return data as RaceMAEResult | null;
     } catch (error) {
       log.warn('Error retrieving MAE result:', error);
       return null;
     }
   }
 
-  static getAllMAEResults(): RaceMAEResult[] {
+  static async getAllMAEResults(): Promise<RaceMAEResult[]> {
     try {
-      const results: RaceMAEResult[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith('v75_mae_')) {
-          const stored = localStorage.getItem(key);
-          if (stored) results.push(JSON.parse(stored) as RaceMAEResult);
-        }
-      }
-      results.sort((a, b) => b.analysisDate.localeCompare(a.analysisDate) || a.raceNumber - b.raceNumber);
-      return results;
+      const resp = await fetch('/api/mae');
+      return await resp.json() as RaceMAEResult[];
     } catch (error) {
       log.warn('Error retrieving all MAE results:', error);
       return [];

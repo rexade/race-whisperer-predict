@@ -78,15 +78,15 @@ export class V75CacheService {
   }
 
   // MAE Cache Methods
-  static storeMAEResult(maeResult: import('./types').RaceMAEResult): void {
+  static async storeMAEResult(maeResult: import('./types').RaceMAEResult): Promise<void> {
     return RaceAnalysisCache.storeMAEResult(maeResult);
   }
 
-  static getMAEResult(raceId: string): import('./types').RaceMAEResult | null {
+  static async getMAEResult(raceId: string): Promise<import('./types').RaceMAEResult | null> {
     return RaceAnalysisCache.getMAEResult(raceId);
   }
 
-  static getAllMAEResults(): import('./types').RaceMAEResult[] {
+  static async getAllMAEResults(): Promise<import('./types').RaceMAEResult[]> {
     return RaceAnalysisCache.getAllMAEResults();
   }
 }
