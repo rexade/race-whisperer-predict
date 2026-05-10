@@ -47,9 +47,16 @@ import {
 import { log } from '@/lib/logger';
 
 // Post position curves interface
+import type { DistanceBucket } from './postPositionCalculator';
 export interface PostPositionCurves {
   auto: { [position: number]: number };
   volte: { [position: number]: number };
+  /** Optional distance-bucketed variant. When present, the calculator uses
+   *  byDistance[startMethod][bucket] instead of the legacy single curve. */
+  byDistance?: {
+    auto: Record<DistanceBucket, { [position: number]: number }>;
+    volte: Record<DistanceBucket, { [position: number]: number }>;
+  };
 }
 
 /**
@@ -100,7 +107,7 @@ export const applyModernKmNormalization = (
 
   // STEP 3: Race-specific adjustments
   adjustments.postPosition =
-    calculatePostPositionAdjustment(factors.postPosition, factors.startMethod, postPositionCurves)
+    calculatePostPositionAdjustment(factors.postPosition, factors.startMethod, postPositionCurves, factors.raceDistance)
     * weights.postPosition;
 
   // Equipment — shoes and sulky weighted independently

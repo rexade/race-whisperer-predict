@@ -77,6 +77,18 @@ const V32 = {
   sulkyType: 0.227,
 };
 
+// V37 — calibration winner (2026-05-10). MRR 0.562, Win 39.1%, WTop3 64.4%, WTop5 80.8%.
+const V37 = {
+  postPosition: 1.304, shoeType: 0.000, sulkyType: 1.289,
+  driverPerformance: 0.200, driverForm: 0.982, driverEmpirical: 5.000,
+  trackFamiliarity: 2.512, form: 0.000, distanceAdjustment: 0.994,
+  raceDistanceAdjustment: 1.417, volteStartDistancePenalty: 2.200,
+  startPoints: 0.583, placePercentage: 0.000, horseWinPercentage: 1.919,
+  earningsPerStart: 0.257, gallopRisk: 0.200, layoffPenalty: 0.431,
+  ageFactor: 0.000, genderAdjustment: 0.391, consistencyFactor: 1.915,
+  trainerPerformance: 0.213, oddsHistorical: 1.124, oddsLive: 0.000,
+};
+
 // ---------------------------------------------------------------------------
 // Constants (from normalizationConstants.ts)
 // ---------------------------------------------------------------------------
@@ -441,15 +453,24 @@ function processHistory(records, evalDate, currentDriverId = null, horse = null)
     ? validDistances[Math.floor(validDistances.length / 2)]
     : null;
 
-  // Normalized km times → take best 1 or avg top-2 (H2 fix)
+  // Normalized km times → compute all variants for comparison
   const normalizedTimes = validKm
     .map(r => normalizeHistoricalKmTime(r.kmTime, r.start.distance, r.race.startMethod))
     .filter(t => t !== null)
     .sort((a, b) => a - b); // ascending: best (fastest) first
 
+  const rawTimeMode = process.env.RAW_TIME_MODE ?? 'top2avg'; // 'best1' | 'top2avg' | 'top3avg'
   let rawKmTime = null;
-  if (normalizedTimes.length === 1) rawKmTime = normalizedTimes[0];
+  if (normalizedTimes.length === 0) { /* no time */ }
+  else if (rawTimeMode === 'best1') rawKmTime = normalizedTimes[0];
+  else if (rawTimeMode === 'top3avg' && normalizedTimes.length >= 3) rawKmTime = (normalizedTimes[0] + normalizedTimes[1] + normalizedTimes[2]) / 3;
   else if (normalizedTimes.length >= 2) rawKmTime = (normalizedTimes[0] + normalizedTimes[1]) / 2;
+  else rawKmTime = normalizedTimes[0];
+
+  // All 3 variants for comparison mode
+  const rawKmTimeBest1 = normalizedTimes.length >= 1 ? normalizedTimes[0] : null;
+  const rawKmTimeTop2 = normalizedTimes.length >= 2 ? (normalizedTimes[0] + normalizedTimes[1]) / 2 : rawKmTimeBest1;
+  const rawKmTimeTop3 = normalizedTimes.length >= 3 ? (normalizedTimes[0] + normalizedTimes[1] + normalizedTimes[2]) / 3 : rawKmTimeTop2;
 
   // Recent races for form (last FORM_MAX_RACES from recent window, including gallops)
   const recentRaces = source
@@ -501,7 +522,7 @@ function processHistory(records, evalDate, currentDriverId = null, horse = null)
     ? oddsRecords.reduce((s, r) => s + r.odds, 0) / oddsRecords.length
     : null;
 
-  return { rawKmTime, recentRaces, gallopRate, layoffDays, consistencyScore, driverHorseWinRate, averageOdds, preferredDistance };
+  return { rawKmTime, rawKmTimeBest1, rawKmTimeTop2, rawKmTimeTop3, recentRaces, gallopRate, layoffDays, consistencyScore, driverHorseWinRate, averageOdds, preferredDistance };
 }
 
 // ---------------------------------------------------------------------------
@@ -669,34 +690,50 @@ async function evalDate(date) {
 
     const startMethod = race.startMethod ?? 'auto';
     const raceDistance = race.distance ?? 2140;
-    const rankedV1 = rankHorses(horses, hists, V1, startMethod, raceDistance);
-    const rankedV2 = rankHorses(horses, hists, V2, startMethod, raceDistance);
     const rankedV3 = rankHorses(horses, hists, V3, startMethod, raceDistance);
-    const rankedV4 = rankHorses(horses, hists, V4, startMethod, raceDistance);
     const rankedV32 = rankHorses(horses, hists, V32, startMethod, raceDistance);
-    const maeV1 = computeMAE(rankedV1);
-    const maeV2 = computeMAE(rankedV2);
+
+    // V37 with 3 raw-time variants (best1, top2avg, top3avg)
+    const histsBest1 = hists.map(h => ({ ...h, rawKmTime: h.rawKmTimeBest1 }));
+    const histsTop2  = hists.map(h => ({ ...h, rawKmTime: h.rawKmTimeTop2 }));
+    const histsTop3  = hists.map(h => ({ ...h, rawKmTime: h.rawKmTimeTop3 }));
+    const rankedV37best1 = rankHorses(horses, histsBest1, V37, startMethod, raceDistance);
+    const rankedV37top2  = rankHorses(horses, histsTop2,  V37, startMethod, raceDistance);
+    const rankedV37top3  = rankHorses(horses, histsTop3,  V37, startMethod, raceDistance);
+
     const maeV3 = computeMAE(rankedV3);
-    const maeV4 = computeMAE(rankedV4);
     const maeV32 = computeMAE(rankedV32);
-    const winV1 = didWin(rankedV1);
-    const winV2 = didWin(rankedV2);
+    const maeV37b1 = computeMAE(rankedV37best1);
+    const maeV37t2 = computeMAE(rankedV37top2);
+    const maeV37t3 = computeMAE(rankedV37top3);
+
     const winV3 = didWin(rankedV3);
-    const winV4 = didWin(rankedV4);
     const winV32 = didWin(rankedV32);
+    const winV37b1 = didWin(rankedV37best1);
+    const winV37t2 = didWin(rankedV37top2);
+    const winV37t3 = didWin(rankedV37top3);
+
     const top3V3 = didTop3(rankedV3);
     const top5V3 = didTop5(rankedV3);
-    const top3V32 = didTop3(rankedV32);
-    const top5V32 = didTop5(rankedV32);
+    const top3V37b1 = didTop3(rankedV37best1);
+    const top5V37b1 = didTop5(rankedV37best1);
+    const top3V37t2 = didTop3(rankedV37top2);
+    const top5V37t2 = didTop5(rankedV37top2);
+    const top3V37t3 = didTop3(rankedV37top3);
+    const top5V37t3 = didTop5(rankedV37top3);
 
     const histCoverage = hists.filter(h => h.rawKmTime !== null).length;
-    const driverFormCoverage = hists.filter(h => h.driverHorseWinRate !== null).length;
     const label = n => n != null ? n.toFixed(2) : 'n/a';
     console.log(
-      `  Race ${race.number ?? ri+1}: V3=${label(maeV3)} (${winV3?'W':'-'}${top3V3?'T3':''}${top5V3&&!top3V3?'T5':''}) | V32=${label(maeV32)} (${winV32?'W':'-'}${top3V32?'T3':''}${top5V32&&!top3V32?'T5':''}) — ${horses.length}h, km:${histCoverage}/${horses.length}`
+      `  Race ${race.number ?? ri+1}: V37b1=${label(maeV37b1)}(${winV37b1?'W':'-'}) V37t2=${label(maeV37t2)}(${winV37t2?'W':'-'}) V37t3=${label(maeV37t3)}(${winV37t3?'W':'-'}) — ${horses.length}h, km:${histCoverage}/${horses.length}`
     );
 
-    raceResults.push({ raceId: raceIds[ri], raceNumber: race.number ?? ri+1, horseCount: horses.length, histCoverage, driverFormCoverage, maeV1, maeV2, maeV3, maeV4, maeV32, winV1, winV2, winV3, winV4, winV32, top3V3, top5V3, top3V32, top5V32 });
+    raceResults.push({
+      raceId: raceIds[ri], raceNumber: race.number ?? ri+1, horseCount: horses.length, histCoverage,
+      maeV3, maeV32, maeV37b1, maeV37t2, maeV37t3,
+      winV3, winV32, winV37b1, winV37t2, winV37t3,
+      top3V3, top5V3, top3V37b1, top5V37b1, top3V37t2, top5V37t2, top3V37t3, top5V37t3,
+    });
   }
 
   return { date, gameId: game.id, gameType: 'V85', raceResults };
@@ -728,89 +765,56 @@ async function main() {
   const n = races.length;
   if (n === 0) { console.log('\nNo completed races found.'); process.exit(0); }
 
-  const sumV1 = races.reduce((s, r) => s + (r.maeV1 ?? 0), 0);
-  const sumV2 = races.reduce((s, r) => s + (r.maeV2 ?? 0), 0);
   const sumV3 = races.reduce((s, r) => s + (r.maeV3 ?? 0), 0);
-  const sumV4 = races.reduce((s, r) => s + (r.maeV4 ?? 0), 0);
   const sumV32 = races.reduce((s, r) => s + (r.maeV32 ?? 0), 0);
-  const winsV1 = races.filter(r => r.winV1).length;
-  const winsV2 = races.filter(r => r.winV2).length;
+  const sumV37b1 = races.reduce((s, r) => s + (r.maeV37b1 ?? 0), 0);
+  const sumV37t2 = races.reduce((s, r) => s + (r.maeV37t2 ?? 0), 0);
+  const sumV37t3 = races.reduce((s, r) => s + (r.maeV37t3 ?? 0), 0);
   const winsV3 = races.filter(r => r.winV3).length;
-  const winsV4 = races.filter(r => r.winV4).length;
   const winsV32 = races.filter(r => r.winV32).length;
-  const meanV1 = +(sumV1 / n).toFixed(3);
-  const meanV2 = +(sumV2 / n).toFixed(3);
+  const winsV37b1 = races.filter(r => r.winV37b1).length;
+  const winsV37t2 = races.filter(r => r.winV37t2).length;
+  const winsV37t3 = races.filter(r => r.winV37t3).length;
   const meanV3 = +(sumV3 / n).toFixed(3);
-  const meanV4 = +(sumV4 / n).toFixed(3);
   const meanV32 = +(sumV32 / n).toFixed(3);
-  const delta  = +((sumV2 - sumV1) / n).toFixed(3);
-  const deltaV3vsV2 = +((sumV3 - sumV2) / n).toFixed(3);
-  const deltaV4vsV3 = +((sumV4 - sumV3) / n).toFixed(3);
-  const deltaV32vsV3 = +((sumV32 - sumV3) / n).toFixed(3);
+  const meanV37b1 = +(sumV37b1 / n).toFixed(3);
+  const meanV37t2 = +(sumV37t2 / n).toFixed(3);
+  const meanV37t3 = +(sumV37t3 / n).toFixed(3);
 
-  const verdict = delta < -0.2 ? 'V2 clearly better'
-    : delta < 0 ? 'V2 slightly better'
-    : delta === 0 ? 'No difference'
-    : delta < 0.2 ? 'V1 slightly better'
-    : 'V1 clearly better';
-
-  const verdictV3 = deltaV3vsV2 < -0.2 ? 'V3 clearly better than V2'
-    : deltaV3vsV2 < 0 ? 'V3 slightly better than V2'
-    : deltaV3vsV2 === 0 ? 'V3 same as V2'
-    : deltaV3vsV2 < 0.2 ? 'V2 slightly better than V3'
-    : 'V2 clearly better than V3';
-
-  const verdictV4 = deltaV4vsV3 < -0.2 ? 'V4 clearly better than V3'
-    : deltaV4vsV3 < 0 ? 'V4 slightly better than V3'
-    : deltaV4vsV3 === 0 ? 'V4 same as V3'
-    : deltaV4vsV3 < 0.2 ? 'V3 slightly better than V4'
-    : 'V3 clearly better than V4';
-
-  const verdictV32 = deltaV32vsV3 < -0.2 ? 'V32 clearly better than V3'
-    : deltaV32vsV3 < 0 ? 'V32 slightly better than V3'
-    : deltaV32vsV3 === 0 ? 'V32 same as V3'
-    : deltaV32vsV3 < 0.2 ? 'V3 slightly better than V32'
-    : 'V3 clearly better than V32';
-
-  const V2_BASELINE_MAE = 2.815;
-  const v3Recommendation = `V1-V4 are historical reference snapshots. V32 is an experimental preset candidate (form:5.868, oddsHistorical:2.988, reported CV-Win 34.2%). E4: startPoints now field-aware IQR (cap after weight). E5: formAdj fallback to career win-pct when no recent history. E7: postPosition now uses full DEFAULT_AUTO_CURVE/DEFAULT_VOLTE_CURVE (spread pos1 to 10: 0.95s auto, 0.85s volte). E10: volteStartDistancePenalty (0.801 weight, 0.4s flat, fires when volte+preferredDist>raceDist). E15: sulkyType added (AM=-0.2s, weight 0.227, max +/-0.045s). Omitted: raceDistanceAdj (race-wide constant, zero rank impact).`;
+  const t3V3 = races.filter(r => r.top3V3).length;
+  const t5V3 = races.filter(r => r.top5V3).length;
+  const t3b1 = races.filter(r => r.top3V37b1).length;
+  const t5b1 = races.filter(r => r.top5V37b1).length;
+  const t3t2 = races.filter(r => r.top3V37t2).length;
+  const t5t2 = races.filter(r => r.top5V37t2).length;
+  const t3t3 = races.filter(r => r.top3V37t3).length;
+  const t5t3 = races.filter(r => r.top5V37t3).length;
 
   const summary = {
     evaluatedAt: new Date().toISOString(),
     dates,
     raceCount: n,
-    v1: { meanMAE: meanV1, winRate: +(winsV1/n).toFixed(3), wins: winsV1 },
-    v2: { meanMAE: meanV2, winRate: +(winsV2/n).toFixed(3), wins: winsV2 },
-    v3: { meanMAE: meanV3, winRate: +(winsV3/n).toFixed(3), wins: winsV3, weights: 'form:1.0,postPosition:0.7' },
-    v4: { meanMAE: meanV4, winRate: +(winsV4/n).toFixed(3), wins: winsV4, weights: 'V3+driverForm:0.8' },
-    v32: { meanMAE: meanV32, winRate: +(winsV32/n).toFixed(3), wins: winsV32, weights: 'form:5.868,oddsHistorical:2.988,driverPerf:2.755,consistency:4.234 (experimental V32)' },
-    delta: { mae: delta, verdict },
-    deltaV3vsV2: { mae: deltaV3vsV2, verdict: verdictV3 },
-    deltaV4vsV3: { mae: deltaV4vsV3, verdict: verdictV4 },
-    deltaV32vsV3: { mae: deltaV32vsV3, verdict: verdictV32 },
-    baseline: { source: 'browser full-pipeline, 49 races, 17 dates', meanMAE: 5.289, winRate: 0.306 },
-    recommendation: 'Treat V32 as experimental. Compare V32 MAE vs V3 (2.815 benchmark) to validate whether kfold wins translate to rank accuracy before changing DEFAULT_WEIGHTS.',
-    v3Recommendation,
+    rawTimeComparison: {
+      v37_best1:  { meanMAE: meanV37b1, winRate: +(winsV37b1/n).toFixed(3), top3: +(t3b1/n).toFixed(3), top5: +(t5b1/n).toFixed(3) },
+      v37_top2avg: { meanMAE: meanV37t2, winRate: +(winsV37t2/n).toFixed(3), top3: +(t3t2/n).toFixed(3), top5: +(t5t2/n).toFixed(3) },
+      v37_top3avg: { meanMAE: meanV37t3, winRate: +(winsV37t3/n).toFixed(3), top3: +(t3t3/n).toFixed(3), top5: +(t5t3/n).toFixed(3) },
+    },
+    reference: {
+      v3:  { meanMAE: meanV3,  winRate: +(winsV3/n).toFixed(3),  top3: +(t3V3/n).toFixed(3),  top5: +(t5V3/n).toFixed(3) },
+      v32: { meanMAE: meanV32, winRate: +(winsV32/n).toFixed(3) },
+    },
     rawResults: allResults,
   };
 
-  console.log('\n=== SUMMARY ===');
-  console.log(`Dates:    ${dates.join(', ')}`);
+  console.log('\n=== RAW TIME MODE COMPARISON (V37 weights) ===');
+  console.log(`Dates:    ${dates.length}`);
   console.log(`Races:    ${n}`);
-  console.log(`V1  MAE:  ${meanV1}   win% ${(winsV1/n*100).toFixed(0)}%`);
-  console.log(`V2  MAE:  ${meanV2}   win% ${(winsV2/n*100).toFixed(0)}%`);
-  const t3V3 = races.filter(r => r.top3V3).length;
-  const t5V3 = races.filter(r => r.top5V3).length;
-  const t3V32 = races.filter(r => r.top3V32).length;
-  const t5V32 = races.filter(r => r.top5V32).length;
-  console.log(`V3  MAE:  ${meanV3}   win% ${(winsV3/n*100).toFixed(0)}%  top3 ${(t3V3/n*100).toFixed(0)}%  top5 ${(t5V3/n*100).toFixed(0)}%  (form:1.0 postPos:0.7)`);
-  console.log(`V4  MAE:  ${meanV4}   win% ${(winsV4/n*100).toFixed(0)}%  (V3+driverForm:0.8)`);
-  console.log(`V32 MAE:  ${meanV32}   win% ${(winsV32/n*100).toFixed(0)}%  top3 ${(t3V32/n*100).toFixed(0)}%  top5 ${(t5V32/n*100).toFixed(0)}%  (experimental)`);
-  console.log(`V1→V2:    ${delta >= 0 ? '+' : ''}${delta}  → ${verdict}`);
-  console.log(`V2→V3:    ${deltaV3vsV2 >= 0 ? '+' : ''}${deltaV3vsV2}  → ${verdictV3}`);
-  console.log(`V3→V4:    ${deltaV4vsV3 >= 0 ? '+' : ''}${deltaV4vsV3}  → ${verdictV4}`);
-  console.log(`V3→V32:   ${deltaV32vsV3 >= 0 ? '+' : ''}${deltaV32vsV3}  → ${verdictV32}`);
-  console.log(`V3 verdict: ${v3Recommendation}`);
+  console.log(`V37 best1   MAE: ${meanV37b1}  win% ${(winsV37b1/n*100).toFixed(0)}%  top3 ${(t3b1/n*100).toFixed(0)}%  top5 ${(t5b1/n*100).toFixed(0)}%`);
+  console.log(`V37 top2avg MAE: ${meanV37t2}  win% ${(winsV37t2/n*100).toFixed(0)}%  top3 ${(t3t2/n*100).toFixed(0)}%  top5 ${(t5t2/n*100).toFixed(0)}%`);
+  console.log(`V37 top3avg MAE: ${meanV37t3}  win% ${(winsV37t3/n*100).toFixed(0)}%  top3 ${(t3t3/n*100).toFixed(0)}%  top5 ${(t5t3/n*100).toFixed(0)}%`);
+  console.log(`--- Reference ---`);
+  console.log(`V3  (top2)  MAE: ${meanV3}  win% ${(winsV3/n*100).toFixed(0)}%  top3 ${(t3V3/n*100).toFixed(0)}%  top5 ${(t5V3/n*100).toFixed(0)}%`);
+  console.log(`V32 (top2)  MAE: ${meanV32}  win% ${(winsV32/n*100).toFixed(0)}%`);
 
   const outFile = join(ROOT, 'reports', `mae-auto-${dates[0]}.json`);
   mkdirSync(join(ROOT, 'reports'), { recursive: true });

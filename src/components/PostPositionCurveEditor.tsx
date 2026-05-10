@@ -10,9 +10,16 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { RotateCcw, TrendingUp, TrendingDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+import type { DistanceBucket } from '@/services/modernKm/postPositionCalculator';
+
 export interface PostPositionCurves {
   auto: { [position: number]: number };
   volte: { [position: number]: number };
+  /** Optional distance-bucketed variant — overrides the legacy curves when present. */
+  byDistance?: {
+    auto: Record<DistanceBucket, { [position: number]: number }>;
+    volte: Record<DistanceBucket, { [position: number]: number }>;
+  };
 }
 
 interface PostPositionCurveEditorProps {
@@ -21,40 +28,79 @@ interface PostPositionCurveEditorProps {
 }
 
 // Default values from current calculator
+// V39 default (2026-05-10) — calibrated legacy fallback curves.
+// Used when no race distance is known; otherwise byDistance buckets override.
 const DEFAULT_AUTO_ADJUSTMENTS = {
-  1: -0.138,
-  2: -0.075,
-  3: -0.150,
-  4: -0.250,
-  5: -0.025,
-  6: -0.050,
-  7: 0.300,
-  8: 0.350,
-  9: 0.550,
-  10: 0.750,
-  11: 0.675,
-  12: 0.800,
-  13: 1.000,
-  14: 0.875,
-  15: 0.850
+  1: -0.201,
+  2: 0.014,
+  3: -0.126,
+  4: -0.174,
+  5: 0.019,
+  6: 0.113,
+  7: 0.144,
+  8: 0.272,
+  9: 0.892,
+  10: 0.474,
+  11: 0.602,
+  12: 0.775,
+  13: 0.983,
+  14: 0.601,
+  15: 1.197
 };
 
 const DEFAULT_VOLTE_ADJUSTMENTS = {
-  1: -0.350,
-  2: -0.350,
-  3: -0.125,
-  4: 0.100,
-  5: 0.150,
-  6: -0.075,
-  7: 0.250,
-  8: 0.175,
-  9: 0.475,
-  10: 0.450,
-  11: 0.750,
-  12: 0.775,
-  13: 1.000,
-  14: 0.913,
-  15: 0.875
+  1: -0.658,
+  2: 0.266,
+  3: 0.014,
+  4: 0.105,
+  5: 0.271,
+  6: 0.286,
+  7: 0.304,
+  8: 0.191,
+  9: 0.672,
+  10: 0.480,
+  11: 0.682,
+  12: 0.892,
+  13: 1.357,
+  14: 0.994,
+  15: 0.799
+};
+
+// V39 distance-bucketed curves — applied automatically when a race distance is known.
+const DEFAULT_AUTO_BY_DISTANCE = {
+  short: {
+    1: -0.201, 2: 0.014, 3: -0.126, 4: -0.174, 5: 0.019, 6: 0.113, 7: 0.194,
+    8: 0.272, 9: 0.892, 10: 0.474, 11: 0.602, 12: 0.775, 13: 0.983, 14: 0.601,
+    15: 1.197,
+  },
+  medium: {
+    1: -0.201, 2: 0.014, 3: -0.126, 4: -0.224, 5: 0.044, 6: 0.113, 7: 0.144,
+    8: 0.272, 9: 0.892, 10: 0.474, 11: 0.602, 12: 0.750, 13: 0.983, 14: 0.601,
+    15: 1.197,
+  },
+  long: {
+    1: -0.201, 2: 0.089, 3: -0.076, 4: -0.174, 5: 0.019, 6: 0.113, 7: 0.044,
+    8: 0.272, 9: 0.892, 10: 0.474, 11: 0.614, 12: 0.775, 13: 0.983, 14: 0.601,
+    15: 1.197,
+  },
+};
+
+const DEFAULT_VOLTE_BY_DISTANCE = {
+  short: {
+    1: -0.658, 2: 0.266, 3: 0.014, 4: 0.105, 5: 0.271, 6: 0.286, 7: 0.304,
+    8: 0.191, 9: 0.672, 10: 0.480, 11: 0.682, 12: 0.892, 13: 1.357, 14: 0.994,
+    15: 0.799,
+  },
+  medium: {
+    1: -0.658, 2: 0.266, 3: 0.014, 4: 0.105, 5: 0.271, 6: 0.286, 7: 0.304,
+    8: 0.191, 9: 0.672, 10: 0.480, 11: 0.682, 12: 0.892, 13: 1.382, 14: 0.994,
+    15: 0.799,
+  },
+  long: {
+    1: -0.658, 2: 0.266, 3: 0.014, 4: 0.105, 5: 0.271, 6: 0.286, 7: 0.304,
+    8: 0.191, 9: 0.672, 10: 0.480, 11: 0.707, 12: 0.892, 13: 1.357, 14: 0.994,
+    15: 0.799,
+  },
 };
 
 export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = ({ 
@@ -90,10 +136,7 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
   };
 
   const resetToDefaults = () => {
-    onCurvesChange({
-      auto: { ...DEFAULT_AUTO_ADJUSTMENTS },
-      volte: { ...DEFAULT_VOLTE_ADJUSTMENTS }
-    });
+    onCurvesChange(getDefaultPostPositionCurves());
     toast({
       title: "Reset to Defaults",
       description: "Post position curves reset to default values.",
@@ -285,5 +328,17 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
 
 export const getDefaultPostPositionCurves = (): PostPositionCurves => ({
   auto: { ...DEFAULT_AUTO_ADJUSTMENTS },
-  volte: { ...DEFAULT_VOLTE_ADJUSTMENTS }
+  volte: { ...DEFAULT_VOLTE_ADJUSTMENTS },
+  byDistance: {
+    auto: {
+      short: { ...DEFAULT_AUTO_BY_DISTANCE.short },
+      medium: { ...DEFAULT_AUTO_BY_DISTANCE.medium },
+      long: { ...DEFAULT_AUTO_BY_DISTANCE.long },
+    },
+    volte: {
+      short: { ...DEFAULT_VOLTE_BY_DISTANCE.short },
+      medium: { ...DEFAULT_VOLTE_BY_DISTANCE.medium },
+      long: { ...DEFAULT_VOLTE_BY_DISTANCE.long },
+    },
+  },
 });

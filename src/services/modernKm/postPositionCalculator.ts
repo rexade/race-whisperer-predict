@@ -47,17 +47,48 @@ export const DEFAULT_VOLTE_CURVE: Record<number, number> = {
 const POSITION_OVERFLOW_ADJ = 1.00;
 
 /**
+ * Distance buckets used by the optional bucketed-curve mode.
+ * Cutoffs match common Swedish trotting categories: sprint / mid / stayer.
+ */
+export type DistanceBucket = 'short' | 'medium' | 'long';
+export const SHORT_DISTANCE_MAX = 1640;
+export const MEDIUM_DISTANCE_MAX = 2400;
+
+export function distanceBucket(distance: number | undefined): DistanceBucket {
+  if (!Number.isFinite(distance) || (distance ?? 0) <= 0) return 'medium';
+  if ((distance as number) <= SHORT_DISTANCE_MAX) return 'short';
+  if ((distance as number) <= MEDIUM_DISTANCE_MAX) return 'medium';
+  return 'long';
+}
+
+type CurveMap = Record<number, number>;
+interface CurvesShape {
+  auto: CurveMap;
+  volte: CurveMap;
+  byDistance?: {
+    auto: Record<DistanceBucket, CurveMap>;
+    volte: Record<DistanceBucket, CurveMap>;
+  };
+}
+
+/**
  * Post-position time adjustment.
  *
  * @param postPosition    Starting gate number (1-based).
  * @param startMethod     Race start method string ("Auto", "Volte", etc.).
- * @param customCurves    Optional user-defined curves from the UI.
+ * @param customCurves    Optional user-defined curves from the UI. May include
+ *                        an optional `byDistance` field — when present and a
+ *                        `raceDistance` is provided, the bucketed curve is used
+ *                        instead of the legacy single-curve lookup.
+ * @param raceDistance    Race distance in metres. Required only for bucketed
+ *                        lookup; ignored otherwise.
  * @returns               Adjustment in seconds (negative = faster).
  */
 export const calculatePostPositionAdjustment = (
   postPosition: number,
   startMethod: string,
-  customCurves?: { auto: Record<number, number>; volte: Record<number, number> }
+  customCurves?: CurvesShape,
+  raceDistance?: number
 ): number => {
   if (!Number.isFinite(postPosition) || postPosition <= 0) {
     log.warn(`[postPos] invalid postPosition "${postPosition}" — returning 0s`);
@@ -67,11 +98,21 @@ export const calculatePostPositionAdjustment = (
   const s = String(startMethod ?? '').trim().toLowerCase();
   const isVolte = s.startsWith('volt') || s === 'v';
 
-  const curve = isVolte
-    ? (customCurves?.volte ?? DEFAULT_VOLTE_CURVE)
-    : (customCurves?.auto  ?? DEFAULT_AUTO_CURVE);
+  let curve: CurveMap;
+  let bucketLabel = '';
+  if (customCurves?.byDistance && Number.isFinite(raceDistance)) {
+    const bucket = distanceBucket(raceDistance);
+    bucketLabel = `:${bucket}`;
+    curve = isVolte
+      ? customCurves.byDistance.volte[bucket]
+      : customCurves.byDistance.auto[bucket];
+  } else {
+    curve = isVolte
+      ? (customCurves?.volte ?? DEFAULT_VOLTE_CURVE)
+      : (customCurves?.auto  ?? DEFAULT_AUTO_CURVE);
+  }
 
   const adjustment = curve[postPosition] ?? POSITION_OVERFLOW_ADJ;
-  log.debug(`[postPos] pos ${postPosition} ${isVolte ? 'VOLTE' : 'AUTO'}${customCurves ? ' (custom)' : ''} → ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(3)}s`);
+  log.debug(`[postPos] pos ${postPosition} ${isVolte ? 'VOLTE' : 'AUTO'}${bucketLabel}${customCurves ? ' (custom)' : ''} → ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(3)}s`);
   return adjustment;
 };
