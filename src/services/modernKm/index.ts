@@ -252,7 +252,7 @@ export const applyModernKmNormalization = (
 let _cachedWeights: NormalizationWeights | null = null;
 
 /** Fetch active custom weights from backend and populate the cache. Call once on app startup. */
-export const initWeightsFromApi = async (): Promise<NormalizationWeights> => {
+export const initWeightsFromApi = async (): Promise<{ weights: NormalizationWeights; postPositionCurves?: PostPositionCurves }> => {
   try {
     const resp = await fetch('/api/weights');
     const data = await resp.json();
@@ -260,14 +260,14 @@ export const initWeightsFromApi = async (): Promise<NormalizationWeights> => {
       const defaultKeys = Object.keys(DEFAULT_WEIGHTS) as (keyof NormalizationWeights)[];
       if (defaultKeys.every(key => key in data.weights)) {
         _cachedWeights = data.weights;
-        return _cachedWeights;
+        return { weights: _cachedWeights, postPositionCurves: data.postPositionCurves };
       }
     }
   } catch {
     log.warn('Failed to load custom weights from API, using factory defaults');
   }
   _cachedWeights = { ...DEFAULT_WEIGHTS };
-  return _cachedWeights;
+  return { weights: _cachedWeights };
 };
 
 export const getDefaultWeights = (): NormalizationWeights => {

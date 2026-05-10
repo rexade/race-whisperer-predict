@@ -81,7 +81,7 @@ const V75Analyzer: React.FC = () => {
 
   // Load weights + MAE stats from API on mount
   useEffect(() => {
-    initWeightsFromApi().then(w => setWeights(w));
+    initWeightsFromApi().then(r => { setWeights(r.weights); if (r.postPositionCurves) setPostPositionCurves(r.postPositionCurves); });
     getAggregateMAEStats().then(s => setMaeStats(s));
   }, []);
 
