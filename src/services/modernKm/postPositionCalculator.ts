@@ -1,4 +1,6 @@
 import { log } from '@/lib/logger';
+import { getDistanceBucket } from './distanceBuckets';
+import type { PostPositionCurves } from './index';
 
 /**
  * Post-position default curves (seconds).
@@ -49,15 +51,23 @@ const POSITION_OVERFLOW_ADJ = 1.00;
 /**
  * Post-position time adjustment.
  *
+ * Lookup precedence:
+ *   1. `customCurves.byDistance[startMethod][bucket][position]` — bucketed.
+ *   2. `customCurves[startMethod][position]` — flat per-startMethod curve.
+ *   3. `DEFAULT_*_CURVE[position]` — engine default.
+ *   4. `POSITION_OVERFLOW_ADJ` — out-of-range gates.
+ *
  * @param postPosition    Starting gate number (1-based).
  * @param startMethod     Race start method string ("Auto", "Volte", etc.).
- * @param customCurves    Optional user-defined curves from the UI.
+ * @param raceDistance    Race distance in meters; selects byDistance bucket.
+ * @param customCurves    Optional user/calibration-provided curves.
  * @returns               Adjustment in seconds (negative = faster).
  */
 export const calculatePostPositionAdjustment = (
   postPosition: number,
   startMethod: string,
-  customCurves?: { auto: Record<number, number>; volte: Record<number, number> }
+  raceDistance: number,
+  customCurves?: PostPositionCurves,
 ): number => {
   if (!Number.isFinite(postPosition) || postPosition <= 0) {
     log.warn(`[postPos] invalid postPosition "${postPosition}" — returning 0s`);
@@ -66,12 +76,23 @@ export const calculatePostPositionAdjustment = (
 
   const s = String(startMethod ?? '').trim().toLowerCase();
   const isVolte = s.startsWith('volt') || s === 'v';
+  const sm: 'auto' | 'volte' = isVolte ? 'volte' : 'auto';
 
-  const curve = isVolte
+  // 1. Per-distance bucketed curve, if available.
+  const bucket = getDistanceBucket(raceDistance);
+  const bucketedCurve = customCurves?.byDistance?.[sm]?.[bucket];
+  const bucketedAdj = bucketedCurve?.[postPosition];
+  if (typeof bucketedAdj === 'number' && Number.isFinite(bucketedAdj)) {
+    log.debug(`[postPos] pos ${postPosition} ${sm.toUpperCase()} bucket=${bucket} (byDistance) → ${bucketedAdj >= 0 ? '+' : ''}${bucketedAdj.toFixed(3)}s`);
+    return bucketedAdj;
+  }
+
+  // 2. Flat per-startMethod curve (custom or default).
+  const flat = isVolte
     ? (customCurves?.volte ?? DEFAULT_VOLTE_CURVE)
     : (customCurves?.auto  ?? DEFAULT_AUTO_CURVE);
 
-  const adjustment = curve[postPosition] ?? POSITION_OVERFLOW_ADJ;
-  log.debug(`[postPos] pos ${postPosition} ${isVolte ? 'VOLTE' : 'AUTO'}${customCurves ? ' (custom)' : ''} → ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(3)}s`);
+  const adjustment = flat[postPosition] ?? POSITION_OVERFLOW_ADJ;
+  log.debug(`[postPos] pos ${postPosition} ${sm.toUpperCase()}${customCurves ? ' (custom)' : ''} → ${adjustment >= 0 ? '+' : ''}${adjustment.toFixed(3)}s`);
   return adjustment;
 };

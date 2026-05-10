@@ -13,6 +13,18 @@ import { useToast } from "@/hooks/use-toast";
 export interface PostPositionCurves {
   auto: { [position: number]: number };
   volte: { [position: number]: number };
+  byDistance?: {
+    auto?: {
+      short?: { [position: number]: number };
+      medium?: { [position: number]: number };
+      long?: { [position: number]: number };
+    };
+    volte?: {
+      short?: { [position: number]: number };
+      medium?: { [position: number]: number };
+      long?: { [position: number]: number };
+    };
+  };
 }
 
 interface PostPositionCurveEditorProps {

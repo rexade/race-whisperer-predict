@@ -44,10 +44,25 @@ import {
 } from './normalizationConstants';
 import { log } from '@/lib/logger';
 
-// Post position curves interface
+// Post position curves interface.
+// `byDistance`, when present, provides per-bucket curves (short/medium/long)
+// that override the flat `auto`/`volte` curves for the matching race distance.
+// See `./distanceBuckets.ts` for bucket boundaries.
 export interface PostPositionCurves {
   auto: { [position: number]: number };
   volte: { [position: number]: number };
+  byDistance?: {
+    auto?: {
+      short?: { [position: number]: number };
+      medium?: { [position: number]: number };
+      long?: { [position: number]: number };
+    };
+    volte?: {
+      short?: { [position: number]: number };
+      medium?: { [position: number]: number };
+      long?: { [position: number]: number };
+    };
+  };
 }
 
 /**
@@ -95,7 +110,7 @@ export const applyModernKmNormalization = (
 
   // STEP 3: Race-specific adjustments
   adjustments.postPosition =
-    calculatePostPositionAdjustment(factors.postPosition, factors.startMethod, postPositionCurves)
+    calculatePostPositionAdjustment(factors.postPosition, factors.startMethod, factors.raceDistance, postPositionCurves)
     * weights.postPosition;
 
   // Equipment
