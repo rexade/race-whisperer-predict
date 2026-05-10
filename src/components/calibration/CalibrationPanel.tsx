@@ -60,8 +60,11 @@ function curveChanges(
   return results.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
 }
 
-/** Seed byDistance from the current legacy curves so opt-in starts from a sensible baseline. */
+/** Seed byDistance from the current legacy curves so opt-in starts from a sensible baseline.
+ *  If byDistance is already populated (e.g. from server-applied calibration), preserve it
+ *  rather than overwriting with flat-curve copies. */
 function withDistanceBuckets(c: PostPositionCurves): PostPositionCurves {
+  if (c.byDistance) return c;
   return {
     ...c,
     byDistance: {
