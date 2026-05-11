@@ -134,10 +134,20 @@ async function evalCell(dataset: any[], topN: number, useByDistance: boolean): P
   for (const dateData of dataset) {
     for (const race of dateData.races) {
       try {
-        const adjustedRawKmTimes = race.rawKmTimes.map((rt: any) => ({
-          ...rt,
-          bestTime: aggregateBestTime(rt.allTimes, topN),
-        })) as HorseRawKmTime[];
+        // Production reads `rawBestTime ?? bestTime` (horseResultProcessor.ts).
+        // To make our re-aggregation actually take effect, override BOTH fields.
+        // If the horse has no usable allTimes, keep the original baked values so
+        // we don't accidentally turn a real-data horse into a no-data fallback.
+        const adjustedRawKmTimes = race.rawKmTimes.map((rt: any) => {
+          const recomputed = aggregateBestTime(rt.allTimes, topN);
+          const hasNew = recomputed.minutes > 0 || recomputed.seconds > 0;
+          if (!hasNew) return rt as HorseRawKmTime;
+          return {
+            ...rt,
+            bestTime: recomputed,
+            rawBestTime: recomputed,
+          } as HorseRawKmTime;
+        });
 
         const result: any = await RaceResultProcessor.processRaceResult(
           race.raceData,
