@@ -37,15 +37,28 @@ export const useV75Cache = () => {
         horseKey: cached.horseKey,
         horseId: cached.horseId,
         horseName: cached.horseName || `Horse ${cached.horseId}`,
-        allTimes: [], // Empty array for cached data
-        bestTime: cached.rawKmTime || { minutes: 0, seconds: 0, tenths: 0 },
-        rawBestTime: undefined, // Cache stores un-penalized; use same for both
-        bestRecordTime: cached.rawKmTime || { minutes: 0, seconds: 0, tenths: 0 },
+        allTimes: (cached.allTimes as any) ?? [],
+        bestTime: cached.bestTime ?? cached.rawBestTime ?? cached.rawKmTime ?? { minutes: 0, seconds: 0, tenths: 0 },
+        rawBestTime: cached.rawBestTime ?? cached.rawKmTime,
+        bestRecordTime: cached.bestRecordTime ?? cached.rawKmTime ?? { minutes: 0, seconds: 0, tenths: 0 },
         validTimesCount: cached.validTimesCount || 3,
         isNotifiee: false,
         dataSource: 'recent' as const,
         oldestRecordDate: cached.updatedAt,
-        newestRecordDate: cached.updatedAt
+        newestRecordDate: cached.updatedAt,
+        gallopRate: cached.gallopRate,
+        gallopCount: cached.gallopDates?.length,
+        gallopDates: cached.gallopDates,
+        lastRaceDate: cached.lastRaceDate,
+        consistencyScore: cached.consistencyScore,
+        averageOdds: cached.averageOdds,
+        lastOdds: cached.lastOdds,
+        horseAge: cached.horseAge,
+        dataSourceChain: cached.dataSourceChain,
+        usedStatisticsFallback: cached.usedStatisticsFallback,
+        usedExtendedFallback: cached.usedExtendedFallback,
+        usedInvalidTimeFallback: cached.usedInvalidTimeFallback,
+        confidenceMultiplier: cached.confidenceMultiplier,
       }));
 
       if (IS_DEBUG) log.debug(`✅ [V75Cache] Converted cached data:`, rawKmTimes.slice(0, 2));
@@ -76,7 +89,8 @@ export const useV75Cache = () => {
     const rawKmTimes = await calculateRawKmTimesForRaceWithId(
       race.raceId,
       atgStarts,
-      progressCallback
+      progressCallback,
+      race.date || date
     );
 
     if (IS_DEBUG) {
@@ -91,15 +105,29 @@ export const useV75Cache = () => {
     const rawTimesForCache = rawKmTimes.map(rawTime => {
       const rawHorseKey = horseKeyFromRawTime(rawTime);
       const horseInRace = race.horses.find((horse: any) => horseKeyFromRaceHorse(race.raceId, horse) === rawHorseKey);
-      const timeToCache = rawTime.rawBestTime ?? rawTime.bestTime;
-
       return {
         horseKey: rawHorseKey,
         horseId: rawTime.horseId,
         horseName: rawTime.horseName,
         postPosition: horseInRace?.postPosition || 1,
-        bestTime: timeToCache,
-        validTimesCount: rawTime.validTimesCount
+        allTimes: rawTime.allTimes,
+        bestTime: rawTime.bestTime,
+        rawBestTime: rawTime.rawBestTime,
+        rawKmTime: rawTime.rawBestTime ?? rawTime.bestTime,
+        bestRecordTime: rawTime.bestRecordTime,
+        validTimesCount: rawTime.validTimesCount,
+        gallopRate: rawTime.gallopRate,
+        lastRaceDate: rawTime.lastRaceDate,
+        consistencyScore: rawTime.consistencyScore,
+        gallopDates: rawTime.gallopDates,
+        averageOdds: rawTime.averageOdds,
+        lastOdds: rawTime.lastOdds,
+        horseAge: rawTime.horseAge,
+        dataSourceChain: rawTime.dataSourceChain,
+        usedStatisticsFallback: rawTime.usedStatisticsFallback,
+        usedExtendedFallback: rawTime.usedExtendedFallback,
+        usedInvalidTimeFallback: rawTime.usedInvalidTimeFallback,
+        confidenceMultiplier: rawTime.confidenceMultiplier,
       };
     });
 

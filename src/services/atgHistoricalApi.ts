@@ -119,8 +119,9 @@ export interface HistoricalProcessingResult {
   };
 }
 
-/** Only allow historical records from the last 5 months (user requirement: 4–5 months). */
-const HISTORICAL_RECORD_MAX_MONTHS = 5;
+/** Locked raw-time policy from ATG truth simulation: recent 3 average inside 90 days, fallback to all prior. */
+const RAW_TIME_RECENT_WINDOW_DAYS = 90;
+const RAW_TIME_AVERAGE_N = 3;
 
 export const processHistoricalRecords = (
   records: ATGHistoricalRecord[],
@@ -133,7 +134,7 @@ export const processHistoricalRecords = (
   // race, not to today. This prevents future races from bleeding into form/gallopRate etc.
   const referenceDate = raceDateCutoff ? new Date(raceDateCutoff) : new Date();
   const cutoffDate = new Date(referenceDate);
-  cutoffDate.setMonth(cutoffDate.getMonth() - HISTORICAL_RECORD_MAX_MONTHS);
+  cutoffDate.setDate(cutoffDate.getDate() - RAW_TIME_RECENT_WINDOW_DAYS);
   // Strict upper bound: exclude records on-or-after the race date
   const upperDate: Date | undefined = raceDateCutoff ? new Date(raceDateCutoff) : undefined;
 
@@ -191,10 +192,17 @@ export const processHistoricalRecords = (
         const isWithinWindow = raceDate >= cutoffDate && (!upperDate || raceDate < upperDate);
         if (!isWithinWindow) {
           filteringStats.outsideTimeWindow++;
-          rejectRecord(record, `outside-${HISTORICAL_RECORD_MAX_MONTHS}-months`, source);
+          rejectRecord(record, `outside-${RAW_TIME_RECENT_WINDOW_DAYS}-days`, source);
           if (isXanderDebug) {
-            log.debug(`FILTERED OUT - Outside ${HISTORICAL_RECORD_MAX_MONTHS} months: ${record.date}`);
+            log.debug(`FILTERED OUT - Outside ${RAW_TIME_RECENT_WINDOW_DAYS} days: ${record.date}`);
           }
+          return false;
+        }
+      } else if (upperDate && record.date) {
+        const raceDate = new Date(record.date);
+        if (raceDate >= upperDate) {
+          filteringStats.outsideTimeWindow++;
+          rejectRecord(record, 'future-or-same-day', source);
           return false;
         }
       }
@@ -230,25 +238,26 @@ export const processHistoricalRecords = (
         return false;
       }
       
-      // Check place validity - IMPORTANT: Place is NOT required for time evaluation
-      // We only filter out if place is present but malformed (for data quality)
-      // Records with no place or place="0" are still valid for time calculations
+      // Check place validity. Detail result records need numeric placement, but
+      // place=0 is retained because it tested better as raw-time signal.
       const placeStr = String(record.place ?? "");
       const hasPlaceData = placeStr && placeStr !== "";
       
-      if (hasPlaceData) {
-        const placeNum = parseInt(placeStr, 10);
-        // Only log if place exists but is truly invalid (not just "0")
-        if (isNaN(placeNum) || placeNum < 0) {
-          filteringStats.invalidPlace++;
-          rejectRecord(record, 'invalid-place', source);
-          if (isXanderDebug) {
-            log.debug(`FILTERED OUT - Malformed place: ${record.date} (place: ${record.place})`);
-          }
-          return false;
+      const placeNum = hasPlaceData ? parseInt(placeStr, 10) : NaN;
+      if (!isAggregateSource && (!hasPlaceData || isNaN(placeNum) || placeNum < 0)) {
+        filteringStats.invalidPlace++;
+        rejectRecord(record, 'invalid-place', source);
+        if (isXanderDebug) {
+          log.debug(`FILTERED OUT - Invalid finish place: ${record.date} (place: ${record.place})`);
         }
+        return false;
       }
-      // NOTE: We don't filter on place=0 or missing place - time is still valid!
+
+      if (isAggregateSource && hasPlaceData && (isNaN(placeNum) || placeNum < 0)) {
+        filteringStats.invalidPlace++;
+        rejectRecord(record, 'invalid-place', source);
+        return false;
+      }
       
       // Check required fields (relax for statistics records)
       const hasStartMethod = record.race?.startMethod || (record as any).meta?.startMethod;
@@ -284,28 +293,37 @@ export const processHistoricalRecords = (
     return { validRecords, invalidCandidates, filteringStats };
   };
   
-  // First pass: Try with 5-month constraint (only allow records from last 4–5 months)
+  const withRawTimeWindow = (record: ATGHistoricalRecord, rawTimeWindow: 'recent' | 'older-fill'): ATGHistoricalRecord => ({
+    ...record,
+    meta: {
+      ...((record as any).meta ?? {}),
+      rawTimeWindow,
+    },
+  } as ATGHistoricalRecord);
+
+  // First pass: try the locked 90-day recent window.
   log.debug(`[${debugHorseName || 'Horse'}] Starting historical record processing with ${records.length} total records`);
   const { validRecords: recentRecords, invalidCandidates: recentInvalid, filteringStats: recentStats } = filterRecords(records, false);
   
-  let finalRecords = recentRecords;
+  let finalRecords = recentRecords.map(record => withRawTimeWindow(record, 'recent'));
   let finalInvalidCandidates = recentInvalid;
   let usedFallback = false;
   let dataSource: 'recent' | 'fallback' = 'recent';
   let finalStats = recentStats;
   
-  // Second pass: If no recent records, use fallback (all-time)
+  // Second pass: if the 90-day window has no usable records, fall back to all
+  // prior detail records. Do not fill partial recent windows with older starts.
   if (recentRecords.length === 0) {
-    log.warn(`[${debugHorseName || 'Horse'}] No recent records found, attempting fallback to all historical data`);
+    log.debug(`[${debugHorseName || 'Horse'}] No recent pre-race records found, attempting all-prior fallback`);
     const { validRecords: fallbackRecords, invalidCandidates: fallbackInvalid, filteringStats: fallbackStats } = filterRecords(records, true);
     
     if (fallbackRecords.length > 0) {
-      finalRecords = fallbackRecords;
+      finalRecords = fallbackRecords.map(record => withRawTimeWindow(record, 'older-fill'));
       finalInvalidCandidates = fallbackInvalid;
       usedFallback = true;
       dataSource = 'fallback';
       finalStats = fallbackStats;
-      log.warn(`[${debugHorseName || 'Horse'}] FALLBACK ACTIVATED: Found ${fallbackRecords.length} valid historical records from all time`);
+      log.debug(`[${debugHorseName || 'Horse'}] ALL-PRIOR FALLBACK ACTIVATED: Found ${fallbackRecords.length} valid historical records`);
     } else {
       log.warn(`[${debugHorseName || 'Horse'}] No valid records found even with fallback`);
     }
@@ -316,6 +334,12 @@ export const processHistoricalRecords = (
   let newestRecordDate: string | undefined;
   
   if (finalRecords.length > 0) {
+    finalRecords = finalRecords.sort((a, b) => {
+      const da = a.date ? new Date(a.date).getTime() : 0;
+      const db = b.date ? new Date(b.date).getTime() : 0;
+      return db - da;
+    });
+
     const dates = finalRecords
       .map(r => r.date ? new Date(r.date) : null)
       .filter((d): d is Date => d instanceof Date && !Number.isNaN(d.getTime()))

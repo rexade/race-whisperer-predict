@@ -1,9 +1,10 @@
 import json
 from contextlib import asynccontextmanager
+from datetime import date
 from pathlib import Path
 
 import httpx
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -11,6 +12,130 @@ from database import close_pool, get_pool, init_tables
 
 DIST_DIR = Path(__file__).resolve().parent / "dist"
 ATG_BASE = "https://www.atg.se/services/racinginfo/v1/api"
+
+
+def _numeric_time(km_time):
+    if not isinstance(km_time, dict):
+        return None
+    if not all(isinstance(km_time.get(k), (int, float)) for k in ("minutes", "seconds")):
+        return None
+    return {
+        "minutes": km_time.get("minutes"),
+        "seconds": km_time.get("seconds"),
+        "tenths": km_time.get("tenths", 0),
+    }
+
+
+def _compact_record(record, include_raw: bool = False):
+    race = record.get("race") or {}
+    start = record.get("start") or {}
+    track = record.get("track") or {}
+    km_time = record.get("kmTime")
+
+    compact = {
+        "date": record.get("date"),
+        "raceId": race.get("id"),
+        "kmTime": km_time,
+        "hasNumericKmTime": _numeric_time(km_time) is not None,
+        "place": record.get("place"),
+        "finishOrder": record.get("finishOrder"),
+        "galloped": bool(record.get("galloped")),
+        "disqualified": bool(record.get("disqualified")),
+        "odds": record.get("odds"),
+        "distance": start.get("distance"),
+        "postPosition": start.get("postPosition"),
+        "startMethod": race.get("startMethod"),
+        "track": track.get("name"),
+        "meta": record.get("meta") or {},
+    }
+    if include_raw:
+        compact["rawRecord"] = record
+    return compact
+
+
+def _distance_category_to_meters(distance):
+    if distance == "short":
+        return 1640
+    if distance == "medium":
+        return 2140
+    if distance == "long":
+        return 2640
+    return None
+
+
+def _stat_record_to_result_like(record, year=None, source="statistics"):
+    time = (record or {}).get("time") or {}
+    if not isinstance(time.get("minutes"), (int, float)) or not isinstance(time.get("seconds"), (int, float)):
+        return None
+
+    code = str(record.get("code") or "").lower()
+    if code in {"0", "it", "dist", "u", "gdk", "br", "p", "dq"}:
+        return None
+
+    is_auto = code.startswith("a")
+    letter = code[1:].upper() if is_auto else code.upper()
+    distance = record.get("distance") or (
+        "short" if letter == "K" else "medium" if letter == "M" else "long" if letter == "L" else None
+    )
+    start_method = record.get("startMethod") or ("auto" if is_auto else "volte" if letter else None)
+    record_date = None
+    if year and year != "life":
+        current_year = str(date.today().year)
+        record_date = f"{year}-12-31" if str(year) == current_year else f"{year}-06-30"
+
+    return {
+        "date": record_date,
+        "kmTime": {
+            "minutes": time.get("minutes"),
+            "seconds": time.get("seconds"),
+            "tenths": time.get("tenths", 0),
+            "code": code,
+        },
+        "place": str(record.get("place") if record.get("place") is not None else "0"),
+        "race": {"id": f"stat_{code}_{year or 'life'}", "startMethod": start_method},
+        "track": {"name": "Unknown"},
+        "start": {"distance": _distance_category_to_meters(distance), "postPosition": 1},
+        "galloped": False,
+        "disqualified": False,
+        "meta": {
+            "code": code,
+            "distance": distance,
+            "startMethod": start_method,
+            "year": year or "life",
+            "source": source,
+        },
+    }
+
+
+def _statistics_records(horse):
+    out = []
+    statistics = (horse or {}).get("statistics") or {}
+    years = statistics.get("years") or {}
+    for year, value in years.items():
+        for record in (value or {}).get("records") or []:
+            converted = _stat_record_to_result_like(record, year=year)
+            if converted:
+                out.append(converted)
+    for record in ((statistics.get("life") or {}).get("records") or []):
+        converted = _stat_record_to_result_like(record, year="life")
+        if converted:
+            out.append(converted)
+    return out
+
+
+def _best_record_candidate(horse):
+    record = (horse or {}).get("record") or {}
+    converted = _stat_record_to_result_like(record, year="best", source="record-best")
+    if not converted:
+        return []
+    code = converted["meta"].get("code") or "unknown"
+    converted["race"]["id"] = f"record_best_{code}"
+    converted["meta"]["isLastResort"] = True
+    return [converted]
+
+
+def _start_number(start):
+    return start.get("number") or start.get("postPosition")
 
 
 @asynccontextmanager
@@ -191,6 +316,92 @@ async def delete_all_raw_times():
 
 
 # ---------------------------------------------------------------------------
+# Raw Time Candidate CRUD
+# ---------------------------------------------------------------------------
+
+@app.get("/api/rawtime-candidates")
+async def list_raw_time_candidates():
+    pool = await get_pool()
+    rows = await pool.fetch(
+        """SELECT race_id, race_number, game_id, race_date,
+                  jsonb_array_length(candidate_data->'horses') AS horse_count
+           FROM raw_time_candidates ORDER BY race_date DESC, race_number"""
+    )
+    return JSONResponse([{
+        "raceId": r["race_id"],
+        "raceNumber": r["race_number"],
+        "gameId": r["game_id"],
+        "date": r["race_date"],
+        "horseCount": r["horse_count"],
+    } for r in rows])
+
+
+@app.get("/api/rawtime-candidates/{race_id:path}")
+async def get_raw_time_candidates(race_id: str):
+    pool = await get_pool()
+    row = await pool.fetchrow(
+        "SELECT * FROM raw_time_candidates WHERE race_id = $1", race_id
+    )
+    if not row:
+        return JSONResponse(None)
+    d = dict(row)
+    candidate_data = (
+        json.loads(d["candidate_data"])
+        if isinstance(d["candidate_data"], str)
+        else d["candidate_data"]
+    )
+    return JSONResponse({
+        "date": d["race_date"],
+        "gameId": d["game_id"],
+        "raceId": d["race_id"],
+        "raceNumber": d["race_number"],
+        "candidateData": candidate_data,
+        "cachedAt": str(d["cached_at"]),
+        "schemaVersion": d["schema_version"],
+    })
+
+
+@app.post("/api/rawtime-candidates")
+async def store_raw_time_candidates(request: Request):
+    body = await request.json()
+    pool = await get_pool()
+    await pool.execute(
+        """INSERT INTO raw_time_candidates
+           (race_id, race_number, game_id, race_date, candidate_data, schema_version)
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6)
+           ON CONFLICT (race_id) DO UPDATE SET
+               race_number = EXCLUDED.race_number,
+               game_id = EXCLUDED.game_id,
+               race_date = EXCLUDED.race_date,
+               candidate_data = EXCLUDED.candidate_data,
+               schema_version = EXCLUDED.schema_version,
+               cached_at = NOW()
+        """,
+        body["raceId"],
+        body["raceNumber"],
+        body["gameId"],
+        body["date"],
+        json.dumps(body["candidateData"]),
+        body.get("schemaVersion", 1),
+    )
+    return JSONResponse({"ok": True})
+
+
+@app.delete("/api/rawtime-candidates/{race_id:path}")
+async def delete_raw_time_candidates(race_id: str):
+    pool = await get_pool()
+    await pool.execute("DELETE FROM raw_time_candidates WHERE race_id = $1", race_id)
+    return JSONResponse({"ok": True})
+
+
+@app.delete("/api/rawtime-candidates")
+async def delete_all_raw_time_candidates():
+    pool = await get_pool()
+    await pool.execute("DELETE FROM raw_time_candidates")
+    return JSONResponse({"ok": True})
+
+
+# ---------------------------------------------------------------------------
 # MAE CRUD
 # ---------------------------------------------------------------------------
 
@@ -323,6 +534,111 @@ async def weights_history():
         "isActive": r["is_active"],
         "createdAt": str(r["created_at"]),
     } for r in rows])
+
+
+# ---------------------------------------------------------------------------
+# Debug raw-time inspection
+# ---------------------------------------------------------------------------
+
+@app.get("/api/debug/races/{race_id:path}/rawtimes-unfiltered")
+async def get_unfiltered_raw_times(
+    race_id: str,
+    include_raw: bool = Query(False, alias="includeRaw"),
+):
+    """Return every ATG start-history record before prediction filtering.
+
+    This intentionally does not apply the app's 5-month window, race-date upper
+    cutoff, gallop/DQ exclusion, or top-N averaging. It is for inspecting the
+    raw input set used by the frontend/services.
+    """
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        race_resp = await client.get(
+            f"{ATG_BASE}/races/{race_id}",
+            headers={"Accept": "application/json"},
+        )
+        if race_resp.status_code >= 400:
+            return Response(
+                content=race_resp.content,
+                status_code=race_resp.status_code,
+                media_type=race_resp.headers.get("content-type", "application/json"),
+            )
+
+        race = race_resp.json()
+        starts = race.get("starts") or []
+        horses = []
+
+        for start in starts:
+            number = _start_number(start)
+            horse = start.get("horse") or {}
+            if not number:
+                horses.append({
+                    "startNumber": None,
+                    "postPosition": start.get("postPosition"),
+                    "horseId": horse.get("id"),
+                    "horseName": horse.get("name"),
+                    "error": "missing start number/post position",
+                    "records": [],
+                })
+                continue
+
+            detail_resp = await client.get(
+                f"{ATG_BASE}/races/{race_id}/start/{number}",
+                headers={"Accept": "application/json"},
+            )
+            if detail_resp.status_code >= 400:
+                horses.append({
+                    "startNumber": number,
+                    "postPosition": start.get("postPosition"),
+                    "horseId": horse.get("id"),
+                    "horseName": horse.get("name"),
+                    "error": f"ATG start fetch failed: {detail_resp.status_code}",
+                    "records": [],
+                })
+                continue
+
+            detail = detail_resp.json()
+            detail_horse = detail.get("horse") or {}
+            result_records = [
+                {**r, "meta": {**(r.get("meta") or {}), "source": "results"}}
+                for r in ((detail_horse.get("results") or {}).get("records") or [])
+            ]
+            statistics_records = _statistics_records(detail_horse)
+            best_record = [] if result_records or statistics_records else _best_record_candidate(detail_horse)
+            records = result_records + statistics_records + best_record
+            compact_records = [_compact_record(r, include_raw=include_raw) for r in records]
+            numeric_records = [r for r in compact_records if r["hasNumericKmTime"]]
+
+            horses.append({
+                "startNumber": number,
+                "postPosition": start.get("postPosition"),
+                "horseId": detail_horse.get("id") or horse.get("id"),
+                "horseName": detail_horse.get("name") or horse.get("name"),
+                "recordCount": len(compact_records),
+                "resultRecordCount": len(result_records),
+                "statisticsRecordCount": len(statistics_records),
+                "bestRecordCount": len(best_record),
+                "numericKmTimeCount": len(numeric_records),
+                "gallopCount": sum(1 for r in compact_records if r["galloped"]),
+                "disqualifiedCount": sum(1 for r in compact_records if r["disqualified"]),
+                "records": compact_records,
+            })
+
+        return JSONResponse({
+            "raceId": race.get("id") or race_id,
+            "raceNumber": race.get("number"),
+            "date": race.get("date"),
+            "track": (race.get("track") or {}).get("name"),
+            "startCount": len(starts),
+            "unfiltered": True,
+            "filtersApplied": [],
+            "notes": [
+                "No 5-month lower cutoff applied.",
+                "No race-date upper cutoff applied.",
+                "Galloped and disqualified records are included.",
+                "No top-2/top-3 averaging applied.",
+            ],
+            "horses": horses,
+        })
 
 
 # ---------------------------------------------------------------------------

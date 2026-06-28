@@ -55,6 +55,7 @@ const INITIAL_STATE: CalibrationState = {
 // V39 lives in DEFAULT_WEIGHTS so "Current" already inherits it; no need to
 // duplicate it here. Trimmed because bucketed mode triples Phase B dims.
 const MULTISTART_PRESET_NAMES = [
+  'V40 Multistart — 6mo 44.2% (2026-05-11)',
   'V37 Experimental — V36 refined (2026-05-08)',
   'V36 Experimental — V32 source-tuned (2026-05-08)',
   'V35 Experimental — V34 refined (2026-05-07)',

@@ -54,23 +54,28 @@ export const calculateRawKmTimesForRaceWithId = async (
         recordsCount: historicalData?.horse?.results?.records?.length || 0
       });
 
-      // ❶ Collect all normal per-horse time candidates from the start payload.
-      // results.records are real starts; statistics records are aggregate lower-
-      // confidence supplements; horse.record.time is only used when both are absent.
+      // ❶ Primary source is detail.horse.results.records. Statistics, extended,
+      // and record-best data are emergency coverage only if detail records produce
+      // no usable prior finished starts.
       const collected = collectHorseRecordCandidates(historicalData?.horse);
-      let records = collected.records;
+      const primaryRecords = (historicalData?.horse?.results?.records ?? []).map((record: any) => ({
+        ...record,
+        meta: { ...(record.meta ?? {}), source: 'results' as const },
+      }));
+      const emergencyRecords = collected.records.filter(record => record.meta?.source !== 'results');
+      let records = primaryRecords;
       let invalidCandidates: Array<{ normalizedTime: { minutes: number; seconds: number; tenths: number }; dropReason?: string; source?: string }> = [];
-      let usingStatisticsFallback = collected.counts.statistics > 0 || collected.counts.bestRecord > 0;
+      let usingStatisticsFallback = false;
       let usingExtendedFallback = false;
       let perHorseWarning: { type: 'invalid-record'; message: string; reason: string } | undefined;
       let pendingConfidenceOverride: number | undefined;
 
       if (collected.counts.total > 0) {
-        log.debug(`[KmTimeProcessor] Candidate records for ${horseName}: results=${collected.counts.results}, stats=${collected.counts.statistics}, bestRecord=${collected.counts.bestRecord}`);
+        log.debug(`[KmTimeProcessor] Candidate records for ${horseName}: primaryResults=${primaryRecords.length}, emergencyStats=${collected.counts.statistics}, bestRecord=${collected.counts.bestRecord}`);
       }
 
       // ❷ If still nothing, try extended API fallback (last resort)
-      if (!records || records.length === 0) {
+      if ((!records || records.length === 0) && emergencyRecords.length === 0) {
         if (!extendedDataFetched) {
           log.debug(`[KmTimeProcessor] No data from primary/statistics sources, fetching extended race data...`);
           extendedRaceData = await fetchExtendedRaceData(raceId);
@@ -92,6 +97,7 @@ export const calculateRawKmTimesForRaceWithId = async (
               log.debug(`[KmTimeProcessor] Extended fallback successful for ${horseName}: ${extendedRecords.length} records found`);
               records = extendedRecords as any;
               usingExtendedFallback = true;
+              usingStatisticsFallback = true;
 
               logExtendedFallbackUsage(horseId, horseName, extendedRecords);
             }
@@ -104,7 +110,7 @@ export const calculateRawKmTimesForRaceWithId = async (
         log.debug(`[KmTimeProcessor] NO HISTORICAL DATA - Horse ${horseName} (Post ${postPosition})`);
         log.debug(`[KmTimeProcessor] Data check: historicalData=${!!historicalData}, horse=${!!historicalData?.horse}, results=${!!historicalData?.horse?.results}, records=${!!historicalData?.horse?.results?.records}`);
         log.debug(`[KmTimeProcessor] Records length: ${historicalData?.horse?.results?.records?.length || 0}`);
-        log.debug(`[KmTimeProcessor] Statistics fallback attempted: yes`);
+        log.debug(`[KmTimeProcessor] Statistics fallback attempted: ${emergencyRecords.length > 0 ? 'available' : 'none'}`);
         log.debug(`[KmTimeProcessor] Extended fallback attempted: ${extendedDataFetched ? 'yes' : 'no'}`);
         log.debug(`[KmTimeProcessor] This horse will get zero time and be excluded from analysis`);
 
@@ -120,21 +126,65 @@ export const calculateRawKmTimesForRaceWithId = async (
         continue;
       }
 
-      const dataSourceLabel = usingExtendedFallback ? '(from extended API)' : usingStatisticsFallback ? '(from statistics)' : '';
+      const dataSourceLabel = usingExtendedFallback ? '(from extended API)' : usingStatisticsFallback ? '(from emergency fallback)' : '';
       log.debug(`[KmTimeProcessor] Historical data found for ${horseName}: ${records.length} records ${dataSourceLabel}`);
 
       // Validate historical records
-      const rawRecords = records;
+      let rawRecords = records;
       const validationResults = rawRecords.map((record, index) =>
         DataValidator.validateHistoricalRecord(record, index)
       );
       DataValidator.logValidationResults(validationResults, `${horseName} Historical Records`);
 
-      const processingResult = processHistoricalRecords(records, horseName, raceDateCutoff);
-      const validRecords = processingResult.records;
+      let processingResult = processHistoricalRecords(records, horseName, raceDateCutoff);
+      let validRecords = processingResult.records;
 
       // Collect invalid candidates from processing
       invalidCandidates.push(...processingResult.invalidCandidates);
+
+      if (validRecords.length === 0 && !usingExtendedFallback && emergencyRecords.length > 0) {
+        log.debug(`[KmTimeProcessor] No usable detail result records for ${horseName}; trying emergency statistics/record fallback (${emergencyRecords.length} candidates)`);
+        usingStatisticsFallback = true;
+        records = emergencyRecords;
+        rawRecords = records;
+        const fallbackValidationResults = rawRecords.map((record, index) =>
+          DataValidator.validateHistoricalRecord(record, index)
+        );
+        DataValidator.logValidationResults(fallbackValidationResults, `${horseName} Emergency Fallback Records`);
+        processingResult = processHistoricalRecords(records, horseName, raceDateCutoff);
+        validRecords = processingResult.records;
+        invalidCandidates.push(...processingResult.invalidCandidates);
+      }
+
+      if (validRecords.length === 0 && !usingExtendedFallback) {
+        if (!extendedDataFetched) {
+          log.debug(`[KmTimeProcessor] No usable primary/emergency data, fetching extended race data...`);
+          extendedRaceData = await fetchExtendedRaceData(raceId);
+          extendedDataFetched = true;
+        }
+
+        if (extendedRaceData?.starts?.length) {
+          const extendedHorse = extendedRaceData.starts.find(s =>
+            (horseId > 0 && s.horse.id === horseId) ||
+            s.number === postPosition ||
+            s.postPosition === postPosition
+          )?.horse;
+          if (extendedHorse) {
+            const extendedRecords = extractRecordsFromExtended(extendedHorse, true);
+            if (extendedRecords.length > 0) {
+              log.debug(`[KmTimeProcessor] Extended emergency fallback successful for ${horseName}: ${extendedRecords.length} records found`);
+              usingExtendedFallback = true;
+              usingStatisticsFallback = true;
+              records = extendedRecords as any;
+              rawRecords = records;
+              processingResult = processHistoricalRecords(records, horseName, raceDateCutoff);
+              validRecords = processingResult.records;
+              invalidCandidates.push(...processingResult.invalidCandidates);
+              logExtendedFallbackUsage(horseId, horseName, extendedRecords);
+            }
+          }
+        }
+      }
 
       // ❹ INVALID-TIME fallback: Use fastest dropped-but-timed record
       if (validRecords.length === 0 && invalidCandidates.length > 0) {

@@ -6,4 +6,6 @@ docs
 calibration-dataset*.json
 calibration-dataset*.zip
 calibration-dataset*.7z
+data
+reports/truth-rawtime-policies-*.json
 *.log

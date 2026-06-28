@@ -14,13 +14,16 @@ interface V75TimeCalculationDebugProps {
 export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = ({ horse }) => {
   const getTimeCalculationData = () => {
     const rawKmTimeUsed = horse.rawKmTime;
+    const rawTimeData = horse.rawTimeData;
+    const processedTimes = rawTimeData?.allTimes ?? [];
+    const historicalRecords = rawTimeData?.validTimesCount ?? processedTimes.length;
     return {
-      historicalRecords: 0,
-      processedTimes: [] as any[],
-      historicalRaces: [] as any[],
+      historicalRecords,
+      processedTimes,
+      historicalRaces: processedTimes,
       bestTime: rawKmTimeUsed,
       rawKmTime: rawKmTimeUsed,
-      bestFromHistory: undefined,
+      bestFromHistory: rawTimeData?.bestRecordTime,
       modernNormalizedTime: horse.modernNormalizedResult?.modernNormalizedTime,
       adjustments: horse.modernNormalizedResult?.adjustments
     };
@@ -51,7 +54,7 @@ export const V75TimeCalculationDebug: React.FC<V75TimeCalculationDebugProps> = (
               </div>
               <div>
                 <span className="text-muted-foreground">Valid Times Used:</span>
-                <div className="font-mono">{data.processedTimes.length || 'N/A'}</div>
+                <div className="font-mono">{data.historicalRecords || 'N/A'}</div>
               </div>
             </div>
           </div>

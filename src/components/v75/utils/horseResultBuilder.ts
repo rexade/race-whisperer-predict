@@ -114,6 +114,7 @@ export const buildHorseResult = (
     horseName: extractedData.safeHorseName,
     postPosition: horse.postPosition,
     rawKmTime,
+    rawTimeData,
     modernNormalizedResult: finalNormalizedResult,
     bestRecordTime: rawTimeData?.bestRecordTime,
     driverName: extractedData.safeDriverName,

@@ -1,6 +1,7 @@
 import type { KmtidPerStartAnalytics } from './postRaceAnalysisTypes';
 import type { KmTimeRecordEntry } from '../../../services/kmTimeRecords';
 import type { HorseConfidenceFlags } from '../utils/confidenceFlags';
+import type { HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 
 export type TimeSource = "normalized" | "best_raw" | "abroad" | "field_median" | "none";
 
@@ -12,6 +13,7 @@ export interface V75HorseResult {
   horseName: string;
   postPosition: number;
   rawKmTime?: any;
+  rawTimeData?: HorseRawKmTime;
   modernNormalizedResult?: any;
   bestRecordTime?: any;
   driverName: string;

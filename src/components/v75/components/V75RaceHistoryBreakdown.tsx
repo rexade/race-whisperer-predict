@@ -16,8 +16,8 @@ const V75RaceHistoryBreakdown: React.FC<V75RaceHistoryBreakdownProps> = ({
   historicalRaces,
   bestTime
 }) => {
-  // Best time only (already sorted by normalized time in processing; we use single best, ≤5 months)
-  const bestTimes = historicalRaces.slice(0, 1);
+  const usedTimes = historicalRaces.filter(r => (r as any).rawTimeWindow === 'recent');
+  const calculationTimes = (usedTimes.length > 0 ? usedTimes : historicalRaces).slice(0, 3);
 
   return (
     <Card className="border-primary/20 bg-primary/5">
@@ -38,8 +38,8 @@ const V75RaceHistoryBreakdown: React.FC<V75RaceHistoryBreakdownProps> = ({
                 <Badge variant="outline" className="text-xs">{historicalRaces.length}</Badge>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Best time used:</span>
-                <Badge variant="outline" className="text-xs">{bestTimes.length}</Badge>
+                <span className="text-muted-foreground">Times averaged:</span>
+                <Badge variant="outline" className="text-xs">{calculationTimes.length}</Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Best time:</span>
@@ -52,21 +52,9 @@ const V75RaceHistoryBreakdown: React.FC<V75RaceHistoryBreakdownProps> = ({
 
           {/* Best time */}
           <div className="space-y-2">
-            <h4 className="font-semibold text-sm text-foreground">Best Time Used (≤5 months)</h4>
-            {bestTimes.length > 0 && bestTime && (() => {
-              const fromRace = bestTimes[0].normalizedTime;
-              const differs = fromRace.minutes !== bestTime.minutes || fromRace.seconds !== bestTime.seconds || (fromRace.tenths ?? 0) !== (bestTime.tenths ?? 0);
-              if (differs) {
-                return (
-                  <p className="text-[11px] text-warning italic">
-                    Time below is from history; value used for ranking is after confidence adjustment (see above).
-                  </p>
-                );
-              }
-              return null;
-            })()}
+            <h4 className="font-semibold text-sm text-foreground">Recent Times Used</h4>
             <div className="space-y-2">
-              {bestTimes.map((time, index) => (
+              {calculationTimes.map((time, index) => (
                 <div
                   key={`${time.raceDate}-${index}`}
                   className="flex items-center justify-between p-2 bg-card rounded border border-border"

@@ -9,9 +9,8 @@
  * each get their own entry.  Expanding from 3 months to 6 months forces a
  * new collection that covers the wider range; the old entry is replaced.
  *
- * Maps are serialized as plain arrays of pairs; HorseRawKmTime is stored
- * in minimal form (strip allTimes to keep the blob small, mirrors what
- * V75CacheService.getRawTimes already returns for cached entries).
+ * Maps are serialized as plain arrays of pairs. HorseRawKmTime is preserved
+ * with allTimes so calibration runs can be replayed exactly.
  */
 
 import { CalibrationDataset, RaceCalibrationData, ActualHorseResult } from './historicalCalibrationService';
@@ -27,8 +26,10 @@ interface SerializedHorseRawKmTime {
   horseKey?: string;
   horseId: number;
   horseName: string;
+  allTimes?: any[];
   bestTime: any;
   rawBestTime: any;
+  bestRecordTime?: any;
   validTimesCount: number;
   dataSource: string;
   gallopRate?: number;
@@ -44,6 +45,7 @@ interface SerializedHorseRawKmTime {
   lastOdds?: number;
   horseAge?: number;
   dataSourceChain?: string;
+  usedInvalidTimeFallback?: boolean;
 }
 
 interface SerializedRaceCalibrationData {
@@ -142,8 +144,10 @@ function serializeRawKmTime(rt: HorseRawKmTime): SerializedHorseRawKmTime {
     horseKey: rt.horseKey,
     horseId: rt.horseId,
     horseName: rt.horseName,
+    allTimes: rt.allTimes,
     bestTime: rt.bestTime,
     rawBestTime: rt.rawBestTime,
+    bestRecordTime: rt.bestRecordTime,
     validTimesCount: rt.validTimesCount,
     dataSource: rt.dataSource ?? 'recent',
     gallopRate: rt.gallopRate,
@@ -159,6 +163,7 @@ function serializeRawKmTime(rt: HorseRawKmTime): SerializedHorseRawKmTime {
     lastOdds: rt.lastOdds,
     horseAge: rt.horseAge,
     dataSourceChain: rt.dataSourceChain,
+    usedInvalidTimeFallback: rt.usedInvalidTimeFallback,
   };
 }
 
@@ -167,10 +172,11 @@ function deserializeRawKmTime(s: SerializedHorseRawKmTime): HorseRawKmTime {
     horseKey: s.horseKey,
     horseId: s.horseId,
     horseName: s.horseName,
+    allTimes: (s.allTimes as any) ?? [],
     bestTime: s.bestTime,
     rawBestTime: s.rawBestTime,
+    bestRecordTime: s.bestRecordTime,
     validTimesCount: s.validTimesCount,
-    allTimes: [], // stripped for storage — matches V75CacheService getRawTimes behavior
     dataSource: s.dataSource as 'recent' | 'fallback',
     isNotifiee: false,
     gallopRate: s.gallopRate,
@@ -186,6 +192,7 @@ function deserializeRawKmTime(s: SerializedHorseRawKmTime): HorseRawKmTime {
     lastOdds: s.lastOdds,
     horseAge: s.horseAge,
     dataSourceChain: s.dataSourceChain,
+    usedInvalidTimeFallback: s.usedInvalidTimeFallback,
   };
 }
 

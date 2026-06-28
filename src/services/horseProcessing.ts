@@ -150,7 +150,8 @@ export const processHorseKmTimes = async (
         postPosition: race.postPosition,
         valid: true,
         outlier: outlierCheck.isOutlier ? outlierCheck.reason : undefined,
-        raceId: race.raceId
+        raceId: race.raceId,
+        rawTimeWindow: (race as any).meta?.rawTimeWindow,
       } as any);
 
       dropReasons.validProcessed++;
@@ -175,34 +176,50 @@ export const processHorseKmTimes = async (
     return true;
   });
 
-  // Stable sort by normalized time (best/fastest first)
+  // Keep processed starts in recency order. The raw-time baseline uses recent
+  // form, not the fastest historical outlier.
   processedTimes = processedTimes
     .map((r, i) => ({ ...r, _sortIndex: i }))
     .sort((a, b) => {
-      const da = toSeconds(a.normalizedTime.minutes, a.normalizedTime.seconds, a.normalizedTime.tenths ?? 0);
-      const db = toSeconds(b.normalizedTime.minutes, b.normalizedTime.seconds, b.normalizedTime.tenths ?? 0);
-      if (da !== db) return da - db;
+      const da = a.raceDate ? new Date(a.raceDate).getTime() : 0;
+      const db = b.raceDate ? new Date(b.raceDate).getTime() : 0;
+      if (da !== db) return db - da;
       return (a as any)._sortIndex - (b as any)._sortIndex; // Stable fallback
     });
 
-  // Average the top-3 fastest times — smooths outliers better than top-2
-  // (validated against 39 dates / 302 races: lower MAE and higher win/top3/top5).
-  // Falls back gracefully when fewer than 3 valid times are available.
+  // Locked raw-time policy: average the most recent 3 valid detail records in
+  // the 90-day window. If the window is empty, fall back to the most recent 3
+  // all-prior records. Never use fastest/best as the main signal.
   let bestTime: KmTime = { minutes: 0, seconds: 0, tenths: 0 };
   let bestRecordTime: KmTime = { minutes: 0, seconds: 0, tenths: 0 };
   const hasBestTime = processedTimes.length > 0;
 
   if (hasBestTime) {
-    const n = Math.min(processedTimes.length, 3);
+    const rawTimeWindowAware = processedTimes.some(t => (t as any).rawTimeWindow);
+    let averagingTimes = processedTimes;
+
+    if (rawTimeWindowAware) {
+      const recentTimes = processedTimes.filter(t => (t as any).rawTimeWindow === 'recent');
+      averagingTimes = recentTimes.length > 0
+        ? recentTimes
+        : processedTimes;
+    }
+
+    const n = Math.min(averagingTimes.length, 3);
     if (n >= 2) {
-      const total = processedTimes.slice(0, n).reduce((sum, t) =>
+      const total = averagingTimes.slice(0, n).reduce((sum, t) =>
         sum + toSeconds(t.normalizedTime.minutes, t.normalizedTime.seconds, t.normalizedTime.tenths ?? 0), 0);
       bestTime = secondsToKmParts(total / n);
     } else {
-      bestTime = { ...processedTimes[0].normalizedTime };
+      bestTime = { ...averagingTimes[0].normalizedTime };
     }
-    bestRecordTime = { ...processedTimes[0].normalizedTime }; // Always the actual fastest record
-    log.debug(`[horseProcessing] ${horseName} best time (${n >= 2 ? `avg top-${n}` : 'single'}): ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
+    const fastestRecord = processedTimes.reduce((best, current) => {
+      const bestSec = toSeconds(best.normalizedTime.minutes, best.normalizedTime.seconds, best.normalizedTime.tenths ?? 0);
+      const currentSec = toSeconds(current.normalizedTime.minutes, current.normalizedTime.seconds, current.normalizedTime.tenths ?? 0);
+      return currentSec < bestSec ? current : best;
+    }, processedTimes[0]);
+    bestRecordTime = { ...fastestRecord.normalizedTime }; // Actual fastest record for display/reference only
+    log.debug(`[horseProcessing] ${horseName} raw time (${n >= 2 ? `avg recent-${n}` : 'single'}): ${bestTime.minutes}:${bestTime.seconds.toString().padStart(2, '0')}.${bestTime.tenths}`);
   } else {
     log.warn(`[horseProcessing] ${horseName}: no valid times`);
   }

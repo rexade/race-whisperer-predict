@@ -4,7 +4,23 @@ export interface CachedRawTime {
   horseId: number;
   horseName: string;
   postPosition: number;
+  allTimes?: unknown[];
   rawKmTime?: {
+    minutes: number;
+    seconds: number;
+    tenths: number;
+  };
+  bestTime?: {
+    minutes: number;
+    seconds: number;
+    tenths: number;
+  };
+  rawBestTime?: {
+    minutes: number;
+    seconds: number;
+    tenths: number;
+  };
+  bestRecordTime?: {
     minutes: number;
     seconds: number;
     tenths: number;
@@ -19,6 +35,14 @@ export interface CachedRawTime {
   consistencyScore?: number;
   /** Dates of galloped races — injected as place=15 in form calculator. */
   gallopDates?: string[];
+  averageOdds?: number;
+  lastOdds?: number;
+  horseAge?: number;
+  dataSourceChain?: string;
+  usedStatisticsFallback?: boolean;
+  usedExtendedFallback?: boolean;
+  usedInvalidTimeFallback?: boolean;
+  confidenceMultiplier?: number;
 }
 
 export interface CachedV75RawTimes {
@@ -27,6 +51,74 @@ export interface CachedV75RawTimes {
   raceId: string;
   raceNumber: number;
   rawTimes: CachedRawTime[];
+  cachedAt: string;
+  schemaVersion: number;
+}
+
+export interface RawTimeCandidateRecord {
+  date?: string;
+  raceId?: string;
+  kmTime?: {
+    minutes?: number;
+    seconds?: number;
+    tenths?: number;
+    code?: string;
+  };
+  hasNumericKmTime?: boolean;
+  place?: string | number;
+  finishOrder?: number;
+  galloped?: boolean;
+  disqualified?: boolean;
+  odds?: number;
+  distance?: number;
+  postPosition?: number;
+  startMethod?: string;
+  track?: string;
+  meta?: {
+    source?: string;
+    code?: string;
+    distance?: string;
+    startMethod?: string;
+    year?: string;
+    isLastResort?: boolean;
+  };
+  rawRecord?: unknown;
+}
+
+export interface RawTimeCandidateHorse {
+  startNumber?: number;
+  postPosition?: number;
+  horseId?: number;
+  horseName?: string;
+  recordCount: number;
+  resultRecordCount: number;
+  statisticsRecordCount: number;
+  bestRecordCount: number;
+  numericKmTimeCount: number;
+  gallopCount: number;
+  disqualifiedCount: number;
+  records: RawTimeCandidateRecord[];
+  error?: string;
+}
+
+export interface RawTimeCandidateData {
+  raceId: string;
+  raceNumber?: number;
+  date?: string;
+  track?: string;
+  startCount: number;
+  unfiltered: true;
+  filtersApplied: string[];
+  notes: string[];
+  horses: RawTimeCandidateHorse[];
+}
+
+export interface CachedRawTimeCandidates {
+  date: string;
+  gameId: string;
+  raceId: string;
+  raceNumber: number;
+  candidateData: RawTimeCandidateData;
   cachedAt: string;
   schemaVersion: number;
 }

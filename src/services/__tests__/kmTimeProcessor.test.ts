@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { calculateRawKmTimesForRaceWithId } from '../kmTimeProcessor';
 import type { ATGStartInfo } from '../atgApi';
-import type { ATGHorseHistoricalData } from '../atgHistoricalApi';
+import { processHistoricalRecords, type ATGHorseHistoricalData } from '../atgHistoricalApi';
+import { processHorseKmTimes } from '../horseProcessing';
 
 // Prevent real ATG API calls during tests.
 // fetchHorseHistoricalData and fetchExtendedRaceData are the two network entry points
@@ -101,7 +102,7 @@ describe('kmTimeProcessor', () => {
             expect(result[0].lastRaceDate).toBe('2026-04-10');
         });
 
-        it('should supplement real records with statistics records from the same start payload', async () => {
+        it('should use statistics records only after detail result records are unusable', async () => {
             const { fetchHorseHistoricalData } = await import('../atgHistoricalApi');
             const mockData: ATGHorseHistoricalData = {
                 horse: {
@@ -150,6 +151,190 @@ describe('kmTimeProcessor', () => {
             expect(result[0].validTimesCount).toBe(1);
             expect(result[0].usedStatisticsFallback).toBe(true);
             expect(result[0].rawBestTime).toEqual({ minutes: 1, seconds: 15, tenths: 0 });
+        });
+
+        it('should not pool faster statistics records when valid detail result records exist', async () => {
+            const { fetchHorseHistoricalData } = await import('../atgHistoricalApi');
+            const mockData: ATGHorseHistoricalData = {
+                horse: {
+                    name: 'Primary Detail Horse',
+                    id: 99003,
+                    results: {
+                        records: [
+                            {
+                                date: '2026-04-10',
+                                kmTime: { minutes: 1, seconds: 17, tenths: 0 },
+                                place: '2',
+                                race: { id: 'r1', startMethod: 'auto' },
+                                track: { name: 'Solvalla' },
+                                start: { distance: 2140, postPosition: 1 }
+                            }
+                        ]
+                    },
+                    statistics: {
+                        years: {
+                            '2026': {
+                                records: [
+                                    {
+                                        code: 'aM',
+                                        startMethod: 'auto',
+                                        distance: 'medium',
+                                        time: { minutes: 1, seconds: 11, tenths: 0 }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                } as any,
+                driver: { firstName: 'Test', lastName: 'Driver' },
+                postPosition: 1
+            };
+            vi.mocked(fetchHorseHistoricalData).mockResolvedValueOnce(mockData);
+
+            const starts: ATGStartInfo[] = [
+                { postPosition: 1, horse: { id: 99003, name: 'Primary Detail Horse' } } as ATGStartInfo
+            ];
+
+            const result = await calculateRawKmTimesForRaceWithId('test-race-primary', starts, undefined, '2026-05-01');
+
+            expect(result).toHaveLength(1);
+            expect(result[0].validTimesCount).toBe(1);
+            expect(result[0].usedStatisticsFallback).toBe(false);
+            expect(result[0].rawBestTime).toEqual({ minutes: 1, seconds: 17, tenths: 0 });
+        });
+
+        it('filters to prior numeric records, keeps place=0, and does not fill partial 90d windows', () => {
+            const result = processHistoricalRecords([
+                {
+                    date: '2026-05-01',
+                    kmTime: { minutes: 1, seconds: 12, tenths: 0 },
+                    place: '1',
+                    race: { id: 'same-day', startMethod: 'auto' },
+                    track: { name: 'Solvalla' },
+                    start: { distance: 2140, postPosition: 1 }
+                },
+                {
+                    date: '2026-04-20',
+                    kmTime: { minutes: 1, seconds: 13, tenths: 0 },
+                    place: '0',
+                    race: { id: 'unfinished', startMethod: 'auto' },
+                    track: { name: 'Solvalla' },
+                    start: { distance: 2140, postPosition: 1 }
+                },
+                {
+                    date: '2026-04-10',
+                    kmTime: { minutes: 1, seconds: 15, tenths: 0 },
+                    place: '2',
+                    race: { id: 'recent', startMethod: 'auto' },
+                    track: { name: 'Solvalla' },
+                    start: { distance: 2140, postPosition: 1 }
+                },
+                {
+                    date: '2026-01-01',
+                    kmTime: { minutes: 1, seconds: 16, tenths: 0 },
+                    place: '3',
+                    race: { id: 'older', startMethod: 'auto' },
+                    track: { name: 'Solvalla' },
+                    start: { distance: 2140, postPosition: 1 }
+                }
+            ], 'Policy Horse', '2026-05-01');
+
+            expect(result.metadata.usedFallback).toBe(false);
+            expect(result.records.map(r => r.race.id)).toEqual(['unfinished', 'recent']);
+            expect(result.records.map(r => (r as any).meta.rawTimeWindow)).toEqual(['recent', 'recent']);
+        });
+
+        it('falls back to all prior records when 90d window is empty', () => {
+            const result = processHistoricalRecords([
+                {
+                    date: '2026-05-01',
+                    kmTime: { minutes: 1, seconds: 12, tenths: 0 },
+                    place: '1',
+                    race: { id: 'same-day', startMethod: 'auto' },
+                    track: { name: 'Solvalla' },
+                    start: { distance: 2140, postPosition: 1 }
+                },
+                {
+                    date: '2026-01-15',
+                    kmTime: { minutes: 1, seconds: 15, tenths: 0 },
+                    place: '0',
+                    race: { id: 'older-zero', startMethod: 'auto' },
+                    track: { name: 'Solvalla' },
+                    start: { distance: 2140, postPosition: 1 }
+                },
+                {
+                    date: '2026-01-01',
+                    kmTime: { minutes: 1, seconds: 16, tenths: 0 },
+                    place: '3',
+                    race: { id: 'older', startMethod: 'auto' },
+                    track: { name: 'Solvalla' },
+                    start: { distance: 2140, postPosition: 1 }
+                }
+            ], 'Policy Horse', '2026-05-01');
+
+            expect(result.metadata.usedFallback).toBe(true);
+            expect(result.records.map(r => r.race.id)).toEqual(['older-zero', 'older']);
+            expect(result.records.map(r => (r as any).meta.rawTimeWindow)).toEqual(['older-fill', 'older-fill']);
+        });
+
+        it('averages most recent three records, not fastest records', async () => {
+            const result = await processHorseKmTimes(123, 'Recent Average Horse', [
+                {
+                    raceId: 'recent-1',
+                    date: '2026-04-20',
+                    distance: 2140,
+                    startMethod: 'auto',
+                    track: 'Solvalla',
+                    kmTime: { minutes: 1, seconds: 16, tenths: 0 },
+                    finishOrder: 2,
+                    postPosition: 1,
+                    galloped: false,
+                    disqualified: false,
+                    meta: { rawTimeWindow: 'recent' }
+                } as any,
+                {
+                    raceId: 'recent-2',
+                    date: '2026-04-10',
+                    distance: 2140,
+                    startMethod: 'auto',
+                    track: 'Solvalla',
+                    kmTime: { minutes: 1, seconds: 14, tenths: 0 },
+                    finishOrder: 3,
+                    postPosition: 1,
+                    galloped: false,
+                    disqualified: false,
+                    meta: { rawTimeWindow: 'recent' }
+                } as any,
+                {
+                    raceId: 'recent-3',
+                    date: '2026-04-01',
+                    distance: 2140,
+                    startMethod: 'auto',
+                    track: 'Solvalla',
+                    kmTime: { minutes: 1, seconds: 17, tenths: 0 },
+                    finishOrder: 0,
+                    postPosition: 1,
+                    galloped: false,
+                    disqualified: false,
+                    meta: { rawTimeWindow: 'recent' }
+                } as any,
+                {
+                    raceId: 'fast-old',
+                    date: '2026-01-10',
+                    distance: 2140,
+                    startMethod: 'auto',
+                    track: 'Solvalla',
+                    kmTime: { minutes: 1, seconds: 10, tenths: 0 },
+                    finishOrder: 1,
+                    postPosition: 1,
+                    galloped: false,
+                    disqualified: false,
+                    meta: { rawTimeWindow: 'older-fill' }
+                } as any
+            ]);
+
+            expect(result.rawBestTime).toEqual({ minutes: 1, seconds: 15, tenths: 7 });
+            expect(result.bestRecordTime).toEqual({ minutes: 1, seconds: 10, tenths: 0 });
         });
 
         it('should handle invalid distance values', async () => {

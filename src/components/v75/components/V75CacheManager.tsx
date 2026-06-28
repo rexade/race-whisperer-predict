@@ -23,24 +23,38 @@ const V75CacheManager: React.FC = () => {
     refreshCacheInfo();
   }, []);
 
-  const handleClearAll = () => {
-    V75CacheService.clearAllCache();
-    refreshCacheInfo();
-    
-    toast({
-      title: "Cache Cleared",
-      description: "All V75 raw times cache has been cleared.",
-    });
+  const handleClearAll = async () => {
+    try {
+      await V75CacheService.clearAllCache();
+      await refreshCacheInfo();
+      toast({
+        title: "Cache Cleared",
+        description: "All V75 raw times cache has been cleared.",
+      });
+    } catch (error) {
+      toast({
+        title: "Cache Clear Failed",
+        description: error instanceof Error ? error.message : "Could not clear raw times cache.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleClearRace = (raceId: string) => {
-    V75CacheService.clearRawTimes(raceId);
-    refreshCacheInfo();
-    
-    toast({
-      title: "Cache Cleared",
-      description: `Raw times cache for race ${raceId} has been cleared.`,
-    });
+  const handleClearRace = async (raceId: string) => {
+    try {
+      await V75CacheService.clearRawTimes(raceId);
+      await refreshCacheInfo();
+      toast({
+        title: "Cache Cleared",
+        description: `Raw times cache for race ${raceId} has been cleared.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Cache Clear Failed",
+        description: error instanceof Error ? error.message : `Could not clear raw times for race ${raceId}.`,
+        variant: "destructive",
+      });
+    }
   };
 
   const formatSize = (bytes: number) => {

@@ -1,5 +1,6 @@
 
 import { RawTimesCache } from './rawTimesCache';
+import { RawTimeCandidatesCache } from './rawTimeCandidatesCache';
 import { RaceAnalysisCache } from './raceAnalysisCache';
 
 export * from './types';
@@ -23,11 +24,39 @@ export class V75CacheService {
     return RawTimesCache.getRawTimes(raceId);
   }
 
-  static clearRawTimes(raceId: string): void {
+  static async fetchUnfilteredRawTimeCandidates(raceId: string, includeRaw = false) {
+    return RawTimeCandidatesCache.fetchUnfilteredCandidates(raceId, includeRaw);
+  }
+
+  static async storeRawTimeCandidates(
+    date: string,
+    gameId: string,
+    raceId: string,
+    raceNumber: number,
+    candidateData: import('./types').RawTimeCandidateData
+  ): Promise<void> {
+    return RawTimeCandidatesCache.storeCandidates(date, gameId, raceId, raceNumber, candidateData);
+  }
+
+  static async fetchAndStoreRawTimeCandidates(
+    date: string,
+    gameId: string,
+    raceId: string,
+    raceNumber: number,
+    includeRaw = false
+  ) {
+    return RawTimeCandidatesCache.fetchAndStoreCandidates(date, gameId, raceId, raceNumber, includeRaw);
+  }
+
+  static async getRawTimeCandidates(raceId: string) {
+    return RawTimeCandidatesCache.getCandidates(raceId);
+  }
+
+  static async clearRawTimes(raceId: string): Promise<void> {
     return RawTimesCache.clearRawTimes(raceId);
   }
 
-  static clearAllCache(): void {
+  static async clearAllCache(): Promise<void> {
     return RawTimesCache.clearAllCache();
   }
 

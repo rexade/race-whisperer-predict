@@ -11,8 +11,12 @@ export class RawTimesCache {
     raceNumber: number,
     rawTimes: Array<{
       horseKey?: string;
-      horseId: number; horseName: string; postPosition: number; bestTime?: any; validTimesCount: number;
+      horseId: number; horseName: string; postPosition: number; bestTime?: any; rawBestTime?: any; bestRecordTime?: any;
+      rawKmTime?: any; allTimes?: unknown[]; validTimesCount: number;
       gallopRate?: number; lastRaceDate?: string; consistencyScore?: number; gallopDates?: string[];
+      averageOdds?: number; lastOdds?: number; horseAge?: number; dataSourceChain?: string;
+      usedStatisticsFallback?: boolean; usedExtendedFallback?: boolean; usedInvalidTimeFallback?: boolean;
+      confidenceMultiplier?: number;
     }>
   ): Promise<void> {
     log.debug(`[RawTimesCache] Storing raw KM times cache for race ${raceNumber} (${raceId})`);
@@ -22,13 +26,25 @@ export class RawTimesCache {
       horseId: rt.horseId,
       horseName: rt.horseName,
       postPosition: rt.postPosition,
-      rawKmTime: rt.bestTime,
+      allTimes: rt.allTimes,
+      rawKmTime: rt.rawKmTime ?? rt.rawBestTime ?? rt.bestTime,
+      bestTime: rt.bestTime,
+      rawBestTime: rt.rawBestTime,
+      bestRecordTime: rt.bestRecordTime,
       validTimesCount: rt.validTimesCount,
       updatedAt: new Date().toISOString(),
       gallopRate: rt.gallopRate,
       lastRaceDate: rt.lastRaceDate,
       consistencyScore: rt.consistencyScore,
       gallopDates: rt.gallopDates,
+      averageOdds: rt.averageOdds,
+      lastOdds: rt.lastOdds,
+      horseAge: rt.horseAge,
+      dataSourceChain: rt.dataSourceChain,
+      usedStatisticsFallback: rt.usedStatisticsFallback,
+      usedExtendedFallback: rt.usedExtendedFallback,
+      usedInvalidTimeFallback: rt.usedInvalidTimeFallback,
+      confidenceMultiplier: rt.confidenceMultiplier,
     }));
 
     try {
@@ -81,13 +97,15 @@ export class RawTimesCache {
     }
   }
 
-  static clearRawTimes(raceId: string): void {
-    fetch(`/api/rawtimes/${raceId}`, { method: 'DELETE' }).catch(() => {});
+  static async clearRawTimes(raceId: string): Promise<void> {
+    const resp = await fetch(`/api/rawtimes/${raceId}`, { method: 'DELETE' });
+    if (!resp.ok) throw new Error(`Failed to clear raw times for ${raceId}: ${resp.status}`);
     log.debug(`Cleared raw times cache for race ${raceId}`);
   }
 
-  static clearAllCache(): void {
-    fetch('/api/rawtimes', { method: 'DELETE' }).catch(() => {});
+  static async clearAllCache(): Promise<void> {
+    const resp = await fetch('/api/rawtimes', { method: 'DELETE' });
+    if (!resp.ok) throw new Error(`Failed to clear raw times cache: ${resp.status}`);
     log.info(`Cleared all raw times cache entries`);
   }
 

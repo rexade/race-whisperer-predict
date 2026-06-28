@@ -25,3 +25,8 @@ calibration-dataset*.7z
 *.njsproj
 *.sln
 *.sw?
+
+# Local eval datasets & generated artifacts (not deployed)
+data/
+reports/
+*.readable.txt

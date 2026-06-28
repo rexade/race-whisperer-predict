@@ -74,6 +74,26 @@ function withDistanceBuckets(c: PostPositionCurves): PostPositionCurves {
   };
 }
 
+function serializeDataset(dataset: NonNullable<ReturnType<typeof useCalibration>['state']['dataset']>) {
+  return dataset.map(dateData => ({
+    ...dateData,
+    races: dateData.races.map(race => ({
+      ...race,
+      actualResults: Object.fromEntries(race.actualResults),
+    })),
+  }));
+}
+
+function downloadJson(filename: string, data: unknown) {
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
 const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
   currentWeights,
   onApplyWeights,
@@ -100,10 +120,11 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
     const w = r.optimizedWeights;
     // Use all keys present in optimizedWeights so nothing is dropped
     const keys = Object.keys(w) as (keyof NormalizationWeights)[];
-    const lines = keys.map(k => `      ${k}: ${(w[k] ?? 0).toFixed(3)},`);
+    const formatNumber = (value: number | undefined) => Number(value ?? 0).toFixed(6);
+    const lines = keys.map(k => `      ${k}: ${formatNumber(w[k])},`);
     const formatCurve = (curve: Record<number, number>) => Object.entries(curve)
       .sort(([a], [b]) => Number(a) - Number(b))
-      .map(([position, value]) => `        ${position}: ${value.toFixed(3)},`)
+      .map(([position, value]) => `        ${position}: ${formatNumber(value)},`)
       .join('\n');
     const header = [
       `    // Calibrated ${new Date().toISOString().split('T')[0]}`,
@@ -147,21 +168,45 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
 
   const handleDownloadDataset = () => {
     if (!state.dataset) return;
-    // Convert Maps to plain objects for JSON serialization
-    const serializable = state.dataset.map(dateData => ({
-      ...dateData,
-      races: dateData.races.map(race => ({
-        ...race,
-        actualResults: Object.fromEntries(race.actualResults),
-      })),
-    }));
-    const json = JSON.stringify(serializable, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `calibration-dataset-${monthsBack}mo.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    downloadJson(`calibration-dataset-${monthsBack}mo.json`, serializeDataset(state.dataset));
+  };
+
+  const handleDownloadBundle = () => {
+    if (!state.dataset) return;
+    const dataset = serializeDataset(state.dataset);
+    const totalRaces = state.dataset.reduce((sum, dateData) => sum + dateData.races.length, 0);
+    const totalRawTimes = state.dataset.reduce(
+      (sum, dateData) => sum + dateData.races.reduce((raceSum, race) => raceSum + race.rawKmTimes.length, 0),
+      0
+    );
+    const totalAllTimes = state.dataset.reduce(
+      (sum, dateData) => sum + dateData.races.reduce(
+        (raceSum, race) => raceSum + race.rawKmTimes.reduce((horseSum, rt) => horseSum + (rt.allTimes?.length ?? 0), 0),
+        0
+      ),
+      0
+    );
+    downloadJson(`calibration-bundle-${monthsBack}mo-${new Date().toISOString().replace(/[:.]/g, '-')}.json`, {
+      schemaVersion: 1,
+      exportedAt: new Date().toISOString(),
+      purpose: 'Exact browser calibration replay bundle. Use this to reproduce the displayed score from the same dataset/rawtimes/weights.',
+      monthsBack,
+      bucketedCurves,
+      cacheInfo,
+      stats: {
+        dates: state.dataset.length,
+        races: totalRaces,
+        rawTimeRows: totalRawTimes,
+        allTimesRows: totalAllTimes,
+      },
+      currentWeights,
+      currentPostPositionCurves: postPositionCurves ?? null,
+      optimizerInputCurves: curvesForOptimizer ?? null,
+      baselineEval: state.baselineEval,
+      optimizationResult: state.optimizationResult,
+      runSummary: state.runSummary,
+      dataset,
+    });
   };
 
   const autoCurveChanges = (hasResult && postPositionCurves && state.optimizationResult?.optimizedCurves)
@@ -268,6 +313,19 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
           >
             <Download className="h-3.5 w-3.5" />
             Download
+          </Button>
+        )}
+
+        {hasDataset && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDownloadBundle}
+            title="Download exact dataset, raw times, weights, curves, metrics, and run summary for replay"
+            className="h-8 gap-1.5"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Bundle
           </Button>
         )}
 
@@ -382,6 +440,16 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
               </span>
             </div>
             <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleDownloadBundle}
+                className="h-8 gap-1.5"
+                title="Download exact calibration bundle for offline replay"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Bundle
+              </Button>
               <Button
                 size="sm"
                 variant="outline"

@@ -14,6 +14,8 @@ export interface ProcessedKmTime {
   finishOrder?: number;
   postPosition?: number;
   valid: boolean;
+  raceId?: string;
+  rawTimeWindow?: 'recent' | 'older-fill';
 }
 
 export interface HorseRawKmTime {

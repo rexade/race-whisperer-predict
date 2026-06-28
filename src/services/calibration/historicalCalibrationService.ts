@@ -219,26 +219,31 @@ export async function collectCalibrationData(
         const cachedRawTimes = await V75CacheService.getRawTimes(race.raceId);
 
         if (cachedRawTimes) {
-          rawKmTimes = cachedRawTimes.rawTimes.map(c => ({
-            horseKey: c.horseKey,
-            horseId: c.horseId,
-            horseName: c.horseName || `Horse ${c.horseId}`,
-            allTimes: [],
-            bestTime: c.rawKmTime || { minutes: 0, seconds: 0, tenths: 0 },
-            rawBestTime: c.rawKmTime,
-            validTimesCount: c.validTimesCount || 3,
-            isNotifiee: false,
-            dataSource: 'recent' as const,
+            rawKmTimes = cachedRawTimes.rawTimes.map(c => ({
+              horseKey: c.horseKey,
+              horseId: c.horseId,
+              horseName: c.horseName || `Horse ${c.horseId}`,
+              allTimes: (c.allTimes as any) ?? [],
+              bestTime: c.bestTime ?? c.rawBestTime ?? c.rawKmTime ?? { minutes: 0, seconds: 0, tenths: 0 },
+              rawBestTime: c.rawBestTime ?? c.rawKmTime,
+              bestRecordTime: c.bestRecordTime ?? c.rawKmTime,
+              validTimesCount: c.validTimesCount || 3,
+              isNotifiee: false,
+              dataSource: 'recent' as const,
             gallopRate: c.gallopRate,
             lastRaceDate: c.lastRaceDate,
             consistencyScore: c.consistencyScore,
             gallopDates: c.gallopDates,
-            // New fields preserved from cache — will be undefined for old cache entries
-            averageOdds: (c as any).averageOdds,
-            lastOdds: (c as any).lastOdds,
-            horseAge: (c as any).horseAge,
-            dataSourceChain: (c as any).dataSourceChain,
-          }));
+              // New fields preserved from cache — will be undefined for old cache entries
+              averageOdds: c.averageOdds,
+              lastOdds: c.lastOdds,
+              horseAge: c.horseAge,
+              dataSourceChain: c.dataSourceChain,
+              usedStatisticsFallback: c.usedStatisticsFallback,
+              usedExtendedFallback: c.usedExtendedFallback,
+              usedInvalidTimeFallback: c.usedInvalidTimeFallback,
+              confidenceMultiplier: c.confidenceMultiplier,
+            }));
         } else {
           const atgStarts = race.horses.map((horse: any) => ({
             horseKey: horse.horseKey,
@@ -263,11 +268,20 @@ export async function collectCalibrationData(
               const h = race.horses.find((x: any) => horseKeyFromRaceHorse(race.raceId, x) === rtKey);
               return {
                 horseKey: rtKey, horseId: rt.horseId, horseName: rt.horseName, postPosition: h?.postPosition || 1,
-                bestTime: rt.rawBestTime ?? rt.bestTime, validTimesCount: rt.validTimesCount,
+                allTimes: rt.allTimes,
+                bestTime: rt.bestTime,
+                rawBestTime: rt.rawBestTime,
+                rawKmTime: rt.rawBestTime ?? rt.bestTime,
+                bestRecordTime: rt.bestRecordTime,
+                validTimesCount: rt.validTimesCount,
                 gallopRate: rt.gallopRate, lastRaceDate: rt.lastRaceDate,
                 consistencyScore: rt.consistencyScore, gallopDates: rt.gallopDates,
                 averageOdds: rt.averageOdds, lastOdds: rt.lastOdds,
                 horseAge: rt.horseAge, dataSourceChain: rt.dataSourceChain,
+                usedStatisticsFallback: rt.usedStatisticsFallback,
+                usedExtendedFallback: rt.usedExtendedFallback,
+                usedInvalidTimeFallback: rt.usedInvalidTimeFallback,
+                confidenceMultiplier: rt.confidenceMultiplier,
               };
             });
             V75CacheService.storeRawTimes(date, gameInfo.gameId, race.raceId, race.raceNumber, rawTimesForCache).catch(() => {});
