@@ -211,8 +211,15 @@ export const calculateRawKmTimesForRaceWithId = async (
         const bestTime = secondsToKmParts(penalizedSec);
         const bestRecordTime = { ...bestTime };
 
-        // Mark provenance + confidence
-        usingStatisticsFallback = true;
+        // Mark provenance + confidence. invalidCandidates is pooled across the primary,
+        // emergency-statistics and extended passes, so the fastest one may actually be a
+        // primary detail ('results') time that was merely dropped — not a statistics or
+        // extended fallback. Derive the flags from the chosen candidate's own source
+        // instead of assuming statistics.
+        const invalidIsExtended = bestInvalid.source === 'extended' || bestInvalid.source === 'extended-last';
+        const invalidIsResults = !bestInvalid.source || bestInvalid.source === 'results';
+        const invalidUsedStatistics = !invalidIsExtended && !invalidIsResults;
+        usingStatisticsFallback = invalidUsedStatistics;
         const WARNING_CONFIDENCE = 0.4;
         const warningMessage = bestInvalid.dropReason
           ? `Used invalid record (${bestInvalid.dropReason}); prediction may be unreliable`
@@ -234,8 +241,8 @@ export const calculateRawKmTimesForRaceWithId = async (
           bestTime,
           bestRecordTime,
           validTimesCount: 0,
-          usedStatisticsFallback: true,
-          usedExtendedFallback: bestInvalid.source === 'extended' || bestInvalid.source === 'extended-last',
+          usedStatisticsFallback: invalidUsedStatistics,
+          usedExtendedFallback: invalidIsExtended,
           usedInvalidTimeFallback: true,
           warning: perHorseWarning,
           confidenceMultiplier: WARNING_CONFIDENCE

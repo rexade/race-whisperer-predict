@@ -189,8 +189,13 @@ export const processHistoricalRecords = (
           return false;
         }
         const raceDate = new Date(record.date);
-        const isWithinWindow = raceDate >= cutoffDate && (!upperDate || raceDate < upperDate);
-        if (!isWithinWindow) {
+        // Aggregate sources carry SYNTHETIC year-end dates (e.g. current-year stats are
+        // dated `{year}-12-31`), not real event dates, so the upper/future bound must not
+        // apply to them — otherwise current-year statistics are always rejected as "future"
+        // and the stats fallback never fires. They still respect the lower (recent) bound.
+        const withinLowerBound = raceDate >= cutoffDate;
+        const withinUpperBound = isAggregateSource || !upperDate || raceDate < upperDate;
+        if (!withinLowerBound || !withinUpperBound) {
           filteringStats.outsideTimeWindow++;
           rejectRecord(record, `outside-${RAW_TIME_RECENT_WINDOW_DAYS}-days`, source);
           if (isXanderDebug) {
@@ -198,7 +203,7 @@ export const processHistoricalRecords = (
           }
           return false;
         }
-      } else if (upperDate && record.date) {
+      } else if (upperDate && record.date && !isAggregateSource) {
         const raceDate = new Date(record.date);
         if (raceDate >= upperDate) {
           filteringStats.outsideTimeWindow++;
@@ -238,24 +243,18 @@ export const processHistoricalRecords = (
         return false;
       }
       
-      // Check place validity. Detail result records need numeric placement, but
-      // place=0 is retained because it tested better as raw-time signal.
+      // Place is NOT required for raw-time evaluation: a timed-but-unplaced start (place
+      // absent or "0") is still a valid time signal. Only reject when a place is PRESENT
+      // but malformed/negative. (Applies equally to detail and aggregate sources.)
       const placeStr = String(record.place ?? "");
-      const hasPlaceData = placeStr && placeStr !== "";
-      
+      const hasPlaceData = placeStr !== "";
       const placeNum = hasPlaceData ? parseInt(placeStr, 10) : NaN;
-      if (!isAggregateSource && (!hasPlaceData || isNaN(placeNum) || placeNum < 0)) {
+      if (hasPlaceData && (isNaN(placeNum) || placeNum < 0)) {
         filteringStats.invalidPlace++;
         rejectRecord(record, 'invalid-place', source);
         if (isXanderDebug) {
           log.debug(`FILTERED OUT - Invalid finish place: ${record.date} (place: ${record.place})`);
         }
-        return false;
-      }
-
-      if (isAggregateSource && hasPlaceData && (isNaN(placeNum) || placeNum < 0)) {
-        filteringStats.invalidPlace++;
-        rejectRecord(record, 'invalid-place', source);
         return false;
       }
       

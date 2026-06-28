@@ -58,6 +58,13 @@ export class RawTimeCandidatesCache {
   static async getCandidates(raceId: string): Promise<CachedRawTimeCandidates | null> {
     try {
       const resp = await fetch(`/api/rawtime-candidates/${raceId}`);
+      if (!resp.ok) {
+        // 404 = cache miss, 5xx = backend error — both mean "no cached candidates"
+        if (resp.status !== 404) {
+          log.warn(`[RawTimeCandidatesCache] Failed to read candidate cache for ${raceId}: ${resp.status}`);
+        }
+        return null;
+      }
       const data = await resp.json();
       return data || null;
     } catch (error) {

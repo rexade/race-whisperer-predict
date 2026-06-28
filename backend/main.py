@@ -135,7 +135,11 @@ def _best_record_candidate(horse):
 
 
 def _start_number(start):
-    return start.get("number") or start.get("postPosition")
+    # Use `is None` rather than `or` so a legitimate 0 (number or post position) is kept.
+    number = start.get("number")
+    if number is None:
+        number = start.get("postPosition")
+    return number
 
 
 @asynccontextmanager
@@ -570,7 +574,7 @@ async def get_unfiltered_raw_times(
         for start in starts:
             number = _start_number(start)
             horse = start.get("horse") or {}
-            if not number:
+            if number is None:
                 horses.append({
                     "startNumber": None,
                     "postPosition": start.get("postPosition"),

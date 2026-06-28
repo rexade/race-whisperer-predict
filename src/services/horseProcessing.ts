@@ -178,11 +178,18 @@ export const processHorseKmTimes = async (
 
   // Keep processed starts in recency order. The raw-time baseline uses recent
   // form, not the fastest historical outlier.
+  // Coerce missing OR unparseable dates to 0 so they sort last deterministically.
+  // A raw `new Date(badStr).getTime()` is NaN, which makes the comparator return NaN
+  // and leaves ordering of the recent-3 (and thus bestTime) nondeterministic.
+  const toEpoch = (raceDate?: string): number => {
+    const t = raceDate ? new Date(raceDate).getTime() : 0;
+    return Number.isNaN(t) ? 0 : t;
+  };
   processedTimes = processedTimes
     .map((r, i) => ({ ...r, _sortIndex: i }))
     .sort((a, b) => {
-      const da = a.raceDate ? new Date(a.raceDate).getTime() : 0;
-      const db = b.raceDate ? new Date(b.raceDate).getTime() : 0;
+      const da = toEpoch(a.raceDate);
+      const db = toEpoch(b.raceDate);
       if (da !== db) return db - da;
       return (a as any)._sortIndex - (b as any)._sortIndex; // Stable fallback
     });
