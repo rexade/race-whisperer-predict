@@ -138,14 +138,18 @@ async function main() {
   interface StartResult { name: string; oofMRRs: number[]; oofWins: number[]; }
   const results: StartResult[] = [];
 
+  let startIdx = 0;
   for (const [name, startW] of Object.entries(starts)) {
     console.log(`── ${name} ──`);
     const oofMRRs: number[] = [];
     const oofWins: number[] = [];
+    startIdx++;
 
     for (let f = 0; f < folds.length; f++) {
       const t0 = Date.now();
-      const opt = await optimizeWeights(folds[f].train, startW, undefined, undefined, undefined, foldOpts);
+      // Deterministic per-(start, fold) seed — identical runs reproduce exactly
+      const opt = await optimizeWeights(folds[f].train, startW, undefined, undefined, undefined,
+        { ...foldOpts, seed: startIdx * 1000 + f });
       const oof = await evaluateWeights(folds[f].test, opt.optimizedWeights, opt.optimizedCurves);
       oofMRRs.push(oof.winnerMRR);
       oofWins.push(oof.winAccuracy);
@@ -169,7 +173,7 @@ async function main() {
   console.log(`\nRefitting "${bestStart.name}" on full training window…`);
   const refit = await optimizeWeights(
     trainWindow, starts[bestStart.name], undefined, undefined, undefined,
-    { saSteps: SA_STEPS * 2, maxPasses: Math.max(PASSES, 12), optimizeCurves: CURVES }
+    { saSteps: SA_STEPS * 2, maxPasses: Math.max(PASSES, 12), optimizeCurves: CURVES, seed: 7 }
   );
 
   // ── Honest final evaluation on the untouched holdout ──

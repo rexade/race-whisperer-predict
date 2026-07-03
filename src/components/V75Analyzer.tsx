@@ -79,10 +79,16 @@ const V75Analyzer: React.FC = () => {
     }
   }, [weights, postPositionCurves]);
 
-  // Load weights + MAE stats from API on mount
+  // Load weights + MAE stats from API on mount. Also restore driver empirical
+  // ratings from the cached calibration dataset if localStorage lost them —
+  // without ratings the driverEmpirical weight is silently inactive and saved
+  // presets cannot reproduce a previous session's ranking.
   useEffect(() => {
     initWeightsFromApi().then(r => { setWeights(r.weights); if (r.postPositionCurves) setPostPositionCurves(r.postPositionCurves); });
     getAggregateMAEStats().then(s => setMaeStats(s));
+    import('../services/calibration/driverRatingService')
+      .then(m => m.primeDriverRatingsIfMissing())
+      .catch(() => {});
   }, []);
 
   // Auto-persist weights to API
@@ -95,7 +101,7 @@ const V75Analyzer: React.FC = () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ weights, postPositionCurves }),
     }).catch(() => {});
-  }, [weights]);
+  }, [weights, postPositionCurves]);
 
   // Update active tab when results are loaded
   useEffect(() => {

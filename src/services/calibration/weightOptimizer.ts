@@ -109,6 +109,18 @@ export interface OptimizeOptions {
   maxPasses?: number;
   /** Tune per-position curves (Phase B). Default true. */
   optimizeCurves?: boolean;
+  /** Seed for the SA random walk — same seed + same inputs = same result.
+   *  Default undefined: unseeded Math.random (historical behavior). */
+  seed?: number;
+}
+
+/** Deterministic LCG in [0,1) — for reproducible SA runs. */
+function makeSeededRng(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 0x100000000;
+  };
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -152,7 +164,8 @@ async function runSAPhase(
   initial: NormalizationWeights,
   curves: PostPositionCurves,
   onProgress?: (p: OptimizationProgress) => void,
-  saSteps: number = SA_STEPS
+  saSteps: number = SA_STEPS,
+  rng: () => number = Math.random
 ): Promise<{ weights: NormalizationWeights; score: number }> {
   let curr = copyWeights(initial);
   let currScore = await regScore(dataset, curr, curves);
@@ -165,9 +178,9 @@ async function runSAPhase(
     T *= cooling;
 
     // Random weight key + random signed step (wider early, shrinks with T)
-    const key = WEIGHT_KEYS[Math.floor(Math.random() * WEIGHT_KEYS.length)];
-    const stepSize = SA_T_START * 16 * (0.1 + Math.random()); // 0.08–1.44 early, shrinks as T drops
-    const delta = (Math.random() < 0.5 ? 1 : -1) * stepSize;
+    const key = WEIGHT_KEYS[Math.floor(rng() * WEIGHT_KEYS.length)];
+    const stepSize = SA_T_START * 16 * (0.1 + rng()); // 0.08–1.44 early, shrinks as T drops
+    const delta = (rng() < 0.5 ? 1 : -1) * stepSize;
     const candidate = copyWeights(curr);
     candidate[key] = clamp((curr[key] ?? 0) + delta, WEIGHT_BOUNDS[0], WEIGHT_BOUNDS[1]);
 
@@ -177,7 +190,7 @@ async function runSAPhase(
     const diff = score - currScore; // positive = worse
 
     // Accept if better, or probabilistically if worse
-    if (diff < 0 || Math.random() < Math.exp(-diff / T)) {
+    if (diff < 0 || rng() < Math.exp(-diff / T)) {
       curr = candidate;
       currScore = score;
       if (currScore < bestScore) {
@@ -251,7 +264,8 @@ export async function optimizeWeights(
       bestMAE: initialMAE, step: SA_T_START,
       message: `SA phase: exploring weight space (${saSteps} steps)…`,
     });
-    const saResult = await runSAPhase(dataset, copyWeights(initial), startCurves, onProgress, saSteps);
+    const rng = opts.seed !== undefined ? makeSeededRng(opts.seed) : Math.random;
+    const saResult = await runSAPhase(dataset, copyWeights(initial), startCurves, onProgress, saSteps, rng);
     // Start coordinate descent from the best SA solution (or initial if SA didn't improve)
     if (saResult.score < initialMAE) {
       bestWeights = saResult.weights;

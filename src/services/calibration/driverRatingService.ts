@@ -104,3 +104,34 @@ export function getDriverRatingCount(): number {
 export function invalidateDriverRatingCache(): void {
   _cache = null;
 }
+
+/**
+ * Ensure driver ratings exist on app startup.
+ *
+ * Ratings are derived state: without them the driverEmpirical weight (one of
+ * the largest factors) is silently inactive, so a saved weight preset alone
+ * cannot reproduce a previous session's ranking. If localStorage has no
+ * ratings but a calibration dataset is cached in IndexedDB, recompute them
+ * from the most recently used window. Returns the number of rated drivers.
+ */
+export async function primeDriverRatingsIfMissing(): Promise<number> {
+  const existing = getDriverRatingCount();
+  if (existing > 0) return existing;
+
+  const { loadCalibrationDataset, getCalibrationCacheInfo } = await import('./calibrationDatasetCache');
+  for (const monthsBack of [6, 3, 2, 12, 1]) {
+    try {
+      const info = await getCalibrationCacheInfo(monthsBack);
+      if (!info.exists || info.dateCount === 0) continue;
+      const dataset = await loadCalibrationDataset(monthsBack);
+      if (!dataset || dataset.length === 0) continue;
+      const ratings = computeDriverRatings(dataset);
+      saveDriverRatings(ratings);
+      return ratings.size;
+    } catch {
+      // Cache unavailable (private mode, quota) — predictions fall back
+      // to ATG career stats for the driver factor.
+    }
+  }
+  return 0;
+}
