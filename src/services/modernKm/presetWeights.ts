@@ -16,6 +16,84 @@ export interface WeightPreset {
 
 export const WEIGHT_PRESETS: WeightPreset[] = [
   {
+    name: 'V40 — App multistart (2026-07-03)',
+    description: 'In-app bucketed multistart+optimize on the Nov 2025–May 2026 dataset. Train: MRR 0.591, Win 42.0% (in-sample). Honest chronological-holdout check (reports/kfold-honest-2026-07-03.json): MRR 0.561–0.576, Win ~38–41%, WTop3 64–67%, WTop5 78–81% — best of all candidates on ranking metrics, but statistically tied with V39/production on win%. Real-world expectation for any config: ~1/3 wins, winner in top-5 ~4/5.',
+    category: 'balanced',
+    weights: {
+      postPosition: 1.204163,
+      shoeType: 0.000,
+      sulkyType: 0.901739,
+      driverPerformance: 0.000,
+      driverForm: 0.777457,
+      driverEmpirical: 4.607057,
+      trackFamiliarity: 0.200,
+      form: 0.210861,
+      distanceAdjustment: 0.150,
+      raceDistanceAdjustment: 0.743437,
+      volteStartDistancePenalty: 1.345544,
+      startPoints: 2.436337,
+      placePercentage: 0.300,
+      horseWinPercentage: 1.037797,
+      earningsPerStart: 1.252785,
+      gallopRisk: 0.400,
+      layoffPenalty: 2.631169,
+      ageFactor: 0.000,
+      genderAdjustment: 1.446485,
+      consistencyFactor: 3.263076,
+      trainerPerformance: 4.613088,
+      oddsHistorical: 0.000,
+      oddsLive: 0.000,
+    },
+    postPositionCurves: {
+      auto: {
+        1: -0.1135, 2: -0.036, 3: -0.126, 4: -0.174, 5: -0.081, 6: 0.188, 7: 0.319,
+        8: 0.322, 9: 0.9795, 10: 0.687, 11: 0.352, 12: 0.850, 13: 1.083, 14: 0.751,
+        15: 1.147,
+      },
+      volte: {
+        1: -0.658, 2: 0.216, 3: 0.064, 4: 0.3175, 5: 0.296, 6: 0.186, 7: 0.404,
+        8: 0.091, 9: 0.772, 10: 0.480, 11: 0.582, 12: 0.742, 13: 1.307, 14: 0.9565,
+        15: 0.799,
+      },
+      byDistance: {
+        auto: {
+          short: {
+            1: -0.1885, 2: -0.086, 3: -0.026, 4: -0.034, 5: -0.181, 6: 0.188, 7: 0.369,
+            8: 0.172, 9: 1.0295, 10: 0.787, 11: 0.352, 12: 0.750, 13: 1.083, 14: 0.751,
+            15: 1.147,
+          },
+          medium: {
+            1: -0.1535, 2: 0.039, 3: -0.076, 4: -0.1615, 5: 0.019, 6: 0.188, 7: 0.344,
+            8: 0.3595, 9: 0.767, 10: 0.412, 11: 0.417, 12: 0.850, 13: 1.133, 14: 0.751,
+            15: 1.147,
+          },
+          long: {
+            1: -0.0135, 2: 0.089, 3: -0.076, 4: -0.024, 5: -0.056, 6: 0.138, 7: 0.369,
+            8: 0.372, 9: 0.9295, 10: 0.687, 11: 0.252, 12: 0.850, 13: 1.183, 14: 0.751,
+            15: 1.147,
+          },
+        },
+        volte: {
+          short: {
+            1: -0.608, 2: 0.216, 3: 0.064, 4: 0.3175, 5: 0.296, 6: 0.186, 7: 0.404,
+            8: 0.091, 9: 0.822, 10: 0.530, 11: 0.582, 12: 0.742, 13: 1.307, 14: 0.9065,
+            15: 0.799,
+          },
+          medium: {
+            1: -0.608, 2: 0.266, 3: 0.114, 4: 0.3675, 5: 0.196, 6: 0.236, 7: 0.454,
+            8: 0.041, 9: 0.822, 10: 0.480, 11: 0.492, 12: 0.742, 13: 1.307, 14: 1.0565,
+            15: 0.849,
+          },
+          long: {
+            1: -0.608, 2: 0.191, 3: 0.114, 4: 0.3675, 5: 0.396, 6: 0.136, 7: 0.404,
+            8: -0.009, 9: 0.722, 10: 0.480, 11: 0.632, 12: 0.642, 13: 1.357, 14: 0.9565,
+            15: 0.849,
+          },
+        },
+      },
+    },
+  },
+  {
     name: 'V39 — Bucketed Best (2026-05-10)',
     description: 'Promoted as new DEFAULT. V35 multi-start winner with bucketed-curve final pass: MRR 0.505 → 0.576, Win 42.3%, WTop3 65.7%, WTop5 78.8%, TopPickTop3 45.7%, Passes 14. Includes byDistance buckets (auto/volte × short/medium/long). Used as both DEFAULT_WEIGHTS and getDefaultPostPositionCurves().',
     category: 'balanced',
