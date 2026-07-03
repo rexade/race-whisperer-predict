@@ -388,16 +388,18 @@ const extractHorseData = (start: any, raceId: string): V75HorseData => {
     }
   }
 
-  // Enhanced driver statistics extraction — year-aware (prefer current year)
+  // Enhanced driver statistics extraction — year-aware (prefer current year,
+  // fall back to previous year early in the season when current-year sample is empty)
   const currentYear = String(new Date().getFullYear());
+  const previousYear = String(new Date().getFullYear() - 1);
   const driverStats = start.driver?.statistics || {};
-  const driver2025Stats = start.driver?.statistics?.years?.[currentYear]
-    || start.driver?.statistics?.years?.['2025'] || {};
+  const driverYearStats = start.driver?.statistics?.years?.[currentYear]
+    || start.driver?.statistics?.years?.[previousYear] || {};
 
   // Trainer statistics extraction (same structure as driver)
   const trainerStats = start.trainer?.statistics || {};
-  const trainer2025Stats = start.trainer?.statistics?.years?.[currentYear]
-    || start.trainer?.statistics?.years?.['2025'] || {};
+  const trainerYearStats = start.trainer?.statistics?.years?.[currentYear]
+    || start.trainer?.statistics?.years?.[previousYear] || {};
 
   // Enhanced horse statistics extraction
   const horseLifeStats = start.horse?.statistics?.life || {};
@@ -419,7 +421,7 @@ const extractHorseData = (start: any, raceId: string): V75HorseData => {
       lastName: start.driver?.lastName || '',
       experience: driverStats.experience || 0,
       winPercentage: driverStats.winPercentage || 0,
-      winPercentage2025: driver2025Stats.winPercentage || 0,
+      winPercentage2025: driverYearStats.winPercentage || 0,
     },
     statistics: {
       startPoints: horseLifeStats.startPoints || 500,
@@ -443,7 +445,7 @@ const extractHorseData = (start: any, raceId: string): V75HorseData => {
       firstName: start.trainer.firstName || '',
       lastName: start.trainer.lastName || '',
       winPercentage: trainerStats.winPercentage || 0,
-      winPercentage2025: trainer2025Stats.winPercentage || 0,
+      winPercentage2025: trainerYearStats.winPercentage || 0,
     } : undefined,
   };
 };

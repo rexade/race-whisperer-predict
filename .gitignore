@@ -25,3 +25,7 @@ calibration-dataset*.7z
 *.njsproj
 *.sln
 *.sw?
+
+# Repo self-archives and local env
+*.zip
+.env
