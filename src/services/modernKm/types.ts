@@ -28,6 +28,8 @@ export interface ModernKmNormalizedResult {
     trainer: number;
     oddsHistorical: number;
     oddsLive: number;
+    betDistribution: number;
+    shoeChange: number;
     total: number;
   };
 }
@@ -87,6 +89,12 @@ export interface ModernNormalizationFactors {
   averageOdds?: number;
   /** Live/current odds from the win pool (when available). */
   liveOdds?: number;
+  /** Game-type bet distribution (spelprocent, e.g. 24.32 = 24.32 % of bets). */
+  betDistribution?: number;
+  /** ATG native flag: front shoe state differs from the horse's previous start. */
+  shoesFrontChanged?: boolean;
+  /** ATG native flag: back shoe state differs from the horse's previous start. */
+  shoesBackChanged?: boolean;
 }
 
 export interface NormalizationWeights {
@@ -118,6 +126,10 @@ export interface NormalizationWeights {
   oddsHistorical?: number;
   /** Live odds signal weight. 0 = off. */
   oddsLive?: number;
+  /** Bet-distribution (spelprocent) signal weight — implied odds through the same curve. 0 = off. */
+  betDistribution?: number;
+  /** Shoe-change signal weight: switch to barefoot = intent to go fast. 0 = off. */
+  shoeChange?: number;
 }
 
 // V39 default (2026-05-10) — V35 multi-start winner with bucketed-curve final pass.
@@ -147,4 +159,6 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   trainerPerformance: 1.954,
   oddsHistorical: 0.000,
   oddsLive: 0.000,
+  betDistribution: 0.000,
+  shoeChange: 0.000,
 };

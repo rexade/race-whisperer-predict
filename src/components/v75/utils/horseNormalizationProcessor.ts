@@ -166,6 +166,10 @@ export const applyHorseNormalization = (
       fieldDriverWinRates,
       driverEmpiricalWinRate,
       averageOdds: rawTimeData?.averageOdds,
+      liveOdds: (horse as any).liveOdds,
+      betDistribution: (horse as any).betDistribution,
+      shoesFrontChanged: (horse as any).shoes?.frontChanged,
+      shoesBackChanged: (horse as any).shoes?.backChanged,
     };
 
     const result = applyModernKmNormalization(fallbackTime, factors, weights, postPositionCurves);
@@ -236,6 +240,10 @@ export const applyHorseNormalization = (
     fieldDriverWinRates,
     driverEmpiricalWinRate,
     averageOdds: rawTimeData?.averageOdds,
+    liveOdds: (horse as any).liveOdds,
+    betDistribution: (horse as any).betDistribution,
+    shoesFrontChanged: (horse as any).shoes?.frontChanged,
+    shoesBackChanged: (horse as any).shoes?.backChanged,
   };
 
   const result = applyModernKmNormalization(rawKmTime, factors, weights, postPositionCurves);

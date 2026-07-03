@@ -43,6 +43,7 @@ const WEIGHT_KEYS: (keyof NormalizationWeights)[] = [
   'earningsPerStart', 'gallopRisk', 'layoffPenalty',
   'ageFactor', 'genderAdjustment', 'consistencyFactor',
   'trainerPerformance', 'oddsHistorical', 'oddsLive',
+  'betDistribution', 'shoeChange',
 ];
 
 function clamp01to5(v: number): number { return Math.max(0, Math.min(5, v)); }

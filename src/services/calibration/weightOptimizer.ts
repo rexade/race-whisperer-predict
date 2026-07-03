@@ -97,6 +97,8 @@ const WEIGHT_KEYS: (keyof NormalizationWeights)[] = [
   'trainerPerformance',
   'oddsHistorical',
   'oddsLive',
+  'betDistribution',
+  'shoeChange',
 ];
 
 const CURVE_POSITIONS = Array.from({ length: 15 }, (_, i) => i + 1);
