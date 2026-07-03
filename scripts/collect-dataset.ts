@@ -94,40 +94,9 @@ async function collectDate(date: string, types: string[], delayMs: number): Prom
       };
       if (gameInfo.raceIds.length === 0) continue;
 
+      // fetchRaceDataForGame also merges game-level pools (liveOdds,
+      // betDistribution) into every horse — one extra request per game.
       const raceDataList = await fetchRaceDataForGame(date, gameInfo, type as GameType);
-
-      // Market signals (vinnare odds, betDistribution) only exist in the game
-      // payload — the per-race endpoint has no pools. Fetch the game once and
-      // merge into the extracted horses by (raceId, postPosition).
-      try {
-        const gameResp = await fetch(`/api/atg/games/${g.id}`);
-        if (gameResp.ok) {
-          const game = await gameResp.json();
-          const poolsByRace = new Map<string, Map<number, { liveOdds?: number; betDistribution?: number }>>();
-          for (const gr of game.races ?? []) {
-            const byPos = new Map<number, { liveOdds?: number; betDistribution?: number }>();
-            for (const st of gr.starts ?? []) {
-              const rawOdds = st.pools?.vinnare?.odds;
-              const marking = Object.values(st.pools ?? {}).find((p: any) => p && typeof p.betDistribution === 'number') as any;
-              byPos.set(st.number ?? st.postPosition, {
-                liveOdds: typeof rawOdds === 'number' && rawOdds > 0 ? rawOdds / 100 : undefined,
-                betDistribution: marking ? marking.betDistribution / 100 : undefined,
-              });
-            }
-            poolsByRace.set(gr.id, byPos);
-          }
-          for (const race of raceDataList) {
-            const byPos = poolsByRace.get(race.raceId);
-            if (!byPos) continue;
-            for (const horse of race.horses) {
-              const p = byPos.get(horse.postPosition);
-              if (p) { horse.liveOdds = p.liveOdds; horse.betDistribution = p.betDistribution; }
-            }
-          }
-        }
-      } catch {
-        // Market data is enrichment — races remain usable without it
-      }
 
       let actualResults: any[] = [];
       try {

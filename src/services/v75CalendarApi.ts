@@ -283,6 +283,30 @@ export const fetchRaceDataForGame = async (
 
   log.info(`\n🏁 ${gameType} Race Data Fetch Complete: ${v75Races.length}/${gameInfo.raceIds.length} races successfully fetched`);
 
+  // Market signals (vinnare odds, betDistribution) only exist in the game
+  // payload — the per-race endpoint has no pools. One extra fetch per game
+  // enriches every horse; failure is non-fatal (races stay usable without it).
+  try {
+    const gameResp = await fetch(`/api/atg/games/${gameInfo.gameId}`);
+    if (gameResp.ok) {
+      const game = await gameResp.json();
+      for (const gr of game.races ?? []) {
+        const race = v75Races.find(r => r.raceId === gr.id);
+        if (!race) continue;
+        for (const st of gr.starts ?? []) {
+          const horse = race.horses.find(h => h.postPosition === (st.number ?? st.postPosition));
+          if (!horse) continue;
+          const rawOdds = st.pools?.vinnare?.odds;
+          if (typeof rawOdds === 'number' && rawOdds > 0) horse.liveOdds = rawOdds / 100;
+          const marking = Object.values(st.pools ?? {}).find((p: any) => p && typeof p.betDistribution === 'number') as any;
+          if (marking) horse.betDistribution = marking.betDistribution / 100;
+        }
+      }
+    }
+  } catch {
+    log.warn('Game pools fetch failed — liveOdds/betDistribution unavailable for this game');
+  }
+
   return v75Races.sort((a, b) => a.raceNumber - b.raceNumber);
 };
 
