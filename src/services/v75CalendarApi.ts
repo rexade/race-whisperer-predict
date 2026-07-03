@@ -59,10 +59,19 @@ export interface V75RaceData {
     shoes: {
       front: boolean;
       back: boolean;
+      /** True when the front shoe state differs from the horse's previous start (ATG native flag). */
+      frontChanged?: boolean;
+      backChanged?: boolean;
+      /** False when the stable has not reported shoes for this start. */
+      reported?: boolean;
     };
     sulky: {
       type: string;
     };
+    /** Win (vinnare) odds at fetch time — live pre-race, final for completed games. */
+    liveOdds?: number;
+    /** Game-type bet distribution (spelprocent, e.g. 24.32 = 24.32% of bets). */
+    betDistribution?: number;
     homeTrack: any; // Keep as any for now due to API inconsistency
     birthYear?: number;
     /** Direct age from API (more reliable than birthYear which is often 0). */
@@ -100,10 +109,19 @@ export interface V75HorseData {
   shoes: {
     front: boolean;
     back: boolean;
+    /** True when the front shoe state differs from the horse's previous start (ATG native flag). */
+    frontChanged?: boolean;
+    backChanged?: boolean;
+    /** False when the stable has not reported shoes for this start. */
+    reported?: boolean;
   };
   sulky: {
     type: string;
   };
+  /** Win (vinnare) odds at fetch time — live pre-race, final for completed games. */
+  liveOdds?: number;
+  /** Game-type bet distribution (spelprocent, e.g. 24.32 = 24.32% of bets). */
+  betDistribution?: number;
   homeTrack: any; // Keep as any for now due to API inconsistency
   birthYear?: number;
   /** Direct age from API (more reliable than birthYear which is often 0). */
@@ -335,21 +353,33 @@ const extractHorseData = (start: any, raceId: string): V75HorseData => {
 
   const shoesData = start.shoes || start.horse?.shoes || {};
 
-  // Handle multiple possible shoes data formats from ATG API
-  let frontShoes = false;
-  let backShoes = false;
+  // Handle multiple possible shoes data formats from ATG API.
+  // Current format nests objects: { reported, front: {hasShoe, changed}, back: {…} }.
+  // Boolean(object) is always true, so the object form MUST be unwrapped via
+  // .hasShoe — the old Boolean() coercion silently marked every horse as shod.
+  const shoeValue = (v: any): boolean | undefined => {
+    if (v === undefined || v === null) return undefined;
+    if (typeof v === 'object') return v.hasShoe !== undefined ? Boolean(v.hasShoe) : undefined;
+    return Boolean(v);
+  };
+  const frontShoes = shoeValue(shoesData.front) ?? shoeValue(shoesData.frontShoes)
+    ?? shoeValue(shoesData.frontShoe) ?? shoeValue(shoesData.f) ?? false;
+  const backShoes = shoeValue(shoesData.back) ?? shoeValue(shoesData.backShoes)
+    ?? shoeValue(shoesData.backShoe) ?? shoeValue(shoesData.b) ?? false;
 
-  // Check various possible property paths for front shoes
-  if (shoesData.front !== undefined) frontShoes = Boolean(shoesData.front);
-  else if (shoesData.frontShoes !== undefined) frontShoes = Boolean(shoesData.frontShoes);
-  else if (shoesData.frontShoe !== undefined) frontShoes = Boolean(shoesData.frontShoe);
-  else if (shoesData.f !== undefined) frontShoes = Boolean(shoesData.f);
+  // Native ATG change flags — true when shoe state differs from previous start
+  const frontChanged = typeof shoesData.front === 'object' ? Boolean(shoesData.front?.changed) : undefined;
+  const backChanged = typeof shoesData.back === 'object' ? Boolean(shoesData.back?.changed) : undefined;
+  const shoesReported = shoesData.reported !== undefined ? Boolean(shoesData.reported) : undefined;
 
-  // Check various possible property paths for back shoes
-  if (shoesData.back !== undefined) backShoes = Boolean(shoesData.back);
-  else if (shoesData.backShoes !== undefined) backShoes = Boolean(shoesData.backShoes);
-  else if (shoesData.backShoe !== undefined) backShoes = Boolean(shoesData.backShoe);
-  else if (shoesData.b !== undefined) backShoes = Boolean(shoesData.b);
+  // Market signals from start-level pools (present live and on completed games).
+  // vinnare odds arrive ×100 (866 = 8.66); betDistribution ×100 (2432 = 24.32%).
+  const rawVinnareOdds = start.pools?.vinnare?.odds;
+  const liveOdds = typeof rawVinnareOdds === 'number' && rawVinnareOdds > 0
+    ? rawVinnareOdds / 100 : undefined;
+  const poolKeys = start.pools ? Object.keys(start.pools) : [];
+  const markingPool = poolKeys.map(k => start.pools[k]).find((p: any) => p && typeof p.betDistribution === 'number');
+  const betDistribution = markingPool ? markingPool.betDistribution / 100 : undefined;
 
   // Sulky extraction
   let sulkyType = 'VA'; // Default to Vanlig (normal)
@@ -432,10 +462,15 @@ const extractHorseData = (start: any, raceId: string): V75HorseData => {
     shoes: {
       front: frontShoes,
       back: backShoes,
+      frontChanged,
+      backChanged,
+      reported: shoesReported,
     },
     sulky: {
       type: sulkyType,
     },
+    liveOdds,
+    betDistribution,
     homeTrack: start.horse?.homeTrack || start.horse?.track || 'Unknown',
     birthYear: start.horse?.birthYear || start.horse?.birth_year || 0,
     age: start.horse?.age || undefined,

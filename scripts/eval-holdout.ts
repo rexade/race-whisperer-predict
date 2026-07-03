@@ -34,9 +34,8 @@ async function main() {
   const holdoutFrac = holdoutIdx >= 0 ? Number(args[holdoutIdx + 1]) : 0.2;
   const rest = args.filter((a, i) => a !== '--holdout' && i !== holdoutIdx + 1);
 
-  const datasetPath = rest.find(a => !a.endsWith('.json') || fs.existsSync(a)) && rest[0].includes('dataset')
-    ? rest.shift()!
-    : 'calibration-dataset-6mo.json';
+  // First positional arg is always the dataset; the rest are config files.
+  const datasetPath = rest.shift() ?? 'calibration-dataset-6mo.json';
   const configFiles = rest;
 
   if (configFiles.length === 0) {
