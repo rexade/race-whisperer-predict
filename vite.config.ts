@@ -8,6 +8,14 @@ export default defineConfig({
     host: "::",
     port: 8080,
     proxy: {
+      // ATG racing data goes straight to the public API — the frontend works in
+      // dev without the FastAPI backend running (matches production rewrites).
+      '/api/atg': {
+        target: 'https://www.atg.se/services/racinginfo/v1/api',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api\/atg/, ''),
+      },
+      // Everything else under /api (weights, MAE) still needs the local backend.
       '/api': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
