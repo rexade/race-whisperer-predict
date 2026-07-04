@@ -1,0 +1,146 @@
+{
+  "datasetPath": "calibration-dataset-full.json",
+  "config": {
+    "K": 4,
+    "SA_STEPS": 300,
+    "PASSES": 8,
+    "CURVES": false,
+    "HOLDOUT_FRAC": 0.2,
+    "OBJECTIVE": "pl"
+  },
+  "trainWindow": {
+    "dates": 208,
+    "races": 1548,
+    "from": "2025-01-04",
+    "to": "2026-03-15"
+  },
+  "holdout": {
+    "dates": 52,
+    "races": 402,
+    "from": "2026-03-18",
+    "to": "2026-07-02"
+  },
+  "startRankings": [
+    {
+      "name": "V37 jitter 1.0 seed 333",
+      "meanOofMRR": 0.5468753590670683,
+      "stdOofMRR": 0.022937695729226104,
+      "meanOofWin": 0.3503584102190173
+    },
+    {
+      "name": "V37 Experimental — V36 refined (2026-05-08)",
+      "meanOofMRR": 0.5448384988832553,
+      "stdOofMRR": 0.026067039209125023,
+      "meanOofWin": 0.346461676270463
+    },
+    {
+      "name": "DEFAULT",
+      "meanOofMRR": 0.5440166532941026,
+      "stdOofMRR": 0.020112788200980742,
+      "meanOofWin": 0.34383425254329497
+    },
+    {
+      "name": "V36 Experimental — V32 source-tuned (2026-05-08)",
+      "meanOofMRR": 0.5437918846859264,
+      "stdOofMRR": 0.019608729727592453,
+      "meanOofWin": 0.34320301010523424
+    },
+    {
+      "name": "V37 jitter 0.5 seed 111",
+      "meanOofMRR": 0.5435786709226792,
+      "stdOofMRR": 0.01846047880344783,
+      "meanOofWin": 0.34511952922124184
+    },
+    {
+      "name": "V20 — Clean Baseline (2026-04-27)",
+      "meanOofMRR": 0.5325168328075798,
+      "stdOofMRR": 0.014778724805496208,
+      "meanOofWin": 0.3276680750412356
+    }
+  ],
+  "holdoutEvaluations": {
+    "DEFAULT": {
+      "rankMAE": 2.7446437468858993,
+      "winnerRankMAE": 3.1044776119402986,
+      "winnerMRR": 0.5610292347232648,
+      "timeMAE": 1.3560245587106625,
+      "plLogLik": -14.075037043271415,
+      "topPickAccuracy": 0.5810055865921788,
+      "winnerTop3Accuracy": 0.6890547263681592,
+      "winnerTop5Accuracy": 0.8432835820895522,
+      "winAccuracy": 0.3656716417910448,
+      "racesEvaluated": 402,
+      "horsesEvaluated": 4014,
+      "estimatedHorsesSkipped": 0
+    },
+    "start: V37 jitter 1.0 seed 333": {
+      "rankMAE": 2.833582461385152,
+      "winnerRankMAE": 3.3681592039800994,
+      "winnerMRR": 0.5383312790029209,
+      "timeMAE": 1.7145305704783846,
+      "plLogLik": -16.633397221935688,
+      "topPickAccuracy": 0.5605633802816902,
+      "winnerTop3Accuracy": 0.6467661691542289,
+      "winnerTop5Accuracy": 0.8009950248756219,
+      "winAccuracy": 0.3482587064676617,
+      "racesEvaluated": 402,
+      "horsesEvaluated": 4014,
+      "estimatedHorsesSkipped": 0
+    },
+    "baseline (production)": {
+      "rankMAE": 2.856751370204285,
+      "winnerRankMAE": 3.509950248756219,
+      "winnerMRR": 0.5094321515963309,
+      "timeMAE": 1.430519314402662,
+      "plLogLik": -13.705081401561197,
+      "topPickAccuracy": 0.5513307984790875,
+      "winnerTop3Accuracy": 0.6169154228855721,
+      "winnerTop5Accuracy": 0.7985074626865671,
+      "winAccuracy": 0.31343283582089554,
+      "racesEvaluated": 402,
+      "horsesEvaluated": 4014,
+      "estimatedHorsesSkipped": 0
+    },
+    "REFIT (new weights)": {
+      "rankMAE": 2.8163926258096663,
+      "winnerRankMAE": 3.6417910447761193,
+      "winnerMRR": 0.4870620120620123,
+      "timeMAE": 1.0943463801483722,
+      "plLogLik": -10.553895033721364,
+      "topPickAccuracy": 0.546448087431694,
+      "winnerTop3Accuracy": 0.6094527363184079,
+      "winnerTop5Accuracy": 0.8009950248756219,
+      "winAccuracy": 0.2736318407960199,
+      "racesEvaluated": 402,
+      "horsesEvaluated": 4014,
+      "estimatedHorsesSkipped": 0
+    }
+  },
+  "refitWeights": {
+    "postPosition": 0.38,
+    "shoeType": 0.523,
+    "sulkyType": 0.252,
+    "driverPerformance": 0,
+    "driverForm": 0,
+    "driverEmpirical": 0.2,
+    "trackFamiliarity": 0.295,
+    "form": 0.677,
+    "distanceAdjustment": 0.733,
+    "raceDistanceAdjustment": 0,
+    "volteStartDistancePenalty": 1.76,
+    "startPoints": 0,
+    "placePercentage": 0.625,
+    "horseWinPercentage": 0.488,
+    "earningsPerStart": 2.472,
+    "gallopRisk": 0,
+    "layoffPenalty": 0.401,
+    "ageFactor": 0,
+    "genderAdjustment": 0.768,
+    "consistencyFactor": 2.156,
+    "trainerPerformance": 2.541,
+    "oddsHistorical": 0,
+    "oddsLive": 0.2,
+    "betDistribution": 0,
+    "shoeChange": 0.536
+  }
+}
