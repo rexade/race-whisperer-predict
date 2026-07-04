@@ -97,10 +97,33 @@ const WEIGHT_KEYS: (keyof NormalizationWeights)[] = [
   'trainerPerformance',
   'oddsHistorical',
   'oddsLive',
+  'betDistribution',
+  'shoeChange',
 ];
 
 const CURVE_POSITIONS = Array.from({ length: 15 }, (_, i) => i + 1);
-const SA_COOLING = Math.pow(SA_T_END / SA_T_START, 1 / SA_STEPS);
+
+/** Budget/behavior knobs — defaults reproduce the historical browser behavior. */
+export interface OptimizeOptions {
+  /** Simulated-annealing steps (0 skips the SA phase entirely). Default 600. */
+  saSteps?: number;
+  /** Max coordinate-descent passes. Default 20. */
+  maxPasses?: number;
+  /** Tune per-position curves (Phase B). Default true. */
+  optimizeCurves?: boolean;
+  /** Seed for the SA random walk — same seed + same inputs = same result.
+   *  Default undefined: unseeded Math.random (historical behavior). */
+  seed?: number;
+}
+
+/** Deterministic LCG in [0,1) — for reproducible SA runs. */
+function makeSeededRng(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 0x100000000;
+  };
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -142,21 +165,24 @@ async function runSAPhase(
   dataset: CalibrationDataset,
   initial: NormalizationWeights,
   curves: PostPositionCurves,
-  onProgress?: (p: OptimizationProgress) => void
+  onProgress?: (p: OptimizationProgress) => void,
+  saSteps: number = SA_STEPS,
+  rng: () => number = Math.random
 ): Promise<{ weights: NormalizationWeights; score: number }> {
   let curr = copyWeights(initial);
   let currScore = await regScore(dataset, curr, curves);
   let best = copyWeights(curr);
   let bestScore = currScore;
   let T = SA_T_START;
+  const cooling = Math.pow(SA_T_END / SA_T_START, 1 / Math.max(saSteps, 1));
 
-  for (let s = 0; s < SA_STEPS; s++) {
-    T *= SA_COOLING;
+  for (let s = 0; s < saSteps; s++) {
+    T *= cooling;
 
     // Random weight key + random signed step (wider early, shrinks with T)
-    const key = WEIGHT_KEYS[Math.floor(Math.random() * WEIGHT_KEYS.length)];
-    const stepSize = SA_T_START * 16 * (0.1 + Math.random()); // 0.08–1.44 early, shrinks as T drops
-    const delta = (Math.random() < 0.5 ? 1 : -1) * stepSize;
+    const key = WEIGHT_KEYS[Math.floor(rng() * WEIGHT_KEYS.length)];
+    const stepSize = SA_T_START * 16 * (0.1 + rng()); // 0.08–1.44 early, shrinks as T drops
+    const delta = (rng() < 0.5 ? 1 : -1) * stepSize;
     const candidate = copyWeights(curr);
     candidate[key] = clamp((curr[key] ?? 0) + delta, WEIGHT_BOUNDS[0], WEIGHT_BOUNDS[1]);
 
@@ -166,7 +192,7 @@ async function runSAPhase(
     const diff = score - currScore; // positive = worse
 
     // Accept if better, or probabilistically if worse
-    if (diff < 0 || Math.random() < Math.exp(-diff / T)) {
+    if (diff < 0 || rng() < Math.exp(-diff / T)) {
       curr = candidate;
       currScore = score;
       if (currScore < bestScore) {
@@ -178,11 +204,11 @@ async function runSAPhase(
     if (s % 50 === 0) {
       onProgress?.({
         pass: s,
-        maxPasses: SA_STEPS + MAX_PASSES,
+        maxPasses: saSteps + MAX_PASSES,
         currentMAE: bestScore,
         bestMAE: bestScore,
         step: T,
-        message: `SA ${s}/${SA_STEPS} · T=${T.toFixed(4)} · MRR=${(-bestScore).toFixed(4)}`,
+        message: `SA ${s}/${saSteps} · T=${T.toFixed(4)} · MRR=${(-bestScore).toFixed(4)}`,
       });
     }
   }
@@ -210,8 +236,13 @@ export async function optimizeWeights(
   initialCurves?: PostPositionCurves,
   /** Held-out test set — never touched during optimization.
    *  When provided, the final weights are evaluated on it and stored as testEvaluation. */
-  testDataset?: CalibrationDataset
+  testDataset?: CalibrationDataset,
+  /** Budget/behavior knobs — see OptimizeOptions. Defaults match browser behavior. */
+  opts: OptimizeOptions = {}
 ): Promise<OptimizationResult> {
+  const saSteps = opts.saSteps ?? SA_STEPS;
+  const maxPasses = opts.maxPasses ?? MAX_PASSES;
+  const optimizeCurves = opts.optimizeCurves ?? true;
   // Always optimize curves — use provided curves or fall back to the standard defaults.
   const startCurves: PostPositionCurves = initialCurves
     ? copyCurves(initialCurves)
@@ -224,25 +255,32 @@ export async function optimizeWeights(
   // Score = -MRR + λΣw² (lower is better).
   const initialMAE = await regScore(dataset, initial, startCurves);
 
-  // Phase 0: Simulated annealing — explore broadly before refining
-  onProgress?.({
-    pass: 0, maxPasses: SA_STEPS + MAX_PASSES, currentMAE: initialMAE,
-    bestMAE: initialMAE, step: SA_T_START,
-    message: `SA phase: exploring weight space (${SA_STEPS} steps)…`,
-  });
-  const saResult = await runSAPhase(dataset, copyWeights(initial), startCurves, onProgress);
-
-  // Start coordinate descent from the best SA solution (or initial if SA didn't improve)
-  let bestWeights = saResult.score < initialMAE ? saResult.weights : copyWeights(initial);
+  // Phase 0: Simulated annealing — explore broadly before refining (skipped when saSteps=0)
+  let bestWeights = copyWeights(initial);
   let bestCurves = startCurves;
-  let bestMAE = Math.min(saResult.score, initialMAE);
+  let bestMAE = initialMAE;
+
+  if (saSteps > 0) {
+    onProgress?.({
+      pass: 0, maxPasses: saSteps + maxPasses, currentMAE: initialMAE,
+      bestMAE: initialMAE, step: SA_T_START,
+      message: `SA phase: exploring weight space (${saSteps} steps)…`,
+    });
+    const rng = opts.seed !== undefined ? makeSeededRng(opts.seed) : Math.random;
+    const saResult = await runSAPhase(dataset, copyWeights(initial), startCurves, onProgress, saSteps, rng);
+    // Start coordinate descent from the best SA solution (or initial if SA didn't improve)
+    if (saResult.score < initialMAE) {
+      bestWeights = saResult.weights;
+      bestMAE = saResult.score;
+    }
+  }
 
   let weightStep = 0.2;
   let curveStep = 0.05;
   let pass = 0;
 
-  // Run until both weight and curve steps have converged (or MAX_PASSES)
-  while (pass < MAX_PASSES && (weightStep >= MIN_WEIGHT_STEP || curveStep >= MIN_CURVE_STEP)) {
+  // Run until both weight and curve steps have converged (or maxPasses)
+  while (pass < maxPasses && (weightStep >= MIN_WEIGHT_STEP || curveStep >= MIN_CURVE_STEP)) {
     pass++;
     let improved = false;
 
@@ -264,18 +302,18 @@ export async function optimizeWeights(
         }
 
         onProgress?.({
-          pass: SA_STEPS + pass,
-          maxPasses: SA_STEPS + MAX_PASSES,
+          pass: saSteps + pass,
+          maxPasses: saSteps + maxPasses,
           currentMAE: bestMAE,
           bestMAE,
           step: weightStep,
-          message: `CD pass ${pass}/${MAX_PASSES} · weights · step=${weightStep.toFixed(3)} · MRR=${(-bestMAE).toFixed(4)}`,
+          message: `CD pass ${pass}/${maxPasses} · weights · step=${weightStep.toFixed(3)} · MRR=${(-bestMAE).toFixed(4)}`,
         });
       }
     }
 
-    // --- Phase B: optimize per-position curve values (always runs) ---
-    if (curveStep >= MIN_CURVE_STEP) {
+    // --- Phase B: optimize per-position curve values (opt-out via optimizeCurves) ---
+    if (optimizeCurves && curveStep >= MIN_CURVE_STEP) {
       // Build the list of (startType, bucket?, pos) coordinate axes to search.
       // Legacy mode: 2 startTypes × 15 positions = 30 axes.
       // Bucketed mode (byDistance present): 2 × 3 buckets × 15 = 90 axes.
@@ -323,12 +361,12 @@ export async function optimizeWeights(
           ? `${axis.startType} pos ${axis.pos}`
           : `${axis.startType}.${axis.bucket} pos ${axis.pos}`;
         onProgress?.({
-          pass: SA_STEPS + pass,
-          maxPasses: SA_STEPS + MAX_PASSES,
+          pass: saSteps + pass,
+          maxPasses: saSteps + maxPasses,
           currentMAE: bestMAE,
           bestMAE,
           step: curveStep,
-          message: `CD pass ${pass}/${MAX_PASSES} · curves (${label}) · step=${curveStep.toFixed(3)} · MRR=${(-bestMAE).toFixed(4)}`,
+          message: `CD pass ${pass}/${maxPasses} · curves (${label}) · step=${curveStep.toFixed(3)} · MRR=${(-bestMAE).toFixed(4)}`,
         });
       }
     }

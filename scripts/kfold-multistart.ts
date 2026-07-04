@@ -1,47 +1,38 @@
 /**
- * Multi-start K-fold CV optimizer.
- * Runs coordinate descent from multiple starting points to escape local optima.
+ * Multi-start honest K-fold CV optimizer.
+ *
+ * Protocol (see docs/superpowers/specs/2026-07-03-honest-kfold-calibration-design.md):
+ *   1. Chronological holdout: the most recent ~20% of dates are reserved and never
+ *      touched during optimization or start selection.
+ *   2. Date-level K-fold CV on the training window: each start is optimized on
+ *      fold.train (SA + coordinate descent, L2-regularized) and scored on fold.test.
+ *      Starts are ranked by mean OUT-OF-FOLD MRR — data the optimizer never saw.
+ *   3. The winning start is refit on the full training window.
+ *   4. Refit weights and reference baselines are evaluated on the holdout — the
+ *      honest number for "how will this do next Saturday".
+ *
+ * The previous version optimized the average of test-fold scores directly (fold.train
+ * was unused), which is equivalent to in-sample optimization on the whole dataset.
  *
  * Usage:
- *   npx tsx scripts/kfold-multistart.ts [dataset.json]
+ *   npx tsx scripts/kfold-multistart.ts [dataset.json] [options]
+ *     --k <n>          folds (default 4)
+ *     --sa <n>         SA steps per fold-optimization (default 300; refit uses 2x)
+ *     --passes <n>     max CD passes per fold-optimization (default 8; refit uses 12)
+ *     --curves         also tune post-position curves (default off — slower)
+ *     --holdout <f>    holdout fraction of dates (default 0.2, min 6 dates)
+ *     --baseline <f>   JSON file with a NormalizationWeights object to evaluate on
+ *                      the holdout for comparison (e.g. current production weights)
+ *     --list-starts    print start names and exit
  */
 
+import * as fs from 'fs';
 import { DEFAULT_WEIGHTS, NormalizationWeights } from '../src/services/modernKm/types';
 import { WEIGHT_PRESETS } from '../src/services/modernKm/presetWeights';
-import { CalibrationDataset, evaluateWeights } from '../src/services/calibration/historicalCalibrationService';
+import { evaluateWeights } from '../src/services/calibration/historicalCalibrationService';
+import { chronologicalHoldout, createDateFolds } from '../src/services/calibration/datasetSplits';
+import { optimizeWeights } from '../src/services/calibration/weightOptimizer';
 import { loadDataset } from './cli-common';
-
-interface FoldSplit { train: CalibrationDataset; test: CalibrationDataset }
-
-function createFolds(dataset: CalibrationDataset, k: number): FoldSplit[] {
-  const indices = dataset.map((_, i) => i);
-  let seed = 42;
-  for (let i = indices.length - 1; i > 0; i--) {
-    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-    const j = seed % (i + 1);
-    [indices[i], indices[j]] = [indices[j], indices[i]];
-  }
-  const foldSize = Math.ceil(dataset.length / k);
-  const folds: FoldSplit[] = [];
-  for (let f = 0; f < k; f++) {
-    const testIndices = new Set(indices.slice(f * foldSize, (f + 1) * foldSize));
-    folds.push({
-      train: dataset.filter((_, i) => !testIndices.has(i)),
-      test: dataset.filter((_, i) => testIndices.has(i)),
-    });
-  }
-  return folds;
-}
-
-async function kfoldMRR(folds: FoldSplit[], weights: NormalizationWeights): Promise<{ mrr: number; win: number }> {
-  let mrrSum = 0, winSum = 0;
-  for (const fold of folds) {
-    const r = await evaluateWeights(fold.test, weights);
-    mrrSum += r.winnerMRR;
-    winSum += r.winAccuracy;
-  }
-  return { mrr: mrrSum / folds.length, win: winSum / folds.length };
-}
 
 const WEIGHT_KEYS: (keyof NormalizationWeights)[] = [
   'postPosition', 'shoeType', 'sulkyType',
@@ -52,64 +43,35 @@ const WEIGHT_KEYS: (keyof NormalizationWeights)[] = [
   'earningsPerStart', 'gallopRisk', 'layoffPenalty',
   'ageFactor', 'genderAdjustment', 'consistencyFactor',
   'trainerPerformance', 'oddsHistorical', 'oddsLive',
+  'betDistribution', 'shoeChange',
 ];
 
-const BOUNDS: [number, number] = [0.0, 5.0];
-
-function clamp(v: number): number { return Math.max(BOUNDS[0], Math.min(BOUNDS[1], v)); }
+function clamp01to5(v: number): number { return Math.max(0, Math.min(5, v)); }
 
 /** Randomize weights around a base with given jitter */
 function jitter(base: NormalizationWeights, amount: number, rng: () => number): NormalizationWeights {
   const w = { ...base };
   for (const key of WEIGHT_KEYS) {
-    w[key] = clamp((w[key] ?? 0) + (rng() * 2 - 1) * amount);
+    w[key] = clamp01to5((w[key] ?? 0) + (rng() * 2 - 1) * amount);
   }
   return w;
 }
 
-async function coordinateDescent(
-  folds: FoldSplit[],
-  startWeights: NormalizationWeights,
-  passes: number,
-): Promise<{ weights: NormalizationWeights; mrr: number; win: number }> {
-  let best = { ...startWeights };
-  let bestScore = await kfoldMRR(folds, best);
-  const stepSizes = [0.5, 0.3, 0.2, 0.1, 0.05];
-
-  for (let pass = 0; pass < passes; pass++) {
-    const step = stepSizes[Math.min(pass, stepSizes.length - 1)];
-    let improved = false;
-
-    for (const key of WEIGHT_KEYS) {
-      const up = { ...best, [key]: clamp(best[key] + step) };
-      const down = { ...best, [key]: clamp(best[key] - step) };
-      const [upScore, downScore] = await Promise.all([
-        kfoldMRR(folds, up),
-        kfoldMRR(folds, down),
-      ]);
-
-      if (upScore.mrr > bestScore.mrr && upScore.mrr >= downScore.mrr) {
-        best = up; bestScore = upScore; improved = true;
-      } else if (downScore.mrr > bestScore.mrr) {
-        best = down; bestScore = downScore; improved = true;
-      }
-    }
-
-    if (!improved && step <= stepSizes[stepSizes.length - 1]) break;
-  }
-  return { weights: best, ...bestScore };
+function makeRng(seed: number) {
+  return () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 0x100000000;
+  };
 }
 
 const MULTISTART_PRESET_NAMES = [
   'V37 Experimental — V36 refined (2026-05-08)',
   'V36 Experimental — V32 source-tuned (2026-05-08)',
-  'V35 Experimental — V34 refined (2026-05-07)',
-  'V34 Experimental — R01 curve tuned (2026-05-07)',
   'V20 — Clean Baseline (2026-04-27)',
 ] as const;
 
-// Keep multistart focused. Running every historical quick preset makes hosted
-// calibration painfully slow and mostly retests known-bad starts.
+// Keep multistart focused: fold-level optimization multiplies cost by K, so the
+// start list is shorter than the old (in-sample) version's.
 function buildStarts(): Record<string, NormalizationWeights> {
   const starts: Record<string, NormalizationWeights> = {
     DEFAULT: DEFAULT_WEIGHTS,
@@ -123,79 +85,144 @@ function buildStarts(): Record<string, NormalizationWeights> {
   const v37 = WEIGHT_PRESETS.find(p => p.name.toLowerCase().includes('v37'))?.weights;
   if (v37) {
     starts['V37 jitter 0.5 seed 111'] = jitter(v37, 0.5, makeRng(111));
-    starts['V37 jitter 0.5 seed 222'] = jitter(v37, 0.5, makeRng(222));
     starts['V37 jitter 1.0 seed 333'] = jitter(v37, 1.0, makeRng(333));
   }
 
   return starts;
 }
 
-function makeRng(seed: number) {
-  return () => {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    return seed / 0x100000000;
-  };
+function argValue(flag: string): string | undefined {
+  const i = process.argv.indexOf(flag);
+  return i >= 0 ? process.argv[i + 1] : undefined;
+}
+
+function mean(xs: number[]): number { return xs.reduce((s, x) => s + x, 0) / xs.length; }
+function std(xs: number[]): number {
+  const m = mean(xs);
+  return Math.sqrt(mean(xs.map(x => (x - m) ** 2)));
 }
 
 async function main() {
   if (process.argv.includes('--help') || process.argv.includes('-h')) {
-    console.log('Usage: npx tsx scripts/kfold-multistart.ts [dataset.json]');
-    console.log('       npx tsx scripts/kfold-multistart.ts --list-starts');
-    console.log('');
-    console.log('Runs K-fold coordinate descent from DEFAULT, the curated multistart preset shortlist, and V37 jitter starts.');
+    console.log('Usage: npx tsx scripts/kfold-multistart.ts [dataset.json] [--k 4] [--sa 300] [--passes 8] [--curves] [--holdout 0.2] [--baseline weights.json]');
     return;
   }
-
   if (process.argv.includes('--list-starts')) {
-    const starts = buildStarts();
-    console.log(Object.keys(starts).join('\n'));
+    console.log(Object.keys(buildStarts()).join('\n'));
     return;
   }
 
-  const datasetPath = process.argv[2] || 'calibration-dataset-6mo.json';
+  const positional = process.argv.slice(2).filter((a, i, arr) =>
+    !a.startsWith('--') && !(arr[i - 1]?.startsWith('--') && !['--curves', '--list-starts'].includes(arr[i - 1])));
+  const datasetPath = positional[0] || 'calibration-dataset-6mo.json';
+
+  const K = Number(argValue('--k') ?? 4);
+  const SA_STEPS = Number(argValue('--sa') ?? 300);
+  const PASSES = Number(argValue('--passes') ?? 8);
+  const CURVES = process.argv.includes('--curves');
+  const HOLDOUT_FRAC = Number(argValue('--holdout') ?? 0.2);
+  const baselinePath = argValue('--baseline');
+
   const dataset = loadDataset(datasetPath);
-  const totalRaces = dataset.reduce((s, d) => s + d.races.length, 0);
 
-  const K = 5;
-  const PASSES = 8;
-  const folds = createFolds(dataset, K);
+  const { train: trainWindow, holdout } = chronologicalHoldout(dataset, HOLDOUT_FRAC, 6);
+  const holdoutRaces = holdout.reduce((s, d) => s + d.races.length, 0);
+  const trainRaces = trainWindow.reduce((s, d) => s + d.races.length, 0);
+  console.log(`Training window: ${trainWindow.length} dates / ${trainRaces} races (${trainWindow[0].date} … ${trainWindow[trainWindow.length - 1].date})`);
+  console.log(`Holdout (untouched): ${holdout.length} dates / ${holdoutRaces} races (${holdout[0].date} … ${holdout[holdout.length - 1].date})`);
+  console.log(`Config: K=${K} sa=${SA_STEPS} passes=${PASSES} curves=${CURVES}\n`);
+
+  const folds = createDateFolds(trainWindow, K, 42);
   const starts = buildStarts();
+  const foldOpts = { saSteps: SA_STEPS, maxPasses: PASSES, optimizeCurves: CURVES };
 
-  const results: { name: string; weights: NormalizationWeights; mrr: number; win: number }[] = [];
+  interface StartResult { name: string; oofMRRs: number[]; oofWins: number[]; }
+  const results: StartResult[] = [];
 
+  let startIdx = 0;
   for (const [name, startW] of Object.entries(starts)) {
-    console.log(`\n── ${name} ──`);
-    const r = await coordinateDescent(folds, startW, PASSES);
-    results.push({ name, ...r });
+    console.log(`── ${name} ──`);
+    const oofMRRs: number[] = [];
+    const oofWins: number[] = [];
+    startIdx++;
 
-    const full = await evaluateWeights(dataset, r.weights);
-    console.log(`  → CV-MRR=${r.mrr.toFixed(4)}  CV-Win=${(r.win * 100).toFixed(1)}%  Full-Win=${(full.winAccuracy * 100).toFixed(1)}%`);
+    for (let f = 0; f < folds.length; f++) {
+      const t0 = Date.now();
+      // Deterministic per-(start, fold) seed — identical runs reproduce exactly
+      const opt = await optimizeWeights(folds[f].train, startW, undefined, undefined, undefined,
+        { ...foldOpts, seed: startIdx * 1000 + f });
+      const oof = await evaluateWeights(folds[f].test, opt.optimizedWeights, opt.optimizedCurves);
+      oofMRRs.push(oof.winnerMRR);
+      oofWins.push(oof.winAccuracy);
+      console.log(`  fold ${f + 1}/${K}: OOF-MRR=${oof.winnerMRR.toFixed(4)} OOF-Win=${(oof.winAccuracy * 100).toFixed(1)}% (${((Date.now() - t0) / 1000).toFixed(0)}s)`);
+    }
+
+    results.push({ name, oofMRRs, oofWins });
+    console.log(`  → mean OOF-MRR=${mean(oofMRRs).toFixed(4)} ±${std(oofMRRs).toFixed(4)}  mean OOF-Win=${(mean(oofWins) * 100).toFixed(1)}%\n`);
   }
 
-  // Sort by CV MRR
-  results.sort((a, b) => b.mrr - a.mrr);
+  results.sort((a, b) => mean(b.oofMRRs) - mean(a.oofMRRs));
 
-  console.log('\n\n═══════════════════════════════════════════════════════');
-  console.log('FINAL RANKINGS (by CV-MRR):');
   console.log('═══════════════════════════════════════════════════════');
-
+  console.log('START RANKINGS (by mean out-of-fold MRR):');
   for (const r of results) {
-    const full = await evaluateWeights(dataset, r.weights);
-    console.log(`\n${r.name}:`);
-    console.log(`  CV-Win=${(r.win * 100).toFixed(1)}%  CV-MRR=${r.mrr.toFixed(4)}  Full-Win=${(full.winAccuracy * 100).toFixed(1)}%  Full-MRR=${full.winnerMRR.toFixed(3)}  Top3=${(full.topPickAccuracy * 100).toFixed(1)}%`);
+    console.log(`  ${mean(r.oofMRRs).toFixed(4)} ±${std(r.oofMRRs).toFixed(4)}  win=${(mean(r.oofWins) * 100).toFixed(1)}%  ${r.name}`);
   }
 
-  // Print best weights
-  const best = results[0];
-  console.log(`\n\nBEST: ${best.name}`);
-  console.log('Weights:');
+  // Refit the winning start on the full training window with a bigger budget
+  const bestStart = results[0];
+  console.log(`\nRefitting "${bestStart.name}" on full training window…`);
+  const refit = await optimizeWeights(
+    trainWindow, starts[bestStart.name], undefined, undefined, undefined,
+    { saSteps: SA_STEPS * 2, maxPasses: Math.max(PASSES, 12), optimizeCurves: CURVES, seed: 7 }
+  );
 
-  // Clean up floating point noise
+  // ── Honest final evaluation on the untouched holdout ──
+  console.log('\n═══════════════════════════════════════════════════════');
+  console.log(`HOLDOUT EVALUATION (${holdout.length} dates / ${holdoutRaces} races the optimizer never saw):`);
+
+  const report: Record<string, unknown> = {};
+  const holdoutEval = async (label: string, w: NormalizationWeights, curves?: typeof refit.optimizedCurves) => {
+    const e = await evaluateWeights(holdout, w, curves);
+    console.log(`  ${label.padEnd(24)} MRR=${e.winnerMRR.toFixed(4)}  win=${(e.winAccuracy * 100).toFixed(1)}%  top3=${(e.winnerTop3Accuracy * 100).toFixed(1)}%  rankMAE=${e.rankMAE.toFixed(2)}`);
+    report[label] = e;
+    return e;
+  };
+
+  await holdoutEval('DEFAULT', DEFAULT_WEIGHTS);
+  await holdoutEval(`start: ${bestStart.name}`, starts[bestStart.name]);
+  let baselineE;
+  if (baselinePath) {
+    const baselineW = JSON.parse(fs.readFileSync(baselinePath, 'utf-8')) as NormalizationWeights;
+    baselineE = await holdoutEval('baseline (production)', baselineW);
+  }
+  const refitE = await holdoutEval('REFIT (new weights)', refit.optimizedWeights, refit.optimizedCurves);
+
   const cleanWeights: Record<string, number> = {};
-  for (const key of WEIGHT_KEYS) {
-    cleanWeights[key] = Math.round(best.weights[key] * 1000) / 1000;
-  }
+  for (const key of WEIGHT_KEYS) cleanWeights[key] = Math.round(refit.optimizedWeights[key] * 1000) / 1000;
+
+  console.log('\nREFIT WEIGHTS:');
   console.log(JSON.stringify(cleanWeights, null, 2));
+  if (CURVES) {
+    console.log('\nREFIT CURVES:');
+    console.log(JSON.stringify(refit.optimizedCurves, null, 2));
+  }
+
+  if (baselineE && refitE.winnerMRR <= baselineE.winnerMRR) {
+    console.log('\n⚠ Refit does NOT beat the production baseline on the holdout — keep the baseline weights.');
+  }
+
+  const outPath = `reports/kfold-honest-${new Date().toISOString().split('T')[0]}.json`;
+  fs.writeFileSync(outPath, JSON.stringify({
+    datasetPath, config: { K, SA_STEPS, PASSES, CURVES, HOLDOUT_FRAC },
+    trainWindow: { dates: trainWindow.length, races: trainRaces, from: trainWindow[0].date, to: trainWindow[trainWindow.length - 1].date },
+    holdout: { dates: holdout.length, races: holdoutRaces, from: holdout[0].date, to: holdout[holdout.length - 1].date },
+    startRankings: results.map(r => ({ name: r.name, meanOofMRR: mean(r.oofMRRs), stdOofMRR: std(r.oofMRRs), meanOofWin: mean(r.oofWins) })),
+    holdoutEvaluations: report,
+    refitWeights: cleanWeights,
+    refitCurves: CURVES ? refit.optimizedCurves : undefined,
+  }, null, 2));
+  console.log(`\nReport written to ${outPath}`);
   console.log('═══════════════════════════════════════════════════════');
 }
 

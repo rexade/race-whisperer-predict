@@ -30,6 +30,7 @@ import {
 } from '../adjustmentCalculators';
 
 import { calculateDriverAdjustment, calculateTrainerAdjustment } from '../driverCalculators';
+import { calculateShoeChangeAdjustment } from '../equipmentCalculators';
 
 // ---------------------------------------------------------------------------
 // performanceCalculators
@@ -699,5 +700,44 @@ describe('calculateLayoffAdjustment', () => {
     const d90 = calculateLayoffAdjustment(90);
     expect(d60).toBeGreaterThan(d30);
     expect(d90).toBeGreaterThan(d60);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// equipmentCalculators — shoe change (ATG native changed flags)
+// ---------------------------------------------------------------------------
+
+describe('calculateShoeChangeAdjustment', () => {
+  it('returns 0 when nothing changed', () => {
+    expect(calculateShoeChangeAdjustment('false', 'false', false, false)).toBe(0);
+    expect(calculateShoeChangeAdjustment('true', 'true', undefined, undefined)).toBe(0);
+  });
+
+  it('gives a bonus for switching TO barefoot (front)', () => {
+    expect(calculateShoeChangeAdjustment('false', 'true', true, false)).toBeLessThan(0);
+  });
+
+  it('gives a penalty for switching TO shod (front)', () => {
+    expect(calculateShoeChangeAdjustment('true', 'false', true, false)).toBeGreaterThan(0);
+  });
+
+  it('sums front and back changes', () => {
+    const both = calculateShoeChangeAdjustment('false', 'false', true, true);
+    const frontOnly = calculateShoeChangeAdjustment('false', 'false', true, false);
+    expect(both).toBeCloseTo(frontOnly * 2, 5);
+  });
+
+  it('handles boolean shoe values like the string forms', () => {
+    expect(calculateShoeChangeAdjustment(false, true, true, false))
+      .toBe(calculateShoeChangeAdjustment('false', 'true', true, false));
+  });
+
+  it('ignores changes when shoe state is unknown', () => {
+    expect(calculateShoeChangeAdjustment(undefined, undefined, true, true)).toBe(0);
+    expect(calculateShoeChangeAdjustment('garbage', null, true, true)).toBe(0);
+  });
+
+  it('barefoot switch on both axles lands within sane bounds (≥ −0.4s)', () => {
+    expect(calculateShoeChangeAdjustment('false', 'false', true, true)).toBeGreaterThanOrEqual(-0.4);
   });
 });

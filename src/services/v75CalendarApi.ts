@@ -59,10 +59,19 @@ export interface V75RaceData {
     shoes: {
       front: boolean;
       back: boolean;
+      /** True when the front shoe state differs from the horse's previous start (ATG native flag). */
+      frontChanged?: boolean;
+      backChanged?: boolean;
+      /** False when the stable has not reported shoes for this start. */
+      reported?: boolean;
     };
     sulky: {
       type: string;
     };
+    /** Win (vinnare) odds at fetch time — live pre-race, final for completed games. */
+    liveOdds?: number;
+    /** Game-type bet distribution (spelprocent, e.g. 24.32 = 24.32% of bets). */
+    betDistribution?: number;
     homeTrack: any; // Keep as any for now due to API inconsistency
     birthYear?: number;
     /** Direct age from API (more reliable than birthYear which is often 0). */
@@ -100,10 +109,19 @@ export interface V75HorseData {
   shoes: {
     front: boolean;
     back: boolean;
+    /** True when the front shoe state differs from the horse's previous start (ATG native flag). */
+    frontChanged?: boolean;
+    backChanged?: boolean;
+    /** False when the stable has not reported shoes for this start. */
+    reported?: boolean;
   };
   sulky: {
     type: string;
   };
+  /** Win (vinnare) odds at fetch time — live pre-race, final for completed games. */
+  liveOdds?: number;
+  /** Game-type bet distribution (spelprocent, e.g. 24.32 = 24.32% of bets). */
+  betDistribution?: number;
   homeTrack: any; // Keep as any for now due to API inconsistency
   birthYear?: number;
   /** Direct age from API (more reliable than birthYear which is often 0). */
@@ -265,6 +283,30 @@ export const fetchRaceDataForGame = async (
 
   log.info(`\n🏁 ${gameType} Race Data Fetch Complete: ${v75Races.length}/${gameInfo.raceIds.length} races successfully fetched`);
 
+  // Market signals (vinnare odds, betDistribution) only exist in the game
+  // payload — the per-race endpoint has no pools. One extra fetch per game
+  // enriches every horse; failure is non-fatal (races stay usable without it).
+  try {
+    const gameResp = await fetch(`/api/atg/games/${gameInfo.gameId}`);
+    if (gameResp.ok) {
+      const game = await gameResp.json();
+      for (const gr of game.races ?? []) {
+        const race = v75Races.find(r => r.raceId === gr.id);
+        if (!race) continue;
+        for (const st of gr.starts ?? []) {
+          const horse = race.horses.find(h => h.postPosition === (st.number ?? st.postPosition));
+          if (!horse) continue;
+          const rawOdds = st.pools?.vinnare?.odds;
+          if (typeof rawOdds === 'number' && rawOdds > 0) horse.liveOdds = rawOdds / 100;
+          const marking = Object.values(st.pools ?? {}).find((p: any) => p && typeof p.betDistribution === 'number') as any;
+          if (marking) horse.betDistribution = marking.betDistribution / 100;
+        }
+      }
+    }
+  } catch {
+    log.warn('Game pools fetch failed — liveOdds/betDistribution unavailable for this game');
+  }
+
   return v75Races.sort((a, b) => a.raceNumber - b.raceNumber);
 };
 
@@ -335,21 +377,33 @@ const extractHorseData = (start: any, raceId: string): V75HorseData => {
 
   const shoesData = start.shoes || start.horse?.shoes || {};
 
-  // Handle multiple possible shoes data formats from ATG API
-  let frontShoes = false;
-  let backShoes = false;
+  // Handle multiple possible shoes data formats from ATG API.
+  // Current format nests objects: { reported, front: {hasShoe, changed}, back: {…} }.
+  // Boolean(object) is always true, so the object form MUST be unwrapped via
+  // .hasShoe — the old Boolean() coercion silently marked every horse as shod.
+  const shoeValue = (v: any): boolean | undefined => {
+    if (v === undefined || v === null) return undefined;
+    if (typeof v === 'object') return v.hasShoe !== undefined ? Boolean(v.hasShoe) : undefined;
+    return Boolean(v);
+  };
+  const frontShoes = shoeValue(shoesData.front) ?? shoeValue(shoesData.frontShoes)
+    ?? shoeValue(shoesData.frontShoe) ?? shoeValue(shoesData.f) ?? false;
+  const backShoes = shoeValue(shoesData.back) ?? shoeValue(shoesData.backShoes)
+    ?? shoeValue(shoesData.backShoe) ?? shoeValue(shoesData.b) ?? false;
 
-  // Check various possible property paths for front shoes
-  if (shoesData.front !== undefined) frontShoes = Boolean(shoesData.front);
-  else if (shoesData.frontShoes !== undefined) frontShoes = Boolean(shoesData.frontShoes);
-  else if (shoesData.frontShoe !== undefined) frontShoes = Boolean(shoesData.frontShoe);
-  else if (shoesData.f !== undefined) frontShoes = Boolean(shoesData.f);
+  // Native ATG change flags — true when shoe state differs from previous start
+  const frontChanged = typeof shoesData.front === 'object' ? Boolean(shoesData.front?.changed) : undefined;
+  const backChanged = typeof shoesData.back === 'object' ? Boolean(shoesData.back?.changed) : undefined;
+  const shoesReported = shoesData.reported !== undefined ? Boolean(shoesData.reported) : undefined;
 
-  // Check various possible property paths for back shoes
-  if (shoesData.back !== undefined) backShoes = Boolean(shoesData.back);
-  else if (shoesData.backShoes !== undefined) backShoes = Boolean(shoesData.backShoes);
-  else if (shoesData.backShoe !== undefined) backShoes = Boolean(shoesData.backShoe);
-  else if (shoesData.b !== undefined) backShoes = Boolean(shoesData.b);
+  // Market signals from start-level pools (present live and on completed games).
+  // vinnare odds arrive ×100 (866 = 8.66); betDistribution ×100 (2432 = 24.32%).
+  const rawVinnareOdds = start.pools?.vinnare?.odds;
+  const liveOdds = typeof rawVinnareOdds === 'number' && rawVinnareOdds > 0
+    ? rawVinnareOdds / 100 : undefined;
+  const poolKeys = start.pools ? Object.keys(start.pools) : [];
+  const markingPool = poolKeys.map(k => start.pools[k]).find((p: any) => p && typeof p.betDistribution === 'number');
+  const betDistribution = markingPool ? markingPool.betDistribution / 100 : undefined;
 
   // Sulky extraction
   let sulkyType = 'VA'; // Default to Vanlig (normal)
@@ -388,16 +442,18 @@ const extractHorseData = (start: any, raceId: string): V75HorseData => {
     }
   }
 
-  // Enhanced driver statistics extraction — year-aware (prefer current year)
+  // Enhanced driver statistics extraction — year-aware (prefer current year,
+  // fall back to previous year early in the season when current-year sample is empty)
   const currentYear = String(new Date().getFullYear());
+  const previousYear = String(new Date().getFullYear() - 1);
   const driverStats = start.driver?.statistics || {};
-  const driver2025Stats = start.driver?.statistics?.years?.[currentYear]
-    || start.driver?.statistics?.years?.['2025'] || {};
+  const driverYearStats = start.driver?.statistics?.years?.[currentYear]
+    || start.driver?.statistics?.years?.[previousYear] || {};
 
   // Trainer statistics extraction (same structure as driver)
   const trainerStats = start.trainer?.statistics || {};
-  const trainer2025Stats = start.trainer?.statistics?.years?.[currentYear]
-    || start.trainer?.statistics?.years?.['2025'] || {};
+  const trainerYearStats = start.trainer?.statistics?.years?.[currentYear]
+    || start.trainer?.statistics?.years?.[previousYear] || {};
 
   // Enhanced horse statistics extraction
   const horseLifeStats = start.horse?.statistics?.life || {};
@@ -419,7 +475,7 @@ const extractHorseData = (start: any, raceId: string): V75HorseData => {
       lastName: start.driver?.lastName || '',
       experience: driverStats.experience || 0,
       winPercentage: driverStats.winPercentage || 0,
-      winPercentage2025: driver2025Stats.winPercentage || 0,
+      winPercentage2025: driverYearStats.winPercentage || 0,
     },
     statistics: {
       startPoints: horseLifeStats.startPoints || 500,
@@ -430,10 +486,15 @@ const extractHorseData = (start: any, raceId: string): V75HorseData => {
     shoes: {
       front: frontShoes,
       back: backShoes,
+      frontChanged,
+      backChanged,
+      reported: shoesReported,
     },
     sulky: {
       type: sulkyType,
     },
+    liveOdds,
+    betDistribution,
     homeTrack: start.horse?.homeTrack || start.horse?.track || 'Unknown',
     birthYear: start.horse?.birthYear || start.horse?.birth_year || 0,
     age: start.horse?.age || undefined,
@@ -443,7 +504,7 @@ const extractHorseData = (start: any, raceId: string): V75HorseData => {
       firstName: start.trainer.firstName || '',
       lastName: start.trainer.lastName || '',
       winPercentage: trainerStats.winPercentage || 0,
-      winPercentage2025: trainer2025Stats.winPercentage || 0,
+      winPercentage2025: trainerYearStats.winPercentage || 0,
     } : undefined,
   };
 };

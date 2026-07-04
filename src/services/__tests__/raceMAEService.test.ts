@@ -189,34 +189,34 @@ describe('getAggregateMAEStats', () => {
     for (const k in _maeStore) delete _maeStore[k];
   });
 
-  it('returns null when no MAE results exist', () => {
-    expect(getAggregateMAEStats()).toBeNull();
+  it('returns null when no MAE results exist', async () => {
+    await expect(getAggregateMAEStats()).resolves.toBeNull();
   });
 
-  it('averages mean rank error across all stored races', () => {
+  it('averages mean rank error across all stored races', async () => {
     _maeStore['rA'] = { raceId: 'rA', raceNumber: 1, analysisDate: '2026-04-01', computedAt: '', meanRankError: 1.0, horseCount: 5, horses: [] };
     _maeStore['rB'] = { raceId: 'rB', raceNumber: 2, analysisDate: '2026-04-01', computedAt: '', meanRankError: 3.0, horseCount: 5, horses: [] };
-    const stats = getAggregateMAEStats();
+    const stats = await getAggregateMAEStats();
     expect(stats).not.toBeNull();
     expect(stats!.meanRankError).toBeCloseTo(2.0, 5);
     expect(stats!.raceCount).toBe(2);
   });
 
-  it('returns raceCount 1 for a single race', () => {
+  it('returns raceCount 1 for a single race', async () => {
     _maeStore['rA'] = { raceId: 'rA', raceNumber: 1, analysisDate: '2026-04-01', computedAt: '', meanRankError: 2.5, horseCount: 7, horses: [] };
-    const stats = getAggregateMAEStats();
+    const stats = await getAggregateMAEStats();
     expect(stats!.raceCount).toBe(1);
     expect(stats!.meanRankError).toBe(2.5);
   });
 
-  it('computes winRate = 0 and top3Rate = 0 when no rank-1 pick exists in results', () => {
+  it('computes winRate = 0 and top3Rate = 0 when no rank-1 pick exists in results', async () => {
     _maeStore['rA'] = { raceId: 'rA', raceNumber: 1, analysisDate: '2026-04-01', computedAt: '', meanRankError: 2.0, horseCount: 2, horses: [] };
-    const stats = getAggregateMAEStats();
+    const stats = await getAggregateMAEStats();
     expect(stats!.winRate).toBe(0);
     expect(stats!.top3Rate).toBe(0);
   });
 
-  it('counts winRate = 1.0 when rank-1 pick won every race', () => {
+  it('counts winRate = 1.0 when rank-1 pick won every race', async () => {
     const winner = (raceId: string): import('../v75Cache/types').RaceMAEResult => ({
       raceId, raceNumber: 1, analysisDate: '2026-04-01', computedAt: '', meanRankError: 1.0, horseCount: 3,
       horses: [
@@ -226,12 +226,12 @@ describe('getAggregateMAEStats', () => {
     });
     _maeStore['rA'] = winner('rA');
     _maeStore['rB'] = winner('rB');
-    const stats = getAggregateMAEStats();
+    const stats = await getAggregateMAEStats();
     expect(stats!.winRate).toBe(1.0);
     expect(stats!.top3Rate).toBe(1.0);
   });
 
-  it('counts top3Rate correctly when rank-1 pick places but does not win', () => {
+  it('counts top3Rate correctly when rank-1 pick places but does not win', async () => {
     // race rA: rank-1 pick finished 2nd (top3 = true, win = false)
     // race rB: rank-1 pick finished 5th (top3 = false, win = false)
     _maeStore['rA'] = {
@@ -242,12 +242,12 @@ describe('getAggregateMAEStats', () => {
       raceId: 'rB', raceNumber: 2, analysisDate: '2026-04-01', computedAt: '', meanRankError: 4.0, horseCount: 2,
       horses: [{ horseId: 1, horseName: 'A', predictedRank: 1, actualFinishOrder: 5, rankError: 4 }],
     };
-    const stats = getAggregateMAEStats();
+    const stats = await getAggregateMAEStats();
     expect(stats!.winRate).toBe(0);    // neither won
     expect(stats!.top3Rate).toBe(0.5); // only rA was top-3
   });
 
-  it('mixed: 1 win, 1 top3-but-not-win, 1 miss → winRate 1/3, top3Rate 2/3', () => {
+  it('mixed: 1 win, 1 top3-but-not-win, 1 miss → winRate 1/3, top3Rate 2/3', async () => {
     _maeStore['r1'] = {
       raceId: 'r1', raceNumber: 1, analysisDate: '2026-04-01', computedAt: '', meanRankError: 0, horseCount: 2,
       horses: [{ horseId: 1, horseName: 'A', predictedRank: 1, actualFinishOrder: 1, rankError: 0 }],
@@ -260,7 +260,7 @@ describe('getAggregateMAEStats', () => {
       raceId: 'r3', raceNumber: 3, analysisDate: '2026-04-01', computedAt: '', meanRankError: 6, horseCount: 2,
       horses: [{ horseId: 1, horseName: 'A', predictedRank: 1, actualFinishOrder: 7, rankError: 6 }],
     };
-    const stats = getAggregateMAEStats();
+    const stats = await getAggregateMAEStats();
     expect(stats!.winRate).toBeCloseTo(1 / 3, 5);
     expect(stats!.top3Rate).toBeCloseTo(2 / 3, 5);
   });

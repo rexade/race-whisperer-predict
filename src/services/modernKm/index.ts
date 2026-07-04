@@ -9,7 +9,8 @@ import {
 import { calculatePostPositionAdjustment } from './postPositionCalculator';
 import {
   calculateRobustShoeAdjustment,
-  calculateRobustSulkyAdjustment
+  calculateRobustSulkyAdjustment,
+  calculateShoeChangeAdjustment
 } from './equipmentCalculators';
 import { calculateDriverAdjustment, calculateDriverFormAdjustment, calculateTrainerAdjustment } from './driverCalculators';
 import {
@@ -95,6 +96,8 @@ export const applyModernKmNormalization = (
     trainer:                   0,
     oddsHistorical:            0,
     oddsLive:                  0,
+    betDistribution:           0,
+    shoeChange:                0,
     total:                     0,
   };
 
@@ -207,6 +210,21 @@ export const applyModernKmNormalization = (
     adjustments.oddsLive =
       calculateOddsAdjustment(factors.liveOdds) * (weights.oddsLive ?? 0);
   }
+  // Bet distribution (spelprocent) → implied odds through the same sigmoid.
+  // 25 % of bets ≈ implied odds 4 (favorite bonus); 2 % ≈ odds 50 (penalty).
+  if ((weights.betDistribution ?? 0) > 0 && factors.betDistribution != null && factors.betDistribution > 0) {
+    adjustments.betDistribution =
+      calculateOddsAdjustment(100 / factors.betDistribution) * (weights.betDistribution ?? 0);
+  }
+
+  // STEP 4c: Shoe change — ATG native flag, switch to barefoot = intent signal
+  if ((weights.shoeChange ?? 0) > 0) {
+    adjustments.shoeChange =
+      calculateShoeChangeAdjustment(
+        factors.shoesFront, factors.shoesBack,
+        factors.shoesFrontChanged, factors.shoesBackChanged
+      ) * (weights.shoeChange ?? 0);
+  }
 
   // STEP 5: Total
   adjustments.total = Object.entries(adjustments)
@@ -238,6 +256,8 @@ export const applyModernKmNormalization = (
     ` trainer=${adjustments.trainer.toFixed(3)}` +
     ` oddsHist=${adjustments.oddsHistorical.toFixed(3)}` +
     ` oddsLive=${adjustments.oddsLive.toFixed(3)}` +
+    ` betDist=${adjustments.betDistribution.toFixed(3)}` +
+    ` shoeChg=${adjustments.shoeChange.toFixed(3)}` +
     ` TOTAL=${adjustments.total.toFixed(3)}s`
   );
 
@@ -257,9 +277,12 @@ export const initWeightsFromApi = async (): Promise<{ weights: NormalizationWeig
     const resp = await fetch('/api/weights');
     const data = await resp.json();
     if (data?.weights) {
+      // Backfill weight keys added after the stored config was saved — otherwise
+      // a schema addition would silently reset the user to factory defaults.
+      const merged = { ...DEFAULT_WEIGHTS, ...data.weights } as NormalizationWeights;
       const defaultKeys = Object.keys(DEFAULT_WEIGHTS) as (keyof NormalizationWeights)[];
-      if (defaultKeys.every(key => key in data.weights)) {
-        _cachedWeights = data.weights;
+      if (defaultKeys.every(key => key in merged)) {
+        _cachedWeights = merged;
         return { weights: _cachedWeights, postPositionCurves: data.postPositionCurves };
       }
     }

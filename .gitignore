@@ -30,3 +30,7 @@ calibration-dataset*.7z
 data/
 reports/
 *.readable.txt
+
+# Repo self-archives and local env
+*.zip
+.env

@@ -1,6 +1,10 @@
 /**
  * K-fold cross-validation optimizer.
- * Finds weights that generalize — scores on held-out data so optimizer can't cheat.
+ *
+ * ⚠ DEPRECATED — kfoldMRR() here never uses fold.train: averaging test-fold
+ * scores over all K folds equals scoring on the ENTIRE dataset, so optimization
+ * is in-sample and results are overfit. Use kfold-multistart.ts, which optimizes
+ * on fold.train, scores on fold.test, and reports against a chronological holdout.
  *
  * Usage:
  *   npx tsx scripts/kfold-optimize.ts [dataset.json] [folds=5] [passes=8]

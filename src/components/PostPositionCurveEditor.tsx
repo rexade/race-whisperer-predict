@@ -11,6 +11,7 @@ import { RotateCcw, TrendingUp, TrendingDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 import type { DistanceBucket } from '@/services/modernKm/postPositionCalculator';
+import { DEFAULT_AUTO_CURVE, DEFAULT_VOLTE_CURVE } from '@/services/modernKm/postPositionCalculator';
 
 export interface PostPositionCurves {
   auto: { [position: number]: number };
@@ -326,19 +327,10 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
   );
 };
 
+// V41 default (2026-07-04): the flat calculator curves the V41 weights were
+// calibrated with. Pairing V41 with the V39 bucketed set scored slightly worse
+// on the clean holdout — bucketed curves remain available via presets/editor.
 export const getDefaultPostPositionCurves = (): PostPositionCurves => ({
-  auto: { ...DEFAULT_AUTO_ADJUSTMENTS },
-  volte: { ...DEFAULT_VOLTE_ADJUSTMENTS },
-  byDistance: {
-    auto: {
-      short: { ...DEFAULT_AUTO_BY_DISTANCE.short },
-      medium: { ...DEFAULT_AUTO_BY_DISTANCE.medium },
-      long: { ...DEFAULT_AUTO_BY_DISTANCE.long },
-    },
-    volte: {
-      short: { ...DEFAULT_VOLTE_BY_DISTANCE.short },
-      medium: { ...DEFAULT_VOLTE_BY_DISTANCE.medium },
-      long: { ...DEFAULT_VOLTE_BY_DISTANCE.long },
-    },
-  },
+  auto: { ...DEFAULT_AUTO_CURVE },
+  volte: { ...DEFAULT_VOLTE_CURVE },
 });
