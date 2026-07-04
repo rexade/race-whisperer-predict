@@ -19,6 +19,12 @@ import { HorseRawKmTime } from '@/services/types/kmTimeTypes';
 import { V75CacheService } from '@/services/v75CacheService';
 import { saveCalibrationDataset, loadCalibrationDataset, getCalibrationCacheInfo } from './calibrationDatasetCache';
 import { horseKeyFromRaceHorse, horseKeyFromRawTime, makeHorseKey } from '@/services/horseIdentity';
+import { plackettLuceLogLik } from './plackettLuce';
+
+/** Strength temperature: 0.5 s predicted-time gap ≈ e:1 odds in the PL model. */
+const PL_TAU_SECONDS = 0.5;
+/** Only the first K placings count — deep-field order is noise. */
+const PL_TOP_K = 5;
 
 export interface ActualHorseResult {
   position: number;
@@ -60,6 +66,12 @@ export interface CalibrationEvaluation {
   winnerMRR: number;
   /** Mean absolute error of predicted km time vs actual km time in seconds */
   timeMAE: number | null;
+  /**
+   * Mean per-race Plackett–Luce log-likelihood of the actual finish order
+   * (top-5, strengths from predicted times). Higher (closer to 0) = better.
+   * Uses every placing, not just the winner — smoother optimization signal.
+   */
+  plLogLik: number;
   /** Fraction of predicted top-3 picks that actually placed top-3 */
   topPickAccuracy: number;
   /** Fraction of races where the actual winner was ranked in our predicted top 3 */
@@ -338,6 +350,8 @@ export async function evaluateWeights(
   let winTotal = 0;
   let winnerRankSum = 0;
   let winnerMRRSum = 0;
+  let plLogLikSum = 0;
+  let plRaceCount = 0;
   let winnerTop3Correct = 0;
   let winnerTop5Correct = 0;
   let winnerRacesCount = 0;
@@ -383,6 +397,22 @@ export async function evaluateWeights(
           }
         }
 
+        // Plackett–Luce likelihood of the finish order from predicted times
+        const plEntries: Array<{ position: number; predSeconds: number }> = [];
+        for (const horse of result.horses) {
+          if (horse.modernNormalizedResult?.isEstimated) continue;
+          const actual = race.actualResults.get(horse.horseKey ?? String(horse.horseId));
+          const t = horse.modernNormalizedResult?.modernNormalizedTime;
+          if (actual === undefined || !t) continue;
+          plEntries.push({ position: actual.position, predSeconds: t.minutes * 60 + t.seconds + t.tenths * 0.1 });
+        }
+        if (plEntries.length >= 2) {
+          plEntries.sort((a, b) => a.position - b.position);
+          const strengths = plEntries.map(e => -e.predSeconds / PL_TAU_SECONDS);
+          plLogLikSum += plackettLuceLogLik(strengths, PL_TOP_K);
+          plRaceCount++;
+        }
+
         for (const horse of result.horses) {
           if (horse.modernNormalizedResult?.isEstimated) {
             estimatedHorsesSkipped++;
@@ -419,6 +449,7 @@ export async function evaluateWeights(
     winnerRankMAE:         winnerRacesCount > 0 ? winnerRankSum / winnerRacesCount : 999,
     winnerMRR:             winnerRacesCount > 0 ? winnerMRRSum / winnerRacesCount : 0,
     timeMAE:               timeCount > 0 ? totalTimeDiffS / timeCount : null,
+    plLogLik:              plRaceCount > 0 ? plLogLikSum / plRaceCount : -99,
     topPickAccuracy:       topPicksTotal > 0 ? topPicksCorrect / topPicksTotal : 0,
     winnerTop3Accuracy:    winnerRacesCount > 0 ? winnerTop3Correct / winnerRacesCount : 0,
     winnerTop5Accuracy:    winnerRacesCount > 0 ? winnerTop5Correct / winnerRacesCount : 0,

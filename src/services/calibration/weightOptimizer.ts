@@ -63,14 +63,22 @@ function l2Penalty(w: NormalizationWeights): number {
   return L2_LAMBDA * sum;
 }
 
-/** Regularized score: lower is better (negative MRR + L2 penalty). */
+export type OptimizeObjective = 'mrr' | 'pl';
+
+// Scale mean per-race PL log-lik into the same delta range as MRR so the SA
+// temperature schedule and L2 penalty stay comparable across objectives.
+const PL_SCALE = 0.2;
+
+/** Regularized score: lower is better (negative fit + L2 penalty). */
 async function regScore(
   dataset: CalibrationDataset,
   weights: NormalizationWeights,
-  curves: PostPositionCurves
+  curves: PostPositionCurves,
+  objective: OptimizeObjective = 'mrr'
 ): Promise<number> {
   const eval_ = await evaluateWeights(dataset, weights, curves);
-  return -eval_.winnerMRR + l2Penalty(weights);
+  const fit = objective === 'pl' ? eval_.plLogLik * PL_SCALE : eval_.winnerMRR;
+  return -fit + l2Penalty(weights);
 }
 
 const WEIGHT_KEYS: (keyof NormalizationWeights)[] = [
@@ -114,6 +122,9 @@ export interface OptimizeOptions {
   /** Seed for the SA random walk — same seed + same inputs = same result.
    *  Default undefined: unseeded Math.random (historical behavior). */
   seed?: number;
+  /** Fit target: 'mrr' (winner MRR, historical default) or 'pl'
+   *  (Plackett–Luce top-5 finish-order likelihood — uses every placing). */
+  objective?: OptimizeObjective;
 }
 
 /** Deterministic LCG in [0,1) — for reproducible SA runs. */
@@ -167,10 +178,11 @@ async function runSAPhase(
   curves: PostPositionCurves,
   onProgress?: (p: OptimizationProgress) => void,
   saSteps: number = SA_STEPS,
-  rng: () => number = Math.random
+  rng: () => number = Math.random,
+  objective: OptimizeObjective = 'mrr'
 ): Promise<{ weights: NormalizationWeights; score: number }> {
   let curr = copyWeights(initial);
-  let currScore = await regScore(dataset, curr, curves);
+  let currScore = await regScore(dataset, curr, curves, objective);
   let best = copyWeights(curr);
   let bestScore = currScore;
   let T = SA_T_START;
@@ -188,7 +200,7 @@ async function runSAPhase(
 
     if (Math.abs(candidate[key] - (curr[key] ?? 0)) < 0.001) continue;
 
-    const score = await regScore(dataset, candidate, curves);
+    const score = await regScore(dataset, candidate, curves, objective);
     const diff = score - currScore; // positive = worse
 
     // Accept if better, or probabilistically if worse
@@ -243,6 +255,7 @@ export async function optimizeWeights(
   const saSteps = opts.saSteps ?? SA_STEPS;
   const maxPasses = opts.maxPasses ?? MAX_PASSES;
   const optimizeCurves = opts.optimizeCurves ?? true;
+  const objective = opts.objective ?? 'mrr';
   // Always optimize curves — use provided curves or fall back to the standard defaults.
   const startCurves: PostPositionCurves = initialCurves
     ? copyCurves(initialCurves)
@@ -253,7 +266,7 @@ export async function optimizeWeights(
   // MRR = mean(1/rank_given_to_winner). Range 0–1, higher is better.
   // L2 penalty discourages extreme weights to prevent overfitting.
   // Score = -MRR + λΣw² (lower is better).
-  const initialMAE = await regScore(dataset, initial, startCurves);
+  const initialMAE = await regScore(dataset, initial, startCurves, objective);
 
   // Phase 0: Simulated annealing — explore broadly before refining (skipped when saSteps=0)
   let bestWeights = copyWeights(initial);
@@ -267,7 +280,7 @@ export async function optimizeWeights(
       message: `SA phase: exploring weight space (${saSteps} steps)…`,
     });
     const rng = opts.seed !== undefined ? makeSeededRng(opts.seed) : Math.random;
-    const saResult = await runSAPhase(dataset, copyWeights(initial), startCurves, onProgress, saSteps, rng);
+    const saResult = await runSAPhase(dataset, copyWeights(initial), startCurves, onProgress, saSteps, rng, objective);
     // Start coordinate descent from the best SA solution (or initial if SA didn't improve)
     if (saResult.score < initialMAE) {
       bestWeights = saResult.weights;
@@ -292,7 +305,7 @@ export async function optimizeWeights(
           candidate[key] = clamp(bestWeights[key] + dir, WEIGHT_BOUNDS[0], WEIGHT_BOUNDS[1]);
           if (candidate[key] === bestWeights[key]) continue;
 
-          const score = await regScore(dataset, candidate, bestCurves);
+          const score = await regScore(dataset, candidate, bestCurves, objective);
           if (score < bestMAE) {
             bestMAE = score;
             bestWeights = candidate;
@@ -348,7 +361,7 @@ export async function optimizeWeights(
             candidate.byDistance![axis.startType][axis.bucket][axis.pos] = newVal;
           }
 
-          const score = await regScore(dataset, bestWeights, candidate);
+          const score = await regScore(dataset, bestWeights, candidate, objective);
           if (score < bestMAE) {
             bestMAE = score;
             bestCurves = candidate;
