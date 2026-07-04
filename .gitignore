@@ -34,3 +34,6 @@ reports/
 # Repo self-archives and local env
 *.zip
 .env
+
+# Visual brainstorming sessions
+.superpowers/

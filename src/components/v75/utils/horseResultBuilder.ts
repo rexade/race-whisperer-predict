@@ -131,6 +131,8 @@ export const buildHorseResult = (
     sulkyType: extractedData.sulkyTypeString,
     shoesFront: extractedData.frontShoesBoolean,
     shoesBack: extractedData.backShoesBoolean,
+    shoesFrontChanged: (horse as any).shoes?.frontChanged,
+    shoesBackChanged: (horse as any).shoes?.backChanged,
     homeTrack: extractedData.safeHorseTrack,
     isNotifiee: rawTimeData?.isNotifiee || false,
     dataSource: rawTimeData?.dataSource || 'recent',

@@ -122,6 +122,7 @@ async function main() {
   const CURVES = process.argv.includes('--curves');
   const HOLDOUT_FRAC = Number(argValue('--holdout') ?? 0.2);
   const baselinePath = argValue('--baseline');
+  const OBJECTIVE = (argValue('--objective') ?? 'mrr') as 'mrr' | 'pl';
 
   const dataset = loadDataset(datasetPath);
 
@@ -130,11 +131,11 @@ async function main() {
   const trainRaces = trainWindow.reduce((s, d) => s + d.races.length, 0);
   console.log(`Training window: ${trainWindow.length} dates / ${trainRaces} races (${trainWindow[0].date} … ${trainWindow[trainWindow.length - 1].date})`);
   console.log(`Holdout (untouched): ${holdout.length} dates / ${holdoutRaces} races (${holdout[0].date} … ${holdout[holdout.length - 1].date})`);
-  console.log(`Config: K=${K} sa=${SA_STEPS} passes=${PASSES} curves=${CURVES}\n`);
+  console.log(`Config: K=${K} sa=${SA_STEPS} passes=${PASSES} curves=${CURVES} objective=${OBJECTIVE}\n`);
 
   const folds = createDateFolds(trainWindow, K, 42);
   const starts = buildStarts();
-  const foldOpts = { saSteps: SA_STEPS, maxPasses: PASSES, optimizeCurves: CURVES };
+  const foldOpts = { saSteps: SA_STEPS, maxPasses: PASSES, optimizeCurves: CURVES, objective: OBJECTIVE };
 
   interface StartResult { name: string; oofMRRs: number[]; oofWins: number[]; }
   const results: StartResult[] = [];
@@ -174,7 +175,7 @@ async function main() {
   console.log(`\nRefitting "${bestStart.name}" on full training window…`);
   const refit = await optimizeWeights(
     trainWindow, starts[bestStart.name], undefined, undefined, undefined,
-    { saSteps: SA_STEPS * 2, maxPasses: Math.max(PASSES, 12), optimizeCurves: CURVES, seed: 7 }
+    { saSteps: SA_STEPS * 2, maxPasses: Math.max(PASSES, 12), optimizeCurves: CURVES, seed: 7, objective: OBJECTIVE }
   );
 
   // ── Honest final evaluation on the untouched holdout ──
@@ -212,9 +213,9 @@ async function main() {
     console.log('\n⚠ Refit does NOT beat the production baseline on the holdout — keep the baseline weights.');
   }
 
-  const outPath = `reports/kfold-honest-${new Date().toISOString().split('T')[0]}.json`;
+  const outPath = `reports/kfold-honest-${new Date().toISOString().split('T')[0]}${OBJECTIVE === 'pl' ? '-pl' : ''}.json`;
   fs.writeFileSync(outPath, JSON.stringify({
-    datasetPath, config: { K, SA_STEPS, PASSES, CURVES, HOLDOUT_FRAC },
+    datasetPath, config: { K, SA_STEPS, PASSES, CURVES, HOLDOUT_FRAC, OBJECTIVE },
     trainWindow: { dates: trainWindow.length, races: trainRaces, from: trainWindow[0].date, to: trainWindow[trainWindow.length - 1].date },
     holdout: { dates: holdout.length, races: holdoutRaces, from: holdout[0].date, to: holdout[holdout.length - 1].date },
     startRankings: results.map(r => ({ name: r.name, meanOofMRR: mean(r.oofMRRs), stdOofMRR: std(r.oofMRRs), meanOofWin: mean(r.oofWins) })),

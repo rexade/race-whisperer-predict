@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Medal, ChevronDown, ChevronUp, Zap, Banknote, Award, AlertTriangle, Clock, BarChart2, WifiOff } from "lucide-react";
+import { ChevronDown, ChevronUp, Zap, Banknote, Award, AlertTriangle, Clock, BarChart2, WifiOff } from "lucide-react";
 import { V75HorseResult } from '../hooks/useV75Analysis';
 import { ensureStringForDisplay, formatKmTime, formatEarnings, getShoesDisplay, getShoesColor, getSulkyDisplay } from '../utils/v75DisplayUtils';
 import { V75TimeCalculationDebug } from './V75TimeCalculationDebug';
@@ -13,6 +13,8 @@ import { hasAnyFlag, computeReliabilityScore, type HorseConfidenceFlags } from '
 interface CompactHorseRowProps {
   horse: V75HorseResult;
   rank: number;
+  /** Predicted-time gap to the next-ranked horse (seconds) — winner card confidence bar. */
+  marginToNext?: number;
 }
 
 const uncertainLabel: Record<string, string> = {
@@ -139,26 +141,27 @@ const ReliabilityDot: React.FC<{ score: number; tooltip: string }> = ({ score, t
 
 // ──────────────────────────────────────────────────────────────────────────────
 
-const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
+const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginToNext }) => {
   const [showDebug, setShowDebug] = useState(false);
   const isMobile = useIsMobile();
   const result = horse.modernNormalizedResult!;
   const isTopPerformer = rank <= 3;
+  const isWinnerPick = rank === 1;
   const safeHorseName = ensureStringForDisplay(horse.horseName);
   const safeDriverName = ensureStringForDisplay(horse.driverName);
   const latestKmTime = horse.kmTimeRecords?.length ? getLatestKmTimeDisplay(horse.kmTimeRecords) : null;
 
-  const getRankIcon = (rank: number) => {
-    if (rank === 1) return <Medal className="h-4 w-4 text-warning" />;
-    if (rank === 2) return <Medal className="h-4 w-4 text-muted-foreground" />;
-    if (rank === 3) return <Medal className="h-4 w-4 text-warning/70" />;
-    return null;
-  };
+  // Barefoot ("barfota") is the fast setup; the change flag means it's new for this start
+  const isBarefoot = horse.shoesFront === false || horse.shoesBack === false;
+  const shoesChangedToday = Boolean(horse.shoesFrontChanged || horse.shoesBackChanged);
+
+  // Winner confidence: margin to rank 2, normalized against a 2 s "dominant" gap
+  const marginPct = marginToNext !== undefined ? Math.min(marginToNext / 2, 1) * 100 : undefined;
+  const marginLabel = marginToNext !== undefined ? marginToNext.toFixed(1).replace('.', ',') : undefined;
 
   const getRowStyle = (rank: number) => {
-    if (rank === 1) return "bg-transparent sm:bg-primary/5 sm:border-l-4 border-l-transparent sm:border-l-primary sm:shadow-glow";
-    if (rank <= 3) return "bg-transparent sm:bg-primary/5 sm:border-l-4 border-l-transparent sm:border-l-primary sm:shadow-sm";
-    return "bg-transparent sm:bg-card sm:hover:bg-muted/30";
+    if (rank === 1) return "bg-card border-[1.5px] border-foreground/80 dark:border-primary rounded-xl mx-1 sm:mx-0 shadow-sm";
+    return "bg-transparent hover:bg-muted/30 border-b border-border/70 last:border-b-0";
   };
 
   const confidenceColor =
@@ -185,7 +188,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
   return (
     <>
       <div
-        className={`${getRowStyle(rank)} p-2 sm:p-3 transition-all duration-200 border-b border-border/60 last:border-b-0 ${isMobile ? 'cursor-pointer' : ''}`}
+        className={`${getRowStyle(rank)} p-2 sm:p-3 transition-all duration-200 ${isMobile ? 'cursor-pointer' : ''}`}
         onClick={isMobile ? () => setShowDebug(!showDebug) : undefined}
         onKeyDown={isMobile ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowDebug(!showDebug); } } : undefined}
         role={isMobile ? 'button' : undefined}
@@ -195,26 +198,23 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
       >
         {/* Main content - always visible */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Rank and Start Position */}
-          <div className="flex flex-col items-center gap-1 w-[42px] sm:w-[50px] flex-shrink-0">
-            <div className="flex items-center gap-1">
-              <span className="w-4 h-4 flex items-center justify-center" aria-hidden="true">
-                {getRankIcon(rank)}
-              </span>
-              <Badge
-                className="bg-primary text-primary-foreground font-bold shadow-sm text-xs h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0 tabular-nums"
-                aria-label={`Rank ${rank}`}
-              >
-                {rank}
-              </Badge>
-            </div>
-            <Badge
-              variant="secondary"
-              className="text-xs font-bold h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center p-0 tabular-nums"
-              aria-label={`Post position ${horse.postPosition}`}
+          {/* Program numeral: rank above, spår below */}
+          <div className="flex flex-col items-center w-[44px] flex-shrink-0">
+            <div
+              className={`font-display leading-none ${
+                isWinnerPick
+                  ? 'text-[26px] font-bold text-primary'
+                  : isTopPerformer
+                    ? 'text-xl font-semibold text-foreground/80'
+                    : 'text-xl text-muted-foreground'
+              }`}
+              aria-label={`Rank ${rank}`}
             >
-              {horse.postPosition}
-            </Badge>
+              {rank}
+            </div>
+            <div className="eyebrow num mt-0.5" aria-label={`Post position ${horse.postPosition}`}>
+              Spår {horse.postPosition}
+            </div>
           </div>
 
           {/* Horse Info - Primary column */}
@@ -222,7 +222,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <div className="font-semibold text-sm leading-tight truncate">{safeHorseName}</div>
+                  <div className={`font-display leading-tight truncate ${isWinnerPick ? 'font-bold text-base' : 'font-semibold text-[15px]'}`}>{safeHorseName}</div>
                   {/* History source badge */}
                   {horse.historySource === "local" && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary whitespace-nowrap">Local</span>
@@ -234,8 +234,23 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
                     <span className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground whitespace-nowrap">No data</span>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5 mt-0.5">
+                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                   <div className="text-xs text-muted-foreground leading-tight truncate">{safeDriverName}</div>
+                  {/* Barfota — the fast setup; "idag" when switched for this start */}
+                  {isBarefoot && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success font-semibold whitespace-nowrap cursor-default">
+                          barfota{shoesChangedToday ? ' idag' : ''} ✓
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {shoesChangedToday
+                          ? 'Shoes pulled for this start — a go-fast signal'
+                          : 'Races barefoot (front and/or back)'}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   {/* Confidence indicator */}
                   {horse.confidence !== undefined && (
                     <Tooltip>
@@ -278,7 +293,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
           <div className="flex flex-col gap-1 min-w-0">
             {/* Predicted Time */}
             <div className="text-center">
-              <div className={`font-mono tabular-nums text-base sm:text-lg font-bold ${isTopPerformer ? 'text-primary' : 'text-foreground'} flex items-center justify-center gap-1`}>
+              <div className={`num text-base sm:text-lg font-bold ${isTopPerformer ? 'text-primary' : 'text-foreground'} flex items-center justify-center gap-1`}>
                 {horse.uncertain && (
                   <span className="text-warning" aria-hidden="true">≈</span>
                 )}
@@ -308,13 +323,13 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
             {/* Raw and Best */}
             <div className="flex gap-2 justify-center">
               <div className="text-center">
-                <div className="font-mono tabular-nums text-xs font-medium text-muted-foreground">
+                <div className="num text-xs font-medium text-muted-foreground">
                   {horse.rawKmTime ? formatKmTime(horse.rawKmTime) : '—'}
                 </div>
                 <div className="text-xs text-muted-foreground">Raw</div>
               </div>
               <div className="text-center">
-                <div className="font-mono tabular-nums text-xs font-medium text-muted-foreground">
+                <div className="num text-xs font-medium text-muted-foreground">
                   {horse.bestRecordTime ? formatKmTime(horse.bestRecordTime) : '—'}
                 </div>
                 <div className="text-xs text-muted-foreground">Best</div>
@@ -405,6 +420,22 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank }) => {
             </Tooltip>
           </div>
         </div>
+
+        {/* Winner card: margin-to-next confidence strip */}
+        {isWinnerPick && marginPct !== undefined && (
+          <div className="-mx-2 sm:-mx-3 -mb-2 sm:-mb-3 mt-2 rounded-b-xl overflow-hidden">
+            <div className="h-1.5 bg-muted" role="img" aria-label={`Margin to next horse: ${marginLabel} seconds`}>
+              <div className="h-full bg-primary transition-all" style={{ width: `${Math.max(marginPct, 4)}%` }} />
+            </div>
+            <div className="flex items-center justify-between px-3 py-1.5 bg-muted/40">
+              <span className="eyebrow">Marginal +{marginLabel}s</span>
+              <span className="eyebrow">
+                {marginToNext! >= 0.8 ? 'Spikkandidat' : marginToNext! >= 0.3 ? 'Klar favorit' : 'Jämnt lopp — gardera'}
+              </span>
+              <span className="eyebrow" aria-hidden="true">{showDebug ? '▲ detaljer' : '▼ detaljer'}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {showDebug && (
