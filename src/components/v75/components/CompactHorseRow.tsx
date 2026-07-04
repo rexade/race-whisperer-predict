@@ -15,6 +15,8 @@ interface CompactHorseRowProps {
   rank: number;
   /** Predicted-time gap to the next-ranked horse (seconds) — winner card confidence bar. */
   marginToNext?: number;
+  /** Model ranks this horse well above its betting support — highlight as value. */
+  isValuePick?: boolean;
 }
 
 const uncertainLabel: Record<string, string> = {
@@ -141,7 +143,7 @@ const ReliabilityDot: React.FC<{ score: number; tooltip: string }> = ({ score, t
 
 // ──────────────────────────────────────────────────────────────────────────────
 
-const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginToNext }) => {
+const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginToNext, isValuePick }) => {
   const [showDebug, setShowDebug] = useState(false);
   const isMobile = useIsMobile();
   const result = horse.modernNormalizedResult!;
@@ -223,6 +225,19 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
                   <div className={`font-display leading-tight truncate ${isWinnerPick ? 'font-bold text-base' : 'font-semibold text-[15px]'}`}>{safeHorseName}</div>
+                  {/* Value pick: model ranks this horse well above its betting support */}
+                  {isValuePick && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/15 text-success font-bold whitespace-nowrap cursor-default">
+                          VÄRDE
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        The model ranks this horse well above its betting support ({horse.betDistribution?.toFixed(1)}% of bets) — a potential value play
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   {/* History source badge */}
                   {horse.historySource === "local" && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary whitespace-nowrap">Local</span>
@@ -335,6 +350,15 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
                 <div className="text-xs text-muted-foreground">Best</div>
               </div>
             </div>
+
+            {/* Market line — the numbers a bettor cross-checks against */}
+            {(horse.liveOdds !== undefined || horse.betDistribution !== undefined) && (
+              <div className="num text-[11px] text-muted-foreground text-center whitespace-nowrap">
+                {horse.liveOdds !== undefined && <>odds <span className="font-semibold text-foreground/80">{horse.liveOdds.toFixed(2)}</span></>}
+                {horse.liveOdds !== undefined && horse.betDistribution !== undefined && ' · '}
+                {horse.betDistribution !== undefined && <>spel <span className="font-semibold text-foreground/80">{horse.betDistribution.toFixed(0)}%</span></>}
+              </div>
+            )}
           </div>
         </div>
 

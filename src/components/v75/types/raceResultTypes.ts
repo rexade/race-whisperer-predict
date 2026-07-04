@@ -33,6 +33,10 @@ export interface V75HorseResult {
   /** ATG native flag: shoe state differs from the horse's previous start. */
   shoesFrontChanged?: boolean;
   shoesBackChanged?: boolean;
+  /** Win (vinnare) odds at analysis time — live pre-race, final for completed games. */
+  liveOdds?: number;
+  /** Game-type bet distribution (spelprocent, e.g. 24.32 = 24.32 % of bets). */
+  betDistribution?: number;
   homeTrack?: string;
   finalScore?: number;
   rank?: number;

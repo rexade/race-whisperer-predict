@@ -133,6 +133,8 @@ export const buildHorseResult = (
     shoesBack: extractedData.backShoesBoolean,
     shoesFrontChanged: (horse as any).shoes?.frontChanged,
     shoesBackChanged: (horse as any).shoes?.backChanged,
+    liveOdds: (horse as any).liveOdds,
+    betDistribution: (horse as any).betDistribution,
     homeTrack: extractedData.safeHorseTrack,
     isNotifiee: rawTimeData?.isNotifiee || false,
     dataSource: rawTimeData?.dataSource || 'recent',
