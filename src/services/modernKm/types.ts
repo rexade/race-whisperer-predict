@@ -132,33 +132,35 @@ export interface NormalizationWeights {
   shoeChange?: number;
 }
 
-// V39 default (2026-05-10) — V35 multi-start winner with bucketed-curve final pass.
-// MRR 0.505 → 0.576, Win 42.3%, WTop3 65.7%, WTop5 78.8%, TopPickTop3 45.7%, Passes 14.
-// Distance-bucketed curves are baked into getDefaultPostPositionCurves() too.
+// V41 default (2026-07-04) — first config from the honest CLI pipeline on the
+// full 18-month/1950-race dataset. HONEST holdout (402 unseen races):
+// Win 36.6%, WTop3 68.9%, MRR 0.561; truly-clean post-May-9 sample: Win 37.3%.
+// Pairs with the FLAT curves in getDefaultPostPositionCurves() (tuned together).
+// Full preset incl. provenance in presetWeights.ts; report in reports/kfold-honest-2026-07-04.json.
 export const DEFAULT_WEIGHTS: NormalizationWeights = {
-  postPosition: 2.430,
+  postPosition: 0.908,
   shoeType: 0.000,
-  sulkyType: 1.214,
-  driverPerformance: 4.233,
-  driverForm: 0.000,
-  driverEmpirical: 4.585,
-  trackFamiliarity: 0.000,
-  form: 2.045,
+  sulkyType: 0.300,
+  driverPerformance: 0.733,
+  driverForm: 0.200,
+  driverEmpirical: 3.194,
+  trackFamiliarity: 0.100,
+  form: 1.406,
   distanceAdjustment: 0.000,
-  raceDistanceAdjustment: 1.139,
-  volteStartDistancePenalty: 0.000,
-  startPoints: 2.462,
-  placePercentage: 0.149,
-  horseWinPercentage: 1.170,
-  earningsPerStart: 1.010,
-  gallopRisk: 0.083,
-  layoffPenalty: 4.070,
+  raceDistanceAdjustment: 1.556,
+  volteStartDistancePenalty: 0.800,
+  startPoints: 1.427,
+  placePercentage: 0.533,
+  horseWinPercentage: 1.379,
+  earningsPerStart: 2.075,
+  gallopRisk: 0.000,
+  layoffPenalty: 0.766,
   ageFactor: 0.000,
-  genderAdjustment: 0.542,
-  consistencyFactor: 0.000,
-  trainerPerformance: 1.954,
-  oddsHistorical: 0.000,
-  oddsLive: 0.000,
-  betDistribution: 0.000,
-  shoeChange: 0.000,
+  genderAdjustment: 1.250,
+  consistencyFactor: 1.348,
+  trainerPerformance: 2.059,
+  oddsHistorical: 0.134,
+  oddsLive: 0.577,
+  betDistribution: 1.052,
+  shoeChange: 1.424,
 };
