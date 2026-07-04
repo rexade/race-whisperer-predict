@@ -22,6 +22,7 @@ export default {
 				sans: ['var(--font-primary)'],
 				primary: ['var(--font-primary)'],
 				secondary: ['var(--font-secondary)'],
+				display: ['var(--font-display)'],
 			},
 			colors: {
 				border: 'hsl(var(--border))',

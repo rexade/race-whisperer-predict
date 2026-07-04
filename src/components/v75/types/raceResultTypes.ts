@@ -28,6 +28,9 @@ export interface V75HorseResult {
   sulkyType?: string;
   shoesFront?: boolean;
   shoesBack?: boolean;
+  /** ATG native flag: shoe state differs from the horse's previous start. */
+  shoesFrontChanged?: boolean;
+  shoesBackChanged?: boolean;
   homeTrack?: string;
   finalScore?: number;
   rank?: number;

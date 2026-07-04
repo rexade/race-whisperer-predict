@@ -29,28 +29,36 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race })
   const analyzedHorses = sortedHorses.length;
   const qualityPercentage = totalHorses > 0 ? Math.round((analyzedHorses / totalHorses) * 100) : 0;
 
+  // Winner margin: predicted-time gap from rank 1 to rank 2 (confidence signal)
+  const toSeconds = (h: typeof sortedHorses[number]) => {
+    const t = h.modernNormalizedResult!.modernNormalizedTime;
+    return t.minutes * 60 + t.seconds + t.tenths / 10;
+  };
+  const winnerMargin = sortedHorses.length >= 2
+    ? toSeconds(sortedHorses[1]) - toSeconds(sortedHorses[0])
+    : undefined;
+
+  const startMethodLabel = race.startMethod?.toLowerCase() === 'volte' ? 'VOLTSTART' : 'AUTOSTART';
+
   return (
     <Card className="border-0 shadow-none bg-transparent">
       <CardHeader className="px-2 py-1 sm:px-4 sm:py-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <CardTitle className="text-foreground font-secondary text-base sm:text-lg flex items-center gap-2">
-            Race {race.raceNumber} <span className="hidden sm:inline">- {race.name}</span>
+        <div className="flex flex-col gap-0.5">
+          <div className="eyebrow">
+            {race.distance} M · {startMethodLabel} · {race.track}
+          </div>
+          <CardTitle className="text-foreground font-display text-lg sm:text-xl flex items-center gap-2 min-w-0">
+            Lopp {race.raceNumber}
+            <span className="hidden sm:inline text-base font-normal text-muted-foreground truncate">— {race.name}</span>
             {qualityPercentage < 80 && (
-              <Badge variant="destructive" className="text-xs">
+              <Badge variant="destructive" className="text-xs font-sans">
                 {qualityPercentage}% analyzed
               </Badge>
             )}
           </CardTitle>
-          <div className="hidden sm:flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-            <span>{race.track}</span>
-            <span>•</span>
-            <span>{race.distance}m</span>
-            <span>•</span>
-            <span>{race.startMethod}</span>
-          </div>
         </div>
       </CardHeader>
-      
+
       <CardContent className="p-0">
         <div className="space-y-1">
           {sortedHorses.map((horse, index) => (
@@ -58,6 +66,7 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race })
               key={horse.horseId}
               horse={horse}
               rank={index + 1}
+              marginToNext={index === 0 ? winnerMargin : undefined}
             />
           ))}
           
