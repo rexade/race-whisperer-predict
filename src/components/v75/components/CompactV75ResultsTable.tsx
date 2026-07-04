@@ -3,25 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { V75RaceResult } from '../hooks/useV75Analysis';
 import CompactHorseRow from './CompactHorseRow';
+import { sortByPrediction, winnerMargin as calcWinnerMargin, valuePickIds } from '../utils/raceRanking';
 
 interface CompactV75ResultsTableProps {
   race: V75RaceResult;
 }
 
 const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race }) => {
-  // Sort horses by normalized time (fastest first)
-  const sortedHorses = race.horses
-    .filter(horse => horse.modernNormalizedResult)
-    .sort((a, b) => {
-      const timeA = a.modernNormalizedResult!.modernNormalizedTime;
-      const timeB = b.modernNormalizedResult!.modernNormalizedTime;
-      
-      const totalSecondsA = timeA.minutes * 60 + timeA.seconds + timeA.tenths / 10;
-      const totalSecondsB = timeB.minutes * 60 + timeB.seconds + timeB.tenths / 10;
-      
-      return totalSecondsA - totalSecondsB;
-    });
-
+  const sortedHorses = sortByPrediction(race.horses);
   const horsesWithoutTimes = race.horses.filter(horse => !horse.modernNormalizedResult);
 
   // Calculate data quality
@@ -29,14 +18,9 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race })
   const analyzedHorses = sortedHorses.length;
   const qualityPercentage = totalHorses > 0 ? Math.round((analyzedHorses / totalHorses) * 100) : 0;
 
-  // Winner margin: predicted-time gap from rank 1 to rank 2 (confidence signal)
-  const toSeconds = (h: typeof sortedHorses[number]) => {
-    const t = h.modernNormalizedResult!.modernNormalizedTime;
-    return t.minutes * 60 + t.seconds + t.tenths / 10;
-  };
-  const winnerMargin = sortedHorses.length >= 2
-    ? toSeconds(sortedHorses[1]) - toSeconds(sortedHorses[0])
-    : undefined;
+  // Winner margin (confidence signal) + market-vs-model value picks
+  const winnerMargin = calcWinnerMargin(sortedHorses);
+  const valuePicks = valuePickIds(sortedHorses);
 
   const startMethodLabel = race.startMethod?.toLowerCase() === 'volte' ? 'VOLTSTART' : 'AUTOSTART';
 
@@ -67,6 +51,7 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race })
               horse={horse}
               rank={index + 1}
               marginToNext={index === 0 ? winnerMargin : undefined}
+              isValuePick={valuePicks.has(horse.horseId)}
             />
           ))}
           
