@@ -2,6 +2,7 @@
 import { NormalizationWeights, applyModernKmNormalization, ModernNormalizationFactors } from '../../../services/modernKm/index';
 import { PostPositionCurves } from '../../../services/modernKm/index';
 import { V75RaceResult } from '../types/raceResultTypes';
+import { RaceScoreCalculator } from './raceScoreCalculator';
 
 export class RaceReanalysisService {
   /**
@@ -19,6 +20,10 @@ export class RaceReanalysisService {
     return v75Results.map(race => {
       if (!race.analysisComplete || race.horses.length === 0) return race;
       
+      const fieldStartPoints = race.horses
+        .map(horse => Number(horse.statistics?.startPoints))
+        .filter(startPoints => Number.isFinite(startPoints) && startPoints > 0);
+
       const updatedHorses = race.horses.map(horse => {
         if (!horse.rawKmTime) return horse;
         
@@ -56,20 +61,25 @@ export class RaceReanalysisService {
           raceYear: race.date ? parseInt(race.date.split('-')[0], 10) : new Date().getFullYear(),
           horseSex: (horse as any).sex || '',
           fieldDriverWinRates,
-          fieldStartPoints: race.horses.map(h => h.statistics?.startPoints || 0).filter(v => v > 0),
+          fieldStartPoints
         };
         
         const modernNormalizedResult = applyModernKmNormalization(horse.rawKmTime, factors, weights, postPositionCurves);
+        const resultWithFlags = modernNormalizedResult as typeof modernNormalizedResult & { isEstimated?: boolean };
+        const predictedTime = resultWithFlags.isEstimated
+          ? undefined
+          : modernNormalizedResult.modernNormalizedTime;
         
         return {
           ...horse,
-          modernNormalizedResult
+          modernNormalizedResult,
+          predictedTime
         };
       });
       
       return {
         ...race,
-        horses: updatedHorses
+        horses: RaceScoreCalculator.calculateScoresAndRanks(updatedHorses)
       };
     });
   }

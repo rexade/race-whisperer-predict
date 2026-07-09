@@ -106,6 +106,24 @@ export const buildHorseResult = (
     horse.driver?.winPercentage2025
   );
 
+  const normalizedTime = finalNormalizedResult?.modernNormalizedTime;
+  const isEstimatedTime = finalNormalizedResult?.isEstimated || false;
+  const predictedTime =
+    normalizedTime &&
+    !isEstimatedTime &&
+    typeof normalizedTime.minutes === 'number' &&
+    typeof normalizedTime.seconds === 'number' &&
+    typeof normalizedTime.tenths === 'number' &&
+    !isNaN(normalizedTime.minutes) &&
+    !isNaN(normalizedTime.seconds) &&
+    !isNaN(normalizedTime.tenths)
+      ? {
+          minutes: normalizedTime.minutes,
+          seconds: normalizedTime.seconds,
+          tenths: normalizedTime.tenths
+        }
+      : undefined;
+
   const horseResult: V75HorseResult = {
     raceNumber: race.raceNumber,
     raceId: race.raceId,
@@ -156,6 +174,7 @@ export const buildHorseResult = (
     confidenceMultiplier: rawTimeData?.confidenceMultiplier,
     // Per-horse sanity flags (annotation only, not used in scoring)
     confidenceFlags,
+    predictedTime
   };
 
   return horseResult;
@@ -171,6 +190,9 @@ export const storeRaceAnalysisData = async (
 ): Promise<void> => {
   try {
     log.debug(`📊 STRICT CACHE STORAGE - Race ${race.raceNumber}:`);
+
+    const toSeconds = (time: { minutes: number; seconds: number; tenths: number }) =>
+      time.minutes * 60 + time.seconds + time.tenths / 10;
 
     const analysisHorses = horses.map(horse => {
       // STRICT: Only use predicted times from actual modern normalization results
@@ -215,14 +237,14 @@ export const storeRaceAnalysisData = async (
         horseId: horse.horseId,
         horseName: horse.horseName,
         postPosition: horse.postPosition,
-        finalScore: horse.modernNormalizedResult?.adjustments?.total || 0,
+        finalScore: validPredictedTime ? toSeconds(validPredictedTime) : 999,
         rank: 0, // Will be set after sorting
         predictedTime: validPredictedTime
       };
     });
 
-    // Sort by final score to determine ranks
-    analysisHorses.sort((a, b) => b.finalScore - a.finalScore);
+    // Sort by final normalized seconds to determine ranks, same as live scoring.
+    analysisHorses.sort((a, b) => a.finalScore - b.finalScore);
     analysisHorses.forEach((horse, index) => {
       horse.rank = index + 1;
     });

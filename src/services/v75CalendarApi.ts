@@ -214,7 +214,7 @@ export const fetchV75GameInfo = async (date: string, gameType: GameType = GAME_T
 const calculateEarningsPerStart = (totalEarnings: number, totalStarts: number): number => {
   if (!totalStarts || totalStarts === 0) return 0;
   if (!totalEarnings || totalEarnings === 0) return 0;
-  return totalEarnings / totalStarts;
+  return Math.round((totalEarnings / totalStarts) * 100);
 };
 
 /**
