@@ -198,8 +198,11 @@ export const applyModernKmNormalization = (
   adjustments.consistencyFactor =
     calculateConsistencyAdjustment(factors.consistencyScore ?? 0) * weights.consistencyFactor;
 
+  const trainerWinPercentage = factors.trainerWinPercentage;
   adjustments.trainer =
-    calculateTrainerAdjustment(factors.trainerWinPercentage ?? 0) * (weights.trainerPerformance ?? 0);
+    trainerWinPercentage !== undefined && Number.isFinite(trainerWinPercentage) && trainerWinPercentage > 0
+      ? calculateTrainerAdjustment(trainerWinPercentage) * (weights.trainerPerformance ?? 0)
+      : 0;
 
   // STEP 4b: Odds-based adjustments
   if ((weights.oddsHistorical ?? 0) > 0 && factors.averageOdds != null) {

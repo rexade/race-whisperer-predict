@@ -24,6 +24,12 @@ export const convertV75ToEnhancedRaceData = (v75Race: V75RaceData): EnhancedRace
       winPercentage: horse.driver.winPercentage,
       winPercentage2025: horse.driver.winPercentage2025
     },
+    trainer: horse.trainer ? {
+      firstName: horse.trainer.firstName,
+      lastName: horse.trainer.lastName,
+      winPercentage: horse.trainer.winPercentage,
+      winPercentage2025: horse.trainer.winPercentage2025
+    } : undefined,
     statistics: {
       startPoints: horse.statistics.startPoints,
       placePercentage: horse.statistics.placePercentage,
@@ -85,6 +91,12 @@ export const convertEnhancedToV75RaceData = (enhancedRace: EnhancedRaceData): V7
         winPercentage: horse.driver.winPercentage,
         winPercentage2025: horse.driver.winPercentage2025
       },
+      trainer: horse.trainer ? {
+        firstName: horse.trainer.firstName,
+        lastName: horse.trainer.lastName,
+        winPercentage: horse.trainer.winPercentage,
+        winPercentage2025: horse.trainer.winPercentage2025
+      } : undefined,
       statistics: {
         startPoints: horse.statistics.startPoints,
         placePercentage: horse.statistics.placePercentage,

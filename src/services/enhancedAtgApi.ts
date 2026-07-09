@@ -28,6 +28,12 @@ export interface EnhancedHorseData {
     winPercentage2025: number;
     experience: number;
   };
+  trainer?: {
+    firstName: string;
+    lastName: string;
+    winPercentage: number;
+    winPercentage2025: number;
+  };
   rawTime?: number;
 }
 
