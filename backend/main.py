@@ -670,6 +670,17 @@ async def atg_proxy(path: str, request: Request):
 # SPA fallback — serve dist/
 # ---------------------------------------------------------------------------
 
+def _resolve_within(base: Path, request_path: str):
+    """Resolve request_path against base; None unless it lands on a file inside base."""
+    try:
+        candidate = (base / request_path).resolve()
+    except (OSError, ValueError):
+        return None
+    if not candidate.is_relative_to(base.resolve()):
+        return None
+    return candidate if candidate.is_file() else None
+
+
 if DIST_DIR.is_dir():
     # Serve static assets (js, css, images, etc.)
     app.mount("/assets", StaticFiles(directory=DIST_DIR / "assets"), name="assets")
@@ -677,8 +688,8 @@ if DIST_DIR.is_dir():
     @app.get("/{path:path}")
     async def spa_fallback(path: str):
         # Try exact file first
-        file_path = DIST_DIR / path
-        if path and file_path.is_file():
+        file_path = _resolve_within(DIST_DIR, path) if path else None
+        if file_path:
             return FileResponse(file_path)
         # Otherwise serve index.html (SPA routing)
         return FileResponse(DIST_DIR / "index.html")
