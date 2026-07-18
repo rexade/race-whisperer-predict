@@ -64,7 +64,7 @@ export const calculateRawKmTimesForRaceWithId = async (
       }));
       const emergencyRecords = collected.records.filter(record => record.meta?.source !== 'results');
       let records = primaryRecords;
-      let invalidCandidates: Array<{ normalizedTime: { minutes: number; seconds: number; tenths: number }; dropReason?: string; source?: string }> = [];
+      const invalidCandidates: Array<{ normalizedTime: { minutes: number; seconds: number; tenths: number }; dropReason?: string; source?: string }> = [];
       let usingStatisticsFallback = false;
       let usingExtendedFallback = false;
       let perHorseWarning: { type: 'invalid-record'; message: string; reason: string } | undefined;

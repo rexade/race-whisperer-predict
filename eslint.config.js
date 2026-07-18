@@ -24,6 +24,9 @@ export default tseslint.config(
         { allowConstantExport: true },
       ],
       "@typescript-eslint/no-unused-vars": "off",
+      // Long-standing debt (~350 bare `any` in services/workers). Warn so new
+      // code shows up in review without blocking CI; tighten per-directory later.
+      "@typescript-eslint/no-explicit-any": "warn",
     },
   }
 );

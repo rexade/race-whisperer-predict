@@ -28,14 +28,14 @@ const V75Results: React.FC<V75ResultsProps> = ({
   activeTab,
   onTabChange
 }) => {
-  if (races.length === 0) return null;
-
   // Default to first race if no active tab or if overview was set previously
   React.useEffect(() => {
     if ((!activeTab || activeTab === 'overview') && races.length > 0) {
       onTabChange(`race-${races[0].raceNumber}`);
     }
   }, [activeTab, races, onTabChange]);
+
+  if (races.length === 0) return null;
 
   return (
     <DebugErrorBoundary>

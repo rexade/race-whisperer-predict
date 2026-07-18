@@ -25,11 +25,10 @@ jobs:
       - name: Tests
         run: npx vitest run
 
-      # 365 pre-existing errors (mostly no-explicit-any) — non-blocking until
-      # they are cleaned up, then drop continue-on-error to make this a gate.
+      # no-explicit-any is downgraded to warn in eslint.config.js (~350 legacy
+      # anys); every other rule is a hard failure.
       - name: Lint
         run: npx eslint .
-        continue-on-error: true
 
   backend:
     runs-on: ubuntu-latest

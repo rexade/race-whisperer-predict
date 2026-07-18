@@ -39,7 +39,7 @@ export const processHorseKmTimes = async (
   }
 ): Promise<HorseRawKmTime> => {
   let processedTimes: ProcessedKmTime[] = [];
-  let totalRecords = historicalRaces.length;
+  const totalRecords = historicalRaces.length;
   let validRecords = 0;
   let disqualified = 0;
   let galloped = 0;

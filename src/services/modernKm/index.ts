@@ -75,7 +75,7 @@ export const applyModernKmNormalization = (
 ): ModernKmNormalizedResult => {
   log.debug(`[normalization] ${factors.horseName ?? 'Unknown'} — driver ${factors.driverWinPercentage}%, raw ${rawKmTime.minutes}:${String(rawKmTime.seconds).padStart(2,'0')}.${rawKmTime.tenths}, ${factors.raceDistance}m ${factors.startMethod}`);
 
-  let adjustments = {
+  const adjustments = {
     postPosition:              0,
     equipment:                 0,
     driver:                    0,
