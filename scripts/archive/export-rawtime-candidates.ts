@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { loadDataset } from './cli-common';
+import { loadDataset } from '../cli-common';
 
 type Options = {
   datasetPath: string;

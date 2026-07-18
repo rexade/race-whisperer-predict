@@ -14,7 +14,7 @@ import './node-polyfills';
 import * as fs from 'fs';
 import { NormalizationWeights } from '../src/services/modernKm/types';
 import { CalibrationDataset, evaluateWeights } from '../src/services/calibration/historicalCalibrationService';
-import { hydrateDataset } from './cli-common';
+import { hydrateDataset } from '../cli-common';
 
 // ── K-fold scoring ──────────────────────────────────────────────────────────
 

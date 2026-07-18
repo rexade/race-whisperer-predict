@@ -1,4 +1,4 @@
-import { loadDataset } from './cli-common';
+import { loadDataset } from '../cli-common';
 import { evaluateWeights } from '../src/services/calibration/historicalCalibrationService';
 
 export const weights = {

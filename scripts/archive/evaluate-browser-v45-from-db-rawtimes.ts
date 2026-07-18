@@ -1,4 +1,4 @@
-import { loadDataset } from './cli-common';
+import { loadDataset } from '../cli-common';
 import { evaluateWeights } from '../src/services/calibration/historicalCalibrationService';
 
 const API_BASE = process.env.API_BASE ?? 'http://127.0.0.1:8092';

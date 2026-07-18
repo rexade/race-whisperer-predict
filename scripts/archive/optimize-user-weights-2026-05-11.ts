@@ -1,4 +1,4 @@
-import { loadDataset } from './cli-common';
+import { loadDataset } from '../cli-common';
 import { evaluateWeights } from '../src/services/calibration/historicalCalibrationService';
 import { NormalizationWeights } from '../src/services/modernKm/types';
 import { PostPositionCurves } from '../src/services/modernKm';

@@ -11,7 +11,7 @@ import * as fs from 'fs';
 import { NormalizationWeights } from '../src/services/modernKm/types';
 import { CalibrationDataset, evaluateWeights } from '../src/services/calibration/historicalCalibrationService';
 import { computeDriverRatings, saveDriverRatings, invalidateDriverRatingCache } from '../src/services/calibration/driverRatingService';
-import { hydrateDataset } from './cli-common';
+import { hydrateDataset } from '../cli-common';
 
 interface FoldSplit { train: CalibrationDataset; test: CalibrationDataset }
 

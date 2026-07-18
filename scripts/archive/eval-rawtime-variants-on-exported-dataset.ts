@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { loadDataset } from './cli-common';
+import { loadDataset } from '../cli-common';
 import { evaluateWeights } from '../src/services/calibration/historicalCalibrationService';
 import { collectHorseRecordCandidates, isAggregateRecordSource } from '../src/services/utils/recordsFallback';
 import type { HorseRawKmTime, KmTime, ProcessedKmTime } from '../src/services/types/kmTimeTypes';
