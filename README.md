@@ -1,141 +1,74 @@
 # Race Whisperer Predict
 
-A React + TypeScript + Vite application for V75 race analysis, optimized for both mobile and desktop browsers.
+Predicts Swedish trotting race outcomes (V75/V85/V86/GS75) from ATG racing data. A
+weighted km-time normalization model ranks every horse in a race; weights are tuned
+against historical results with an honest train/holdout calibration pipeline.
 
-## Technologies
+Two parts:
 
-This project is built with:
+- **Frontend** — React 18 + TypeScript + Vite (shadcn-ui, Tailwind). Race analysis UI,
+  results with actual-vs-predicted comparison, calibration panel, weight editor.
+- **Backend** — FastAPI + Postgres (asyncpg). Caches analyses, raw km-times, and MAE
+  results; stores model weights/curves; proxies the ATG API.
 
-- **Vite** - Fast build tool and dev server
-- **TypeScript** - Type-safe JavaScript
-- **React 18** - UI library
-- **shadcn-ui** - Component library
-- **Tailwind CSS** - Utility-first CSS framework
+## Local development
 
-## Local Development
-
-### Prerequisites
-
-- Node.js 18+ (recommended to install via [nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
-- npm or yarn
-
-### Setup
+Prerequisites: Node 20+, and for the backend Python 3.12 + Postgres.
 
 ```sh
-# Step 1: Clone the repository
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory
-cd race-whisperer-predict
-
-# Step 3: Install dependencies
-npm install
-
-# Step 4: Start the development server
-npm run dev
+npm ci
+npm run dev            # frontend on http://localhost:8080
 ```
 
-The app will be available at `http://localhost:8080`
+The dev server proxies `/api/atg/*` straight to ATG's public API, so the app runs
+without the backend. Persistence endpoints (`/api/analysis`, `/api/rawtimes`,
+`/api/weights`, `/api/mae`) need the backend on port 8000:
 
-### Available Scripts
+```sh
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload   # uses DATABASE_URL, see .env.example
+```
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build locally
-- `npm run lint` - Run ESLint
+## Tests and checks
+
+```sh
+npm run test:run                       # vitest (frontend + model unit tests)
+npx tsc -p tsconfig.app.json --noEmit  # type check
+npm run lint                           # eslint (no-explicit-any is warn-only)
+python -m pytest backend -q            # backend tests
+```
+
+CI (`.github/workflows/ci.yml`) runs all four on every push.
+
+## Calibration pipeline
+
+Weight tuning happens offline via `tsx` scripts, not in the browser (the in-app
+optimizer scores in-sample and overfits):
+
+```sh
+npx tsx scripts/collect-dataset.ts     # resumable ATG collector → calibration dataset JSON
+npx tsx scripts/kfold-multistart.ts    # honest k-fold + multistart optimization
+npx tsx scripts/eval-holdout.ts        # compare weight configs on a chronological holdout
+npx tsx scripts/predict.ts             # CLI predictions for a game
+```
+
+Superseded one-off experiments live in `scripts/archive/`. `Kmtime/` holds raw
+sectional-timing source data that `npm run build` bakes into
+`public/kmTimeRecords.json` — keep it, or fresh builds lose sectional times.
+
+## Configuration
+
+See `.env.example`. Notable:
+
+- `DATABASE_URL` — Postgres connection for the backend.
+- `API_TOKEN` — optional shared secret. When set, POST/PUT/DELETE under `/api/*`
+  require the same value in the `X-Api-Token` header (reads stay open). The frontend
+  sends it from `VITE_API_TOKEN` or `localStorage.setItem('apiToken', '...')`.
 
 ## Deployment
 
-This project is configured to deploy on multiple platforms. Choose the one that works best for you:
-
-### Option 1: Vercel (Recommended - Easiest)
-
-Vercel provides the easiest deployment experience with automatic HTTPS and mobile optimization.
-
-1. **Install Vercel CLI** (optional):
-   ```sh
-   npm i -g vercel
-   ```
-
-2. **Deploy**:
-   - **Via CLI**: Run `vercel` in the project directory
-   - **Via GitHub**: 
-     - Push your code to GitHub
-     - Go to [vercel.com](https://vercel.com)
-     - Click "New Project"
-     - Import your GitHub repository
-     - Vercel will auto-detect the Vite configuration
-     - Click "Deploy"
-
-3. **Custom Domain**: Add your domain in Vercel project settings
-
-The `vercel.json` file is already configured with the correct settings.
-
-### Option 2: Netlify
-
-Netlify offers excellent static site hosting with continuous deployment.
-
-1. **Via CLI**:
-   ```sh
-   # Install Netlify CLI
-   npm i -g netlify-cli
-   
-   # Build the project
-   npm run build
-   
-   # Deploy
-   netlify deploy --prod
-   ```
-
-2. **Via GitHub**:
-   - Push your code to GitHub
-   - Go to [netlify.com](https://netlify.com)
-   - Click "Add new site" > "Import an existing project"
-   - Connect your GitHub repository
-   - Build settings are auto-detected from `netlify.toml`
-   - Click "Deploy site"
-
-3. **Custom Domain**: Add your domain in Netlify site settings > Domain management
-
-The `netlify.toml` file is already configured with the correct settings.
-
-### Option 3: GitHub Pages
-
-Free hosting directly from your GitHub repository.
-
-1. **Enable GitHub Pages**:
-   - Go to your repository settings
-   - Navigate to "Pages" section
-   - Select source: "GitHub Actions"
-
-2. **Deploy**:
-   - Push your code to the `main` or `master` branch
-   - The GitHub Actions workflow (`.github/workflows/deploy.yml`) will automatically build and deploy
-   - Your site will be available at: `https://<username>.github.io/<repository-name>`
-
-3. **Update base path** (if needed):
-   - If your repository name is not the root, update `vite.config.ts` to include:
-     ```ts
-     export default defineConfig({
-       base: '/<repository-name>/',
-       // ... rest of config
-     })
-     ```
-
-### Mobile Optimization
-
-This app is already configured for mobile devices with:
-- Responsive viewport meta tags
-- Touch-friendly interface
-- Apple mobile web app support
-- Progressive Web App capabilities (can be enhanced further)
-
-All deployment platforms support mobile access out of the box.
-
-## Building for Production
-
-```sh
-npm run build
-```
-
-The production build will be in the `dist` directory, ready to be deployed to any static hosting service.
+- **Docker** (full app): multi-stage `Dockerfile` builds the frontend and serves it
+  from FastAPI on port 8000 — `docker build -t race-whisperer . && docker run -p 8000:8000 -e DATABASE_URL=... race-whisperer`.
+- **Vercel/Netlify** (frontend only): static build with `/api/atg` rewrites; the
+  persistence endpoints need a separately hosted backend.
