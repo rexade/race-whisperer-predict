@@ -37,3 +37,6 @@ reports/
 
 # Visual brainstorming sessions
 .superpowers/
+
+# Python
+__pycache__/
