@@ -40,3 +40,7 @@ reports/
 
 # Python
 __pycache__/
+
+# Agent working artifacts (pi-pulse / lab loop)
+memory/
+status.json
