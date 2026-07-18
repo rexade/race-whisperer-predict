@@ -13,7 +13,7 @@ export interface EquipmentValidationResult {
 
 export class EquipmentValidator {
   static validateAndCorrectEquipmentData(
-    horseId: number,
+    _horseId: number,
     horseName: string,
     sulkyType: any,
     frontShoes: any,

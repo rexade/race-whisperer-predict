@@ -2,8 +2,7 @@
 // Import the robust calculators
 import {
   calculateRobustShoeAdjustment,
-  calculateRobustSulkyAdjustment,
-  type EquipmentCalculationResult
+  calculateRobustSulkyAdjustment
 } from './robustEquipmentCalculators';
 import { log } from '@/lib/logger';
 

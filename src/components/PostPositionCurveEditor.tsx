@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from 'recharts';
 import { RotateCcw, TrendingUp, TrendingDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -28,82 +27,6 @@ interface PostPositionCurveEditorProps {
   onCurvesChange: (curves: PostPositionCurves) => void;
 }
 
-// Default values from current calculator
-// V39 default (2026-05-10) — calibrated legacy fallback curves.
-// Used when no race distance is known; otherwise byDistance buckets override.
-const DEFAULT_AUTO_ADJUSTMENTS = {
-  1: -0.201,
-  2: 0.014,
-  3: -0.126,
-  4: -0.174,
-  5: 0.019,
-  6: 0.113,
-  7: 0.144,
-  8: 0.272,
-  9: 0.892,
-  10: 0.474,
-  11: 0.602,
-  12: 0.775,
-  13: 0.983,
-  14: 0.601,
-  15: 1.197
-};
-
-const DEFAULT_VOLTE_ADJUSTMENTS = {
-  1: -0.658,
-  2: 0.266,
-  3: 0.014,
-  4: 0.105,
-  5: 0.271,
-  6: 0.286,
-  7: 0.304,
-  8: 0.191,
-  9: 0.672,
-  10: 0.480,
-  11: 0.682,
-  12: 0.892,
-  13: 1.357,
-  14: 0.994,
-  15: 0.799
-};
-
-// V39 distance-bucketed curves — applied automatically when a race distance is known.
-const DEFAULT_AUTO_BY_DISTANCE = {
-  short: {
-    1: -0.201, 2: 0.014, 3: -0.126, 4: -0.174, 5: 0.019, 6: 0.113, 7: 0.194,
-    8: 0.272, 9: 0.892, 10: 0.474, 11: 0.602, 12: 0.775, 13: 0.983, 14: 0.601,
-    15: 1.197,
-  },
-  medium: {
-    1: -0.201, 2: 0.014, 3: -0.126, 4: -0.224, 5: 0.044, 6: 0.113, 7: 0.144,
-    8: 0.272, 9: 0.892, 10: 0.474, 11: 0.602, 12: 0.750, 13: 0.983, 14: 0.601,
-    15: 1.197,
-  },
-  long: {
-    1: -0.201, 2: 0.089, 3: -0.076, 4: -0.174, 5: 0.019, 6: 0.113, 7: 0.044,
-    8: 0.272, 9: 0.892, 10: 0.474, 11: 0.614, 12: 0.775, 13: 0.983, 14: 0.601,
-    15: 1.197,
-  },
-};
-
-const DEFAULT_VOLTE_BY_DISTANCE = {
-  short: {
-    1: -0.658, 2: 0.266, 3: 0.014, 4: 0.105, 5: 0.271, 6: 0.286, 7: 0.304,
-    8: 0.191, 9: 0.672, 10: 0.480, 11: 0.682, 12: 0.892, 13: 1.357, 14: 0.994,
-    15: 0.799,
-  },
-  medium: {
-    1: -0.658, 2: 0.266, 3: 0.014, 4: 0.105, 5: 0.271, 6: 0.286, 7: 0.304,
-    8: 0.191, 9: 0.672, 10: 0.480, 11: 0.682, 12: 0.892, 13: 1.382, 14: 0.994,
-    15: 0.799,
-  },
-  long: {
-    1: -0.658, 2: 0.266, 3: 0.014, 4: 0.105, 5: 0.271, 6: 0.286, 7: 0.304,
-    8: 0.191, 9: 0.672, 10: 0.480, 11: 0.707, 12: 0.892, 13: 1.357, 14: 0.994,
-    15: 0.799,
-  },
-};
-
 export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = ({ 
   curves, 
   onCurvesChange 
@@ -120,20 +43,6 @@ export const PostPositionCurveEditor: React.FC<PostPositionCurveEditorProps> = (
       }
     };
     onCurvesChange(newCurves);
-  };
-
-  const handleDirectValueChange = (startMethod: 'auto' | 'volte', position: number, value: string) => {
-    const numValue = parseFloat(value);
-    if (!isNaN(numValue) && numValue >= -1.0 && numValue <= 2.0) {
-      const newCurves = {
-        ...curves,
-        [startMethod]: {
-          ...curves[startMethod],
-          [position]: numValue
-        }
-      };
-      onCurvesChange(newCurves);
-    }
   };
 
   const resetToDefaults = () => {

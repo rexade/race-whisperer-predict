@@ -302,7 +302,7 @@ export async function optimizeWeights(
       for (const key of WEIGHT_KEYS) {
         for (const dir of [+weightStep, -weightStep]) {
           const candidate = copyWeights(bestWeights);
-          candidate[key] = clamp(bestWeights[key] + dir, WEIGHT_BOUNDS[0], WEIGHT_BOUNDS[1]);
+          candidate[key] = clamp((bestWeights[key] ?? 0) + dir, WEIGHT_BOUNDS[0], WEIGHT_BOUNDS[1]);
           if (candidate[key] === bestWeights[key]) continue;
 
           const score = await regScore(dataset, candidate, bestCurves, objective);

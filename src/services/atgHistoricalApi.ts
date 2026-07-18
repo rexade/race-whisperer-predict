@@ -121,7 +121,6 @@ export interface HistoricalProcessingResult {
 
 /** Locked raw-time policy from ATG truth simulation: recent 3 average inside 90 days, fallback to all prior. */
 const RAW_TIME_RECENT_WINDOW_DAYS = 90;
-const RAW_TIME_AVERAGE_N = 3;
 
 export const processHistoricalRecords = (
   records: ATGHistoricalRecord[],

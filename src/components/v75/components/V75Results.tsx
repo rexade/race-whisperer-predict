@@ -2,7 +2,6 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Trophy } from "lucide-react";
 import V75RaceDetails from "../V75RaceDetails";
 import KupongView from "./KupongView";
@@ -26,7 +25,6 @@ interface V75ResultsProps {
 
 const V75Results: React.FC<V75ResultsProps> = ({
   races,
-  analysisDate,
   activeTab,
   onTabChange
 }) => {

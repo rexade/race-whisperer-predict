@@ -1,5 +1,5 @@
 
-import React, { Component, ReactNode } from 'react';
+import { Component, ReactNode } from 'react';
 import { Button } from "@/components/ui/button";
 
 interface Props {

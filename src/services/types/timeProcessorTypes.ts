@@ -1,5 +1,4 @@
 
-import { ATGHistoricalRace } from '../atgApi';
 import { KmTime, ProcessedKmTime, HorseRawKmTime } from './kmTimeTypes';
 
 // Legacy interfaces for backward compatibility

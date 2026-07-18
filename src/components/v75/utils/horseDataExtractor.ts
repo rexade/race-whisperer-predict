@@ -1,7 +1,6 @@
 
 import { extractHorseNameAsString, extractDriverNameAsString, extractTrackNameAsString } from './dataExtraction';
 import { log } from '@/lib/logger';
-import { IS_DEBUG } from '@/config/game';
 
 export interface ExtractedHorseData {
   safeHorseName: string;

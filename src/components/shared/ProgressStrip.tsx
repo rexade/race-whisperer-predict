@@ -1,5 +1,3 @@
-import React from "react";
-
 type Props = { progress: number; label?: string };
 
 export default function ProgressStrip({ progress, label }: Props) {

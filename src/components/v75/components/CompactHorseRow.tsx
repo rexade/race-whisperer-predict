@@ -172,11 +172,12 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
     : horse.confidence >= 50 ? 'text-warning'
     : 'text-destructive';
 
-  const kmTimeTooltip = latestKmTime
-    ? `Km time data from ${latestKmTime.date}${latestKmTime.raceName ? ` — ${latestKmTime.raceName}` : ''}${horse.kmTimeRecords && horse.kmTimeRecords.length > 1 ? ` (${horse.kmTimeRecords.length} races)` : ''}`
-    : '';
-
   const flags = horse.confidenceFlags;
+
+  const winPercentage = horse.statistics?.winPercentage ?? 0;
+  const driverWinPercentage = horse.driver2025WinPercentage ?? 0;
+  const startPoints = horse.statistics?.startPoints ?? 0;
+  const earningsPerStart = horse.statistics?.earningsPerStart ?? 0;
 
   const relScore = computeReliabilityScore(
     horse.confidenceFlags,
@@ -368,9 +369,9 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
             {/* Horse win % */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center gap-1 cursor-default" aria-label={`Horse win rate: ${horse.statistics?.winPercentage ? (horse.statistics.winPercentage / 100).toFixed(0) : 0}%`}>
-                  <span className={`font-medium tabular-nums ${horse.statistics?.winPercentage > 0 ? 'text-success' : 'text-muted-foreground'}`}>
-                    {horse.statistics?.winPercentage ? (horse.statistics.winPercentage / 100).toFixed(0) + '%' : '—'}
+                <div className="flex items-center gap-1 cursor-default" aria-label={`Horse win rate: ${winPercentage ? (winPercentage / 100).toFixed(0) : 0}%`}>
+                  <span className={`font-medium tabular-nums ${winPercentage > 0 ? 'text-success' : 'text-muted-foreground'}`}>
+                    {winPercentage ? (winPercentage / 100).toFixed(0) + '%' : '—'}
                   </span>
                   <span className="text-muted-foreground">win</span>
                 </div>
@@ -381,10 +382,10 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
             {/* Driver win % */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center gap-1 cursor-default" aria-label={`Driver win rate: ${horse.driver2025WinPercentage ? (horse.driver2025WinPercentage / 100).toFixed(0) : 0}%`}>
+                <div className="flex items-center gap-1 cursor-default" aria-label={`Driver win rate: ${driverWinPercentage ? (driverWinPercentage / 100).toFixed(0) : 0}%`}>
                   <Zap className="h-3 w-3 text-success" aria-hidden="true" />
-                  <span className={`font-medium tabular-nums ${horse.driver2025WinPercentage > 0 ? 'text-success' : 'text-muted-foreground'}`}>
-                    {horse.driver2025WinPercentage ? (horse.driver2025WinPercentage / 100).toFixed(0) + '%' : '—'}
+                  <span className={`font-medium tabular-nums ${driverWinPercentage > 0 ? 'text-success' : 'text-muted-foreground'}`}>
+                    {driverWinPercentage ? (driverWinPercentage / 100).toFixed(0) + '%' : '—'}
                   </span>
                 </div>
               </TooltipTrigger>
@@ -394,10 +395,10 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
             {/* Start Points */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center gap-1 cursor-default" aria-label={`Start points: ${horse.statistics?.startPoints ?? '—'}`}>
+                <div className="flex items-center gap-1 cursor-default" aria-label={`Start points: ${startPoints || '—'}`}>
                   <Award className="h-3 w-3 text-primary" aria-hidden="true" />
-                  <span className={`font-medium tabular-nums ${horse.statistics?.startPoints > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
-                    {horse.statistics?.startPoints ? horse.statistics.startPoints : '—'}
+                  <span className={`font-medium tabular-nums ${startPoints > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
+                    {startPoints ? startPoints : '—'}
                   </span>
                 </div>
               </TooltipTrigger>
@@ -407,10 +408,10 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
             {/* Earnings per start */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center gap-1 cursor-default" aria-label={`Earnings per start: ${horse.statistics?.earningsPerStart > 0 ? formatEarnings(horse.statistics.earningsPerStart) : '—'}`}>
+                <div className="flex items-center gap-1 cursor-default" aria-label={`Earnings per start: ${earningsPerStart > 0 ? formatEarnings(earningsPerStart) : '—'}`}>
                   <Banknote className="h-3 w-3 text-warning" aria-hidden="true" />
-                  <span className={`font-medium tabular-nums ${horse.statistics?.earningsPerStart > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
-                    {horse.statistics?.earningsPerStart > 0 ? formatEarnings(horse.statistics.earningsPerStart) : '—'}
+                  <span className={`font-medium tabular-nums ${earningsPerStart > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
+                    {earningsPerStart > 0 ? formatEarnings(earningsPerStart) : '—'}
                   </span>
                 </div>
               </TooltipTrigger>
@@ -482,7 +483,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
               {latestKmTime.actualDistanceRan != null && typeof latestKmTime.actualDistanceRan === 'number' && (
                 <span><span className="font-medium text-foreground/80">Dist:</span> <span className="tabular-nums">{latestKmTime.actualDistanceRan}m</span></span>
               )}
-              {latestKmTime.slipstreamDistance != null && latestKmTime.slipstreamDistance !== 'N/A' && typeof latestKmTime.slipstreamDistance === 'number' && (
+              {latestKmTime.slipstreamDistance != null && typeof latestKmTime.slipstreamDistance === 'number' && (
                 <span><span className="font-medium text-foreground/80">Slip:</span> <span className="tabular-nums">{latestKmTime.slipstreamDistance}m</span></span>
               )}
             </div>

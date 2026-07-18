@@ -5,7 +5,6 @@ import { WEIGHT_PRESETS } from '@/services/modernKm/presetWeights';
 import {
   fetchHistoricalDates,
   collectCalibrationData,
-  evaluateWeights,
   CalibrationDataset,
   CalibrationEvaluation,
   CollectionProgress,
@@ -278,7 +277,6 @@ export function useCalibration() {
         );
 
         const winRate = result.finalEvaluation.winAccuracy;
-        const mrr = result.finalMAE;
         const isBest = winRate > bestWin;
         runSummary.push({ label, result });
         if (isBest) {

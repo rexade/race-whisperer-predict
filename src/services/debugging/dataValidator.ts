@@ -1,4 +1,3 @@
-import { KmTime } from '../types/kmTimeTypes';
 import { log } from '@/lib/logger';
 
 export interface ValidationResult {

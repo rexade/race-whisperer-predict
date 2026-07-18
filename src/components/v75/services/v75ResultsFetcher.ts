@@ -6,7 +6,6 @@ import { V75ActualResult } from '../types/postRaceAnalysisTypes';
 import { formatKmTime } from '../utils/v75DisplayUtils';
 import { parseActualTime, findBestTime } from '../utils/timeAnalysisUtils';
 import { log } from '@/lib/logger';
-import { IS_DEBUG } from '@/config/game';
 import type { V75GameInfo } from '@/services/v75CalendarApi';
 import { fetchRaceById } from '@/services/raceDataCache';
 import { makeHorseKey } from '@/services/horseIdentity';

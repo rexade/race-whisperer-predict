@@ -37,7 +37,6 @@ export const useV75Analysis = () => {
   const {
     v75Results,
     setV75Results,
-    processRaceResult,
     reanalyzeWithNewWeights
   } = useV75ResultsProcessor();
 

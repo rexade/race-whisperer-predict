@@ -43,7 +43,6 @@ export const processHorseKmTimes = async (
   let validRecords = 0;
   let disqualified = 0;
   let galloped = 0;
-  let missingKmTimes = 0;
 
   // Most recent race date from ALL starts (including galloped/DQ) for layoff calculation
   const lastRaceDate = historicalRaces.length > 0
@@ -231,15 +230,6 @@ export const processHorseKmTimes = async (
     log.warn(`[horseProcessing] ${horseName}: no valid times`);
   }
 
-  // Log validation statistics
-  const validationStats = {
-    totalRecords,
-    validRecords,
-    disqualified,
-    galloped,
-    missingKmTimes,
-    best3TimesUsed: hasBestTime ? Math.min(processedTimes.length, 3) : 0
-  };
   log.debug(`[horseProcessing] ${horseName}: ${processedTimes.length} valid times`);
   if (!hasBestTime) {
     log.warn(`[horseProcessing] ${horseName}: no valid times — ${historicalRaces.length} records, drops:`, dropReasons);

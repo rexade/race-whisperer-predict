@@ -35,9 +35,6 @@ export class RaceResultProcessor {
       // Calculate final scores and ranks for horses
       const horsesWithScores = RaceScoreCalculator.calculateScoresAndRanks(horseResultsWithKmTime);
 
-      // Calculate final scores and ranks for horses
-      const analysisHorses = RaceScoreCalculator.prepareAnalysisData(horsesWithScores);
-
       return {
         raceId: race.raceId,
         raceNumber: race.raceNumber,

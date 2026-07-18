@@ -17,7 +17,7 @@ import { log } from '@/lib/logger';
  */
 const createFallbackKmTime = (
   horse: any,
-  race: any,
+  _race: any,
   extractedData: ExtractedHorseData
 ): KmTime => {
   log.debug(`🎯 Creating fallback KM time for horse ${horse.horseId} (${extractedData.safeHorseName})`);

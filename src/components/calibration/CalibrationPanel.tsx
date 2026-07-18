@@ -35,6 +35,10 @@ const WEIGHT_LABELS: Record<keyof NormalizationWeights, string> = {
   genderAdjustment: 'Gender (mare)',
   consistencyFactor: 'Consistency',
   trainerPerformance: 'Trainer Performance',
+  oddsHistorical: 'Odds (historical)',
+  oddsLive: 'Odds (live)',
+  betDistribution: 'Bet Distribution (spelprocent)',
+  shoeChange: 'Shoe Change',
 };
 
 const MONTHS_OPTIONS = [1, 2, 3, 6];
@@ -485,8 +489,8 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
               </thead>
               <tbody>
                 {(Object.keys(WEIGHT_LABELS) as (keyof NormalizationWeights)[]).map(key => {
-                  const cur = currentWeights[key];
-                  const opt = state.optimizationResult!.optimizedWeights[key];
+                  const cur = currentWeights[key] ?? 0;
+                  const opt = state.optimizationResult!.optimizedWeights[key] ?? 0;
                   const delta = opt - cur;
                   return (
                     <tr key={key} className="border-b border-border/50">

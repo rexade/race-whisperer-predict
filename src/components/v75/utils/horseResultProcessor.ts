@@ -1,6 +1,6 @@
 
 import { V75RaceData } from '../../../services/v75CalendarApi';
-import { KmTime, HorseRawKmTime } from '../../../services/types/kmTimeTypes';
+import { HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 import { NormalizationWeights, PostPositionCurves } from '../../../services/modernKm/index';
 import { V75HorseResult } from '../types/raceResultTypes';
 import { extractTrackNameAsString } from './dataExtraction';

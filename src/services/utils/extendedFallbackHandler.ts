@@ -1,4 +1,4 @@
-import { ResultLikeRecord, StartMethod, Distance } from './recordsFallback';
+import { ResultLikeRecord, StartMethod } from './recordsFallback';
 import { log } from '@/lib/logger';
 
 /**
@@ -250,7 +250,7 @@ export function getExtendedConfidenceMultiplier(records: ResultLikeRecord[]): nu
  * Log extended fallback usage to telemetry
  */
 export function logExtendedFallbackUsage(
-  horseId: number,
+  _horseId: number,
   horseName: string,
   records: ResultLikeRecord[]
 ): void {

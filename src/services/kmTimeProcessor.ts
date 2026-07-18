@@ -1,12 +1,12 @@
 import { ATGStartInfo } from './atgApi';
-import { HorseRawKmTime, KmTime, ProcessedKmTime } from './types/kmTimeTypes';
+import { HorseRawKmTime } from './types/kmTimeTypes';
 import { processHorseKmTimes } from './horseProcessing';
 import { fetchHorseHistoricalData, processHistoricalRecords, ATGHistoricalRecord } from './atgHistoricalApi';
 import { DataValidator } from './debugging/dataValidator';
 import { collectHorseRecordCandidates, distanceCategoryToMeters, getSourceConfidenceMultiplier } from './utils/recordsFallback';
 import { toSeconds, secondsToKmParts } from './utils/robustTimeConversion';
-import { fetchExtendedRaceData, extractRecordsFromExtended, isExtendedFallback, logExtendedFallbackUsage, getExtendedConfidenceMultiplier } from './utils/extendedFallbackHandler';
-import { hasNumericKmTime, isZeroTime } from './utils/kmTimeUtils';
+import { fetchExtendedRaceData, extractRecordsFromExtended, logExtendedFallbackUsage, getExtendedConfidenceMultiplier } from './utils/extendedFallbackHandler';
+import { isZeroTime } from './utils/kmTimeUtils';
 import { makeHorseKey } from './horseIdentity';
 import { log } from '@/lib/logger';
 

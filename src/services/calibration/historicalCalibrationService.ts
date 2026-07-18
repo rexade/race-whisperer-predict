@@ -238,7 +238,7 @@ export async function collectCalibrationData(
               allTimes: (c.allTimes as any) ?? [],
               bestTime: c.bestTime ?? c.rawBestTime ?? c.rawKmTime ?? { minutes: 0, seconds: 0, tenths: 0 },
               rawBestTime: c.rawBestTime ?? c.rawKmTime,
-              bestRecordTime: c.bestRecordTime ?? c.rawKmTime,
+              bestRecordTime: c.bestRecordTime ?? c.rawKmTime ?? { minutes: 0, seconds: 0, tenths: 0 },
               validTimesCount: c.validTimesCount || 3,
               isNotifiee: false,
               dataSource: 'recent' as const,

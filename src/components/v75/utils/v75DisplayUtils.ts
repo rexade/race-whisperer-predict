@@ -1,5 +1,3 @@
-import { KmTime } from '../../../services/types/kmTimeTypes';
-
 // Enhanced safety function to ensure we never render an object as React child
 export const ensureStringForDisplay = (value: any): string => {
   // Removed console logs to reduce noise
