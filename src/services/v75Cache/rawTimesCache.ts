@@ -1,6 +1,7 @@
 
 import { CachedRawTime, CachedV75RawTimes, CacheInfo } from './types';
 import { log } from '@/lib/logger';
+import { apiHeaders } from '../apiClient';
 
 export class RawTimesCache {
 
@@ -50,7 +51,7 @@ export class RawTimesCache {
     try {
       await fetch('/api/rawtimes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           date,
           gameId,
@@ -98,13 +99,13 @@ export class RawTimesCache {
   }
 
   static async clearRawTimes(raceId: string): Promise<void> {
-    const resp = await fetch(`/api/rawtimes/${raceId}`, { method: 'DELETE' });
+    const resp = await fetch(`/api/rawtimes/${raceId}`, { method: 'DELETE', headers: apiHeaders() });
     if (!resp.ok) throw new Error(`Failed to clear raw times for ${raceId}: ${resp.status}`);
     log.debug(`Cleared raw times cache for race ${raceId}`);
   }
 
   static async clearAllCache(): Promise<void> {
-    const resp = await fetch('/api/rawtimes', { method: 'DELETE' });
+    const resp = await fetch('/api/rawtimes', { method: 'DELETE', headers: apiHeaders() });
     if (!resp.ok) throw new Error(`Failed to clear raw times cache: ${resp.status}`);
     log.info(`Cleared all raw times cache entries`);
   }

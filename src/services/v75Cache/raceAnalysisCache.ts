@@ -1,4 +1,5 @@
 import { log } from '@/lib/logger';
+import { apiHeaders } from '../apiClient';
 import { RaceAnalysisData, RaceAnalysisSummary, RaceMAEResult } from './types';
 
 export class RaceAnalysisCache {
@@ -36,7 +37,7 @@ export class RaceAnalysisCache {
 
       await fetch('/api/analysis', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ raceId, raceNumber, analysisDate, horses }),
       });
 
@@ -80,7 +81,7 @@ export class RaceAnalysisCache {
    */
   static async clearRaceAnalysis(raceId: string): Promise<void> {
     try {
-      await fetch(`/api/analysis/${raceId}`, { method: 'DELETE' });
+      await fetch(`/api/analysis/${raceId}`, { method: 'DELETE', headers: apiHeaders() });
       log.debug(`Cleared race analysis for race ${raceId}`);
     } catch (error) {
       log.warn('Error clearing race analysis:', error);
@@ -152,7 +153,7 @@ export class RaceAnalysisCache {
     try {
       await fetch('/api/mae', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(maeResult),
       });
       log.debug(`MAE result stored for race ${maeResult.raceId}: meanRankError=${maeResult.meanRankError.toFixed(2)}`);

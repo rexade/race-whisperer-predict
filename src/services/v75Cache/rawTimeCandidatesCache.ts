@@ -1,5 +1,6 @@
 import { CachedRawTimeCandidates, RawTimeCandidateData } from './types';
 import { log } from '@/lib/logger';
+import { apiHeaders } from '../apiClient';
 
 export class RawTimeCandidatesCache {
   static async fetchUnfilteredCandidates(raceId: string, includeRaw = false): Promise<RawTimeCandidateData | null> {
@@ -26,7 +27,7 @@ export class RawTimeCandidatesCache {
     try {
       await fetch('/api/rawtime-candidates', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           date,
           gameId,
@@ -74,10 +75,10 @@ export class RawTimeCandidatesCache {
   }
 
   static clearCandidates(raceId: string): void {
-    fetch(`/api/rawtime-candidates/${raceId}`, { method: 'DELETE' }).catch(() => {});
+    fetch(`/api/rawtime-candidates/${raceId}`, { method: 'DELETE', headers: apiHeaders() }).catch(() => {});
   }
 
   static clearAllCandidates(): void {
-    fetch('/api/rawtime-candidates', { method: 'DELETE' }).catch(() => {});
+    fetch('/api/rawtime-candidates', { method: 'DELETE', headers: apiHeaders() }).catch(() => {});
   }
 }

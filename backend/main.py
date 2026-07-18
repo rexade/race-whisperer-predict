@@ -1,17 +1,78 @@
 import json
+import os
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import httpx
 from fastapi import FastAPI, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from database import close_pool, get_pool, init_tables
 
 DIST_DIR = Path(__file__).resolve().parent / "dist"
 ATG_BASE = "https://www.atg.se/services/racinginfo/v1/api"
+
+# Optional shared secret. When set, every non-read request under /api/
+# must carry it in the X-Api-Token header. Reads stay open.
+API_TOKEN = os.environ.get("API_TOKEN")
+
+_OPEN_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+def _requires_token(method: str, path: str, configured_token: str | None) -> bool:
+    if not configured_token:
+        return False
+    if method.upper() in _OPEN_METHODS:
+        return False
+    return path.startswith("/api/")
+
+
+# ---------------------------------------------------------------------------
+# Request body models
+# ---------------------------------------------------------------------------
+
+class AnalysisIn(BaseModel):
+    raceId: str
+    raceNumber: int
+    analysisDate: str
+    horses: list[Any]
+
+
+class RawTimesIn(BaseModel):
+    raceId: str
+    raceNumber: int
+    gameId: str
+    date: str
+    rawTimes: list[Any]
+    schemaVersion: int = 6
+
+
+class RawTimeCandidatesIn(BaseModel):
+    raceId: str
+    raceNumber: int
+    gameId: str
+    date: str
+    candidateData: Any
+    schemaVersion: int = 1
+
+
+class MaeIn(BaseModel):
+    raceId: str
+    raceNumber: int
+    analysisDate: str
+    meanRankError: float
+    horseCount: int
+    horses: list[Any]
+
+
+class WeightsIn(BaseModel):
+    weights: dict[str, Any]
+    postPositionCurves: dict[str, Any] | None = None
+    label: str | None = None
 
 
 def _numeric_time(km_time):
@@ -151,6 +212,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+
+@app.middleware("http")
+async def require_api_token(request: Request, call_next):
+    if _requires_token(request.method, request.url.path, API_TOKEN):
+        if request.headers.get("x-api-token") != API_TOKEN:
+            return JSONResponse({"detail": "invalid or missing API token"}, status_code=401)
+    return await call_next(request)
+
 # ---------------------------------------------------------------------------
 # Analysis CRUD
 # ---------------------------------------------------------------------------
@@ -211,8 +280,7 @@ async def get_analysis(race_id: str):
 
 
 @app.post("/api/analysis")
-async def store_analysis(request: Request):
-    body = await request.json()
+async def store_analysis(body: AnalysisIn):
     pool = await get_pool()
     await pool.execute(
         """INSERT INTO race_analysis (race_id, race_number, analysis_date, timestamp, horses)
@@ -223,10 +291,10 @@ async def store_analysis(request: Request):
                timestamp = NOW(),
                horses = EXCLUDED.horses
         """,
-        body["raceId"],
-        body["raceNumber"],
-        body["analysisDate"],
-        json.dumps(body["horses"]),
+        body.raceId,
+        body.raceNumber,
+        body.analysisDate,
+        json.dumps(body.horses),
     )
     return JSONResponse({"ok": True})
 
@@ -281,8 +349,7 @@ async def get_raw_times(race_id: str):
 
 
 @app.post("/api/rawtimes")
-async def store_raw_times(request: Request):
-    body = await request.json()
+async def store_raw_times(body: RawTimesIn):
     pool = await get_pool()
     await pool.execute(
         """INSERT INTO raw_times (race_id, race_number, game_id, race_date, raw_times, schema_version)
@@ -295,12 +362,12 @@ async def store_raw_times(request: Request):
                schema_version = EXCLUDED.schema_version,
                cached_at = NOW()
         """,
-        body["raceId"],
-        body["raceNumber"],
-        body["gameId"],
-        body["date"],
-        json.dumps(body["rawTimes"]),
-        body.get("schemaVersion", 6),
+        body.raceId,
+        body.raceNumber,
+        body.gameId,
+        body.date,
+        json.dumps(body.rawTimes),
+        body.schemaVersion,
     )
     return JSONResponse({"ok": True})
 
@@ -366,8 +433,7 @@ async def get_raw_time_candidates(race_id: str):
 
 
 @app.post("/api/rawtime-candidates")
-async def store_raw_time_candidates(request: Request):
-    body = await request.json()
+async def store_raw_time_candidates(body: RawTimeCandidatesIn):
     pool = await get_pool()
     await pool.execute(
         """INSERT INTO raw_time_candidates
@@ -381,12 +447,12 @@ async def store_raw_time_candidates(request: Request):
                schema_version = EXCLUDED.schema_version,
                cached_at = NOW()
         """,
-        body["raceId"],
-        body["raceNumber"],
-        body["gameId"],
-        body["date"],
-        json.dumps(body["candidateData"]),
-        body.get("schemaVersion", 1),
+        body.raceId,
+        body.raceNumber,
+        body.gameId,
+        body.date,
+        json.dumps(body.candidateData),
+        body.schemaVersion,
     )
     return JSONResponse({"ok": True})
 
@@ -456,8 +522,7 @@ async def get_mae(race_id: str):
 
 
 @app.post("/api/mae")
-async def store_mae(request: Request):
-    body = await request.json()
+async def store_mae(body: MaeIn):
     pool = await get_pool()
     await pool.execute(
         """INSERT INTO race_mae_result
@@ -472,12 +537,12 @@ async def store_mae(request: Request):
                horse_count = EXCLUDED.horse_count,
                horses = EXCLUDED.horses
         """,
-        body["raceId"],
-        body["raceNumber"],
-        body["analysisDate"],
-        body["meanRankError"],
-        body["horseCount"],
-        json.dumps(body["horses"]),
+        body.raceId,
+        body.raceNumber,
+        body.analysisDate,
+        body.meanRankError,
+        body.horseCount,
+        json.dumps(body.horses),
     )
     return JSONResponse({"ok": True})
 
@@ -509,8 +574,7 @@ async def get_weights():
 
 
 @app.put("/api/weights")
-async def save_weights(request: Request):
-    body = await request.json()
+async def save_weights(body: WeightsIn):
     pool = await get_pool()
     async with pool.acquire() as conn:
         async with conn.transaction():
@@ -518,9 +582,9 @@ async def save_weights(request: Request):
             await conn.execute(
                 """INSERT INTO custom_weights (weights, post_position_curves, label, is_active)
                    VALUES ($1::jsonb, $2::jsonb, $3, TRUE)""",
-                json.dumps(body["weights"]),
-                json.dumps(body.get("postPositionCurves")) if body.get("postPositionCurves") else None,
-                body.get("label"),
+                json.dumps(body.weights),
+                json.dumps(body.postPositionCurves) if body.postPositionCurves else None,
+                body.label,
             )
     return JSONResponse({"ok": True})
 

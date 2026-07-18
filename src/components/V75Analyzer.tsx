@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { apiHeaders } from '@/services/apiClient';
 import { Trophy, CalendarIcon, Settings2, Trash2, Play, Download, BarChart2, TrendingUp, Menu } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -103,7 +104,7 @@ const V75Analyzer: React.FC = () => {
     if (!weightsInitRef.current) { weightsInitRef.current = true; return; }
     fetch('/api/weights', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: apiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ weights, postPositionCurves }),
     }).catch(() => {});
   }, [weights, postPositionCurves]);
