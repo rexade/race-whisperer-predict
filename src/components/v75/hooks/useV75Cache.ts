@@ -5,6 +5,7 @@ import { HorseRawKmTime } from '../../../services/types/kmTimeTypes';
 import { log } from '@/lib/logger';
 import { IS_DEBUG } from '@/config/game';
 import { horseKeyFromRaceHorse, horseKeyFromRawTime } from '@/services/horseIdentity';
+import { fromCachedRawTime } from '@/services/v75Cache/rawTimeCacheMapper';
 
 export interface CacheResult {
   rawKmTimes: HorseRawKmTime[];
@@ -31,35 +32,8 @@ export const useV75Cache = () => {
         });
       }
 
-      // Convert cached raw times to expected format with fallback for missing fields.
       // Cache stores un-penalized time so normalization gets base + adjustment (e.g. 1:11.5 + 0.04).
-      const rawKmTimes = cachedRawTimes.rawTimes.map(cached => ({
-        horseKey: cached.horseKey,
-        horseId: cached.horseId,
-        horseName: cached.horseName || `Horse ${cached.horseId}`,
-        allTimes: (cached.allTimes as any) ?? [],
-        bestTime: cached.bestTime ?? cached.rawBestTime ?? cached.rawKmTime ?? { minutes: 0, seconds: 0, tenths: 0 },
-        rawBestTime: cached.rawBestTime ?? cached.rawKmTime,
-        bestRecordTime: cached.bestRecordTime ?? cached.rawKmTime ?? { minutes: 0, seconds: 0, tenths: 0 },
-        validTimesCount: cached.validTimesCount || 3,
-        isNotifiee: false,
-        dataSource: 'recent' as const,
-        oldestRecordDate: cached.updatedAt,
-        newestRecordDate: cached.updatedAt,
-        gallopRate: cached.gallopRate,
-        gallopCount: cached.gallopDates?.length,
-        gallopDates: cached.gallopDates,
-        lastRaceDate: cached.lastRaceDate,
-        consistencyScore: cached.consistencyScore,
-        averageOdds: cached.averageOdds,
-        lastOdds: cached.lastOdds,
-        horseAge: cached.horseAge,
-        dataSourceChain: cached.dataSourceChain,
-        usedStatisticsFallback: cached.usedStatisticsFallback,
-        usedExtendedFallback: cached.usedExtendedFallback,
-        usedInvalidTimeFallback: cached.usedInvalidTimeFallback,
-        confidenceMultiplier: cached.confidenceMultiplier,
-      }));
+      const rawKmTimes = cachedRawTimes.rawTimes.map(fromCachedRawTime);
 
       if (IS_DEBUG) log.debug(`✅ [V75Cache] Converted cached data:`, rawKmTimes.slice(0, 2));
       return { rawKmTimes, wasFromCache: true };
@@ -74,7 +48,7 @@ export const useV75Cache = () => {
         id: horse.horseId,
         name: typeof horse.name === 'string' ? horse.name : String(horse.name)
       },
-      number: horse.postPosition,
+      number: horse.startNumber ?? horse.postPosition,
       postPosition: horse.postPosition,
       distance: horse.distance,
       driver: {
@@ -116,10 +90,16 @@ export const useV75Cache = () => {
         rawKmTime: rawTime.rawBestTime ?? rawTime.bestTime,
         bestRecordTime: rawTime.bestRecordTime,
         validTimesCount: rawTime.validTimesCount,
+        isNotifiee: rawTime.isNotifiee,
+        dataSource: rawTime.dataSource,
+        oldestRecordDate: rawTime.oldestRecordDate,
+        newestRecordDate: rawTime.newestRecordDate,
         gallopRate: rawTime.gallopRate,
+        gallopCount: rawTime.gallopCount,
         lastRaceDate: rawTime.lastRaceDate,
         consistencyScore: rawTime.consistencyScore,
         gallopDates: rawTime.gallopDates,
+        disqualificationCount: rawTime.disqualificationCount,
         averageOdds: rawTime.averageOdds,
         lastOdds: rawTime.lastOdds,
         horseAge: rawTime.horseAge,
@@ -128,6 +108,7 @@ export const useV75Cache = () => {
         usedExtendedFallback: rawTime.usedExtendedFallback,
         usedInvalidTimeFallback: rawTime.usedInvalidTimeFallback,
         confidenceMultiplier: rawTime.confidenceMultiplier,
+        warning: rawTime.warning,
       };
     });
 
@@ -140,13 +121,17 @@ export const useV75Cache = () => {
     }
 
     // Cache the raw times for future use
-    await V75CacheService.storeRawTimes(
-      date,
-      gameInfo.gameId,
-      race.raceId,
-      race.raceNumber,
-      rawTimesForCache
-    );
+    try {
+      await V75CacheService.storeRawTimes(
+        date,
+        gameInfo.gameId,
+        race.raceId,
+        race.raceNumber,
+        rawTimesForCache
+      );
+    } catch (error) {
+      log.warn(`[V75Cache] Failed to cache raw times for race ${race.raceId}; continuing with fresh data`, error);
+    }
 
     return { rawKmTimes, wasFromCache: false };
   };

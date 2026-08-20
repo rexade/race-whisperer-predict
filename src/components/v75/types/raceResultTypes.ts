@@ -11,6 +11,9 @@ export interface V75HorseResult {
   horseKey?: string;
   horseId: number;
   horseName: string;
+  /** Program/start number used for tickets and ATG /start/{n} lookups. */
+  startNumber?: number;
+  /** Physical gate/post position used by the normalization curve. */
   postPosition: number;
   rawKmTime?: any;
   rawTimeData?: HorseRawKmTime;

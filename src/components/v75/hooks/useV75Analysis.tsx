@@ -7,10 +7,15 @@ import { useV75Progress } from './useV75Progress';
 import { useV75Cache } from './useV75Cache';
 import { useV75ResultsProcessor } from './useV75ResultsProcessor';
 import type { V75HorseResult, V75RaceResult } from '../types/raceResultTypes';
-import { GAME_TYPE } from '@/config/game';
+import type { GameType } from '@/config/game';
 import { log } from '@/lib/logger';
 import { V75CacheService } from '@/services/v75CacheService';
 import { useAnalysisWorker } from './useAnalysisWorker';
+import { RaceScoreCalculator } from '../services/raceScoreCalculator';
+import {
+  getDriverRatingsSnapshot,
+  primeDriverRatingsIfMissing,
+} from '@/services/calibration/driverRatingService';
 
 // Re-export types using 'export type'
 export type { V75HorseResult, V75RaceResult };
@@ -49,7 +54,8 @@ export const useV75Analysis = () => {
     date: string,
     gameId: string,
     weights: NormalizationWeights,
-    postPositionCurves?: PostPositionCurves
+    postPositionCurves: PostPositionCurves | undefined,
+    gameType: GameType
   ) => {
     resetProgress();
     startProgress();
@@ -57,7 +63,7 @@ export const useV75Analysis = () => {
 
     try {
       if (races.length === 0) {
-        const errorMsg = `No race data provided for ${GAME_TYPE} analysis`;
+        const errorMsg = `No race data provided for ${gameType} analysis`;
         setErrorState(errorMsg);
         return;
       }
@@ -71,6 +77,10 @@ export const useV75Analysis = () => {
 
       // Start the shared worker
       startWorker();
+
+      // Workers cannot access localStorage or the main thread's module cache.
+      await primeDriverRatingsIfMissing(gameType);
+      const driverRatings = getDriverRatingsSnapshot(gameType);
 
       const results: V75RaceResult[] = [];
 
@@ -106,33 +116,29 @@ export const useV75Analysis = () => {
             rawKmTimes,
             weights,
             analysisDate: date,
-            postPositionCurves
+            postPositionCurves,
+            driverRatings,
+            gameType,
           };
 
           const workerResult = await runWorker(payload) as { raceResult: V75RaceResult };
           const raceResult = workerResult.raceResult;
+          if (!raceResult.analysisComplete) {
+            throw new Error(`Race ${race.raceNumber} could not be analyzed`);
+          }
           results.push(raceResult);
 
           // Cache the analysis result on main thread (after worker completes)
           const cacheDate = date || race.date || new Date().toISOString().split('T')[0];
-          const analysisHorses = raceResult.horses.map(h => ({
-            horseId: h.horseId,
-            horseName: h.horseName,
-            postPosition: h.postPosition,
-            finalScore: h.finalScore ?? 0,
-            rank: h.rank ?? 0,
-            predictedTime: (h.modernNormalizedResult?.modernNormalizedTime && !(h.modernNormalizedResult as any)?.isEstimated)
-              ? h.modernNormalizedResult.modernNormalizedTime
-              : undefined,
-          }));
+          const analysisHorses = RaceScoreCalculator.prepareAnalysisData(raceResult.horses);
 
           V75CacheService.storeRaceAnalysis(
             race.raceId,
             race.raceNumber,
             cacheDate,
             analysisHorses
-          ).catch(() => {
-            // Silently ignore cache storage errors
+          ).catch(cacheError => {
+            log.warn(`Race ${race.raceNumber} analysis cache write failed`, cacheError);
           });
         }
       } finally {
@@ -147,18 +153,18 @@ export const useV75Analysis = () => {
       const totalHorses = results.reduce((sum, race) => sum + race.horses.length, 0);
 
       toast({
-        title: `${GAME_TYPE} Analysis Complete`,
+        title: `${gameType} Analysis Complete`,
         description: `Processed ${successfulRaces}/${results.length} races • ${totalHorses} horses`,
       });
 
     } catch (err) {
-      log.error(`Error during ${GAME_TYPE} analysis:`, err);
+      log.error(`Error during ${gameType} analysis:`, err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
 
-      setErrorState(`${GAME_TYPE} analysis failed: ${errorMessage}`);
+      setErrorState(`${gameType} analysis failed: ${errorMessage}`);
 
       toast({
-        title: `${GAME_TYPE} Analysis Error`,
+        title: `${gameType} Analysis Error`,
         description: "Check console for details.",
         variant: "destructive",
       });

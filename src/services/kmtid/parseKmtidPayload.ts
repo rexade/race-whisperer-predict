@@ -114,7 +114,7 @@ function extractStartAnalytics(start: KmtidStart): KmtidPerStartAnalytics | unde
 }
 
 /**
- * Map parsed kmtid payload to per-(raceId, postPosition) analytics.
+ * Map parsed kmtid payload to per-(raceId, startNumber) analytics.
  */
 export function mapKmtidPayloadToAnalytics(payload: KmtidPayload): Map<string, KmtidPerStartAnalytics> {
   const map = new Map<string, KmtidPerStartAnalytics>();
@@ -124,8 +124,8 @@ export function mapKmtidPayloadToAnalytics(payload: KmtidPayload): Map<string, K
     const raceId = race.id ?? race.raceId ?? '';
     const starts = race.starts ?? [];
     for (const start of starts) {
-      const postPosition = start.number ?? start.postPosition ?? 0;
-      const key = `${raceId}:${postPosition}`;
+      const startNumber = start.number ?? start.postPosition ?? 0;
+      const key = `${raceId}:${startNumber}`;
       const analytics = extractStartAnalytics(start);
       if (analytics) map.set(key, analytics);
     }

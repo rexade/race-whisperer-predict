@@ -6,6 +6,7 @@ import { Trophy } from "lucide-react";
 import V75RaceDetails from "../V75RaceDetails";
 import KupongView from "./KupongView";
 import { sortByPrediction, winnerMargin, legConfidence, LegConfidence } from "../utils/raceRanking";
+import { buildRaceLegs } from "../utils/raceTabs";
 
 import { V75RaceResult } from "../hooks/useV75Analysis";
 import DebugErrorBoundary from "../../DebugErrorBoundary";
@@ -28,12 +29,16 @@ const V75Results: React.FC<V75ResultsProps> = ({
   activeTab,
   onTabChange
 }) => {
-  // Default to first race if no active tab or if overview was set previously
+  const legs = buildRaceLegs(races);
+  const firstTab = legs[0]?.tabValue ?? '';
+  const selectedTab = legs.some(leg => leg.tabValue === activeTab) ? activeTab : firstTab;
+
+  // Keep parent state aligned when the result set changes or contains a stale tab.
   React.useEffect(() => {
-    if ((!activeTab || activeTab === 'overview') && races.length > 0) {
-      onTabChange(`race-${races[0].raceNumber}`);
+    if (firstTab && activeTab !== selectedTab) {
+      onTabChange(selectedTab);
     }
-  }, [activeTab, races, onTabChange]);
+  }, [activeTab, firstTab, onTabChange, selectedTab]);
 
   if (races.length === 0) return null;
 
@@ -52,21 +57,21 @@ const V75Results: React.FC<V75ResultsProps> = ({
           {/* The whole ticket at a glance — tap a leg to open its race */}
           <KupongView races={races} onSelectRace={onTabChange} />
 
-          <Tabs value={activeTab} onValueChange={onTabChange}>
+          <Tabs value={selectedTab} onValueChange={onTabChange}>
             {/* Program-style race strip — horizontally scrollable, editorial underline */}
             <div className="sticky top-[116px] sm:top-[57px] z-10 bg-background border-b border-border mb-4">
               <TabsList className="bg-transparent p-0 gap-4 sm:gap-5 w-full h-12 flex justify-start overflow-x-auto no-scrollbar px-1 rounded-none">
-                {races.map(race => {
+                {legs.map(({ race, legNumber, tabValue }) => {
                   const confidence = legConfidence(winnerMargin(sortByPrediction(race.horses)));
                   return (
                     <TabsTrigger
-                      key={race.raceNumber}
-                      value={`race-${race.raceNumber}`}
-                      aria-label={`Lopp ${race.raceNumber} — ${confidence}`}
-                      title={`Lopp ${race.raceNumber}`}
+                      key={race.raceId}
+                      value={tabValue}
+                      aria-label={`Lopp ${legNumber} — ${confidence}`}
+                      title={`Lopp ${legNumber}`}
                       className="num shrink-0 rounded-none border-b-[3px] border-transparent px-1.5 h-12 text-sm whitespace-nowrap bg-transparent text-muted-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:font-extrabold"
                     >
-                      {activeTab === `race-${race.raceNumber}` ? `Lopp ${race.raceNumber}` : race.raceNumber}
+                      {selectedTab === tabValue ? `Lopp ${legNumber}` : legNumber}
                       <span className={`ml-1 text-[8px] ${DOT_CLASS[confidence]}`} aria-hidden="true">●</span>
                     </TabsTrigger>
                   );
@@ -75,10 +80,10 @@ const V75Results: React.FC<V75ResultsProps> = ({
             </div>
             
             
-            {races.map(race => (
-              <TabsContent key={race.raceNumber} value={`race-${race.raceNumber}`} className="mt-3 sm:mt-6">
+            {legs.map(({ race, legNumber, tabValue }) => (
+              <TabsContent key={race.raceId} value={tabValue} className="mt-3 sm:mt-6">
                 <DebugErrorBoundary>
-                  <V75RaceDetails race={race} />
+                  <V75RaceDetails race={race} legNumber={legNumber} />
                 </DebugErrorBoundary>
               </TabsContent>
             ))}

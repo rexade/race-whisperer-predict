@@ -25,7 +25,11 @@ export function makeHorseKey(
 }
 
 export function horseKeyFromRaceHorse(raceId: string, horse: any): HorseIdentityKey {
-  return horse?.horseKey ?? makeHorseKey(raceId, horse?.horseId ?? horse?.id, horse?.postPosition ?? horse?.number);
+  return horse?.horseKey ?? makeHorseKey(
+    raceId,
+    horse?.horseId ?? horse?.id,
+    horse?.startNumber ?? horse?.number ?? horse?.postPosition
+  );
 }
 
 export function horseKeyFromRawTime(rawTime: { horseKey?: string; horseId: number }): HorseIdentityKey {

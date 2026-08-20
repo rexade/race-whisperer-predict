@@ -27,7 +27,9 @@ export interface OptimizationResult {
   optimizedWeights: NormalizationWeights;
   /** Always present — per-position curve values tuned by calibration. */
   optimizedCurves: PostPositionCurves;
+  /** Initial winner MRR. Legacy property name retained for UI compatibility. */
   initialMAE: number;
+  /** Final winner MRR. Legacy property name retained for UI compatibility. */
   finalMAE: number;
   improvementPct: number;
   passesCompleted: number;
@@ -266,23 +268,23 @@ export async function optimizeWeights(
   // MRR = mean(1/rank_given_to_winner). Range 0–1, higher is better.
   // L2 penalty discourages extreme weights to prevent overfitting.
   // Score = -MRR + λΣw² (lower is better).
-  const initialMAE = await regScore(dataset, initial, startCurves, objective);
+  const initialScore = await regScore(dataset, initial, startCurves, objective);
 
   // Phase 0: Simulated annealing — explore broadly before refining (skipped when saSteps=0)
   let bestWeights = copyWeights(initial);
   let bestCurves = startCurves;
-  let bestMAE = initialMAE;
+  let bestMAE = initialScore;
 
   if (saSteps > 0) {
     onProgress?.({
-      pass: 0, maxPasses: saSteps + maxPasses, currentMAE: initialMAE,
-      bestMAE: initialMAE, step: SA_T_START,
+      pass: 0, maxPasses: saSteps + maxPasses, currentMAE: initialScore,
+      bestMAE: initialScore, step: SA_T_START,
       message: `SA phase: exploring weight space (${saSteps} steps)…`,
     });
     const rng = opts.seed !== undefined ? makeSeededRng(opts.seed) : Math.random;
     const saResult = await runSAPhase(dataset, copyWeights(initial), startCurves, onProgress, saSteps, rng, objective);
     // Start coordinate descent from the best SA solution (or initial if SA didn't improve)
-    if (saResult.score < initialMAE) {
+    if (saResult.score < initialScore) {
       bestWeights = saResult.weights;
       bestMAE = saResult.score;
     }
@@ -392,7 +394,7 @@ export async function optimizeWeights(
 
   const finalEval = await evaluateWeights(dataset, bestWeights, bestCurves);
   // improvementPct: positive = better MRR (higher win rate)
-  const initialMRR = -initialMAE;
+  const initialMRR = initialEval.winnerMRR;
   const finalMRR = finalEval.winnerMRR;
   const improvementPct = initialMRR > 0 ? ((finalMRR - initialMRR) / initialMRR) * 100 : 0;
 

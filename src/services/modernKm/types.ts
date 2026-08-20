@@ -4,6 +4,9 @@ import { KmTime } from '../types/kmTimeTypes';
 export interface ModernKmNormalizedResult {
   rawTime: KmTime;
   modernNormalizedTime: KmTime;
+  /** Exact weight-independent inputs used for this prediction.
+   * Persisting these keeps interactive reanalysis identical to the initial run. */
+  normalizationFactors?: ModernNormalizationFactors;
   /** True when generated from a fallback estimate (no raw KM time available).
    *  Estimated results are displayed only — never stored for post-race comparison. */
   isEstimated?: boolean;
@@ -132,11 +135,10 @@ export interface NormalizationWeights {
   shoeChange?: number;
 }
 
-// V41 default (2026-07-04) — first config from the honest CLI pipeline on the
-// full 18-month/1950-race dataset. HONEST holdout (402 unseen races):
-// Win 36.6%, WTop3 68.9%, MRR 0.561; truly-clean post-May-9 sample: Win 37.3%.
+// Legacy V41 preset retained as the current default. Its historical reports predate
+// the corrected driver-rating and estimated-horse evaluation pipeline, so the old
+// holdout metrics are not evidence for performance under the current implementation.
 // Pairs with the FLAT curves in getDefaultPostPositionCurves() (tuned together).
-// Full preset incl. provenance in presetWeights.ts; report in reports/kfold-honest-2026-07-04.json.
 export const DEFAULT_WEIGHTS: NormalizationWeights = {
   postPosition: 0.908,
   shoeType: 0.000,

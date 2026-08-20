@@ -5,12 +5,14 @@ import { NormalizationWeights } from '@/services/modernKm/types';
 import { PostPositionCurves } from '@/services/modernKm/index';
 import { useCalibration } from './useCalibration';
 import { getCalibrationCacheInfo } from '@/services/calibration/calibrationDatasetCache';
+import type { GameType } from '@/config/game';
 
 interface CalibrationPanelProps {
   currentWeights: NormalizationWeights;
   onApplyWeights: (weights: NormalizationWeights) => void;
   postPositionCurves?: PostPositionCurves;
   onPostPositionCurvesChange?: (curves: PostPositionCurves) => void;
+  gameType: GameType;
 }
 
 const WEIGHT_LABELS: Record<keyof NormalizationWeights, string> = {
@@ -19,7 +21,7 @@ const WEIGHT_LABELS: Record<keyof NormalizationWeights, string> = {
   sulkyType: 'Sulky Type',
   driverPerformance: 'Driver Performance',
   driverForm: 'Driver Form (field-relative)',
-  driverEmpirical: 'Driver Empirical (V85)',
+  driverEmpirical: 'Driver Empirical',
   trackFamiliarity: 'Track Familiarity',
   form: 'Form',
   distanceAdjustment: 'Distance Fit',
@@ -103,13 +105,14 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
   onApplyWeights,
   postPositionCurves,
   onPostPositionCurvesChange,
+  gameType,
 }) => {
   const [monthsBack, setMonthsBack] = useState(2);
   const [cacheInfo, setCacheInfo] = useState<{ exists: boolean; ageHours: number | null; dateCount: number } | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [bucketedCurves, setBucketedCurves] = useState(false);
-  const { state, runDataCollection, runOptimization, runMultiStartOptimization, acceptResult, reset } = useCalibration();
+  const { state, runDataCollection, runOptimization, runMultiStartOptimization, acceptResult, reset } = useCalibration(gameType);
 
   // The curves passed to the optimizer — bucketed when toggle on, otherwise the
   // raw legacy curves. We always seed byDistance from the current legacy curves
@@ -147,13 +150,13 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
 
   useEffect(() => {
     let cancelled = false;
-    getCalibrationCacheInfo(monthsBack).then(info => {
+    getCalibrationCacheInfo(monthsBack, gameType).then(info => {
       if (!cancelled) setCacheInfo(info);
     });
     return () => {
       cancelled = true;
     };
-  }, [monthsBack, state.phase]);
+  }, [gameType, monthsBack, state.phase]);
 
   const isWorking = state.phase === 'fetching-dates' || state.phase === 'collecting' || state.phase === 'evaluating' || state.phase === 'optimizing';
   const hasDataset = !!state.dataset;
@@ -172,7 +175,7 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
 
   const handleDownloadDataset = () => {
     if (!state.dataset) return;
-    downloadJson(`calibration-dataset-${monthsBack}mo.json`, serializeDataset(state.dataset));
+    downloadJson(`calibration-dataset-${gameType}-${monthsBack}mo.json`, serializeDataset(state.dataset));
   };
 
   const handleDownloadBundle = () => {
@@ -190,11 +193,12 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
       ),
       0
     );
-    downloadJson(`calibration-bundle-${monthsBack}mo-${new Date().toISOString().replace(/[:.]/g, '-')}.json`, {
+    downloadJson(`calibration-bundle-${gameType}-${monthsBack}mo-${new Date().toISOString().replace(/[:.]/g, '-')}.json`, {
       schemaVersion: 1,
       exportedAt: new Date().toISOString(),
       purpose: 'Exact browser calibration replay bundle. Use this to reproduce the displayed score from the same dataset/rawtimes/weights.',
       monthsBack,
+      gameType,
       bucketedCurves,
       cacheInfo,
       stats: {

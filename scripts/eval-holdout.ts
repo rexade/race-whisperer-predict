@@ -16,7 +16,7 @@ import { NormalizationWeights, DEFAULT_WEIGHTS } from '../src/services/modernKm/
 import { PostPositionCurves } from '../src/services/modernKm/index';
 import { evaluateWeights } from '../src/services/calibration/historicalCalibrationService';
 import { chronologicalHoldout } from '../src/services/calibration/datasetSplits';
-import { loadDataset } from './cli-common';
+import { loadDataset, primeDriverRatings } from './cli-common';
 
 interface Config { label: string; weights: NormalizationWeights; curves?: PostPositionCurves }
 
@@ -43,8 +43,9 @@ async function main() {
     process.exit(1);
   }
 
-  const dataset = loadDataset(datasetPath);
-  const { holdout } = chronologicalHoldout(dataset, holdoutFrac, 6);
+  const dataset = loadDataset(datasetPath, { primeDriverRatings: false });
+  const { train, holdout } = chronologicalHoldout(dataset, holdoutFrac, 6);
+  primeDriverRatings(train);
   const races = holdout.reduce((s, d) => s + d.races.length, 0);
   console.log(`Holdout: ${holdout.length} dates / ${races} races (${holdout[0].date} … ${holdout[holdout.length - 1].date})\n`);
 

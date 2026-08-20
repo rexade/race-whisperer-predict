@@ -1,34 +1,47 @@
 import json
 import os
+import secrets
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any, Literal
+from urllib.parse import unquote
 
 import httpx
-from fastapi import FastAPI, Query, Request, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from database import close_pool, get_pool, init_tables
 
 DIST_DIR = Path(__file__).resolve().parent / "dist"
 ATG_BASE = "https://www.atg.se/services/racinginfo/v1/api"
 
-# Optional shared secret. When set, every non-read request under /api/
-# must carry it in the X-Api-Token header. Reads stay open.
 API_TOKEN = os.environ.get("API_TOKEN")
 
 _OPEN_METHODS = {"GET", "HEAD", "OPTIONS"}
+_TOKEN_PROTECTED_READ_PREFIXES = ("/api/debug/",)
+_MAX_DEBUG_STARTS = 24
 
 
-def _requires_token(method: str, path: str, configured_token: str | None) -> bool:
-    if not configured_token:
+def _requires_token(method: str, path: str) -> bool:
+    normalized_method = method.upper()
+    if normalized_method == "OPTIONS":
         return False
-    if method.upper() in _OPEN_METHODS:
-        return False
-    return path.startswith("/api/")
+    if path.startswith(_TOKEN_PROTECTED_READ_PREFIXES):
+        return True
+    return normalized_method not in _OPEN_METHODS and path.startswith("/api/")
+
+
+def _application_path(request: Request) -> str:
+    path = request.scope.get("path") or request.url.path
+    root_path = (request.scope.get("root_path") or "").rstrip("/")
+    if root_path and path == root_path:
+        return "/"
+    if root_path and path.startswith(f"{root_path}/"):
+        return path[len(root_path):]
+    return path
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +61,7 @@ class RawTimesIn(BaseModel):
     gameId: str
     date: str
     rawTimes: list[Any]
-    schemaVersion: int = 6
+    schemaVersion: int = 7
 
 
 class RawTimeCandidatesIn(BaseModel):
@@ -60,19 +73,93 @@ class RawTimeCandidatesIn(BaseModel):
     schemaVersion: int = 1
 
 
+FiniteMae = Annotated[
+    float,
+    Field(strict=True, ge=0.0, le=100.0, allow_inf_nan=False),
+]
+BoundedCount = Annotated[int, Field(strict=True, ge=1, le=100)]
+
+
 class MaeIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     raceId: str
-    raceNumber: int
+    raceNumber: BoundedCount
     analysisDate: str
-    meanRankError: float
-    horseCount: int
+    computedAt: str | None = None
+    meanRankError: FiniteMae
+    horseCount: BoundedCount
     horses: list[Any]
 
 
+WeightName = Literal[
+    "postPosition",
+    "shoeType",
+    "sulkyType",
+    "driverPerformance",
+    "trackFamiliarity",
+    "form",
+    "distanceAdjustment",
+    "raceDistanceAdjustment",
+    "volteStartDistancePenalty",
+    "startPoints",
+    "placePercentage",
+    "horseWinPercentage",
+    "earningsPerStart",
+    "gallopRisk",
+    "layoffPenalty",
+    "ageFactor",
+    "genderAdjustment",
+    "consistencyFactor",
+    "driverForm",
+    "driverEmpirical",
+    "trainerPerformance",
+    "oddsHistorical",
+    "oddsLive",
+    "betDistribution",
+    "shoeChange",
+]
+BoundedWeight = Annotated[
+    float,
+    Field(strict=True, ge=0.0, le=10.0, allow_inf_nan=False),
+]
+CurvePosition = Annotated[int, Field(ge=1, le=15)]
+CurveAdjustment = Annotated[
+    float,
+    Field(strict=True, ge=-5.0, le=5.0, allow_inf_nan=False),
+]
+CurveMap = dict[CurvePosition, CurveAdjustment]
+
+
+class DistanceCurveSet(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    short: CurveMap
+    medium: CurveMap
+    long: CurveMap
+
+
+class DistanceCurves(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    auto: DistanceCurveSet
+    volte: DistanceCurveSet
+
+
+class PostPositionCurvesIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    auto: CurveMap
+    volte: CurveMap
+    byDistance: DistanceCurves | None = None
+
+
 class WeightsIn(BaseModel):
-    weights: dict[str, Any]
-    postPositionCurves: dict[str, Any] | None = None
-    label: str | None = None
+    model_config = ConfigDict(extra="forbid")
+
+    weights: Annotated[dict[WeightName, BoundedWeight], Field(min_length=1)]
+    postPositionCurves: PostPositionCurvesIn | None = None
+    label: Annotated[str, Field(max_length=200)] | None = None
 
 
 def _numeric_time(km_time):
@@ -215,8 +302,18 @@ app = FastAPI(lifespan=lifespan)
 
 @app.middleware("http")
 async def require_api_token(request: Request, call_next):
-    if _requires_token(request.method, request.url.path, API_TOKEN):
-        if request.headers.get("x-api-token") != API_TOKEN:
+    if _requires_token(request.method, _application_path(request)):
+        if not API_TOKEN:
+            return JSONResponse(
+                {"detail": "API token authentication is not configured"},
+                status_code=503,
+            )
+        supplied_token = request.headers.get("x-api-token")
+        token_matches = bool(supplied_token) and secrets.compare_digest(
+            supplied_token.encode("utf-8"),
+            API_TOKEN.encode("utf-8"),
+        )
+        if not token_matches:
             return JSONResponse({"detail": "invalid or missing API token"}, status_code=401)
     return await call_next(request)
 
@@ -583,7 +680,11 @@ async def save_weights(body: WeightsIn):
                 """INSERT INTO custom_weights (weights, post_position_curves, label, is_active)
                    VALUES ($1::jsonb, $2::jsonb, $3, TRUE)""",
                 json.dumps(body.weights),
-                json.dumps(body.postPositionCurves) if body.postPositionCurves else None,
+                (
+                    json.dumps(body.postPositionCurves.model_dump())
+                    if body.postPositionCurves is not None
+                    else None
+                ),
                 body.label,
             )
     return JSONResponse({"ok": True})
@@ -621,7 +722,7 @@ async def get_unfiltered_raw_times(
     """
     async with httpx.AsyncClient(timeout=30.0) as client:
         race_resp = await client.get(
-            f"{ATG_BASE}/races/{race_id}",
+            _build_atg_url(f"races/{race_id}"),
             headers={"Accept": "application/json"},
         )
         if race_resp.status_code >= 400:
@@ -633,6 +734,8 @@ async def get_unfiltered_raw_times(
 
         race = race_resp.json()
         starts = race.get("starts") or []
+        if len(starts) > _MAX_DEBUG_STARTS:
+            raise HTTPException(status_code=502, detail="ATG race contains too many starts")
         horses = []
 
         for start in starts:
@@ -650,7 +753,7 @@ async def get_unfiltered_raw_times(
                 continue
 
             detail_resp = await client.get(
-                f"{ATG_BASE}/races/{race_id}/start/{number}",
+                _build_atg_url(f"races/{race_id}/start/{number}"),
                 headers={"Accept": "application/json"},
             )
             if detail_resp.status_code >= 400:
@@ -713,15 +816,39 @@ async def get_unfiltered_raw_times(
 # ATG proxy
 # ---------------------------------------------------------------------------
 
-@app.api_route("/api/atg/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+def _build_atg_url(path: str, query_string: bytes = b"") -> httpx.URL:
+    decoded_path = path
+    for _ in range(16):
+        next_path = unquote(decoded_path)
+        if next_path == decoded_path:
+            break
+        decoded_path = next_path
+    else:
+        raise HTTPException(status_code=400, detail="invalid ATG API path")
+
+    path_segments = decoded_path.replace("\\", "/").split("/")
+    if (
+        decoded_path.startswith("/")
+        or any(segment in {".", ".."} for segment in path_segments)
+        or any(character in decoded_path for character in "?#")
+        or any(ord(character) < 32 or ord(character) == 127 for character in decoded_path)
+    ):
+        raise HTTPException(status_code=400, detail="invalid ATG API path")
+
+    try:
+        return httpx.URL(f"{ATG_BASE}/{decoded_path}").copy_with(query=query_string)
+    except httpx.InvalidURL as exc:
+        raise HTTPException(status_code=400, detail="invalid ATG API path") from exc
+
+
+@app.get("/api/atg/{path:path}")
 async def atg_proxy(path: str, request: Request):
-    url = f"{ATG_BASE}/{path}"
+    url = _build_atg_url(path, request.scope.get("query_string", b""))
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.request(
-            method=request.method,
+            method="GET",
             url=url,
             headers={"Accept": "application/json"},
-            content=await request.body() if request.method != "GET" else None,
         )
     return Response(
         content=resp.content,

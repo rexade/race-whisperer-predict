@@ -8,6 +8,7 @@ import { pickDisplayTime, isZeroParts } from './timeUtils';
 import type { TimeSource } from '../types/raceResultTypes';
 import { computeConfidenceFlags } from './confidenceFlags';
 import { log } from '@/lib/logger';
+import { RaceScoreCalculator } from '../services/raceScoreCalculator';
 
 export const buildHorseResult = (
   horse: any,
@@ -130,6 +131,7 @@ export const buildHorseResult = (
     horseKey: horse.horseKey,
     horseId: horse.horseId,
     horseName: extractedData.safeHorseName,
+    startNumber: horse.startNumber ?? horse.postPosition,
     postPosition: horse.postPosition,
     rawKmTime,
     rawTimeData,
@@ -154,8 +156,8 @@ export const buildHorseResult = (
     liveOdds: (horse as any).liveOdds,
     betDistribution: (horse as any).betDistribution,
     homeTrack: extractedData.safeHorseTrack,
-    isNotifiee: rawTimeData?.isNotifiee || false,
-    dataSource: rawTimeData?.dataSource || 'recent',
+    isNotifiee: rawTimeData?.isNotifiee,
+    dataSource: rawTimeData?.dataSource,
     oldestRecordDate: rawTimeData?.oldestRecordDate,
     newestRecordDate: rawTimeData?.newestRecordDate,
     // Confidence metrics
@@ -191,10 +193,8 @@ export const storeRaceAnalysisData = async (
   try {
     log.debug(`📊 STRICT CACHE STORAGE - Race ${race.raceNumber}:`);
 
-    const toSeconds = (time: { minutes: number; seconds: number; tenths: number }) =>
-      time.minutes * 60 + time.seconds + time.tenths / 10;
-
-    const analysisHorses = horses.map(horse => {
+    const canonicalHorses = RaceScoreCalculator.calculateScoresAndRanks(horses);
+    const analysisHorses = canonicalHorses.map(horse => {
       // STRICT: Only use predicted times from actual modern normalization results
       const predictedTimeFromResult = horse.modernNormalizedResult?.modernNormalizedTime;
       const isEstimated = (horse.modernNormalizedResult as any)?.isEstimated || false;
@@ -236,17 +236,13 @@ export const storeRaceAnalysisData = async (
         horseKey: horse.horseKey,
         horseId: horse.horseId,
         horseName: horse.horseName,
+        startNumber: horse.startNumber ?? horse.postPosition,
         postPosition: horse.postPosition,
-        finalScore: validPredictedTime ? toSeconds(validPredictedTime) : 999,
-        rank: 0, // Will be set after sorting
+        finalScore: horse.finalScore ?? 999,
+        rank: horse.rank ?? 999,
+        isEstimated,
         predictedTime: validPredictedTime
       };
-    });
-
-    // Sort by final normalized seconds to determine ranks, same as live scoring.
-    analysisHorses.sort((a, b) => a.finalScore - b.finalScore);
-    analysisHorses.forEach((horse, index) => {
-      horse.rank = index + 1;
     });
 
     const horsesWithPredictedTimes = analysisHorses.filter(h => h.predictedTime);

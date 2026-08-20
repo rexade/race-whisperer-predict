@@ -12,7 +12,7 @@ describe('horse identity keys', () => {
   });
 
   it('keeps race horses and raw times matchable with synthetic keys', () => {
-    const raceHorse = { horseId: 0, postPosition: 7 };
+    const raceHorse = { horseId: 0, startNumber: 7, postPosition: 2 };
     const rawTime = { horseKey: '2026-04-04_85_5:start:7', horseId: 0 };
 
     expect(horseKeyFromRaceHorse('2026-04-04_85_5', raceHorse)).toBe(horseKeyFromRawTime(rawTime));

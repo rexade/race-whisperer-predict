@@ -154,8 +154,13 @@ export const processHistoricalRecords = (
     const invalidCandidates: InvalidCandidate[] = [];
     
     // Helper to reject a record and capture it if it has a numeric time (excluding 0:00.0)
-    const rejectRecord = (record: ATGHistoricalRecord, reason: string, source: string) => {
-      if (hasNumericKmTime(record) && 'minutes' in record.kmTime!) {
+    const rejectRecord = (
+      record: ATGHistoricalRecord,
+      reason: string,
+      source: string,
+      eligibleForInvalidTimeFallback = true
+    ) => {
+      if (eligibleForInvalidTimeFallback && hasNumericKmTime(record) && 'minutes' in record.kmTime!) {
         invalidCandidates.push({
           normalizedTime: {
             minutes: (record.kmTime as any).minutes,
@@ -171,6 +176,17 @@ export const processHistoricalRecords = (
     const validRecords = records.filter(record => {
       const source = (record as any).meta?.source || 'results';
       const isAggregateSource = isAggregateRecordSource(source);
+
+      // A strict historical cutoff requires a trustworthy date. Undated or malformed
+      // records cannot be proven to precede the predicted race.
+      if (upperDate) {
+        const recordDate = record.date ? new Date(record.date) : null;
+        if (!recordDate || !Number.isFinite(recordDate.getTime())) {
+          filteringStats.outsideTimeWindow++;
+          rejectRecord(record, 'no-date', source, false);
+          return false;
+        }
+      }
       
       // IMPORTANT: Check statistics bypass FIRST before any date parsing
       // This prevents statistics records from being incorrectly dropped
@@ -184,29 +200,35 @@ export const processHistoricalRecords = (
         // Only check date window for non-statistics records or statistics with dates
         if (!record.date) {
           filteringStats.outsideTimeWindow++;
-          rejectRecord(record, 'no-date', source);
+          rejectRecord(record, 'no-date', source, false);
           return false;
         }
         const raceDate = new Date(record.date);
-        // Aggregate sources carry SYNTHETIC year-end dates (e.g. current-year stats are
-        // dated `{year}-12-31`), not real event dates, so the upper/future bound must not
-        // apply to them — otherwise current-year statistics are always rejected as "future"
-        // and the stats fallback never fires. They still respect the lower (recent) bound.
-        const withinLowerBound = raceDate >= cutoffDate;
-        const withinUpperBound = isAggregateSource || !upperDate || raceDate < upperDate;
-        if (!withinLowerBound || !withinUpperBound) {
+        // Aggregate dates can be synthetic year-end dates. They still must precede a
+        // historical prediction cutoff; otherwise full-year aggregates leak later starts.
+        const withinUpperBound = !upperDate || raceDate < upperDate;
+        if (!withinUpperBound) {
           filteringStats.outsideTimeWindow++;
-          rejectRecord(record, `outside-${RAW_TIME_RECENT_WINDOW_DAYS}-days`, source);
+          rejectRecord(record, 'future-or-same-day', source, false);
+          if (isXanderDebug) {
+            log.debug(`FILTERED OUT - On or after prediction date: ${record.date}`);
+          }
+          return false;
+        }
+        const withinLowerBound = raceDate >= cutoffDate;
+        if (!withinLowerBound) {
+          filteringStats.outsideTimeWindow++;
+          rejectRecord(record, `outside-${RAW_TIME_RECENT_WINDOW_DAYS}-days`, source, false);
           if (isXanderDebug) {
             log.debug(`FILTERED OUT - Outside ${RAW_TIME_RECENT_WINDOW_DAYS} days: ${record.date}`);
           }
           return false;
         }
-      } else if (upperDate && record.date && !isAggregateSource) {
+      } else if (upperDate && record.date) {
         const raceDate = new Date(record.date);
         if (raceDate >= upperDate) {
           filteringStats.outsideTimeWindow++;
-          rejectRecord(record, 'future-or-same-day', source);
+          rejectRecord(record, 'future-or-same-day', source, false);
           return false;
         }
       }
@@ -365,13 +387,21 @@ export const processHistoricalRecords = (
     }
   }
   
-  // Extract gallop dates and odds metadata from all records (not just valid ones)
-  const gallopDates = records
+  // Metadata may use rejected records, but never records on/after the prediction date.
+  const metadataRecords = upperDate
+    ? records.filter(record => {
+        if (!record.date) return false;
+        const timestamp = new Date(record.date).getTime();
+        return Number.isFinite(timestamp) && timestamp < upperDate.getTime();
+      })
+    : records;
+
+  const gallopDates = metadataRecords
     .filter(r => r.galloped === true && r.date)
     .map(r => r.date)
     .filter(Boolean);
 
-  const oddsValues = records
+  const oddsValues = metadataRecords
     .filter(r => r.odds != null && Number.isFinite(r.odds) && r.odds > 0)
     .map(r => r.odds!);
 
@@ -380,7 +410,7 @@ export const processHistoricalRecords = (
     : undefined;
 
   // Most recent odds (sorted by date descending)
-  const sortedByDate = records
+  const sortedByDate = metadataRecords
     .filter(r => r.odds != null && Number.isFinite(r.odds) && r.odds > 0 && r.date)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const lastOdds = sortedByDate.length > 0 ? sortedByDate[0].odds : undefined;

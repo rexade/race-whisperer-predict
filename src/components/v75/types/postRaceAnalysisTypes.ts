@@ -20,6 +20,7 @@ export interface V75ActualResult {
     horseKey?: string;
     horseId: number;
     horseName: string;
+    startNumber?: number;
     postPosition: number;
     time: string; // Actual race time
     kmTime?: KmTime; // Parsed KM time object

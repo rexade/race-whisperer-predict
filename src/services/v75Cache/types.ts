@@ -1,4 +1,6 @@
 
+import type { HorseRawKmTime } from '../types/kmTimeTypes';
+
 export interface CachedRawTime {
   horseKey?: string;
   horseId: number;
@@ -27,6 +29,10 @@ export interface CachedRawTime {
   };
   validTimesCount: number;
   updatedAt: string;
+  isNotifiee?: boolean;
+  dataSource?: HorseRawKmTime['dataSource'];
+  oldestRecordDate?: string;
+  newestRecordDate?: string;
   /** Fraction of historical starts where horse broke gait (0–1). Stored for calibration. */
   gallopRate?: number;
   /** ISO date string of most recent race. Stored for layoff calculation in calibration. */
@@ -35,6 +41,8 @@ export interface CachedRawTime {
   consistencyScore?: number;
   /** Dates of galloped races — injected as place=15 in form calculator. */
   gallopDates?: string[];
+  gallopCount?: number;
+  disqualificationCount?: number;
   averageOdds?: number;
   lastOdds?: number;
   horseAge?: number;
@@ -43,6 +51,7 @@ export interface CachedRawTime {
   usedExtendedFallback?: boolean;
   usedInvalidTimeFallback?: boolean;
   confidenceMultiplier?: number;
+  warning?: HorseRawKmTime['warning'];
 }
 
 export interface CachedV75RawTimes {
@@ -123,24 +132,29 @@ export interface CachedRawTimeCandidates {
   schemaVersion: number;
 }
 
+export interface RaceAnalysisHorse {
+  horseKey?: string;
+  horseId: number;
+  horseName: string;
+  startNumber?: number;
+  postPosition: number;
+  finalScore: number;
+  rank: number;
+  /** Explicitly true when the displayed prediction came from a fallback estimate. */
+  isEstimated?: boolean;
+  predictedTime?: {
+    minutes: number;
+    seconds: number;
+    tenths: number;
+  };
+}
+
 export interface RaceAnalysisData {
   raceId: string;
   raceNumber: number;
   analysisDate: string;
   timestamp: string;
-  horses: Array<{
-    horseKey?: string;
-    horseId: number;
-    horseName: string;
-    postPosition: number;
-    finalScore: number;
-    rank: number;
-    predictedTime?: {
-      minutes: number;
-      seconds: number;
-      tenths: number;
-    };
-  }>;
+  horses: RaceAnalysisHorse[];
 }
 
 export interface RaceAnalysisSummary {
@@ -155,8 +169,12 @@ export interface HorseMAEEntry {
   horseId: number;
   horseName: string;
   predictedRank: number;
+  /** Literal result position from ATG, retained for win/top-3 reporting. */
   actualFinishOrder: number;
-  rankError: number; // |predictedRank - actualFinishOrder|
+  /** Result rank compressed to the eligible matched cohort. Absent on legacy cache entries. */
+  eligibleActualRank?: number;
+  /** Error against the result rank compressed to the eligible matched cohort. */
+  rankError: number;
 }
 
 export interface RaceMAEResult {

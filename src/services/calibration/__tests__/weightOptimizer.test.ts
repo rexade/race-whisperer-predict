@@ -60,4 +60,19 @@ describe('optimizeWeights with legacy weights missing optional keys', () => {
       expect(nanKeys(w)).toEqual([]);
     }
   });
+
+  it('reports improvement from the unregularized MRR shown to the user', async () => {
+    const result = await optimizeWeights(
+      {} as any,
+      LEGACY_WEIGHTS,
+      undefined,
+      undefined,
+      undefined,
+      { saSteps: 0, maxPasses: 0, optimizeCurves: false },
+    );
+
+    expect(result.initialMAE).toBe(0.5);
+    expect(result.finalMAE).toBe(0.5);
+    expect(result.improvementPct).toBe(0);
+  });
 });

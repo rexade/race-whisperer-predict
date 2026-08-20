@@ -2,10 +2,10 @@
  * Compare model presets against a named calibration dataset.
  *
  * Usage:
- *   npm run evaluate:models -- [dataset.json]
+ *   npm run evaluate:models -- [holdout.json] [--ratings-dataset training.json]
  */
 
-import { loadDataset } from './cli-common';
+import { loadDataset, primeDriverRatings } from './cli-common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CalibrationDataset } from '../src/services/calibration/historicalCalibrationService';
@@ -13,6 +13,7 @@ import { RaceResultProcessor } from '../src/components/v75/services/raceResultPr
 import { DEFAULT_WEIGHTS, NormalizationWeights } from '../src/services/modernKm/types';
 import { PostPositionCurves } from '../src/services/modernKm';
 import { WEIGHT_PRESETS } from '../src/services/modernKm/presetWeights';
+import { horseKeyFromRaceHorse } from '../src/services/horseIdentity';
 
 interface ModelCandidate {
   name: string;
@@ -83,42 +84,62 @@ async function evaluateModel(dataset: CalibrationDataset, model: ModelCandidate)
 
         if (!result.analysisComplete || result.horses.length === 0) continue;
 
-        const realHorses = result.horses.filter(h => !h.modernNormalizedResult?.isEstimated && h.rank);
+        // Compress both model and actual ranks after removing display-only estimates.
+        // Keeping the original ranks would let an excluded estimate shift every real
+        // horse and recreate the evaluation bug fixed in evaluateWeights().
+        const realHorses = result.horses.filter(h =>
+          !h.modernNormalizedResult?.isEstimated
+          && h.modernNormalizedResult?.modernNormalizedTime
+        );
         if (realHorses.length === 0) continue;
 
-        races++;
+        const horseKey = (horse: (typeof realHorses)[number]) =>
+          horseKeyFromRaceHorse(race.raceId, horse);
+        const predictedRankByKey = new Map<string, number>();
+        realHorses.forEach((horse, index) => predictedRankByKey.set(horseKey(horse), index + 1));
+
+        const realActualOrder = realHorses
+          .map(horse => ({ key: horseKey(horse), actual: race.actualResults.get(horseKey(horse)) }))
+          .filter(entry => entry.actual && Number.isFinite(entry.actual.position) && entry.actual.position > 0)
+          .sort((a, b) => a.actual!.position - b.actual!.position);
+        const actualRankByKey = new Map<string, number>();
+        realActualOrder.forEach((entry, index) => actualRankByKey.set(entry.key, index + 1));
+
         for (const horse of realHorses) {
-          const actual = race.actualResults.get(horse.horseKey ?? String(horse.horseId));
-          if (!actual) continue;
-          rankError += Math.abs((horse.rank ?? 0) - actual.position);
+          const key = horseKey(horse);
+          const predictedRank = predictedRankByKey.get(key);
+          const actualRank = actualRankByKey.get(key);
+          if (predictedRank === undefined || actualRank === undefined) continue;
+          rankError += Math.abs(predictedRank - actualRank);
           horses++;
         }
 
-        const topPick = [...realHorses].sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))[0];
-        const topPickActual = topPick ? race.actualResults.get(topPick.horseKey ?? String(topPick.horseId)) : undefined;
-        if (!topPickActual) continue;
-
-        if (topPickActual.position === 1) wins++;
-        if (topPickActual.position <= 3) top3++;
+        const topPick = realHorses[0];
+        const topPickKey = horseKey(topPick);
+        const topPickActual = race.actualResults.get(topPickKey);
+        const topPickActualRank = actualRankByKey.get(topPickKey);
 
         let actualWinnerHorseKey: string | undefined;
-        for (const [horseKey, actual] of race.actualResults) {
+        for (const [actualHorseKey, actual] of race.actualResults) {
           if (actual.position === 1) {
-            actualWinnerHorseKey = horseKey;
+            actualWinnerHorseKey = actualHorseKey;
             break;
           }
         }
-        const predictedForWinner = actualWinnerHorseKey !== undefined
-          ? realHorses.find(h => (h.horseKey ?? String(h.horseId)) === actualWinnerHorseKey)
-          : undefined;
-        if (predictedForWinner?.rank !== undefined) {
+        const predictedWinnerRank = actualWinnerHorseKey === undefined
+          ? undefined
+          : predictedRankByKey.get(actualWinnerHorseKey);
+        if (predictedWinnerRank !== undefined) {
+          races++;
+          if (predictedWinnerRank === 1) wins++;
+          if (topPickActualRank !== undefined && topPickActualRank <= 3) top3++;
           winnerRaceCount++;
-          winnerMRRSum += 1 / predictedForWinner.rank;
-          if (predictedForWinner.rank <= 3) winnerTop3++;
-          if (predictedForWinner.rank <= 5) winnerTop5++;
+          winnerMRRSum += 1 / predictedWinnerRank;
+          if (predictedWinnerRank <= 3) winnerTop3++;
+          if (predictedWinnerRank <= 5) winnerTop5++;
         }
 
-        if (topPickActual.finalOdds != null && Number.isFinite(topPickActual.finalOdds) && topPickActual.finalOdds > 0) {
+        if (topPickActual?.finalOdds != null && Number.isFinite(topPickActual.finalOdds) && topPickActual.finalOdds > 0) {
           roiBets++;
           roiProfit += topPickActual.position === 1 ? topPickActual.finalOdds - 1 : -1;
         }
@@ -225,15 +246,32 @@ function writeReport(datasetPath: string, range: string, results: ModelMetrics[]
 
 async function main() {
   if (process.argv.includes('--help') || process.argv.includes('-h')) {
-    console.log('Usage: npm run evaluate:models -- [dataset.json]');
+    console.log('Usage: npm run evaluate:models -- [holdout.json] [--ratings-dataset training.json]');
     console.log('');
     console.log('Compares DEFAULT and every configured weight preset on a named holdout dataset.');
     console.log('Outputs win-pick %, top-pick top-3 %, winner top-3/top-5 %, MRR, rank MAE, ROI when final odds are available, race count, and date range.');
     return;
   }
 
-  const datasetPath = process.argv[2] || 'calibration-dataset-6mo.json';
-  const dataset = loadDataset(datasetPath);
+  const args = process.argv.slice(2);
+  const ratingsDatasetIndex = args.indexOf('--ratings-dataset');
+  const ratingsDatasetPath = ratingsDatasetIndex >= 0 ? args[ratingsDatasetIndex + 1] : undefined;
+  if (ratingsDatasetIndex >= 0 && !ratingsDatasetPath) {
+    throw new Error('--ratings-dataset requires a path');
+  }
+  const positional = args.filter((arg, index) =>
+    arg !== '--ratings-dataset'
+      && (ratingsDatasetIndex < 0 || index !== ratingsDatasetIndex + 1)
+  );
+  const datasetPath = positional[0] || 'calibration-dataset-6mo.json';
+  const dataset = loadDataset(datasetPath, { primeDriverRatings: false });
+  if (ratingsDatasetPath) {
+    const ratingsDataset = loadDataset(ratingsDatasetPath, { primeDriverRatings: false });
+    primeDriverRatings(ratingsDataset);
+  } else {
+    primeDriverRatings([]);
+    console.warn('Driver empirical ratings disabled: pass --ratings-dataset with training-only data to enable them.');
+  }
   const range = dateRange(dataset);
   const candidates = uniqueModels();
   const results: ModelMetrics[] = [];

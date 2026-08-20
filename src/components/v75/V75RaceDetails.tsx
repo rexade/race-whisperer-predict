@@ -6,16 +6,17 @@ import CompactV75ResultsTable from './components/CompactV75ResultsTable';
 
 interface V75RaceDetailsProps {
   race: V75RaceResult;
+  legNumber: number;
 }
 
-const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
+const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race, legNumber }) => {
   if (!race.analysisComplete) {
     return (
       <Card className="border-destructive bg-gradient-card shadow-md">
         <CardHeader>
           <CardTitle className="text-destructive flex items-center gap-2 font-secondary">
             <Trophy className="h-5 w-5" />
-            Race {race.raceNumber} - Analysis Failed
+            Race {legNumber} - Analysis Failed
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -29,7 +30,7 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race }) => {
 
   return (
     <div className="space-y-4">
-      <CompactV75ResultsTable race={race} />
+      <CompactV75ResultsTable race={race} legNumber={legNumber} />
     </div>
   );
 };

@@ -176,6 +176,7 @@ export const applyHorseNormalization = (
 
     // Mark as estimated — prevents storage for post-race comparison
     result.isEstimated = true;
+    result.normalizationFactors = factors;
 
     log.debug(`  - Fallback normalized time: ${result.modernNormalizedTime.minutes}:${result.modernNormalizedTime.seconds.toString().padStart(2, '0')}.${result.modernNormalizedTime.tenths} (ESTIMATED - UI ONLY)`);
 
@@ -250,6 +251,7 @@ export const applyHorseNormalization = (
 
   // Mark as from raw data — will be stored for post-race comparison
   result.isEstimated = false;
+  result.normalizationFactors = factors;
 
   log.debug(`  - Final normalized time: ${result.modernNormalizedTime.minutes}:${result.modernNormalizedTime.seconds.toString().padStart(2, '0')}.${result.modernNormalizedTime.tenths} (FROM RAW DATA - WILL BE CACHED)`);
 

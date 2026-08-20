@@ -59,7 +59,7 @@ export async function fetchKmtidDataForDate(
 }
 
 /**
- * Merge kmtid analytics into actual results by raceId and postPosition.
+ * Merge kmtid analytics into actual results by raceId and program number.
  */
 export function mergeKmtidIntoResults(
   results: V75ActualResult[],
@@ -69,7 +69,7 @@ export function mergeKmtidIntoResults(
 
   return results.map((race) => {
     const finishOrder = race.finishOrder.map((entry) => {
-      const key = `${race.raceId}:${entry.postPosition}`;
+      const key = `${race.raceId}:${entry.startNumber ?? entry.postPosition}`;
       const analytics = kmtidMap.get(key);
       if (!analytics) return entry;
       return { ...entry, kmtidAnalytics: analytics };

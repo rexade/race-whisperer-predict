@@ -33,32 +33,51 @@ vi.mock('../v75Cache/raceAnalysisCache', () => ({
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function makeStoredAnalysis(raceId: string, horseRanks: Array<{ horseId: number; rank: number }>): RaceAnalysisData {
+function makeStoredAnalysis(
+  raceId: string,
+  horseRanks: Array<{
+    horseId: number;
+    rank: number;
+    horseKey?: string;
+    startNumber?: number;
+    isEstimated?: boolean;
+  }>
+): RaceAnalysisData {
   return {
     raceId,
     raceNumber: 1,
     analysisDate: '2026-04-05',
     timestamp: '2026-04-05T10:00:00.000Z',
-    horses: horseRanks.map(({ horseId, rank }) => ({
+    horses: horseRanks.map(({ horseId, rank, horseKey, startNumber, isEstimated }) => ({
+      horseKey,
       horseId,
       horseName: `Horse ${horseId}`,
+      startNumber,
       postPosition: rank,
       finalScore: 100 - rank,
       rank,
+      isEstimated,
     })),
   };
 }
 
-function makeATGResult(starts: Array<{ horseId: number; finishOrder?: number }>): ATGRaceData {
+function makeATGResult(starts: Array<{
+  horseId: number;
+  finishOrder?: number;
+  finalPosition?: number;
+  startNumber?: number;
+}>): ATGRaceData {
   return {
     race: { id: 'r1', name: 'Test Race', date: '2026-04-05', number: 1, distance: 2140, startMethod: 'auto', track: 'Solvalla', status: 'results' },
-    starts: starts.map(({ horseId, finishOrder }) => ({
-      number: horseId,
+    starts: starts.map(({ horseId, finishOrder, finalPosition, startNumber }) => ({
+      number: startNumber ?? horseId,
       distance: 2140,
       postPosition: 1,
       horse: { name: `Horse ${horseId}`, id: horseId },
       driver: { firstName: 'Test', lastName: 'Driver' },
-      result: finishOrder !== undefined ? { finishOrder } : undefined,
+      result: finalPosition !== undefined || finishOrder !== undefined
+        ? { finalPosition, finishOrder }
+        : undefined,
     })),
   };
 }
@@ -148,6 +167,25 @@ describe('fetchAndComputeMAEForRace', () => {
     expect(h1.rankError).toBe(1);
   });
 
+  it('accepts finalPosition and gives it precedence over finishOrder', async () => {
+    _analysisStore['r1'] = makeStoredAnalysis('r1', [
+      { horseId: 1, rank: 1 },
+      { horseId: 2, rank: 2 },
+    ]);
+    mockFetchRaceData.mockResolvedValue(makeATGResult([
+      { horseId: 1, finalPosition: 2, finishOrder: 1 },
+      { horseId: 2, finalPosition: 1, finishOrder: 2 },
+    ]));
+
+    const result = await fetchAndComputeMAEForRace('r1');
+
+    expect(result!.meanRankError).toBe(1);
+    expect(result!.horses.map(h => [h.horseId, h.actualFinishOrder])).toEqual([
+      [1, 2],
+      [2, 1],
+    ]);
+  });
+
   it('excludes galloped / unranked horses (finishOrder undefined)', async () => {
     _analysisStore['r1'] = makeStoredAnalysis('r1', [
       { horseId: 1, rank: 1 },
@@ -165,6 +203,88 @@ describe('fetchAndComputeMAEForRace', () => {
     // Only horses 1 and 3 matched → horse 2 excluded
     expect(result!.horseCount).toBe(2);
     expect(result!.horses.map(h => h.horseId).sort()).toEqual([1, 3]);
+  });
+
+  it('excludes explicit estimates and compresses both ranks over real matched horses', async () => {
+    _analysisStore['r1'] = makeStoredAnalysis('r1', [
+      { horseId: 1, rank: 1, isEstimated: true },
+      { horseId: 2, rank: 2, isEstimated: false },
+      { horseId: 3, rank: 3, isEstimated: false },
+    ]);
+    mockFetchRaceData.mockResolvedValue(makeATGResult([
+      { horseId: 1, finishOrder: 3 },
+      { horseId: 2, finishOrder: 1 },
+      { horseId: 3, finishOrder: 2 },
+    ]));
+
+    const result = await fetchAndComputeMAEForRace('r1');
+
+    expect(result!.meanRankError).toBe(0);
+    expect(result!.horses.map(h => [h.horseId, h.predictedRank, h.actualFinishOrder])).toEqual([
+      [2, 1, 1],
+      [3, 2, 2],
+    ]);
+  });
+
+  it('retains literal finish positions while compressing eligible ranks only for MAE', async () => {
+    _analysisStore['r1'] = makeStoredAnalysis('r1', [
+      { horseId: 1, rank: 1, isEstimated: true },
+      { horseId: 2, rank: 2 },
+      { horseId: 3, rank: 3 },
+    ]);
+    mockFetchRaceData.mockResolvedValue(makeATGResult([
+      { horseId: 1, finishOrder: 1 },
+      { horseId: 2, finishOrder: 2 },
+      { horseId: 99, finishOrder: 3 },
+      { horseId: 3, finishOrder: 4 },
+    ]));
+
+    const result = await fetchAndComputeMAEForRace('r1');
+
+    expect(result!.meanRankError).toBe(0);
+    expect(result!.horses.map(h => [
+      h.horseId,
+      h.actualFinishOrder,
+      h.eligibleActualRank,
+      h.rankError,
+    ])).toEqual([
+      [2, 2, 1, 0],
+      [3, 4, 2, 0],
+    ]);
+
+    const aggregate = await getAggregateMAEStats();
+    expect(aggregate!.winRate).toBe(0);
+    expect(aggregate!.top3Rate).toBe(1);
+  });
+
+  it('matches distinct zero-ID starters by stable key', async () => {
+    _analysisStore['r1'] = makeStoredAnalysis('r1', [
+      { horseId: 0, horseKey: 'r1:start:3', startNumber: 3, rank: 1 },
+      { horseId: 0, horseKey: 'r1:start:7', startNumber: 7, rank: 2 },
+    ]);
+    mockFetchRaceData.mockResolvedValue(makeATGResult([
+      { horseId: 0, startNumber: 3, finishOrder: 2 },
+      { horseId: 0, startNumber: 7, finishOrder: 1 },
+    ]));
+
+    const result = await fetchAndComputeMAEForRace('r1');
+
+    expect(result!.horseCount).toBe(2);
+    expect(result!.meanRankError).toBe(1);
+    expect(result!.horses.map(h => h.horseKey)).toEqual(['r1:start:3', 'r1:start:7']);
+  });
+
+  it('keeps legacy entries without an estimate marker eligible', async () => {
+    _analysisStore['r1'] = makeStoredAnalysis('r1', [
+      { horseId: 1, rank: 1 },
+      { horseId: 2, rank: 2 },
+    ]);
+    mockFetchRaceData.mockResolvedValue(makeATGResult([
+      { horseId: 1, finishOrder: 1 },
+      { horseId: 2, finishOrder: 2 },
+    ]));
+
+    expect((await fetchAndComputeMAEForRace('r1'))!.horseCount).toBe(2);
   });
 
   it('stores the MAE result in cache', async () => {

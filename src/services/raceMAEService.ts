@@ -10,11 +10,13 @@ import { makeHorseKey } from './horseIdentity';
  *
  * Returns null when:
  * - No stored prediction exists for this race
- * - The race hasn't finished yet (no finishOrder on any start)
+ * - The race hasn't finished yet (no result position on any start)
  * - Fewer than 2 horses could be matched
  *
- * Each matched horse contributes |predictedRank − actualFinishOrder| to the mean.
- * Galloped / disqualified horses are excluded (their finishOrder is undefined).
+ * Each matched horse contributes the error between its compressed predicted and
+ * actual ranks in the eligible cohort. Its literal finish position is retained
+ * separately for win/top-3 reporting.
+ * Galloped / disqualified horses are excluded (their result position is undefined).
  */
 export async function fetchAndComputeMAEForRace(raceId: string): Promise<RaceMAEResult | null> {
   const stored = await RaceAnalysisCache.getRaceAnalysis(raceId);
@@ -26,12 +28,12 @@ export async function fetchAndComputeMAEForRace(raceId: string): Promise<RaceMAE
   const raceData = await fetchRaceData(raceId);
   const starts = raceData.starts ?? [];
 
-  // Build a map: horseKey → actual finish order (skip horses without a clean finish)
+  // Build a map: horseKey → literal finish position (skip horses without a clean finish)
   const actualByHorseKey = new Map<string, number>();
   for (const start of starts) {
-    const finishOrder = start.result?.finishOrder;
+    const finishOrder = start.result?.finalPosition ?? start.result?.finishOrder;
     if (typeof finishOrder === 'number' && finishOrder > 0) {
-      const horseKey = start.horseKey ?? makeHorseKey(raceId, start.horse.id, start.postPosition ?? start.number);
+      const horseKey = start.horseKey ?? makeHorseKey(raceId, start.horse.id, start.number ?? start.postPosition);
       actualByHorseKey.set(horseKey, finishOrder);
     }
   }
@@ -41,20 +43,37 @@ export async function fetchAndComputeMAEForRace(raceId: string): Promise<RaceMAE
     return null;
   }
 
-  const matched: HorseMAEEntry[] = [];
-  for (const predicted of stored.horses) {
-    const actual = actualByHorseKey.get(predicted.horseKey ?? String(predicted.horseId));
-    if (actual === undefined) continue;
-    const rankError = Math.abs(predicted.rank - actual);
-    matched.push({
-      horseKey: predicted.horseKey,
+  const candidates = stored.horses
+    .filter(predicted => predicted.isEstimated !== true)
+    .map(predicted => {
+      const horseKey = predicted.horseKey ?? makeHorseKey(
+        raceId,
+        predicted.horseId,
+        predicted.startNumber ?? predicted.postPosition
+      );
+      const actualFinishOrder = actualByHorseKey.get(horseKey);
+      return actualFinishOrder === undefined ? null : { predicted, horseKey, actualFinishOrder };
+    })
+    .filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null);
+
+  const predictedOrder = [...candidates].sort((a, b) => a.predicted.rank - b.predicted.rank);
+  const actualOrder = [...candidates].sort((a, b) => a.actualFinishOrder - b.actualFinishOrder);
+  const predictedRanks = new Map(predictedOrder.map((candidate, index) => [candidate.horseKey, index + 1]));
+  const actualRanks = new Map(actualOrder.map((candidate, index) => [candidate.horseKey, index + 1]));
+
+  const matched: HorseMAEEntry[] = predictedOrder.map(({ predicted, horseKey, actualFinishOrder }) => {
+    const predictedRank = predictedRanks.get(horseKey)!;
+    const eligibleActualRank = actualRanks.get(horseKey)!;
+    return {
+      horseKey,
       horseId: predicted.horseId,
       horseName: predicted.horseName,
-      predictedRank: predicted.rank,
-      actualFinishOrder: actual,
-      rankError,
-    });
-  }
+      predictedRank,
+      actualFinishOrder,
+      eligibleActualRank,
+      rankError: Math.abs(predictedRank - eligibleActualRank),
+    };
+  });
 
   if (matched.length < 2) {
     log.debug(`MAE: only ${matched.length} matched horse(s) for race ${raceId} — skipping`);

@@ -2,6 +2,8 @@ import { RaceResultProcessor } from '../components/v75/services/raceResultProces
 import { NormalizationWeights, PostPositionCurves } from '../services/modernKm/index';
 import { HorseRawKmTime } from '../services/types/kmTimeTypes';
 import { V75RaceResult } from '../components/v75/types/raceResultTypes';
+import { primeDriverRatingCache } from '../services/calibration/driverRatingService';
+import type { GameType } from '../config/game';
 
 // Message types for worker communication
 export interface AnalyzeRaceMessage {
@@ -12,6 +14,8 @@ export interface AnalyzeRaceMessage {
         weights: NormalizationWeights;
         analysisDate?: string;
         postPositionCurves?: PostPositionCurves;
+        driverRatings: Record<string, number>;
+        gameType: GameType;
     };
 }
 
@@ -47,7 +51,9 @@ self.onmessage = async (event: MessageEvent<any>) => {
 
     if (type === 'PROCESS_RACE') {
         try {
-            const { race, rawKmTimes, weights, analysisDate, postPositionCurves } = payload;
+            const { race, rawKmTimes, weights, analysisDate, postPositionCurves, driverRatings, gameType } = payload;
+
+            primeDriverRatingCache(driverRatings ?? {}, gameType);
 
             // Process the race (pure computation, no side effects)
             const raceResult = await RaceResultProcessor.processRaceResult(
