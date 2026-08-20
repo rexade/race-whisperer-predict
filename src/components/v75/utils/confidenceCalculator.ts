@@ -3,6 +3,8 @@
  * for horses with limited or foreign-only history
  */
 
+import type { HorseRawKmTime, KmTime } from '../../../services/types/kmTimeTypes';
+
 export interface ConfidenceMetrics {
   localStarts: number;
   foreignStarts: number;
@@ -17,6 +19,28 @@ export interface ConfidenceResult {
   confidence: number;
   historySource: "local" | "abroad" | "none";
 }
+
+interface HorseHistoryInput {
+  statistics?: {
+    life?: { starts?: number };
+    starts?: number;
+    totalStarts?: number;
+    foreignStarts?: number;
+    startPoints?: number;
+    placePercentage?: number;
+    winPercentage?: number;
+    earningsPerStart?: number;
+  };
+}
+
+const validCount = (value: unknown): number =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+
+const hasUsableTime = (time?: KmTime): boolean => {
+  if (!time) return false;
+  const seconds = time.minutes * 60 + time.seconds + time.tenths / 10;
+  return Number.isFinite(seconds) && seconds > 0;
+};
 
 /**
  * Compute confidence score (0-100) based on data quality
@@ -58,26 +82,39 @@ export function computeConfidence(metrics: ConfidenceMetrics): number {
  * Determine history source and confidence metrics
  */
 export function analyzeHistorySource(
-  horse: any,
-  rawTimeData?: any
+  horse: HorseHistoryInput,
+  rawTimeData?: HorseRawKmTime
 ): ConfidenceResult {
-  // Extract metrics from horse statistics
-  const localStarts = horse.statistics?.life?.starts || 0;
-  const foreignStarts = 0; // Not available in current API, placeholder for future
-  
-  const hasLocal = localStarts > 0;
+  const statistics = horse.statistics;
+  const rawSamples = Math.max(
+    validCount(rawTimeData?.validTimesCount),
+    validCount(rawTimeData?.allTimes?.length)
+  );
+  const localStarts = Math.max(
+    validCount(statistics?.life?.starts),
+    validCount(statistics?.starts),
+    validCount(statistics?.totalStarts),
+    rawSamples
+  );
+  const foreignStarts = validCount(statistics?.foreignStarts);
+  const hasRawKmTime = [
+    rawTimeData?.rawBestTime,
+    rawTimeData?.bestTime,
+    rawTimeData?.bestRecordTime,
+  ].some(hasUsableTime);
+
   const hasForeign = foreignStarts > 0;
+  const hasLocal = localStarts > 0 || (hasRawKmTime && !hasForeign);
   const hasAny = hasLocal || hasForeign;
-  
-  const hasRawKmTime = !!rawTimeData?.best3Average;
-  const samplesSpeed = rawTimeData?.validTimesCount || 0;
+  const samplesSpeed = validCount(rawTimeData?.validTimesCount);
   
   // Calculate days since last start if available
   let daysSinceLastStart: number | undefined;
   if (rawTimeData?.newestRecordDate) {
-    const lastStart = new Date(rawTimeData.newestRecordDate);
-    const now = new Date();
-    daysSinceLastStart = Math.floor((now.getTime() - lastStart.getTime()) / (1000 * 60 * 60 * 24));
+    const lastStartMs = Date.parse(rawTimeData.newestRecordDate);
+    if (Number.isFinite(lastStartMs)) {
+      daysSinceLastStart = Math.max(0, Math.floor((Date.now() - lastStartMs) / (1000 * 60 * 60 * 24)));
+    }
   }
   
   const confidence = computeConfidence({

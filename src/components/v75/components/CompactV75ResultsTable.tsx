@@ -3,13 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { V75RaceResult } from '../hooks/useV75Analysis';
 import CompactHorseRow from './CompactHorseRow';
-import { sortByPrediction, winnerMargin as calcWinnerMargin, valuePickIds } from '../utils/raceRanking';
+import { sortByPrediction, winnerMargin as calcWinnerMargin, valuePickKeys } from '../utils/raceRanking';
+import { horseResultKey } from '../utils/horseResultIdentity';
 
 interface CompactV75ResultsTableProps {
   race: V75RaceResult;
+  legNumber: number;
 }
 
-const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race }) => {
+const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race, legNumber }) => {
   const sortedHorses = sortByPrediction(race.horses);
   const horsesWithoutTimes = race.horses.filter(horse => !horse.modernNormalizedResult);
 
@@ -20,7 +22,7 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race })
 
   // Winner margin (confidence signal) + market-vs-model value picks
   const winnerMargin = calcWinnerMargin(sortedHorses);
-  const valuePicks = valuePickIds(sortedHorses);
+  const valuePicks = valuePickKeys(sortedHorses);
 
   const startMethodLabel = race.startMethod?.toLowerCase() === 'volte' ? 'VOLTSTART' : 'AUTOSTART';
 
@@ -32,7 +34,7 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race })
             {race.distance} M · {startMethodLabel} · {race.track}
           </div>
           <CardTitle className="text-foreground font-display text-lg sm:text-xl flex items-center gap-2 min-w-0">
-            Lopp {race.raceNumber}
+            Lopp {legNumber}
             <span className="hidden sm:inline text-base font-normal text-muted-foreground truncate">— {race.name}</span>
             {qualityPercentage < 80 && (
               <Badge variant="destructive" className="text-xs font-sans">
@@ -47,22 +49,22 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race })
         <div className="space-y-1">
           {sortedHorses.map((horse, index) => (
             <CompactHorseRow
-              key={horse.horseId}
+              key={horseResultKey(horse)}
               horse={horse}
               rank={index + 1}
               marginToNext={index === 0 ? winnerMargin : undefined}
-              isValuePick={valuePicks.has(horse.horseId)}
+              isValuePick={valuePicks.has(horseResultKey(horse))}
             />
           ))}
           
           {horsesWithoutTimes.map(horse => (
             <div 
-              key={horse.horseId}
+              key={horseResultKey(horse)}
               className="p-2 sm:p-3 bg-muted/50 sm:border-l-4 sm:border-l-muted-foreground/30"
             >
               <div className="flex items-center gap-3">
                 <Badge variant="secondary" className="text-xs">
-                  {horse.postPosition}
+                  {horse.startNumber ?? horse.postPosition}
                 </Badge>
                 <span className="font-medium text-sm">{horse.horseName}</span>
                 <span className="text-xs text-muted-foreground">Insufficient data</span>

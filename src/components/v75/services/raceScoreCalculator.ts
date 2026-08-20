@@ -1,5 +1,16 @@
 
 import { V75HorseResult } from '../types/raceResultTypes';
+import { compareByRanking, rankingScoreSeconds } from '../utils/raceRanking';
+import type { RaceAnalysisHorse } from '@/services/v75Cache/types';
+
+const isValidPredictedTime = (time: unknown): time is { minutes: number; seconds: number; tenths: number } => {
+  if (!time || typeof time !== 'object') return false;
+  const parts = time as Record<string, unknown>;
+  if (![parts.minutes, parts.seconds, parts.tenths].every(value => typeof value === 'number' && Number.isFinite(value))) {
+    return false;
+  }
+  return (parts.minutes as number) * 60 + (parts.seconds as number) + (parts.tenths as number) / 10 > 0;
+};
 
 export class RaceScoreCalculator {
   /**
@@ -9,16 +20,8 @@ export class RaceScoreCalculator {
   static calculateScoresAndRanks(horses: V75HorseResult[]): V75HorseResult[] {
     // Calculate final scores for horses
     const horsesWithScores = horses.map((horse, index) => {
-      let finalScoreSeconds = 999;
-      
-      if (horse.modernNormalizedResult?.modernNormalizedTime) {
-        const time = horse.modernNormalizedResult.modernNormalizedTime;
-        finalScoreSeconds = time.minutes * 60 + time.seconds + time.tenths / 10;
-        
-        // Apply small penalty for uncertain predictions
-        const penalty = horse.uncertain ? 0.20 : 0; // 0.20s/km penalty
-        finalScoreSeconds += penalty;
-      }
+      const rankingScore = rankingScoreSeconds(horse);
+      const finalScoreSeconds = Number.isFinite(rankingScore) ? rankingScore : 999;
       
       return {
         ...horse,
@@ -27,20 +30,7 @@ export class RaceScoreCalculator {
       };
     });
 
-    // Sort by final score, then by confidence (higher confidence wins ties)
-    horsesWithScores.sort((a, b) => {
-      const scoreA = a.finalScore ?? 999;
-      const scoreB = b.finalScore ?? 999;
-      
-      if (scoreA !== scoreB) {
-        return scoreA - scoreB;
-      }
-      
-      // Tie-breaker: higher confidence wins
-      const confA = a.confidence ?? 0;
-      const confB = b.confidence ?? 0;
-      return confB - confA;
-    });
+    horsesWithScores.sort(compareByRanking);
     
     horsesWithScores.forEach((horse, index) => {
       horse.rank = index + 1;
@@ -52,13 +42,29 @@ export class RaceScoreCalculator {
   /**
    * Prepare horses data for analysis storage
    */
-  static prepareAnalysisData(horses: V75HorseResult[]) {
-    return horses.map(horse => ({
-      horseId: horse.horseId,
-      horseName: horse.horseName,
-      postPosition: horse.postPosition,
-      finalScore: horse.finalScore || 999,
-      rank: horse.rank || 999
-    }));
+  static prepareAnalysisData(horses: V75HorseResult[]): RaceAnalysisHorse[] {
+    return this.calculateScoresAndRanks(horses).map((horse, index) => {
+      const normalizedTime = horse.modernNormalizedResult?.modernNormalizedTime;
+      const isEstimated = horse.modernNormalizedResult?.isEstimated === true;
+      const predictedTime = !isEstimated && isValidPredictedTime(normalizedTime)
+        ? {
+            minutes: normalizedTime.minutes,
+            seconds: normalizedTime.seconds,
+            tenths: normalizedTime.tenths,
+          }
+        : undefined;
+
+      return {
+        horseKey: horse.horseKey,
+        horseId: horse.horseId,
+        horseName: horse.horseName,
+        startNumber: horse.startNumber ?? horse.postPosition,
+        postPosition: horse.postPosition,
+        finalScore: horse.finalScore ?? 999,
+        rank: horse.rank ?? index + 1,
+        isEstimated,
+        predictedTime,
+      };
+    });
   }
 }

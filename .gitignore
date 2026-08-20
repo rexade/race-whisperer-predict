@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+*.tsbuildinfo
 *.local
 calibration-dataset*.json
 calibration-dataset*.zip
@@ -40,6 +41,8 @@ reports/
 
 # Python
 __pycache__/
+.venv/
+.venv-*/
 
 # Agent working artifacts (pi-pulse / lab loop)
 memory/

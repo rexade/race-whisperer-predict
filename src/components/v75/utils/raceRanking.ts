@@ -8,23 +8,57 @@
  *   otherwise       → open leg, spread
  */
 
-import { V75HorseResult } from '../types/raceResultTypes';
+import type { V75HorseResult } from '../types/raceResultTypes';
+import { horseResultKey } from './horseResultIdentity';
+
+export const UNCERTAINTY_PENALTY_SECONDS = 0.2;
 
 export const predictedSeconds = (h: V75HorseResult): number => {
-  const t = h.modernNormalizedResult!.modernNormalizedTime;
-  return t.minutes * 60 + t.seconds + t.tenths / 10;
+  const t = h.modernNormalizedResult?.modernNormalizedTime;
+  if (!t) return Number.POSITIVE_INFINITY;
+
+  const seconds = t.minutes * 60 + t.seconds + t.tenths / 10;
+  return Number.isFinite(seconds) ? seconds : Number.POSITIVE_INFINITY;
 };
+
+/** The score used everywhere a predicted order is presented or persisted. */
+export const rankingScoreSeconds = (horse: V75HorseResult): number => {
+  const seconds = predictedSeconds(horse);
+  return Number.isFinite(seconds)
+    ? seconds + (horse.uncertain ? UNCERTAINTY_PENALTY_SECONDS : 0)
+    : Number.POSITIVE_INFINITY;
+};
+
+/** Canonical race order, including deterministic tie-breakers. */
+export function compareByRanking(a: V75HorseResult, b: V75HorseResult): number {
+  const scoreA = rankingScoreSeconds(a);
+  const scoreB = rankingScoreSeconds(b);
+  if (scoreA !== scoreB) return scoreA - scoreB;
+
+  const confidenceDifference = (b.confidence ?? 0) - (a.confidence ?? 0);
+  if (confidenceDifference !== 0) return confidenceDifference;
+
+  const startNumberDifference = (a.startNumber ?? a.postPosition) - (b.startNumber ?? b.postPosition);
+  if (startNumberDifference !== 0) return startNumberDifference;
+
+  const postPositionDifference = a.postPosition - b.postPosition;
+  if (postPositionDifference !== 0) return postPositionDifference;
+
+  return horseResultKey(a).localeCompare(horseResultKey(b));
+}
 
 /** Horses with a prediction, fastest first — the canonical display order. */
 export function sortByPrediction(horses: V75HorseResult[]): V75HorseResult[] {
   return horses
-    .filter(h => h.modernNormalizedResult)
-    .sort((a, b) => predictedSeconds(a) - predictedSeconds(b));
+    .filter(h => Number.isFinite(predictedSeconds(h)))
+    .sort(compareByRanking);
 }
 
 /** Predicted-time gap from rank 1 to rank 2 (seconds); undefined for <2 horses. */
 export function winnerMargin(sorted: V75HorseResult[]): number | undefined {
-  return sorted.length >= 2 ? predictedSeconds(sorted[1]) - predictedSeconds(sorted[0]) : undefined;
+  return sorted.length >= 2
+    ? rankingScoreSeconds(sorted[1]) - rankingScoreSeconds(sorted[0])
+    : undefined;
 }
 
 export type LegConfidence = 'spik' | 'favorit' | 'oppet';
@@ -55,8 +89,8 @@ export function spreadSuggestion(sorted: V75HorseResult[]): SpreadSuggestion {
   if (sorted.length === 0) return { type: 'oppet', horses: [] };
   if (type === 'spik') return { type, horses: [sorted[0]] };
 
-  const leader = predictedSeconds(sorted[0]);
-  const covered = sorted.filter(h => predictedSeconds(h) - leader <= COVER_WINDOW_S).slice(0, MAX_COVER);
+  const leader = rankingScoreSeconds(sorted[0]);
+  const covered = sorted.filter(h => rankingScoreSeconds(h) - leader <= COVER_WINDOW_S).slice(0, MAX_COVER);
   // An open leg always deserves at least a 3-horse spread when the field allows
   const minCover = type === 'oppet' ? 3 : 2;
   const horses = covered.length >= minCover ? covered : sorted.slice(0, Math.min(minCover, sorted.length));
@@ -68,19 +102,20 @@ export function spreadSuggestion(sorted: V75HorseResult[]): SpreadSuggestion {
  * Market rank comes from betDistribution (spelprocent, descending). A horse is
  * a value pick when the model has it top-4 and at least 3 ranks above market.
  */
-export function valuePickIds(sorted: V75HorseResult[]): Set<number> {
+export function valuePickKeys(sorted: V75HorseResult[]): Set<string> {
   const withMarket = sorted.filter(h => h.betDistribution !== undefined && h.betDistribution > 0);
   if (withMarket.length < 4) return new Set();
 
   const marketOrder = [...withMarket].sort((a, b) => (b.betDistribution ?? 0) - (a.betDistribution ?? 0));
-  const marketRank = new Map<number, number>();
-  marketOrder.forEach((h, i) => marketRank.set(h.horseId, i + 1));
+  const marketRank = new Map<string, number>();
+  marketOrder.forEach((h, i) => marketRank.set(horseResultKey(h), i + 1));
 
-  const value = new Set<number>();
+  const value = new Set<string>();
   sorted.forEach((h, i) => {
     const modelRank = i + 1;
-    const mkt = marketRank.get(h.horseId);
-    if (mkt !== undefined && modelRank <= 4 && mkt - modelRank >= 3) value.add(h.horseId);
+    const key = horseResultKey(h);
+    const mkt = marketRank.get(key);
+    if (mkt !== undefined && modelRank <= 4 && mkt - modelRank >= 3) value.add(key);
   });
   return value;
 }

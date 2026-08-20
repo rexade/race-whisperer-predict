@@ -41,6 +41,7 @@ export interface V75RaceData {
     horseKey: string;
     horseId: number;
     name: any; // Keep as any for now due to API inconsistency
+    startNumber: number;
     postPosition: number;
     distance: number;
     driver: {
@@ -90,6 +91,7 @@ export interface V75HorseData {
   horseKey: string;
   horseId: number;
   name: any; // Keep as any for now due to API inconsistency
+  startNumber: number;
   postPosition: number;
   distance: number;
   driver: {
@@ -135,17 +137,25 @@ export interface V75HorseData {
   };
 }
 
+const SUPPORTED_GAME_TYPES: readonly GameType[] = ['V75', 'V85', 'V86', 'V65'];
+
+const isSupportedGameType = (value: string): value is GameType =>
+  SUPPORTED_GAME_TYPES.includes(value as GameType);
+
 /**
- * Return all game type keys that have at least one game on a given date.
- * e.g. ["V75", "V86", "GS75"] — whatever ATG lists in data.games
+ * Return analyzer-supported game types that have at least one game on a given date.
  */
-export const fetchAvailableGameTypes = async (date: string): Promise<string[]> => {
+export const fetchAvailableGameTypes = async (date: string): Promise<GameType[]> => {
   try {
     const response = await fetch(`/api/atg/calendar/day/${date}`);
     if (!response.ok) return [];
     const data = await response.json();
     if (!data.games || typeof data.games !== 'object') return [];
-    return Object.keys(data.games).filter(k => Array.isArray(data.games[k]) && data.games[k].length > 0);
+    return Object.keys(data.games).filter(
+      (key): key is GameType => isSupportedGameType(key)
+        && Array.isArray(data.games[key])
+        && data.games[key].length > 0
+    );
   } catch {
     return [];
   }
@@ -204,7 +214,7 @@ export const fetchV75GameInfo = async (date: string, gameType: GameType = GAME_T
 
   } catch (error) {
     log.error(`❌ Error fetching ${gameType} game info:`, error);
-    return null;
+    throw error;
   }
 };
 
@@ -248,6 +258,17 @@ export const fetchRaceDataForGame = async (
     const raceData = res.value;
 
     try {
+      if (
+        !raceData
+        || typeof raceData.id !== 'string'
+        || !gameInfo.raceIds.includes(raceData.id)
+        || !Array.isArray(raceData.starts)
+        || raceData.starts.length === 0
+      ) {
+        log.warn('Ignoring malformed or empty race payload:', raceData?.id ?? 'unknown race');
+        continue;
+      }
+
       log.debug(`✅ Race data received for ${raceData.id}:`, {
         name: raceData.name,
         distance: raceData.distance,
@@ -262,7 +283,7 @@ export const fetchRaceDataForGame = async (
         // ... abbreviated debug logic ...
       }
 
-      const horses = (raceData.starts || []).map((start: any) => extractHorseData(start, raceData.id));
+      const horses = raceData.starts.map((start: any) => extractHorseData(start, raceData.id, date));
 
       v75Races.push({
         raceId: raceData.id,
@@ -281,6 +302,16 @@ export const fetchRaceDataForGame = async (
     }
   }
 
+  const missingRaceIds = gameInfo.raceIds.filter(
+    raceId => !v75Races.some(race => race.raceId === raceId)
+  );
+  if (v75Races.length !== gameInfo.raceIds.length || missingRaceIds.length > 0) {
+    throw new Error(
+      `Incomplete ${gameType} race card for ${date}: fetched ${v75Races.length}/${gameInfo.raceIds.length} races`
+      + (missingRaceIds.length > 0 ? `; missing ${missingRaceIds.join(', ')}` : '')
+    );
+  }
+
   log.info(`\n🏁 ${gameType} Race Data Fetch Complete: ${v75Races.length}/${gameInfo.raceIds.length} races successfully fetched`);
 
   // Market signals (vinnare odds, betDistribution) only exist in the game
@@ -294,7 +325,8 @@ export const fetchRaceDataForGame = async (
         const race = v75Races.find(r => r.raceId === gr.id);
         if (!race) continue;
         for (const st of gr.starts ?? []) {
-          const horse = race.horses.find(h => h.postPosition === (st.number ?? st.postPosition));
+          const marketStartNumber = st.number ?? st.postPosition;
+          const horse = race.horses.find(h => h.startNumber === marketStartNumber);
           if (!horse) continue;
           const rawOdds = st.pools?.vinnare?.odds;
           if (typeof rawOdds === 'number' && rawOdds > 0) horse.liveOdds = rawOdds / 100;
@@ -368,7 +400,7 @@ export const fetchV75CalendarDates = async (year: number, month: number, gameTyp
 /**
  * Extract horse data
  */
-const extractHorseData = (start: any, raceId: string): V75HorseData => {
+const extractHorseData = (start: any, raceId: string, raceDate: string): V75HorseData => {
   // Only log detailed extraction if debug logic is enabled
   if (IS_DEBUG) {
     // console.log can be used here if we genuinely need tight loop debugging,
@@ -442,10 +474,12 @@ const extractHorseData = (start: any, raceId: string): V75HorseData => {
     }
   }
 
-  // Enhanced driver statistics extraction — year-aware (prefer current year,
+  // Enhanced driver statistics extraction — year-aware (prefer the race year,
   // fall back to previous year early in the season when current-year sample is empty)
-  const currentYear = String(new Date().getFullYear());
-  const previousYear = String(new Date().getFullYear() - 1);
+  const parsedRaceYear = Number.parseInt(raceDate.slice(0, 4), 10);
+  const raceYear = Number.isFinite(parsedRaceYear) ? parsedRaceYear : new Date().getFullYear();
+  const currentYear = String(raceYear);
+  const previousYear = String(raceYear - 1);
   const driverStats = start.driver?.statistics || {};
   const driverYearStats = start.driver?.statistics?.years?.[currentYear]
     || start.driver?.statistics?.years?.[previousYear] || {};
@@ -462,12 +496,14 @@ const extractHorseData = (start: any, raceId: string): V75HorseData => {
   const earningsPerStart = calculateEarningsPerStart(totalEarnings, totalStarts);
 
   const horseId = start.horse?.id ?? start.horse?.horseId ?? 0;
-  const postPosition = start.number || start.postPosition || 0;
+  const startNumber = start.number ?? start.postPosition ?? 0;
+  const postPosition = start.postPosition ?? startNumber;
 
   return {
-    horseKey: makeHorseKey(raceId, horseId, postPosition),
+    horseKey: makeHorseKey(raceId, horseId, startNumber),
     horseId,
     name: start.horse?.name || 'Unknown Horse',
+    startNumber,
     postPosition,
     distance: start.distance || 0,
     driver: {

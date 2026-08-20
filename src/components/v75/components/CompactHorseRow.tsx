@@ -9,6 +9,7 @@ import { V75TimeCalculationDebug } from './V75TimeCalculationDebug';
 import { useIsMobile } from '../../../hooks/use-mobile';
 import { getLatestKmTimeDisplay } from '../../../services/kmTimeRecords';
 import { hasAnyFlag, computeReliabilityScore, type HorseConfidenceFlags } from '../utils/confidenceFlags';
+import { horseResultDomId } from '../utils/horseResultIdentity';
 
 interface CompactHorseRowProps {
   horse: V75HorseResult;
@@ -152,6 +153,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
   const safeHorseName = ensureStringForDisplay(horse.horseName);
   const safeDriverName = ensureStringForDisplay(horse.driverName);
   const latestKmTime = horse.kmTimeRecords?.length ? getLatestKmTimeDisplay(horse.kmTimeRecords) : null;
+  const breakdownId = horseResultDomId(horse);
 
   // Barefoot ("barfota") is the fast setup; the change flag means it's new for this start
   const isBarefoot = horse.shoesFront === false || horse.shoesBack === false;
@@ -197,7 +199,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
         role={isMobile ? 'button' : undefined}
         tabIndex={isMobile ? 0 : -1}
         aria-expanded={showDebug}
-        aria-controls={`breakdown-${horse.horseId}`}
+        aria-controls={breakdownId}
       >
         {/* Main content - always visible */}
         <div className="flex items-center gap-2 sm:gap-3">
@@ -298,7 +300,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
                 className="hidden sm:inline-flex h-5 w-5 p-0 opacity-60 hover:opacity-100 flex-shrink-0"
                 aria-label={showDebug ? 'Collapse normalization breakdown' : 'Expand normalization breakdown'}
                 aria-expanded={showDebug}
-                aria-controls={`breakdown-${horse.horseId}`}
+                aria-controls={breakdownId}
               >
                 {showDebug ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               </Button>
@@ -464,7 +466,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
       </div>
 
       {showDebug && (
-        <div id={`breakdown-${horse.horseId}`} className="bg-muted/50 sm:border-b sm:border-border/50">
+        <div id={breakdownId} className="bg-muted/50 sm:border-b sm:border-border/50">
           {/* Sectional km-time details — only shown in debug panel */}
           {latestKmTime && (latestKmTime.first200 != null || latestKmTime.last200 != null || latestKmTime.best100 != null || latestKmTime.actualKMTime != null || latestKmTime.slipstreamDistance != null) && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground px-3 pt-2 pb-1">

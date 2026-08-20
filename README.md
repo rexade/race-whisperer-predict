@@ -1,6 +1,6 @@
 # Race Whisperer Predict
 
-Predicts Swedish trotting race outcomes (V75/V85/V86/GS75) from ATG racing data. A
+Predicts Swedish trotting race outcomes (V75/V85/V86/V65) from ATG racing data. A
 weighted km-time normalization model ranks every horse in a race; weights are tuned
 against historical results with an honest train/holdout calibration pipeline.
 
@@ -13,7 +13,7 @@ Two parts:
 
 ## Local development
 
-Prerequisites: Node 20+, and for the backend Python 3.12 + Postgres.
+Prerequisites: Node 20.19+ or 22.12+, and for the backend Python 3.12 + Postgres.
 
 ```sh
 npm ci
@@ -27,8 +27,14 @@ without the backend. Persistence endpoints (`/api/analysis`, `/api/rawtimes`,
 ```sh
 cd backend
 pip install -r requirements.txt
-uvicorn main:app --reload   # uses DATABASE_URL, see .env.example
+uvicorn main:app --reload --env-file ../.env
 ```
+
+Copy `.env.example` to `.env`, set `DATABASE_URL`, and generate a strong
+`API_TOKEN` before using persistence. Mutations fail closed with HTTP 503 when
+the backend token is empty. On a trusted operator browser, set the same token at
+runtime with `localStorage.setItem('apiToken', '...')`. Do not put the token in a
+`VITE_*` variable: Vite values are compiled into public JavaScript.
 
 ## Tests and checks
 
@@ -62,13 +68,18 @@ sectional-timing source data that `npm run build` bakes into
 See `.env.example`. Notable:
 
 - `DATABASE_URL` — Postgres connection for the backend.
-- `API_TOKEN` — optional shared secret. When set, POST/PUT/DELETE under `/api/*`
-  require the same value in the `X-Api-Token` header (reads stay open). The frontend
-  sends it from `VITE_API_TOKEN` or `localStorage.setItem('apiToken', '...')`.
+- `API_TOKEN` — required for POST/PUT/DELETE under `/api/*` and for the expensive
+  `/api/debug/*` inspection routes. Ordinary reads stay open. If the token is absent,
+  protected requests fail with HTTP 503 rather than running unauthenticated. A trusted
+  operator can provide it through `localStorage.setItem('apiToken', '...')`; it must
+  never be configured as a `VITE_*` build variable.
 
 ## Deployment
 
 - **Docker** (full app): multi-stage `Dockerfile` builds the frontend and serves it
-  from FastAPI on port 8000 — `docker build -t race-whisperer . && docker run -p 8000:8000 -e DATABASE_URL=... race-whisperer`.
+  from FastAPI on port 8000. Set `DATABASE_URL` and `API_TOKEN` in a local `.env`
+  file, then run `docker build -t race-whisperer . && docker run --env-file .env -p 8000:8000 race-whisperer`.
+  Environment files are excluded from the Docker build context and are never baked
+  into the frontend image.
 - **Vercel/Netlify** (frontend only): static build with `/api/atg` rewrites; the
   persistence endpoints need a separately hosted backend.

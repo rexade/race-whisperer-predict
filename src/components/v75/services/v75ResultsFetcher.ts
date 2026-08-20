@@ -197,14 +197,15 @@ export class V75ResultsFetcher {
     const finishOrder = resultsArray
       .map((item: any) => {
         // Handle different result formats
-        let position, horseId, horseName, postPosition, time, kmTime, driver;
+        let position, horseId, horseName, startNumber, postPosition, time, kmTime, driver;
 
         if (item.result) {
           // Format: starts with embedded result
           position = item.result.finalPosition || item.result.finishOrder;
           horseId = item.horse?.id ?? 0;
           horseName = item.horse?.name || 'Unknown';
-          postPosition = item.number || item.postPosition || 0;
+          startNumber = item.number ?? item.postPosition ?? 0;
+          postPosition = item.postPosition ?? startNumber;
           const rawKmTime = item.result.kmTime;
           const hasNumericKmTime = rawKmTime && typeof rawKmTime.minutes === 'number' && typeof rawKmTime.seconds === 'number';
           time = hasNumericKmTime ? formatKmTime(rawKmTime) : 'N/A';
@@ -217,7 +218,8 @@ export class V75ResultsFetcher {
           position = item.finalPosition || item.finishOrder || item.position;
           horseId = item.horse?.id ?? item.horseId ?? 0;
           horseName = item.horse?.name || item.horseName || 'Unknown';
-          postPosition = item.postPosition || item.number || 0;
+          startNumber = item.number ?? item.postPosition ?? 0;
+          postPosition = item.postPosition ?? startNumber;
           time = item.kmTime ? formatKmTime(item.kmTime) : (item.time || 'N/A');
           kmTime = item.kmTime || parseActualTime(item.time || '');
           driver = item.driver ?
@@ -228,9 +230,9 @@ export class V75ResultsFetcher {
         // Extract closing odds from result (available on completed races)
         const finalOdds = item.result?.finalOdds ?? item.result?.odds ?? item.pools?.vinnare?.odds ?? undefined;
 
-        const horseKey = makeHorseKey(raceId, horseId, postPosition);
+        const horseKey = makeHorseKey(raceId, horseId, startNumber);
 
-        return { position, horseId, horseKey, horseName, postPosition, time, kmTime, driver, finalOdds };
+        return { position, horseId, horseKey, horseName, startNumber, postPosition, time, kmTime, driver, finalOdds };
       })
       .filter((result: any) => result.position && result.position > 0)
       .sort((a: any, b: any) => a.position - b.position);

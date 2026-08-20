@@ -14,6 +14,7 @@ export const convertV75ToEnhancedRaceData = (v75Race: V75RaceData): EnhancedRace
     horseKey: horse.horseKey,
     horseId: horse.horseId,
     name: extractHorseNameAsString(horse.name),
+    startNumber: horse.startNumber,
     postPosition: horse.postPosition,
     distance: horse.distance,
     startMethod: v75Race.startMethod,
@@ -79,9 +80,14 @@ export const convertEnhancedToV75RaceData = (enhancedRace: EnhancedRaceData): V7
     date: enhancedRace.date,
     prize: enhancedRace.prize,
     horses: enhancedRace.horses.map(horse => ({
-      horseKey: (horse as any).horseKey ?? makeHorseKey(enhancedRace.raceId, horse.horseId, horse.postPosition),
+      horseKey: (horse as any).horseKey ?? makeHorseKey(
+        enhancedRace.raceId,
+        horse.horseId,
+        horse.startNumber ?? horse.postPosition
+      ),
       horseId: horse.horseId,
       name: horse.name,
+      startNumber: horse.startNumber ?? horse.postPosition,
       postPosition: horse.postPosition,
       distance: horse.distance,
       driver: {

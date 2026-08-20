@@ -4,6 +4,7 @@ export interface EnhancedHorseData {
   horseKey?: string;
   horseId: number;
   name: string;
+  startNumber?: number;
   postPosition: number;
   distance: number;
   startMethod: string;
@@ -166,7 +167,8 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
       const start = data.starts[index];
 
       try {
-        const postPos = start.postPosition;
+        const startNumber = start.number ?? start.postPosition ?? 0;
+        const postPos = start.postPosition ?? startNumber;
         postPositions.push(postPos);
         postPositionMap.set(postPos, (postPositionMap.get(postPos) || 0) + 1);
 
@@ -272,6 +274,7 @@ export const fetchEnhancedRaceData = async (raceId: string): Promise<EnhancedRac
         const enhancedHorse: EnhancedHorseData = {
           horseId: start.horse.id,
           name: start.horse.name,
+          startNumber,
           postPosition: postPos,
           distance: start.distance || data.distance, // Individual horse distance (important for volte starts)
           startMethod: data.startMethod,

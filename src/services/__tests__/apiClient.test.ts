@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { apiHeaders } from '../apiClient';
+import { ApiRequestError, apiHeaders, assertResponseOk } from '../apiClient';
 
 describe('apiHeaders', () => {
   beforeEach(() => localStorage.clear());
@@ -22,5 +22,22 @@ describe('apiHeaders', () => {
   it('works with no extra headers', () => {
     localStorage.setItem('apiToken', 's3cret');
     expect(apiHeaders()).toEqual({ 'X-Api-Token': 's3cret' });
+  });
+});
+
+describe('assertResponseOk', () => {
+  it('allows successful responses', () => {
+    expect(() => assertResponseOk({ ok: true, status: 204 }, 'Save')).not.toThrow();
+  });
+
+  it('throws a typed error for non-success responses', () => {
+    try {
+      assertResponseOk({ ok: false, status: 401 }, 'Save weights');
+      throw new Error('Expected assertResponseOk to throw');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ApiRequestError);
+      expect(error).toMatchObject({ action: 'Save weights', status: 401 });
+      expect((error as Error).message).toBe('Save weights failed: HTTP 401');
+    }
   });
 });

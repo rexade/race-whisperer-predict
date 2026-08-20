@@ -1,11 +1,14 @@
 import { CachedRawTimeCandidates, RawTimeCandidateData } from './types';
 import { log } from '@/lib/logger';
-import { apiHeaders } from '../apiClient';
+import { apiHeaders, assertResponseOk } from '../apiClient';
 
 export class RawTimeCandidatesCache {
   static async fetchUnfilteredCandidates(raceId: string, includeRaw = false): Promise<RawTimeCandidateData | null> {
     try {
-      const resp = await fetch(`/api/debug/races/${raceId}/rawtimes-unfiltered${includeRaw ? '?includeRaw=true' : ''}`);
+      const resp = await fetch(
+        `/api/debug/races/${raceId}/rawtimes-unfiltered${includeRaw ? '?includeRaw=true' : ''}`,
+        { headers: apiHeaders() },
+      );
       if (!resp.ok) {
         log.warn(`[RawTimeCandidatesCache] Failed to fetch candidates for ${raceId}: ${resp.status}`);
         return null;
@@ -25,7 +28,7 @@ export class RawTimeCandidatesCache {
     candidateData: RawTimeCandidateData
   ): Promise<void> {
     try {
-      await fetch('/api/rawtime-candidates', {
+      const response = await fetch('/api/rawtime-candidates', {
         method: 'POST',
         headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
@@ -37,9 +40,11 @@ export class RawTimeCandidatesCache {
           schemaVersion: 1,
         }),
       });
+      assertResponseOk(response, 'Store raw-time candidates');
       log.info(`[RawTimeCandidatesCache] Cached unfiltered candidates for race ${raceNumber} (${raceId})`);
     } catch (error) {
       log.error('[RawTimeCandidatesCache] Failed to store raw-time candidates:', error);
+      throw error;
     }
   }
 
@@ -74,11 +79,19 @@ export class RawTimeCandidatesCache {
     }
   }
 
-  static clearCandidates(raceId: string): void {
-    fetch(`/api/rawtime-candidates/${raceId}`, { method: 'DELETE', headers: apiHeaders() }).catch(() => {});
+  static async clearCandidates(raceId: string): Promise<void> {
+    const response = await fetch(
+      `/api/rawtime-candidates/${raceId}`,
+      { method: 'DELETE', headers: apiHeaders() },
+    );
+    assertResponseOk(response, `Clear raw-time candidates ${raceId}`);
   }
 
-  static clearAllCandidates(): void {
-    fetch('/api/rawtime-candidates', { method: 'DELETE', headers: apiHeaders() }).catch(() => {});
+  static async clearAllCandidates(): Promise<void> {
+    const response = await fetch(
+      '/api/rawtime-candidates',
+      { method: 'DELETE', headers: apiHeaders() },
+    );
+    assertResponseOk(response, 'Clear raw-time candidates');
   }
 }

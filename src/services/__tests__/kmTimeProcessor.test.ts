@@ -277,6 +277,94 @@ describe('kmTimeProcessor', () => {
             expect(result.records.map(r => (r as any).meta.rawTimeWindow)).toEqual(['older-fill', 'older-fill']);
         });
 
+        it('does not turn a post-cutoff result into an invalid-time horse prediction', async () => {
+            const { fetchHorseHistoricalData } = await import('../atgHistoricalApi');
+            const { fetchExtendedRaceData } = await import('../utils/extendedFallbackHandler');
+            vi.mocked(fetchHorseHistoricalData).mockResolvedValueOnce({
+                horse: {
+                    name: 'Future Only Horse',
+                    id: 99004,
+                    results: {
+                        records: [{
+                            date: '2026-05-02',
+                            kmTime: { minutes: 1, seconds: 10, tenths: 0 },
+                            place: '1',
+                            race: { id: 'future', startMethod: 'auto' },
+                            track: { name: 'Solvalla' },
+                            start: { distance: 2140, postPosition: 1 }
+                        }]
+                    }
+                },
+                driver: { firstName: 'Test', lastName: 'Driver' },
+                postPosition: 1
+            });
+            vi.mocked(fetchExtendedRaceData).mockResolvedValueOnce({
+                id: 'test-race-future',
+                starts: [{
+                    number: 1,
+                    postPosition: 1,
+                    horse: {
+                        id: 99004,
+                        name: 'Future Only Horse',
+                        record: {
+                            time: { minutes: 1, seconds: 9, tenths: 0 },
+                            startMethod: 'auto'
+                        }
+                    }
+                }]
+            } as any);
+
+            const result = await calculateRawKmTimesForRaceWithId(
+                'test-race-future',
+                [{ postPosition: 1, horse: { id: 99004, name: 'Future Only Horse' } } as ATGStartInfo],
+                undefined,
+                '2026-05-01'
+            );
+
+            expect(result[0].bestTime).toEqual({ minutes: 0, seconds: 0, tenths: 0 });
+            expect(result[0].usedInvalidTimeFallback).not.toBe(true);
+        });
+
+        it('uses program number for detail lookup, synthetic identity, and extended fallback matching', async () => {
+            const { fetchHorseHistoricalData } = await import('../atgHistoricalApi');
+            const { fetchExtendedRaceData } = await import('../utils/extendedFallbackHandler');
+            vi.mocked(fetchHorseHistoricalData).mockResolvedValueOnce(null as any);
+            vi.mocked(fetchExtendedRaceData).mockResolvedValueOnce({
+                id: 'test-race-start-number',
+                starts: [{
+                    number: 7,
+                    // Deliberately different from the current gate so a gate-based match fails.
+                    postPosition: 9,
+                    horse: {
+                        id: 0,
+                        name: 'Program Seven',
+                        results: {
+                            records: [{
+                                date: '2026-04-10',
+                                kmTime: { minutes: 1, seconds: 15, tenths: 0 },
+                                place: '1',
+                                race: { id: 'prior', startMethod: 'auto' },
+                                track: { name: 'Solvalla' },
+                                start: { distance: 2140, postPosition: 9 }
+                            }]
+                        }
+                    }
+                }]
+            } as any);
+
+            const result = await calculateRawKmTimesForRaceWithId(
+                'test-race-start-number',
+                [{ number: 7, postPosition: 2, horse: { id: 0, name: 'Program Seven' } } as ATGStartInfo],
+                undefined,
+                '2026-05-01'
+            );
+
+            expect(fetchHorseHistoricalData).toHaveBeenLastCalledWith('test-race-start-number', 7);
+            expect(result[0].horseKey).toBe('test-race-start-number:start:7');
+            expect(result[0].usedExtendedFallback).toBe(true);
+            expect(result[0].rawBestTime).toEqual({ minutes: 1, seconds: 15, tenths: 0 });
+        });
+
         it('averages most recent three records, not fastest records', async () => {
             const result = await processHorseKmTimes(123, 'Recent Average Horse', [
                 {

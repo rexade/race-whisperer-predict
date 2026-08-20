@@ -27,6 +27,7 @@ export interface ATGStartInfo {
     };
   };
   result?: {
+    finalPosition?: number;
     finishOrder?: number;
     kmTime?: {
       minutes: number;

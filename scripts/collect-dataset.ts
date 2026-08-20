@@ -47,6 +47,11 @@ import { V75ResultsFetcher } from '../src/components/v75/services/v75ResultsFetc
 import { calculateRawKmTimesForRaceWithId } from '../src/services/kmTimeProcessor';
 import { makeHorseKey, horseKeyFromRawTime, horseKeyFromRaceHorse } from '../src/services/horseIdentity';
 import type { GameType } from '../src/config/game';
+import {
+  assembleCollectorCache,
+  inspectCollectorCacheFile,
+  writeCollectorCacheFile,
+} from './collect-dataset-cache';
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -116,7 +121,11 @@ async function collectDate(date: string, types: string[], delayMs: number): Prom
         for (const finish of actualRace.finishOrder) {
           // Positions above field size are ATG special codes (disqualified etc.)
           if (finish.position > 0 && finish.position <= 20) {
-            const horseKey = finish.horseKey ?? makeHorseKey(race.raceId, finish.horseId, finish.postPosition);
+            const horseKey = finish.horseKey ?? makeHorseKey(
+              race.raceId,
+              finish.horseId,
+              finish.startNumber ?? finish.postPosition
+            );
             actualMap[horseKey] = {
               position: finish.position,
               kmTime: finish.kmTime ?? undefined,
@@ -129,7 +138,7 @@ async function collectDate(date: string, types: string[], delayMs: number): Prom
         const atgStarts = race.horses.map((horse: any) => ({
           horseKey: horse.horseKey,
           horse: { id: horse.horseId, name: typeof horse.name === 'string' ? horse.name : String(horse.name) },
-          number: horse.postPosition,
+          number: horse.startNumber ?? horse.postPosition,
           postPosition: horse.postPosition,
           distance: horse.distance,
           driver: {
@@ -164,15 +173,8 @@ async function collectDate(date: string, types: string[], delayMs: number): Prom
 }
 
 function assemble(cacheDir: string, outPath: string): void {
-  const files = fs.readdirSync(cacheDir).filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort();
-  const dataset: SerializedDate[] = [];
-  for (const f of files) {
-    const entry = JSON.parse(fs.readFileSync(path.join(cacheDir, f), 'utf-8'));
-    if (entry && entry.races?.length > 0) dataset.push(entry);
-  }
-  const races = dataset.reduce((s, d) => s + d.races.length, 0);
-  fs.writeFileSync(outPath, JSON.stringify(dataset));
-  console.log(`\nAssembled ${outPath}: ${dataset.length} dates, ${races} races`);
+  const { dateCount, raceCount } = assembleCollectorCache<SerializedRace>(cacheDir, outPath);
+  console.log(`\nAssembled ${outPath}: ${dateCount} dates, ${raceCount} races`);
 }
 
 async function main() {
@@ -215,19 +217,26 @@ async function main() {
   for (let i = 0; i < dates.length; i++) {
     const date = dates[i];
     const cachePath = path.join(cacheDir, `${date}.json`);
-    if (fs.existsSync(cachePath)) { skipped++; continue; }
+    if (fs.existsSync(cachePath)) {
+      const inspection = inspectCollectorCacheFile<SerializedRace>(cachePath, date);
+      if (inspection.valid) {
+        skipped++;
+        continue;
+      }
+      console.log(`[${i + 1}/${dates.length}] ${date}: stale cache (${inspection.reason}); recollecting`);
+    }
 
     try {
       const entry = await collectDate(date, types, delayMs);
       if (entry) {
-        fs.writeFileSync(cachePath, JSON.stringify(entry));
+        writeCollectorCacheFile(cachePath, entry);
         collected++;
         totalRaces += entry.races.length;
         const elapsed = (Date.now() - t0) / 1000;
         console.log(`[${i + 1}/${dates.length}] ${date}: ${entry.races.length} races (total ${totalRaces} races, ${Math.round(elapsed)}s elapsed)`);
       } else {
         // Cache empties too so re-runs skip no-game days instantly
-        fs.writeFileSync(cachePath, JSON.stringify({ date, races: [] }));
+        writeCollectorCacheFile<SerializedRace>(cachePath, { date, races: [] });
         empty++;
       }
     } catch (err) {

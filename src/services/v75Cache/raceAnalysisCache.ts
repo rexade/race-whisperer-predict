@@ -1,6 +1,6 @@
 import { log } from '@/lib/logger';
-import { apiHeaders } from '../apiClient';
-import { RaceAnalysisData, RaceAnalysisSummary, RaceMAEResult } from './types';
+import { apiHeaders, assertResponseOk } from '../apiClient';
+import { RaceAnalysisData, RaceAnalysisHorse, RaceAnalysisSummary, RaceMAEResult } from './types';
 
 export class RaceAnalysisCache {
 
@@ -11,19 +11,7 @@ export class RaceAnalysisCache {
     raceId: string,
     raceNumber: number,
     analysisDate: string,
-    horses: Array<{
-      horseKey?: string;
-      horseId: number;
-      horseName: string;
-      postPosition: number;
-      finalScore: number;
-      rank: number;
-      predictedTime?: {
-        minutes: number;
-        seconds: number;
-        tenths: number;
-      };
-    }>
+    horses: RaceAnalysisHorse[]
   ): Promise<void> {
     try {
       log.debug(`Storing race analysis - Race ${raceNumber}: date=${analysisDate}, raceId=${raceId}, horses=${horses.length}`);
@@ -35,11 +23,12 @@ export class RaceAnalysisCache {
         log.debug(`  ${horse.horseName}: ${horse.predictedTime?.minutes}:${horse.predictedTime?.seconds}.${horse.predictedTime?.tenths}`);
       });
 
-      await fetch('/api/analysis', {
+      const response = await fetch('/api/analysis', {
         method: 'POST',
         headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ raceId, raceNumber, analysisDate, horses }),
       });
+      assertResponseOk(response, 'Store race analysis');
 
       log.debug(`Race analysis stored successfully`);
 
@@ -81,10 +70,12 @@ export class RaceAnalysisCache {
    */
   static async clearRaceAnalysis(raceId: string): Promise<void> {
     try {
-      await fetch(`/api/analysis/${raceId}`, { method: 'DELETE', headers: apiHeaders() });
+      const response = await fetch(`/api/analysis/${raceId}`, { method: 'DELETE', headers: apiHeaders() });
+      assertResponseOk(response, `Clear race analysis ${raceId}`);
       log.debug(`Cleared race analysis for race ${raceId}`);
     } catch (error) {
       log.warn('Error clearing race analysis:', error);
+      throw error;
     }
   }
 
@@ -151,14 +142,16 @@ export class RaceAnalysisCache {
 
   static async storeMAEResult(maeResult: RaceMAEResult): Promise<void> {
     try {
-      await fetch('/api/mae', {
+      const response = await fetch('/api/mae', {
         method: 'POST',
         headers: apiHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(maeResult),
       });
+      assertResponseOk(response, 'Store MAE result');
       log.debug(`MAE result stored for race ${maeResult.raceId}: meanRankError=${maeResult.meanRankError.toFixed(2)}`);
     } catch (error) {
       log.warn('Error storing MAE result:', error);
+      throw error;
     }
   }
 

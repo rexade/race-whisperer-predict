@@ -11,7 +11,8 @@ import {
 } from '@/services/calibration/historicalCalibrationService';
 import { getCalibrationCacheInfo } from '@/services/calibration/calibrationDatasetCache';
 import { OptimizationResult } from '@/services/calibration/weightOptimizer';
-import { computeDriverRatings, saveDriverRatings, invalidateDriverRatingCache, getDriverRatingCount } from '@/services/calibration/driverRatingService';
+import { computeDriverRatings, saveDriverRatings, getDriverRatingCount } from '@/services/calibration/driverRatingService';
+import type { GameType } from '@/config/game';
 
 export type CalibrationPhase =
   | 'idle'
@@ -92,7 +93,7 @@ function runInWorker<T>(
   });
 }
 
-export function useCalibration() {
+export function useCalibration(gameType: GameType) {
   const [state, setState] = useState<CalibrationState>(INITIAL_STATE);
   const datasetRef = useRef<CalibrationDataset | null>(null);
   const testDatasetRef = useRef<CalibrationDataset | null>(null);
@@ -114,14 +115,14 @@ export function useCalibration() {
     datasetRef.current = null;
 
     try {
-      const cacheInfo = await getCalibrationCacheInfo(monthsBack);
+      const cacheInfo = await getCalibrationCacheInfo(monthsBack, gameType);
       let dates: string[] = [];
 
       if (!forceRefresh && cacheInfo.exists && cacheInfo.dateCount > 0) {
         updateState({ phase: 'collecting', progressMessage: `Found saved dataset (${cacheInfo.dateCount} dates). Loading…` });
       } else {
         updateState({ phase: 'fetching-dates', progressMessage: 'Scanning calendar for past games…' });
-        dates = await fetchHistoricalDates(monthsBack);
+        dates = await fetchHistoricalDates(monthsBack, gameType);
         if (dates.length === 0) {
           updateState({ phase: 'error', error: 'No historical game dates found for the selected period.' });
           return;
@@ -141,7 +142,8 @@ export function useCalibration() {
           });
         },
         monthsBack,
-        forceRefresh
+        forceRefresh,
+        gameType
       );
 
       if (dataset.length === 0) {
@@ -163,9 +165,8 @@ export function useCalibration() {
 
       // Compute per-driver empirical ratings from the dataset and cache them.
       const driverRatings = computeDriverRatings(dataset);
-      saveDriverRatings(driverRatings);
-      invalidateDriverRatingCache();
-      const driverCount = getDriverRatingCount();
+      saveDriverRatings(driverRatings, gameType);
+      const driverCount = getDriverRatingCount(gameType);
 
       const totalRaces = dataset.reduce((s, d) => s + d.races.length, 0);
 
@@ -180,7 +181,7 @@ export function useCalibration() {
     } catch (err) {
       updateState({ phase: 'error', error: err instanceof Error ? err.message : String(err) });
     }
-  }, []);
+  }, [gameType]);
 
   /**
    * Step 2: Optimize weights (and curves) in a Web Worker — UI stays fully responsive.

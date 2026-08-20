@@ -32,7 +32,7 @@ import { WEIGHT_PRESETS } from '../src/services/modernKm/presetWeights';
 import { evaluateWeights } from '../src/services/calibration/historicalCalibrationService';
 import { chronologicalHoldout, createDateFolds } from '../src/services/calibration/datasetSplits';
 import { optimizeWeights } from '../src/services/calibration/weightOptimizer';
-import { loadDataset } from './cli-common';
+import { loadDataset, primeDriverRatings } from './cli-common';
 
 const WEIGHT_KEYS: (keyof NormalizationWeights)[] = [
   'postPosition', 'shoeType', 'sulkyType',
@@ -124,7 +124,7 @@ async function main() {
   const baselinePath = argValue('--baseline');
   const OBJECTIVE = (argValue('--objective') ?? 'mrr') as 'mrr' | 'pl';
 
-  const dataset = loadDataset(datasetPath);
+  const dataset = loadDataset(datasetPath, { primeDriverRatings: false });
 
   const { train: trainWindow, holdout } = chronologicalHoldout(dataset, HOLDOUT_FRAC, 6);
   const holdoutRaces = holdout.reduce((s, d) => s + d.races.length, 0);
@@ -149,6 +149,7 @@ async function main() {
 
     for (let f = 0; f < folds.length; f++) {
       const t0 = Date.now();
+      primeDriverRatings(folds[f].train);
       // Deterministic per-(start, fold) seed — identical runs reproduce exactly
       const opt = await optimizeWeights(folds[f].train, startW, undefined, undefined, undefined,
         { ...foldOpts, seed: startIdx * 1000 + f });
@@ -173,6 +174,7 @@ async function main() {
   // Refit the winning start on the full training window with a bigger budget
   const bestStart = results[0];
   console.log(`\nRefitting "${bestStart.name}" on full training window…`);
+  primeDriverRatings(trainWindow);
   const refit = await optimizeWeights(
     trainWindow, starts[bestStart.name], undefined, undefined, undefined,
     { saSteps: SA_STEPS * 2, maxPasses: Math.max(PASSES, 12), optimizeCurves: CURVES, seed: 7, objective: OBJECTIVE }

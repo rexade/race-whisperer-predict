@@ -6,7 +6,7 @@
 import './node-polyfills';
 import * as fs from 'fs';
 import { CalibrationDataset } from '../src/services/calibration/historicalCalibrationService';
-import { computeDriverRatings, saveDriverRatings, invalidateDriverRatingCache } from '../src/services/calibration/driverRatingService';
+import { computeDriverRatings, saveDriverRatings } from '../src/services/calibration/driverRatingService';
 
 /** Reconstruct Maps from plain objects (JSON→Map conversion) */
 export function hydrateDataset(raw: any[]): CalibrationDataset {
@@ -21,17 +21,29 @@ export function hydrateDataset(raw: any[]): CalibrationDataset {
   }));
 }
 
-/** Load dataset, hydrate, and bootstrap driver empirical ratings into localStorage */
-export function loadDataset(path: string): CalibrationDataset {
+export interface LoadDatasetOptions {
+  /** Keep false for holdout/fold datasets; ratings must come from training data only. */
+  primeDriverRatings?: boolean;
+}
+
+/** Install empirical ratings derived only from the supplied training partition. */
+export function primeDriverRatings(dataset: CalibrationDataset): number {
+  const driverRatings = computeDriverRatings(dataset);
+  saveDriverRatings(driverRatings);
+  console.log(`Driver empirical ratings: ${driverRatings.size} drivers`);
+  return driverRatings.size;
+}
+
+/** Load and hydrate a dataset. Rating priming is opt-out for legacy full-dataset tools. */
+export function loadDataset(
+  path: string,
+  options: LoadDatasetOptions = {}
+): CalibrationDataset {
   console.log(`Loading ${path}…`);
   const raw = JSON.parse(fs.readFileSync(path, 'utf-8'));
   const dataset = hydrateDataset(raw);
 
-  // Bootstrap driver empirical ratings so driverEmpirical weight works
-  const driverRatings = computeDriverRatings(dataset);
-  saveDriverRatings(driverRatings);
-  invalidateDriverRatingCache();
-  console.log(`Driver empirical ratings: ${driverRatings.size} drivers`);
+  if (options.primeDriverRatings !== false) primeDriverRatings(dataset);
 
   const totalRaces = dataset.reduce((s, d) => s + d.races.length, 0);
   console.log(`Dataset: ${dataset.length} dates, ${totalRaces} races\n`);

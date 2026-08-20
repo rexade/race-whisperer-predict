@@ -18,6 +18,7 @@ import { exportV75ToExcel } from '../utils/excelExport';
 import { getAggregateMAEStats, type AggregateMAEStats } from '../services/raceMAEService';
 import { useGameInfo, useRaceData, useAvailableGameTypes } from '@/queries/v75';
 import { GAME_TYPE, GameType } from '@/config/game';
+import { useToast } from '@/hooks/use-toast';
 
 // Shared components
 import AnalyzerLayout from "./shared/analyzer/AnalyzerLayout";
@@ -47,6 +48,8 @@ const V75Analyzer: React.FC = () => {
   const [gameType, setGameType] = useState<GameType>(GAME_TYPE);
   const [menuOpen, setMenuOpen] = useState(false);
   const [chipOpen, setChipOpen] = useState(false);
+  const { toast } = useToast();
+  const skipNextWeightsSaveRef = React.useRef(true);
 
   // React Query Data Fetching
   const dateStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null;
@@ -55,7 +58,10 @@ const V75Analyzer: React.FC = () => {
   const noGameFound = !!dateStr && !isLoadingGame && !gameInfo && !gameError;
   const { data: availableGameTypes } = useAvailableGameTypes(dateStr, !noGameFound);
 
-  const isDataReady = !!races && races.length > 0;
+  const isDataReady = !!races
+    && !!gameInfo
+    && races.length > 0
+    && races.length === gameInfo.raceIds.length;
   const isFetching = isLoadingGame || isLoadingRaces;
 
   const {
@@ -71,11 +77,11 @@ const V75Analyzer: React.FC = () => {
   } = useV75Analysis();
 
   const handleAnalyzeV75 = () => {
-    if (!selectedDate || !races || !gameInfo) return;
+    if (!selectedDate || !races || !gameInfo || races.length !== gameInfo.raceIds.length) return;
     clearError(); // Clear any previous errors
     setShowInput(false);
     // Use the fetched data for analysis
-    runAnalysis(races, dateStr!, gameInfo.gameId, weights, postPositionCurves);
+    runAnalysis(races, dateStr!, gameInfo.gameId, weights, postPositionCurves, gameType);
   };
 
   // Recalculate when weights or post position curves change
@@ -90,29 +96,48 @@ const V75Analyzer: React.FC = () => {
   // without ratings the driverEmpirical weight is silently inactive and saved
   // presets cannot reproduce a previous session's ranking.
   useEffect(() => {
-    initWeightsFromApi().then(r => { setWeights(r.weights); if (r.postPositionCurves) setPostPositionCurves(r.postPositionCurves); });
+    initWeightsFromApi().then(r => {
+      skipNextWeightsSaveRef.current = true;
+      setWeights(r.weights);
+      if (r.postPositionCurves) setPostPositionCurves(r.postPositionCurves);
+    });
     getAggregateMAEStats().then(s => setMaeStats(s));
-    import('../services/calibration/driverRatingService')
-      .then(m => m.primeDriverRatingsIfMissing())
-      .catch(() => {});
   }, []);
 
-  // Auto-persist weights to API
-  const weightsInitRef = React.useRef(false);
   useEffect(() => {
-    // Skip the first render (initial load from API triggers this)
-    if (!weightsInitRef.current) { weightsInitRef.current = true; return; }
+    import('../services/calibration/driverRatingService')
+      .then(m => m.primeDriverRatingsIfMissing(gameType))
+      .catch(() => {});
+  }, [gameType]);
+
+  // Auto-persist weights to API
+  useEffect(() => {
+    if (skipNextWeightsSaveRef.current) {
+      skipNextWeightsSaveRef.current = false;
+      return;
+    }
     fetch('/api/weights', {
       method: 'PUT',
       headers: apiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ weights, postPositionCurves }),
-    }).catch(() => {});
-  }, [weights, postPositionCurves]);
+    }).then(async response => {
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(detail || `HTTP ${response.status}`);
+      }
+    }).catch(error => {
+      toast({
+        title: 'Weights were not saved',
+        description: error instanceof Error ? error.message : 'The backend rejected the update.',
+        variant: 'destructive',
+      });
+    });
+  }, [weights, postPositionCurves, toast]);
 
   // Update active tab when results are loaded
   useEffect(() => {
     if (v75Results.length > 0) {
-      setActiveTab(`race-${v75Results[0].raceNumber}`);
+      setActiveTab(`race-${v75Results[0].raceId}`);
     }
   }, [v75Results]);
 
@@ -145,7 +170,7 @@ const V75Analyzer: React.FC = () => {
       if (v75Results.length > 0) {
         const n = Number(e.key);
         if (n >= 1 && n <= Math.min(8, v75Results.length)) {
-          setActiveTab(`race-${n}`);
+          setActiveTab(`race-${v75Results[n - 1].raceId}`);
         }
       }
       // A to analyze
@@ -217,7 +242,7 @@ const V75Analyzer: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => exportV75ToExcel(v75Results, analysisDate)}
+                  onClick={() => exportV75ToExcel(v75Results, analysisDate, gameType)}
                   title="Export to Excel"
                   className="flex-shrink-0 h-9"
                 >
@@ -303,7 +328,7 @@ const V75Analyzer: React.FC = () => {
                   <nav className="mt-3 flex flex-col">
                     {v75Results.length > 0 && (
                       <button
-                        onClick={() => { exportV75ToExcel(v75Results, analysisDate); setMenuOpen(false); }}
+                        onClick={() => { exportV75ToExcel(v75Results, analysisDate, gameType); setMenuOpen(false); }}
                         className="flex items-center gap-3 h-12 px-3 rounded-md text-sm font-medium hover:bg-muted transition-colors"
                       >
                         <Download className="h-4 w-4 text-muted-foreground" /> Export to Excel
@@ -470,7 +495,9 @@ const V75Analyzer: React.FC = () => {
           <DebugErrorBoundary>
             <Suspense fallback={<div className="p-4 text-center text-muted-foreground">Loading calibration…</div>}>
               <CalibrationPanel
+                key={gameType}
                 currentWeights={weights}
+                gameType={gameType}
                 onApplyWeights={(w) => { setWeights(w); setShowCalibration(false); }}
                 postPositionCurves={postPositionCurves}
                 onPostPositionCurvesChange={(c) => { setPostPositionCurves(c); }}

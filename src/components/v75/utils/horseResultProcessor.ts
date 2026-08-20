@@ -9,6 +9,7 @@ import { applyHorseNormalization } from './horseNormalizationProcessor';
 import { buildHorseResult, storeRaceAnalysisData } from './horseResultBuilder';
 import { log } from '@/lib/logger';
 import { horseKeyFromRaceHorse, horseKeyFromRawTime } from '@/services/horseIdentity';
+import { isZeroTime } from '@/services/utils/kmTimeUtils';
 
 export const processHorseResults = async (
   race: V75RaceData,
@@ -29,7 +30,10 @@ export const processHorseResults = async (
     const rawTimeData = rawKmTimes.find(rt => horseKeyFromRawTime(rt) === horseKey);
     // Use un-penalized best time for normalization so final = raw + totalAdjustment (e.g. 1:11.5 + 0.04 = 1:11.54).
     // Confidence penalty is for transparency only; we do not feed penalized time into normalization.
-    const rawKmTime = rawTimeData?.rawBestTime ?? rawTimeData?.bestTime;
+    const selectedRawKmTime = rawTimeData?.rawBestTime ?? rawTimeData?.bestTime;
+    const rawKmTime = selectedRawKmTime && !isZeroTime(selectedRawKmTime)
+      ? selectedRawKmTime
+      : undefined;
 
     // Extract and validate horse data
     const extractedData = extractAndValidateHorseData(horse);

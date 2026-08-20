@@ -15,38 +15,17 @@
 
 import { CalibrationDataset, RaceCalibrationData, ActualHorseResult } from './historicalCalibrationService';
 import { HorseRawKmTime } from '@/services/types/kmTimeTypes';
-import { GAME_TYPE } from '@/config/game';
+import { GAME_TYPE, GameType } from '@/config/game';
 
 const CACHE_KEY_PREFIX = 'calibration_dataset_';
 const DB_NAME = 'race_whisperer_calibration';
 const DB_VERSION = 1;
 const STORE_NAME = 'datasets';
+const CURRENT_SCHEMA_VERSION = 4;
 
-interface SerializedHorseRawKmTime {
-  horseKey?: string;
-  horseId: number;
-  horseName: string;
-  allTimes?: any[];
-  bestTime: any;
-  rawBestTime: any;
-  bestRecordTime?: any;
-  validTimesCount: number;
-  dataSource: string;
-  gallopRate?: number;
-  gallopCount?: number;
-  gallopDates?: string[];
-  lastRaceDate?: string;
-  consistencyScore?: number;
-  disqualificationCount?: number;
-  confidenceMultiplier?: number;
-  usedStatisticsFallback?: boolean;
-  usedExtendedFallback?: boolean;
-  averageOdds?: number;
-  lastOdds?: number;
-  horseAge?: number;
-  dataSourceChain?: string;
-  usedInvalidTimeFallback?: boolean;
-}
+// HorseRawKmTime contains only JSON-safe values. Keeping the serialized shape
+// identical prevents new provenance fields from being lost when this type grows.
+type SerializedHorseRawKmTime = HorseRawKmTime;
 
 interface SerializedRaceCalibrationData {
   raceId: string;
@@ -68,12 +47,12 @@ interface SerializedDataset {
   }>;
 }
 
-function cacheKey(monthsBack: number): string {
-  return `${CACHE_KEY_PREFIX}${GAME_TYPE}_${monthsBack}mo`;
+function cacheKey(monthsBack: number, gameType: GameType = GAME_TYPE): string {
+  return `${CACHE_KEY_PREFIX}${gameType}_${monthsBack}mo`;
 }
 
-function metaKey(monthsBack: number): string {
-  return `${cacheKey(monthsBack)}_meta`;
+function metaKey(monthsBack: number, gameType: GameType = GAME_TYPE): string {
+  return `${cacheKey(monthsBack, gameType)}_meta`;
 }
 
 function hasIndexedDb(): boolean {
@@ -140,66 +119,21 @@ async function idbClear(): Promise<void> {
 }
 
 function serializeRawKmTime(rt: HorseRawKmTime): SerializedHorseRawKmTime {
-  return {
-    horseKey: rt.horseKey,
-    horseId: rt.horseId,
-    horseName: rt.horseName,
-    allTimes: rt.allTimes,
-    bestTime: rt.bestTime,
-    rawBestTime: rt.rawBestTime,
-    bestRecordTime: rt.bestRecordTime,
-    validTimesCount: rt.validTimesCount,
-    dataSource: rt.dataSource ?? 'recent',
-    gallopRate: rt.gallopRate,
-    gallopCount: rt.gallopCount,
-    gallopDates: rt.gallopDates,
-    lastRaceDate: rt.lastRaceDate,
-    consistencyScore: rt.consistencyScore,
-    disqualificationCount: rt.disqualificationCount,
-    confidenceMultiplier: rt.confidenceMultiplier,
-    usedStatisticsFallback: rt.usedStatisticsFallback,
-    usedExtendedFallback: rt.usedExtendedFallback,
-    averageOdds: rt.averageOdds,
-    lastOdds: rt.lastOdds,
-    horseAge: rt.horseAge,
-    dataSourceChain: rt.dataSourceChain,
-    usedInvalidTimeFallback: rt.usedInvalidTimeFallback,
-  };
+  return { ...rt };
 }
 
 function deserializeRawKmTime(s: SerializedHorseRawKmTime): HorseRawKmTime {
-  return {
-    horseKey: s.horseKey,
-    horseId: s.horseId,
-    horseName: s.horseName,
-    allTimes: (s.allTimes as any) ?? [],
-    bestTime: s.bestTime,
-    rawBestTime: s.rawBestTime,
-    bestRecordTime: s.bestRecordTime,
-    validTimesCount: s.validTimesCount,
-    dataSource: s.dataSource as 'recent' | 'fallback',
-    isNotifiee: false,
-    gallopRate: s.gallopRate,
-    gallopCount: s.gallopCount,
-    gallopDates: s.gallopDates,
-    lastRaceDate: s.lastRaceDate,
-    consistencyScore: s.consistencyScore,
-    disqualificationCount: s.disqualificationCount,
-    confidenceMultiplier: s.confidenceMultiplier,
-    usedStatisticsFallback: s.usedStatisticsFallback,
-    usedExtendedFallback: s.usedExtendedFallback,
-    averageOdds: s.averageOdds,
-    lastOdds: s.lastOdds,
-    horseAge: s.horseAge,
-    dataSourceChain: s.dataSourceChain,
-    usedInvalidTimeFallback: s.usedInvalidTimeFallback,
-  };
+  return { ...s };
 }
 
-function serializeDataset(monthsBack: number, dataset: CalibrationDataset): SerializedDataset {
+function serializeDataset(
+  monthsBack: number,
+  dataset: CalibrationDataset,
+  gameType: GameType = GAME_TYPE
+): SerializedDataset {
   return {
-    schemaVersion: 2,
-    gameType: GAME_TYPE,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    gameType,
     monthsBack,
     cachedAt: new Date().toISOString(),
     dates: dataset.map(d => ({
@@ -215,9 +149,9 @@ function serializeDataset(monthsBack: number, dataset: CalibrationDataset): Seri
   };
 }
 
-function deserializeDataset(s: SerializedDataset): CalibrationDataset | null {
-  if (s.gameType !== GAME_TYPE) return null;
-  if ((s.schemaVersion ?? 1) < 2) return null;
+function deserializeDataset(s: SerializedDataset, gameType: GameType = GAME_TYPE): CalibrationDataset | null {
+  if (s.gameType !== gameType) return null;
+  if ((s.schemaVersion ?? 1) < CURRENT_SCHEMA_VERSION) return null;
 
   return s.dates.map(d => ({
     date: d.date,
@@ -231,14 +165,18 @@ function deserializeDataset(s: SerializedDataset): CalibrationDataset | null {
   }));
 }
 
-export async function saveCalibrationDataset(monthsBack: number, dataset: CalibrationDataset): Promise<void> {
-  const key = cacheKey(monthsBack);
-  const serialized = serializeDataset(monthsBack, dataset);
+export async function saveCalibrationDataset(
+  monthsBack: number,
+  dataset: CalibrationDataset,
+  gameType: GameType = GAME_TYPE
+): Promise<void> {
+  const key = cacheKey(monthsBack, gameType);
+  const serialized = serializeDataset(monthsBack, dataset, gameType);
   const blob = JSON.stringify(serialized);
 
   if (hasIndexedDb()) {
     await idbSet(key, blob);
-    localStorage.setItem(metaKey(monthsBack), JSON.stringify({
+    localStorage.setItem(metaKey(monthsBack, gameType), JSON.stringify({
       schemaVersion: serialized.schemaVersion,
       gameType: serialized.gameType,
       cachedAt: serialized.cachedAt,
@@ -268,16 +206,19 @@ export async function saveCalibrationDataset(monthsBack: number, dataset: Calibr
   }
 }
 
-export async function loadCalibrationDataset(monthsBack: number): Promise<CalibrationDataset | null> {
+export async function loadCalibrationDataset(
+  monthsBack: number,
+  gameType: GameType = GAME_TYPE
+): Promise<CalibrationDataset | null> {
   try {
-    const key = cacheKey(monthsBack);
+    const key = cacheKey(monthsBack, gameType);
     const raw = hasIndexedDb()
       ? (await idbGet(key)) ?? localStorage.getItem(key)
       : localStorage.getItem(key);
     if (!raw) return null;
 
     const s: SerializedDataset = JSON.parse(raw);
-    const dataset = deserializeDataset(s);
+    const dataset = deserializeDataset(s, gameType);
     if (!dataset) return null;
 
     const ageHours = (Date.now() - new Date(s.cachedAt).getTime()) / 3_600_000;
@@ -289,11 +230,14 @@ export async function loadCalibrationDataset(monthsBack: number): Promise<Calibr
   }
 }
 
-export async function clearCalibrationDataset(monthsBack?: number): Promise<void> {
+export async function clearCalibrationDataset(
+  monthsBack?: number,
+  gameType: GameType = GAME_TYPE
+): Promise<void> {
   if (monthsBack !== undefined) {
-    const key = cacheKey(monthsBack);
+    const key = cacheKey(monthsBack, gameType);
     localStorage.removeItem(key);
-    localStorage.removeItem(metaKey(monthsBack));
+    localStorage.removeItem(metaKey(monthsBack, gameType));
     await idbDelete(key);
   } else {
     Object.keys(localStorage)
@@ -303,22 +247,25 @@ export async function clearCalibrationDataset(monthsBack?: number): Promise<void
   }
 }
 
-export async function getCalibrationCacheInfo(monthsBack: number): Promise<{ exists: boolean; ageHours: number | null; dateCount: number; cachedAt: string | null }> {
+export async function getCalibrationCacheInfo(
+  monthsBack: number,
+  gameType: GameType = GAME_TYPE
+): Promise<{ exists: boolean; ageHours: number | null; dateCount: number; cachedAt: string | null }> {
   try {
-    const metaRaw = localStorage.getItem(metaKey(monthsBack));
+    const metaRaw = localStorage.getItem(metaKey(monthsBack, gameType));
     if (metaRaw) {
       const meta = JSON.parse(metaRaw);
-      if (meta.gameType !== GAME_TYPE) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
-      if ((meta.schemaVersion ?? 1) < 2) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
+      if (meta.gameType !== gameType) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
+      if ((meta.schemaVersion ?? 1) < CURRENT_SCHEMA_VERSION) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
       const ageHours = (Date.now() - new Date(meta.cachedAt).getTime()) / 3_600_000;
       return { exists: true, ageHours, dateCount: meta.dateCount ?? 0, cachedAt: meta.cachedAt };
     }
 
-    const raw = localStorage.getItem(cacheKey(monthsBack));
+    const raw = localStorage.getItem(cacheKey(monthsBack, gameType));
     if (!raw) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
     const s: SerializedDataset = JSON.parse(raw);
-    if (s.gameType !== GAME_TYPE) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
-    if ((s.schemaVersion ?? 1) < 2) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
+    if (s.gameType !== gameType) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
+    if ((s.schemaVersion ?? 1) < CURRENT_SCHEMA_VERSION) return { exists: false, ageHours: null, dateCount: 0, cachedAt: null };
     const ageHours = (Date.now() - new Date(s.cachedAt).getTime()) / 3_600_000;
     return { exists: true, ageHours, dateCount: s.dates.length, cachedAt: s.cachedAt };
   } catch {

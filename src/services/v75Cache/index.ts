@@ -2,6 +2,8 @@
 import { RawTimesCache } from './rawTimesCache';
 import { RawTimeCandidatesCache } from './rawTimeCandidatesCache';
 import { RaceAnalysisCache } from './raceAnalysisCache';
+import type { RawTimeCacheInput } from './rawTimeCacheMapper';
+import type { RaceAnalysisHorse } from './types';
 
 export * from './types';
 
@@ -15,7 +17,7 @@ export class V75CacheService {
     gameId: string,
     raceId: string,
     raceNumber: number,
-    rawTimes: Array<{ horseKey?: string; horseId: number; horseName: string; postPosition: number; best3Average?: any; bestTime?: any; validTimesCount: number }>
+    rawTimes: RawTimeCacheInput[]
   ): Promise<void> {
     return RawTimesCache.storeRawTimes(date, gameId, raceId, raceNumber, rawTimes);
   }
@@ -73,19 +75,7 @@ export class V75CacheService {
     raceId: string,
     raceNumber: number,
     analysisDate: string,
-    horses: Array<{
-      horseKey?: string;
-      horseId: number;
-      horseName: string;
-      postPosition: number;
-      finalScore: number;
-      rank: number;
-      predictedTime?: {
-        minutes: number;
-        seconds: number;
-        tenths: number;
-      };
-    }>
+    horses: RaceAnalysisHorse[]
   ): Promise<void> {
     return RaceAnalysisCache.storeRaceAnalysis(raceId, raceNumber, analysisDate, horses);
   }

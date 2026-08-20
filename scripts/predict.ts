@@ -72,7 +72,7 @@ async function main() {
       race.horses.map((horse: any) => ({
         horseKey: horse.horseKey,
         horse: { id: horse.horseId, name: typeof horse.name === 'string' ? horse.name : String(horse.name) },
-        number: horse.postPosition,
+        number: horse.startNumber ?? horse.postPosition,
         postPosition: horse.postPosition,
         distance: horse.distance,
         driver: {
@@ -105,7 +105,7 @@ async function main() {
         ? (src.shoes.front === false || src.shoes.back === false ? ' 🥾→🦶' : ' 🦶→🥾')
         : '';
       const est = (h as any).modernNormalizedResult?.isEstimated ? ' (est)' : '';
-      console.log(`  ${String((h as any).rank).padStart(2)}. #${String(src?.postPosition ?? '?').padStart(2)} ${String((h as any).horseName ?? src?.name ?? '?').padEnd(24)} ${time}  odds${odds}  spel${dist}${shoe}${est}`);
+      console.log(`  ${String((h as any).rank).padStart(2)}. #${String(src?.startNumber ?? src?.postPosition ?? '?').padStart(2)} ${String((h as any).horseName ?? src?.name ?? '?').padEnd(24)} ${time}  odds${odds}  spel${dist}${shoe}${est}`);
     }
     console.log('');
   }

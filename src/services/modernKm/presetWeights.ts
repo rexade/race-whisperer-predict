@@ -16,8 +16,8 @@ export interface WeightPreset {
 
 export const WEIGHT_PRESETS: WeightPreset[] = [
   {
-    name: 'V41 — Honest 18mo + market signals (2026-07-04)',
-    description: 'First config from the honest CLI pipeline on the full 18-month/1950-race dataset (V37-seeded start won 4-fold OOF selection at MRR 0.596). Uses the new market/equipment factors: betDistribution 1.05, shoeChange 1.42, oddsLive 0.58. HONEST holdout (402 races never seen): Win 36.6%, WTop3 68.9%, MRR 0.561. Truly-clean post-May-9 sample (201 races): Win 37.3%, WTop3 70.1%, WTop5 84.1%. Beat production by +5.3pp win. Pair with these flat curves (tuned together); bucketed V40 curves scored slightly worse. Report: reports/kfold-honest-2026-07-04.json.',
+    name: 'V41 — Legacy 18mo + market signals (2026-07-04)',
+    description: 'Legacy V41 configuration retained as the current default. Its historical reports predate corrected driver-rating and estimated-horse evaluation, so performance is unverified under the current pipeline. Pair with these flat curves (tuned together).',
     category: 'balanced',
     weights: {
       postPosition: 0.908,
@@ -61,7 +61,7 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
   },
   {
     name: 'V40 — App multistart (2026-07-03)',
-    description: 'In-app bucketed multistart+optimize on the Nov 2025–May 2026 dataset. Train: MRR 0.591, Win 42.0% (in-sample). Honest chronological-holdout check (reports/kfold-honest-2026-07-03.json): MRR 0.561–0.576, Win ~38–41%, WTop3 64–67%, WTop5 78–81% — best of all candidates on ranking metrics, but statistically tied with V39/production on win%. Real-world expectation for any config: ~1/3 wins, winner in top-5 ~4/5.',
+    description: 'Legacy in-app bucketed multistart configuration from the Nov 2025–May 2026 dataset. Its reported train and holdout metrics predate the corrected driver-rating and estimated-horse evaluation pipeline, so performance is unverified until the current pipeline reproduces it.',
     category: 'balanced',
     weights: {
       postPosition: 1.204163,

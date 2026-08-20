@@ -28,23 +28,28 @@ export const calculateRawKmTimesForRaceWithId = async (
 
   for (let i = 0; i < starts.length; i++) {
     const start = starts[i];
-    const postPosition = start.postPosition;
+    const startNumber = start.number ?? start.postPosition ?? 0;
+    const postPosition = start.postPosition ?? startNumber;
+    const matchesExtendedStart = (candidate: any): boolean =>
+      (start.horse?.id > 0 && candidate.horse?.id === start.horse.id)
+      || candidate.number === startNumber
+      || (candidate.number == null && candidate.postPosition === postPosition);
     progressCallback?.(i + 1, starts.length);
 
     try {
       const horseName = start.horse?.name || 'Unknown';
       const horseId = start.horse?.id ?? 0;
-      const horseKey = start.horseKey ?? makeHorseKey(raceId, horseId, postPosition);
+      const horseKey = start.horseKey ?? makeHorseKey(raceId, horseId, startNumber);
 
-      // Data integrity: each iteration uses only this start's postPosition and identity key.
-      // fetchHorseHistoricalData(raceId, postPosition) is cached by (raceId, postPosition);
+      // ATG's /start/{n} endpoint and synthetic identity use the program number.
+      // The gate/post position remains separate for downstream normalization.
       // downstream matching is by horseKey so null-id foreign horses do not collide.
-      // No data leaks between horses as long as post positions are unique per race.
+      // No data leaks between horses as long as start numbers are unique per race.
 
       log.debug(`Processing horse ${i + 1}/${starts.length}: ${horseName} (ID: ${horseId})`);
 
       log.debug(`[KmTimeProcessor] Fetching historical data for ${horseName}...`);
-      const historicalData = await fetchHorseHistoricalData(raceId, postPosition);
+      const historicalData = await fetchHorseHistoricalData(raceId, startNumber);
 
       log.debug(`[KmTimeProcessor] Historical data fetch result for ${horseName}:`, {
         hasData: !!historicalData,
@@ -84,11 +89,7 @@ export const calculateRawKmTimesForRaceWithId = async (
 
         // Guard against nullish extended payloads
         if (extendedRaceData?.starts?.length) {
-          const extendedHorse = extendedRaceData.starts.find(s =>
-            (horseId > 0 && s.horse.id === horseId) ||
-            s.number === postPosition ||
-            s.postPosition === postPosition
-          )?.horse;
+          const extendedHorse = extendedRaceData.starts.find(matchesExtendedStart)?.horse;
           if (extendedHorse) {
             log.debug(`[KmTimeProcessor] Trying extended API fallback for ${horseName}...`);
             const extendedRecords = extractRecordsFromExtended(extendedHorse, true);
@@ -164,11 +165,7 @@ export const calculateRawKmTimesForRaceWithId = async (
         }
 
         if (extendedRaceData?.starts?.length) {
-          const extendedHorse = extendedRaceData.starts.find(s =>
-            (horseId > 0 && s.horse.id === horseId) ||
-            s.number === postPosition ||
-            s.postPosition === postPosition
-          )?.horse;
+          const extendedHorse = extendedRaceData.starts.find(matchesExtendedStart)?.horse;
           if (extendedHorse) {
             const extendedRecords = extractRecordsFromExtended(extendedHorse, true);
             if (extendedRecords.length > 0) {
@@ -187,14 +184,19 @@ export const calculateRawKmTimesForRaceWithId = async (
       }
 
       // ❹ INVALID-TIME fallback: Use fastest dropped-but-timed record
-      if (validRecords.length === 0 && invalidCandidates.length > 0) {
+      const fallbackEligibleInvalidCandidates = invalidCandidates.filter(candidate =>
+        candidate.dropReason !== 'future-or-same-day'
+        && candidate.dropReason !== 'no-date'
+        && !candidate.dropReason?.startsWith('outside-')
+      );
+      if (validRecords.length === 0 && fallbackEligibleInvalidCandidates.length > 0) {
         // Pick fastest invalid candidate
-        invalidCandidates.sort((a, b) =>
+        fallbackEligibleInvalidCandidates.sort((a, b) =>
           toSeconds(a.normalizedTime.minutes, a.normalizedTime.seconds, a.normalizedTime.tenths ?? 0)
           - toSeconds(b.normalizedTime.minutes, b.normalizedTime.seconds, b.normalizedTime.tenths ?? 0)
         );
 
-        const bestInvalid = invalidCandidates[0];
+        const bestInvalid = fallbackEligibleInvalidCandidates[0];
         const invalidSec = toSeconds(
           bestInvalid.normalizedTime.minutes,
           bestInvalid.normalizedTime.seconds,
@@ -250,8 +252,9 @@ export const calculateRawKmTimesForRaceWithId = async (
         continue;
       }
 
-      // ❺ EXTENDED single-record fallback: Use horse.record.time if available
-      if (validRecords.length === 0 && !invalidCandidates.length) {
+      // ❺ EXTENDED single-record fallback: Use horse.record.time only without a
+      // historical cutoff; the all-time record has no event date to validate.
+      if (validRecords.length === 0 && !fallbackEligibleInvalidCandidates.length && !raceDateCutoff) {
         if (!extendedDataFetched) {
           log.debug(`[KmTimeProcessor] No data anywhere, fetching extended race data for single record...`);
           extendedRaceData = await fetchExtendedRaceData(raceId);
@@ -259,11 +262,7 @@ export const calculateRawKmTimesForRaceWithId = async (
         }
 
         if (extendedRaceData?.starts?.length) {
-          const extendedHorse = extendedRaceData.starts.find(s =>
-            (horseId > 0 && s.horse.id === horseId) ||
-            s.number === postPosition ||
-            s.postPosition === postPosition
-          )?.horse;
+          const extendedHorse = extendedRaceData.starts.find(matchesExtendedStart)?.horse;
           const rt = extendedHorse?.record?.time;
 
           if (rt
@@ -359,6 +358,8 @@ export const calculateRawKmTimesForRaceWithId = async (
         metadata
       );
       horseRawKmTime.horseKey = horseKey;
+      horseRawKmTime.usedStatisticsFallback = usingStatisticsFallback || usingExtendedFallback;
+      horseRawKmTime.usedExtendedFallback = usingExtendedFallback;
 
       // processHorseKmTimes receives validRecords with galloped races removed.
       // Recompute gallop and last-race fields from the raw records so recent
@@ -399,7 +400,7 @@ export const calculateRawKmTimesForRaceWithId = async (
     } catch (error) {
       const horseName = start.horse?.name || 'Unknown';
       const horseId = start.horse?.id ?? 0;
-      const horseKey = start.horseKey ?? makeHorseKey(raceId, horseId, postPosition);
+      const horseKey = start.horseKey ?? makeHorseKey(raceId, horseId, startNumber);
 
       log.warn(`[KmTimeProcessor] PROCESSING ERROR - Horse ${horseName} (Post ${postPosition}):`, error);
       log.debug(`[KmTimeProcessor] Error type: ${error.name}`);
