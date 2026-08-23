@@ -8,6 +8,17 @@
   status = 200
   force = true
 
+# Persistence endpoints live on the FastAPI backend, which a frontend-only deploy
+# does not have. Without this rule the SPA catch-all below matches /api/weights and
+# serves index.html with a 200 -- the app reads ok:true and reports a successful save
+# while nothing was stored. Failing with a 404 is what the code expects. Rules are
+# matched in order, so this has to precede the catch-all. vercel.json gets the same
+# outcome by excluding `api` from its SPA rewrite.
+[[redirects]]
+  from = "/api/*"
+  to = "/index.html"
+  status = 404
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

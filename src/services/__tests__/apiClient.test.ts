@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ApiRequestError, apiHeaders, assertResponseOk } from '../apiClient';
+import { ApiRequestError, apiHeaders, assertResponseOk, describeApiFailure } from '../apiClient';
 
 describe('apiHeaders', () => {
   beforeEach(() => localStorage.clear());
@@ -39,5 +39,25 @@ describe('assertResponseOk', () => {
       expect(error).toMatchObject({ action: 'Save weights', status: 401 });
       expect((error as Error).message).toBe('Save weights failed: HTTP 401');
     }
+  });
+});
+
+describe('describeApiFailure', () => {
+  it('explains a 404 as an unrouted backend rather than echoing the host 404 page', () => {
+    // A frontend-only deploy answers /api with its host's "NOT_FOUND" page, which
+    // tells the user nothing about what actually went wrong.
+    const message = describeApiFailure(404);
+    expect(message).toMatch(/no backend is configured/i);
+    expect(message).not.toMatch(/NOT_FOUND/);
+  });
+
+  it('distinguishes an unconfigured backend from a rejected token', () => {
+    expect(describeApiFailure(503)).toMatch(/without API_TOKEN/i);
+    expect(describeApiFailure(401)).toMatch(/token is missing or wrong/i);
+    expect(describeApiFailure(503)).not.toEqual(describeApiFailure(401));
+  });
+
+  it('falls back to the status code for anything unmapped', () => {
+    expect(describeApiFailure(500)).toContain('HTTP 500');
   });
 });

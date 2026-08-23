@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { apiHeaders } from '@/services/apiClient';
+import { apiHeaders, ApiRequestError, describeApiFailure } from '@/services/apiClient';
 import { Trophy, CalendarIcon, Settings2, Trash2, Play, Download, BarChart2, TrendingUp, Menu } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,7 @@ const V75Analyzer: React.FC = () => {
   const [chipOpen, setChipOpen] = useState(false);
   const { toast } = useToast();
   const skipNextWeightsSaveRef = React.useRef(true);
+  const lastSaveFailureRef = React.useRef<string | null>(null);
 
   // React Query Data Fetching
   const dateStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null;
@@ -120,15 +121,19 @@ const V75Analyzer: React.FC = () => {
       method: 'PUT',
       headers: apiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ weights, postPositionCurves }),
-    }).then(async response => {
-      if (!response.ok) {
-        const detail = await response.text();
-        throw new Error(detail || `HTTP ${response.status}`);
-      }
+    }).then(response => {
+      if (!response.ok) throw new ApiRequestError('Save weights', response.status);
     }).catch(error => {
+      const reason = error instanceof ApiRequestError
+        ? describeApiFailure(error.status)
+        : 'The backend could not be reached.';
+      // Every weight nudge retries, so an unroutable /api would otherwise stack an
+      // identical destructive toast on each keystroke. Say it once per distinct cause.
+      if (lastSaveFailureRef.current === reason) return;
+      lastSaveFailureRef.current = reason;
       toast({
         title: 'Weights were not saved',
-        description: error instanceof Error ? error.message : 'The backend rejected the update.',
+        description: reason,
         variant: 'destructive',
       });
     });

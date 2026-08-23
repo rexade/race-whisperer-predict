@@ -30,3 +30,26 @@ export function assertResponseOk(
     throw new ApiRequestError(action, response.status);
   }
 }
+
+/**
+ * Plain-language cause for a failed call to our own backend.
+ *
+ * The raw response body is useless here and sometimes actively misleading: a
+ * frontend-only deploy answers /api with its host's 404 page, so the user sees
+ * "NOT_FOUND" and has no way to know that means "no backend is routed", not
+ * "your data is wrong".
+ */
+export function describeApiFailure(status: number): string {
+  switch (status) {
+    case 404:
+      return 'No backend is configured for this deployment, so /api is not routed anywhere. Changes apply in this browser only.';
+    case 401:
+      return "The API token is missing or wrong. Set localStorage.apiToken to the value of the server's API_TOKEN.";
+    case 503:
+      return 'The backend is running without API_TOKEN set and refuses writes until it is configured.';
+    case 422:
+      return 'The backend rejected these values as invalid.';
+    default:
+      return `The backend returned HTTP ${status}.`;
+  }
+}
