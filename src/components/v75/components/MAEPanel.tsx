@@ -68,9 +68,15 @@ const MAEPanel: React.FC = () => {
           Model Accuracy
           {stats && (
             <div className="ml-auto flex items-center gap-1.5 flex-wrap justify-end">
-              <Badge variant="secondary" className="text-xs tabular-nums">
-                ±{stats.meanRankError.toFixed(1)} rank
-              </Badge>
+              {stats.meanRankError !== null && (
+                <Badge
+                  variant="secondary"
+                  className="text-xs tabular-nums"
+                  title={`Averaged over ${stats.raceCount} race${stats.raceCount !== 1 ? 's' : ''}, ${stats.meanHorsesEvaluated.toFixed(1)} horses evaluated per race`}
+                >
+                  ±{stats.meanRankError.toFixed(1)} rank
+                </Badge>
+              )}
               <Badge variant="secondary" className="text-xs tabular-nums">
                 {(stats.winRate * 100).toFixed(0)}% win
               </Badge>
@@ -78,8 +84,23 @@ const MAEPanel: React.FC = () => {
                 {(stats.top3Rate * 100).toFixed(0)}% top-3
               </Badge>
               <span className="text-[11px] text-muted-foreground">
-                ({stats.raceCount}r)
+                ({stats.hitRateRaceCount}r)
               </span>
+              {/* Rank error falls as the evaluated cohort shrinks, so coverage is shown
+                  next to it rather than left for the reader to infer. */}
+              {stats.meanRankError !== null && (
+                <span className="text-[11px] text-muted-foreground tabular-nums">
+                  {stats.meanHorsesEvaluated.toFixed(1)} horses/race
+                </span>
+              )}
+              {stats.excludedLegacyRaces > 0 && (
+                <span
+                  className="text-[11px] text-muted-foreground"
+                  title="These races were measured before rank compression, so their rank error is not comparable and is left out of the average. Win and top-3 still include them."
+                >
+                  {stats.excludedLegacyRaces} legacy excluded
+                </span>
+              )}
             </div>
           )}
         </CardTitle>

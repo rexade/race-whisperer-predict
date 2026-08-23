@@ -64,7 +64,10 @@ export const useV75Cache = () => {
       race.raceId,
       atgStarts,
       progressCallback,
-      race.date || date
+      race.date || date,
+      // Predicting forward: the race date bounds the data, but nothing after it has
+      // happened yet, so undated aggregate snapshots are still trustworthy here.
+      'live'
     );
 
     if (IS_DEBUG) {

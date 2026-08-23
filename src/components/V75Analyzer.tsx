@@ -195,10 +195,19 @@ const V75Analyzer: React.FC = () => {
                 <button
                   onClick={() => setShowCacheManager(true)}
                   className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs num text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  title={`Model accuracy over ${maeStats.raceCount} race${maeStats.raceCount !== 1 ? 's' : ''}: ±${maeStats.meanRankError.toFixed(1)} mean rank error · ${(maeStats.winRate * 100).toFixed(0)}% win · ${(maeStats.top3Rate * 100).toFixed(0)}% top-3. Click to view details.`}
+                  title={[
+                    maeStats.meanRankError !== null
+                      ? `±${maeStats.meanRankError.toFixed(1)} mean rank error over ${maeStats.raceCount} race${maeStats.raceCount !== 1 ? 's' : ''}, ${maeStats.meanHorsesEvaluated.toFixed(1)} horses evaluated per race`
+                      : 'Mean rank error unavailable — every stored race predates the current metric',
+                    `${(maeStats.winRate * 100).toFixed(0)}% win · ${(maeStats.top3Rate * 100).toFixed(0)}% top-3 over ${maeStats.hitRateRaceCount} race${maeStats.hitRateRaceCount !== 1 ? 's' : ''}`,
+                    maeStats.excludedLegacyRaces > 0
+                      ? `${maeStats.excludedLegacyRaces} legacy race${maeStats.excludedLegacyRaces !== 1 ? 's' : ''} excluded from rank error`
+                      : null,
+                    'Click to view details.',
+                  ].filter(Boolean).join(' · ')}
                 >
                   <TrendingUp className="h-3 w-3" />
-                  ±{maeStats.meanRankError.toFixed(1)} · {(maeStats.winRate * 100).toFixed(0)}%W
+                  {maeStats.meanRankError !== null && `±${maeStats.meanRankError.toFixed(1)} · `}{(maeStats.winRate * 100).toFixed(0)}%W
                 </button>
               )}
             </div>
@@ -321,7 +330,7 @@ const V75Analyzer: React.FC = () => {
                         className="flex items-center gap-1.5 text-xs num text-muted-foreground"
                       >
                         <TrendingUp className="h-3 w-3" />
-                        ±{maeStats.meanRankError.toFixed(1)} rank · {(maeStats.winRate * 100).toFixed(0)}% win · {(maeStats.top3Rate * 100).toFixed(0)}% top-3
+                        {maeStats.meanRankError !== null && `±${maeStats.meanRankError.toFixed(1)} rank · `}{(maeStats.winRate * 100).toFixed(0)}% win · {(maeStats.top3Rate * 100).toFixed(0)}% top-3
                       </button>
                     )}
                   </SheetHeader>

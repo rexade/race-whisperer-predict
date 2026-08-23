@@ -1,7 +1,7 @@
 import { ATGStartInfo } from './atgApi';
 import { HorseRawKmTime } from './types/kmTimeTypes';
 import { processHorseKmTimes } from './horseProcessing';
-import { fetchHorseHistoricalData, processHistoricalRecords, ATGHistoricalRecord } from './atgHistoricalApi';
+import { fetchHorseHistoricalData, processHistoricalRecords, ATGHistoricalRecord, type CutoffMode } from './atgHistoricalApi';
 import { DataValidator } from './debugging/dataValidator';
 import { collectHorseRecordCandidates, distanceCategoryToMeters, getSourceConfidenceMultiplier } from './utils/recordsFallback';
 import { toSeconds, secondsToKmParts } from './utils/robustTimeConversion';
@@ -16,7 +16,11 @@ export const calculateRawKmTimesForRaceWithId = async (
   progressCallback?: (current: number, total: number) => void,
   /** ISO date of the race — passed to processHistoricalRecords to prevent data leakage
    *  in calibration (only records strictly before this date are used). */
-  raceDateCutoff?: string
+  raceDateCutoff?: string,
+  /** Whether `raceDateCutoff` is a past race being replayed ('historical', the safe
+   *  default) or an upcoming race being predicted ('live'). Governs whether undated
+   *  aggregate snapshots may be used at all — see CutoffMode. */
+  cutoffMode: CutoffMode = 'historical'
 ): Promise<HorseRawKmTime[]> => {
   const rawKmTimes: HorseRawKmTime[] = [];
 
@@ -137,7 +141,7 @@ export const calculateRawKmTimesForRaceWithId = async (
       );
       DataValidator.logValidationResults(validationResults, `${horseName} Historical Records`);
 
-      let processingResult = processHistoricalRecords(records, horseName, raceDateCutoff);
+      let processingResult = processHistoricalRecords(records, horseName, raceDateCutoff, cutoffMode);
       let validRecords = processingResult.records;
 
       // Collect invalid candidates from processing
@@ -152,7 +156,7 @@ export const calculateRawKmTimesForRaceWithId = async (
           DataValidator.validateHistoricalRecord(record, index)
         );
         DataValidator.logValidationResults(fallbackValidationResults, `${horseName} Emergency Fallback Records`);
-        processingResult = processHistoricalRecords(records, horseName, raceDateCutoff);
+        processingResult = processHistoricalRecords(records, horseName, raceDateCutoff, cutoffMode);
         validRecords = processingResult.records;
         invalidCandidates.push(...processingResult.invalidCandidates);
       }
@@ -174,7 +178,7 @@ export const calculateRawKmTimesForRaceWithId = async (
               usingStatisticsFallback = true;
               records = extendedRecords as any;
               rawRecords = records;
-              processingResult = processHistoricalRecords(records, horseName, raceDateCutoff);
+              processingResult = processHistoricalRecords(records, horseName, raceDateCutoff, cutoffMode);
               validRecords = processingResult.records;
               invalidCandidates.push(...processingResult.invalidCandidates);
               logExtendedFallbackUsage(horseId, horseName, extendedRecords);
@@ -252,9 +256,11 @@ export const calculateRawKmTimesForRaceWithId = async (
         continue;
       }
 
-      // ❺ EXTENDED single-record fallback: Use horse.record.time only without a
-      // historical cutoff; the all-time record has no event date to validate.
-      if (validRecords.length === 0 && !fallbackEligibleInvalidCandidates.length && !raceDateCutoff) {
+      // ❺ EXTENDED single-record fallback: the all-time record has no event date to
+      // validate, so it cannot be proven to precede a past race. Usable when predicting
+      // forward, where nothing after the cutoff has happened yet.
+      const allTimeRecordIsUsable = !raceDateCutoff || cutoffMode === 'live';
+      if (validRecords.length === 0 && !fallbackEligibleInvalidCandidates.length && allTimeRecordIsUsable) {
         if (!extendedDataFetched) {
           log.debug(`[KmTimeProcessor] No data anywhere, fetching extended race data for single record...`);
           extendedRaceData = await fetchExtendedRaceData(raceId);

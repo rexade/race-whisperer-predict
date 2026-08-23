@@ -122,12 +122,30 @@ export interface HistoricalProcessingResult {
 /** Locked raw-time policy from ATG truth simulation: recent 3 average inside 90 days, fallback to all prior. */
 const RAW_TIME_RECENT_WINDOW_DAYS = 90;
 
+/**
+ * What `raceDateCutoff` means for records that carry no verifiable event date.
+ *
+ * Aggregate/statistics records are snapshots taken when the data was fetched, and carry
+ * synthetic dates (current year → `{year}-12-31`, life → undated). They cannot be
+ * time-sliced back to an arbitrary date.
+ *
+ * - `'historical'` — replaying a past race. The snapshot necessarily includes starts from
+ *   after the cutoff, so using it leaks future results into a backtest. Aggregates drop.
+ * - `'live'` — predicting an upcoming race. Nothing after the cutoff has happened yet, so
+ *   the snapshot is trustworthy and its synthetic date must not disqualify it.
+ *
+ * Defaults to `'historical'`: a caller that forgets to opt in loses some fallback
+ * coverage, which is visible, rather than silently inflating backtest accuracy.
+ */
+export type CutoffMode = 'historical' | 'live';
+
 export const processHistoricalRecords = (
   records: ATGHistoricalRecord[],
   debugHorseName?: string,
   /** ISO date string of the race being predicted. When provided, only records strictly
    *  BEFORE this date are used — prevents post-race data from leaking into calibration. */
-  raceDateCutoff?: string
+  raceDateCutoff?: string,
+  cutoffMode: CutoffMode = 'historical'
 ): HistoricalProcessingResult => {
   // Use the race date (if given) as reference so the 5-month window is anchored to the
   // race, not to today. This prevents future races from bleeding into form/gallopRate etc.
@@ -176,10 +194,20 @@ export const processHistoricalRecords = (
     const validRecords = records.filter(record => {
       const source = (record as any).meta?.source || 'results';
       const isAggregateSource = isAggregateRecordSource(source);
+      // A snapshot aggregate is only trustworthy when nothing after the cutoff exists yet.
+      const aggregateIsTrustworthy = isAggregateSource && cutoffMode === 'live';
+
+      // Under a historical replay an aggregate covers starts from after the cutoff and its
+      // synthetic date cannot prove otherwise, so it has to go entirely.
+      if (upperDate && isAggregateSource && !aggregateIsTrustworthy) {
+        filteringStats.outsideTimeWindow++;
+        rejectRecord(record, 'aggregate-under-historical-cutoff', source, false);
+        return false;
+      }
 
       // A strict historical cutoff requires a trustworthy date. Undated or malformed
       // records cannot be proven to precede the predicted race.
-      if (upperDate) {
+      if (upperDate && !aggregateIsTrustworthy) {
         const recordDate = record.date ? new Date(record.date) : null;
         if (!recordDate || !Number.isFinite(recordDate.getTime())) {
           filteringStats.outsideTimeWindow++;
@@ -204,9 +232,10 @@ export const processHistoricalRecords = (
           return false;
         }
         const raceDate = new Date(record.date);
-        // Aggregate dates can be synthetic year-end dates. They still must precede a
-        // historical prediction cutoff; otherwise full-year aggregates leak later starts.
-        const withinUpperBound = !upperDate || raceDate < upperDate;
+        // Aggregate dates are synthetic year-end markers. Under a historical cutoff the
+        // record is already gone (above); when predicting forward the marker is not a real
+        // event date and must not read as "in the future".
+        const withinUpperBound = !upperDate || aggregateIsTrustworthy || raceDate < upperDate;
         if (!withinUpperBound) {
           filteringStats.outsideTimeWindow++;
           rejectRecord(record, 'future-or-same-day', source, false);
@@ -224,7 +253,7 @@ export const processHistoricalRecords = (
           }
           return false;
         }
-      } else if (upperDate && record.date) {
+      } else if (upperDate && record.date && !aggregateIsTrustworthy) {
         const raceDate = new Date(record.date);
         if (raceDate >= upperDate) {
           filteringStats.outsideTimeWindow++;
@@ -390,9 +419,11 @@ export const processHistoricalRecords = (
   // Metadata may use rejected records, but never records on/after the prediction date.
   const metadataRecords = upperDate
     ? records.filter(record => {
-        if (!record.date) return false;
-        const timestamp = new Date(record.date).getTime();
-        return Number.isFinite(timestamp) && timestamp < upperDate.getTime();
+        const timestamp = record.date ? new Date(record.date).getTime() : NaN;
+        // Undated snapshots carry no provable date, so they only survive when predicting
+        // forward, where there is nothing after the cutoff for them to have absorbed.
+        if (!Number.isFinite(timestamp)) return cutoffMode === 'live';
+        return timestamp < upperDate.getTime();
       })
     : records;
 

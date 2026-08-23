@@ -101,37 +101,85 @@ export async function fetchAndComputeMAEForRace(raceId: string): Promise<RaceMAE
 }
 
 export interface AggregateMAEStats {
-  /** Mean rank error averaged across all stored MAE results */
-  meanRankError: number;
-  /** Number of races contributing */
+  /**
+   * Mean rank error over races measured under the current definition. Null when every
+   * stored race predates it — better no number than one averaged across two meanings.
+   */
+  meanRankError: number | null;
+  /** Races contributing to meanRankError. */
   raceCount: number;
-  /** Fraction of races where rank-1 pick actually finished 1st (0–1) */
+  /**
+   * Mean horses actually evaluated per race. MAE is computed only over horses with a
+   * real prediction and a clean finish, so this is the coverage behind the headline
+   * number. It matters because both exclusions and rank compression make MAE *fall*
+   * as coverage shrinks — a drop here means the accuracy figure got easier, not better.
+   */
+  meanHorsesEvaluated: number;
+  /** Stored rows skipped because they predate the current metric definition. */
+  excludedLegacyRaces: number;
+  /**
+   * Fraction of races where the rank-1 pick actually finished 1st (0–1). Win and top-3
+   * read the literal finish position, whose meaning did not change with rank
+   * compression, so these aggregate every stored race including legacy ones.
+   */
   winRate: number;
   /** Fraction of races where rank-1 pick finished in top 3 (0–1) */
   top3Rate: number;
+  /** Races contributing to winRate/top3Rate — all stored races, not just current ones. */
+  hitRateRaceCount: number;
   /** Individual results, newest first */
   results: RaceMAEResult[];
 }
 
+/**
+ * Rows written before rank compression landed hold a different measurement: error against
+ * the literal finish position over every stored horse, rather than against a rank
+ * compressed to the evaluated cohort. Averaging the two together produces a number that
+ * describes neither. Compressed rows are the ones carrying `eligibleActualRank`.
+ */
+const usesCurrentMetricDefinition = (result: RaceMAEResult): boolean =>
+  result.horses.every(horse => typeof horse.eligibleActualRank === 'number');
+
 /** Read all stored MAE results and aggregate them. Returns null if none exist. */
 export async function getAggregateMAEStats(): Promise<AggregateMAEStats | null> {
-  const results = await RaceAnalysisCache.getAllMAEResults();
-  if (results.length === 0) return null;
+  const stored = await RaceAnalysisCache.getAllMAEResults();
+  if (stored.length === 0) return null;
 
-  const meanRankError =
-    results.reduce((sum, r) => sum + r.meanRankError, 0) / results.length;
+  const results = stored.filter(usesCurrentMetricDefinition);
+  const excludedLegacyRaces = stored.length - results.length;
+  if (excludedLegacyRaces > 0) {
+    log.debug(
+      `MAE: ${excludedLegacyRaces} stored race(s) predate rank compression — excluded from mean rank error`,
+    );
+  }
+
+  const meanRankError = results.length > 0
+    ? results.reduce((sum, r) => sum + r.meanRankError, 0) / results.length
+    : null;
 
   let winnerHits = 0;
   let top3Hits = 0;
-  for (const r of results) {
+  for (const r of stored) {
     const top1 = r.horses.find(h => h.predictedRank === 1);
     if (top1) {
       if (top1.actualFinishOrder === 1) winnerHits++;
       if (top1.actualFinishOrder <= 3) top3Hits++;
     }
   }
-  const winRate = winnerHits / results.length;
-  const top3Rate = top3Hits / results.length;
+  const winRate = winnerHits / stored.length;
+  const top3Rate = top3Hits / stored.length;
+  const meanHorsesEvaluated = results.length > 0
+    ? results.reduce((sum, r) => sum + r.horseCount, 0) / results.length
+    : 0;
 
-  return { meanRankError, raceCount: results.length, winRate, top3Rate, results };
+  return {
+    meanRankError,
+    raceCount: results.length,
+    meanHorsesEvaluated,
+    excludedLegacyRaces,
+    winRate,
+    top3Rate,
+    hitRateRaceCount: stored.length,
+    results: stored,
+  };
 }

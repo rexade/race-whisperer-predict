@@ -82,7 +82,11 @@ async function main() {
         },
       })) as any,
       undefined,
-      date
+      date,
+      // This CLI's contract is to mirror the browser pipeline, and the browser predicts
+      // forward. 'historical' here would strip the statistics fallback and quietly make
+      // CLI output disagree with the app for exactly the low-data horses.
+      'live'
     );
 
     const result = await RaceResultProcessor.processRaceResult(

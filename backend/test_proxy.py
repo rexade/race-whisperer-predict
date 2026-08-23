@@ -86,3 +86,27 @@ def test_proxy_rejects_del_control_character(monkeypatch):
 
     assert response.status_code == 400
     assert _FakeAsyncClient.requested_urls == []
+
+
+def test_proxy_does_not_append_bare_question_mark(monkeypatch):
+    """A query-less upstream call must not carry a stray "?" — it changes the
+    request target and needlessly varies upstream cache keys."""
+    _FakeAsyncClient.requested_urls = []
+    monkeypatch.setattr(main.httpx, "AsyncClient", _FakeAsyncClient)
+
+    response = client.get("/api/atg/games")
+
+    assert response.status_code == 200
+    assert str(_FakeAsyncClient.requested_urls[0]).endswith("/api/games")
+
+
+def test_proxy_still_forwards_a_real_query_string(monkeypatch):
+    _FakeAsyncClient.requested_urls = []
+    monkeypatch.setattr(main.httpx, "AsyncClient", _FakeAsyncClient)
+
+    response = client.get("/api/atg/games?date=2026-08-21&limit=5")
+
+    assert response.status_code == 200
+    assert str(_FakeAsyncClient.requested_urls[0]).endswith(
+        "/api/games?date=2026-08-21&limit=5"
+    )

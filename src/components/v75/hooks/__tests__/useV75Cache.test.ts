@@ -81,7 +81,10 @@ describe('useV75Cache', () => {
       'race-1',
       [expect.objectContaining({ number: 7, postPosition: 2 })],
       undefined,
-      '2026-08-20'
+      '2026-08-20',
+      // Predicting forward: aggregate snapshots stay usable. Passing 'historical' here
+      // would silently strip the statistics fallback from every live analysis.
+      'live'
     );
     expect(mocks.warn).toHaveBeenCalledWith(
       expect.stringContaining('continuing with fresh data'),

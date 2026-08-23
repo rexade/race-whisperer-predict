@@ -66,3 +66,57 @@ describe('processHistoricalRecords temporal cutoff', () => {
     expect(result.metadata.gallopDates).toEqual([]);
   });
 });
+
+// Aggregate/statistics records are snapshots taken at fetch time and carry synthetic
+// dates (current year -> `{year}-12-31`, life -> undated). Whether they may be used
+// depends entirely on which direction the cutoff points.
+const aggregate = (date: string | undefined): ATGHistoricalRecord => ({
+  date,
+  kmTime: { minutes: 1, seconds: 14, tenths: 5 },
+  place: '3',
+  race: { id: 'stat_M_2026', startMethod: 'auto' },
+  track: { name: 'Unknown' },
+  meta: { source: 'statistics', distance: 'medium', startMethod: 'auto' },
+} as unknown as ATGHistoricalRecord);
+
+describe('processHistoricalRecords aggregate handling by cutoff mode', () => {
+  const year = new Date().getFullYear();
+  const raceDate = `${year}-08-21`;
+
+  it('keeps a current-year aggregate when predicting an upcoming race', () => {
+    const result = processHistoricalRecords([aggregate(`${year}-12-31`)], 'H', raceDate, 'live');
+    expect(result.records).toHaveLength(1);
+  });
+
+  it('keeps an undated life aggregate when predicting an upcoming race', () => {
+    const result = processHistoricalRecords([aggregate(undefined)], 'H', raceDate, 'live');
+    expect(result.records).toHaveLength(1);
+  });
+
+  it('drops a current-year aggregate when replaying a past race', () => {
+    const result = processHistoricalRecords([aggregate(`${year}-12-31`)], 'H', raceDate, 'historical');
+    expect(result.records).toEqual([]);
+    expect(result.invalidCandidates).toEqual([]);
+  });
+
+  it('drops an undated life aggregate when replaying a past race', () => {
+    const result = processHistoricalRecords([aggregate(undefined)], 'H', raceDate, 'historical');
+    expect(result.records).toEqual([]);
+    expect(result.invalidCandidates).toEqual([]);
+  });
+
+  it('defaults to the leakage-safe mode when no mode is given', () => {
+    const result = processHistoricalRecords([aggregate(`${year}-12-31`)], 'H', raceDate);
+    expect(result.records).toEqual([]);
+  });
+
+  it('still rejects a genuinely post-cutoff dated record in live mode', () => {
+    const result = processHistoricalRecords(
+      [record('after', `${year}-08-22`, 10)],
+      'H',
+      raceDate,
+      'live'
+    );
+    expect(result.records).toEqual([]);
+  });
+});

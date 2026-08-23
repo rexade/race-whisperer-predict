@@ -836,7 +836,9 @@ def _build_atg_url(path: str, query_string: bytes = b"") -> httpx.URL:
         raise HTTPException(status_code=400, detail="invalid ATG API path")
 
     try:
-        return httpx.URL(f"{ATG_BASE}/{decoded_path}").copy_with(query=query_string)
+        url = httpx.URL(f"{ATG_BASE}/{decoded_path}")
+        # copy_with(query=b"") still renders a bare "?" — only attach a real query.
+        return url.copy_with(query=query_string) if query_string else url
     except httpx.InvalidURL as exc:
         raise HTTPException(status_code=400, detail="invalid ATG API path") from exc
 

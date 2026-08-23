@@ -385,3 +385,63 @@ describe('getAggregateMAEStats', () => {
     expect(stats!.top3Rate).toBeCloseTo(2 / 3, 5);
   });
 });
+
+describe('getAggregateMAEStats metric-definition guard', () => {
+  beforeEach(() => {
+    for (const k in _maeStore) delete _maeStore[k];
+  });
+
+  type Row = import('../v75Cache/types').RaceMAEResult;
+  const horse = (eligible: boolean) => ({
+    horseId: 1,
+    horseName: 'H',
+    predictedRank: 1,
+    actualFinishOrder: 1,
+    rankError: 0,
+    ...(eligible ? { eligibleActualRank: 1 } : {}),
+  });
+  const row = (raceId: string, mae: number, eligible: boolean, horseCount = 8): Row => ({
+    raceId, raceNumber: 1, analysisDate: '2026-04-01', computedAt: '',
+    meanRankError: mae, horseCount,
+    horses: [horse(eligible), horse(eligible)],
+  } as Row);
+
+  it('ignores rows computed under the pre-compression definition', async () => {
+    _maeStore['legacy'] = row('legacy', 9.0, false);
+    _maeStore['current'] = row('current', 1.0, true);
+    const stats = await getAggregateMAEStats();
+    expect(stats!.raceCount).toBe(1);
+    expect(stats!.meanRankError).toBeCloseTo(1.0, 5);
+  });
+
+  it('reports how many rows were excluded as legacy', async () => {
+    _maeStore['a'] = row('a', 9.0, false);
+    _maeStore['b'] = row('b', 8.0, false);
+    _maeStore['c'] = row('c', 1.0, true);
+    const stats = await getAggregateMAEStats();
+    expect(stats!.excludedLegacyRaces).toBe(2);
+  });
+
+  it('reports no rank error at all when every stored row predates the definition', async () => {
+    _maeStore['a'] = row('a', 9.0, false);
+    const stats = await getAggregateMAEStats();
+    expect(stats!.meanRankError).toBeNull();
+    expect(stats!.raceCount).toBe(0);
+    expect(stats!.excludedLegacyRaces).toBe(1);
+  });
+
+  it('still counts win/top-3 over legacy rows, whose finish positions stayed comparable', async () => {
+    _maeStore['a'] = row('a', 9.0, false);
+    _maeStore['b'] = row('b', 1.0, true);
+    const stats = await getAggregateMAEStats();
+    expect(stats!.hitRateRaceCount).toBe(2);
+    expect(stats!.winRate).toBe(1.0);
+  });
+
+  it('reports mean evaluated horses per race so shrinking coverage is visible', async () => {
+    _maeStore['a'] = row('a', 1.0, true, 10);
+    _maeStore['b'] = row('b', 1.0, true, 4);
+    const stats = await getAggregateMAEStats();
+    expect(stats!.meanHorsesEvaluated).toBeCloseTo(7, 5);
+  });
+});
