@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart2, Play, Zap, Shuffle, Check, AlertCircle, Loader2, RefreshCw, Copy, ClipboardCheck, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NormalizationWeights } from '@/services/modernKm/types';
@@ -112,7 +112,7 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
   const [copied, setCopied] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [bucketedCurves, setBucketedCurves] = useState(false);
-  const { state, runDataCollection, runOptimization, runMultiStartOptimization, acceptResult, reset } = useCalibration(gameType);
+  const { state, runDataCollection, runOptimization, runMultiStartOptimization, runKFold, acceptResult, reset, cancelRun } = useCalibration(gameType);
 
   // The curves passed to the optimizer — bucketed when toggle on, otherwise the
   // raw legacy curves. We always seed byDistance from the current legacy curves
@@ -173,20 +173,27 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
     acceptResult();
   };
 
+  /** Train + holdout, chronological. Exports must not ship only the training split. */
+  const collectedDataset = useMemo(() => {
+    if (!state.dataset) return null;
+    return [...state.dataset, ...(state.testDataset ?? [])]
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [state.dataset, state.testDataset]);
+
   const handleDownloadDataset = () => {
-    if (!state.dataset) return;
-    downloadJson(`calibration-dataset-${gameType}-${monthsBack}mo.json`, serializeDataset(state.dataset));
+    if (!collectedDataset) return;
+    downloadJson(`calibration-dataset-${gameType}-${monthsBack}mo.json`, serializeDataset(collectedDataset));
   };
 
   const handleDownloadBundle = () => {
-    if (!state.dataset) return;
-    const dataset = serializeDataset(state.dataset);
-    const totalRaces = state.dataset.reduce((sum, dateData) => sum + dateData.races.length, 0);
-    const totalRawTimes = state.dataset.reduce(
+    if (!collectedDataset) return;
+    const dataset = serializeDataset(collectedDataset);
+    const totalRaces = collectedDataset.reduce((sum, dateData) => sum + dateData.races.length, 0);
+    const totalRawTimes = collectedDataset.reduce(
       (sum, dateData) => sum + dateData.races.reduce((raceSum, race) => raceSum + race.rawKmTimes.length, 0),
       0
     );
-    const totalAllTimes = state.dataset.reduce(
+    const totalAllTimes = collectedDataset.reduce(
       (sum, dateData) => sum + dateData.races.reduce(
         (raceSum, race) => raceSum + race.rawKmTimes.reduce((horseSum, rt) => horseSum + (rt.allTimes?.length ?? 0), 0),
         0
@@ -202,7 +209,9 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
       bucketedCurves,
       cacheInfo,
       stats: {
-        dates: state.dataset.length,
+        dates: collectedDataset.length,
+        trainDates: state.dataset?.length ?? 0,
+        holdoutDates: state.testDataset?.length ?? 0,
         races: totalRaces,
         rawTimeRows: totalRawTimes,
         allTimesRows: totalAllTimes,
@@ -367,6 +376,27 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
           </Button>
         )}
 
+        {hasDataset && (
+          <Button
+            size="sm"
+            onClick={() => runKFold(currentWeights, curvesForOptimizer)}
+            disabled={isWorking}
+            className="h-8"
+            title="Ranks starts by out-of-fold score instead of training fit, refits the winner, then reports the holdout. Slower, but the only mode whose comparison between starts means anything."
+          >
+            <Shuffle className="mr-1.5 h-3.5 w-3.5" />
+            K-Fold (honest)
+          </Button>
+        )}
+
+        {/* A full multi-start is six sequential searches over the whole dataset; without
+            this the only way out is closing the tab. */}
+        {isWorking && state.phase === 'optimizing' && (
+          <Button size="sm" variant="outline" onClick={cancelRun} className="h-8">
+            Cancel
+          </Button>
+        )}
+
         {(hasDataset || state.phase === 'error') && (
           <Button size="sm" variant="ghost" onClick={reset} disabled={isWorking} className="h-8">
             Reset
@@ -398,8 +428,9 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
       {/* Baseline stats */}
       {state.baselineEval && !isWorking && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-          <Stat label="Dates" value={state.dataset?.length ?? 0} />
-          <Stat label="Races" value={state.dataset?.reduce((s, d) => s + d.races.length, 0) ?? 0} />
+          <Stat label="Train dates" value={state.dataset?.length ?? 0} />
+          <Stat label="Holdout dates" value={state.testDataset?.length ?? 0} />
+          <Stat label="Train races" value={state.dataset?.reduce((s, d) => s + d.races.length, 0) ?? 0} />
           <Stat label="Horses (real data)" value={state.baselineEval.horsesEvaluated} />
           <Stat label="Estimated skipped" value={state.baselineEval.estimatedHorsesSkipped} />
           <Stat label="Win %" value={`${(state.baselineEval.winAccuracy * 100).toFixed(1)}%`} highlight />
@@ -415,6 +446,87 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
         </div>
       )}
 
+      {/* K-fold result — out-of-fold rankings, then the untouched holdout. */}
+      {state.kfoldResult && !isWorking && (
+        <div className="space-y-3 rounded-md border border-border/60 p-3">
+          <div className="flex items-center gap-2">
+            <Check className="h-4 w-4 text-green-500" />
+            <span className="text-sm font-medium">
+              K-fold complete · winner “{state.kfoldResult.winnerName}”
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {state.kfoldResult.trainDates} train dates · {state.kfoldResult.holdoutDates} held out
+            </span>
+          </div>
+
+          {/* The verdict comes first: a refit that loses to current weights on unseen
+              data is a result, and the useful action is to discard it. */}
+          {state.kfoldResult.refitBeatsBaseline === false && (
+            <div className="text-xs rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2">
+              The refit does <span className="font-medium">not</span> beat your current weights
+              on the holdout. Keep what you have — applying this would be fitting noise.
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <div className="text-xs text-muted-foreground">
+              Start rankings by mean out-of-fold MRR — scored on folds each run never saw
+            </div>
+            {state.kfoldResult.rankings.map((r, i) => (
+              <div key={r.name} className="flex items-center gap-2 text-xs tabular-nums">
+                <span className="w-4 text-muted-foreground">{i === 0 ? '★' : ''}</span>
+                <span className="w-40 truncate">{r.name}</span>
+                <span className="font-medium">{r.meanOofMRR.toFixed(4)}</span>
+                <span className="text-muted-foreground">±{r.stdOofMRR.toFixed(4)}</span>
+                <span className="text-muted-foreground">win {(r.meanOofWin * 100).toFixed(1)}%</span>
+              </div>
+            ))}
+            {state.kfoldResult.rankings.length > 1 && (() => {
+              const [first, second] = state.kfoldResult!.rankings;
+              // Spread across folds is the honest error bar. When the gap between the top
+              // two is inside it, the ranking is not evidence and saying so beats a badge.
+              const inNoise = Math.abs(first.meanOofMRR - second.meanOofMRR) < first.stdOofMRR;
+              return inNoise ? (
+                <div className="text-xs text-muted-foreground pt-1">
+                  Top two are within one fold-to-fold standard deviation — treat this ordering
+                  as a coin flip, not a finding.
+                </div>
+              ) : null;
+            })()}
+          </div>
+
+          {state.kfoldResult.holdout.length > 0 && (
+            <div className="space-y-1">
+              <div className="text-xs text-muted-foreground">
+                Holdout — {state.kfoldResult.holdoutDates} dates the optimizer never touched
+              </div>
+              {state.kfoldResult.holdout.map(entry => (
+                <div key={entry.label} className="flex items-center gap-2 text-xs tabular-nums">
+                  <span className="w-44 truncate">{entry.label}</span>
+                  <span className="font-medium">MRR {entry.evaluation.winnerMRR.toFixed(4)}</span>
+                  <span>win {(entry.evaluation.winAccuracy * 100).toFixed(1)}%</span>
+                  <span className="text-muted-foreground">
+                    top-3 {(entry.evaluation.winnerTop3Accuracy * 100).toFixed(1)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <Button
+            size="sm"
+            variant={state.kfoldResult.refitBeatsBaseline === false ? 'outline' : 'default'}
+            className="h-8"
+            onClick={() => {
+              onApplyWeights(state.kfoldResult!.refit.optimizedWeights);
+              onPostPositionCurvesChange?.(state.kfoldResult!.refit.optimizedCurves);
+            }}
+          >
+            Apply refit weights
+          </Button>
+        </div>
+      )}
+
       {/* Optimization result */}
       {hasResult && !isWorking && state.optimizationResult && (
         <div className="space-y-3 border border-border rounded-lg p-4">
@@ -424,11 +536,49 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
               <Check className="h-4 w-4 text-green-500" />
               <span className="text-sm font-medium">Optimization complete</span>
             </div>
+            {/* The holdout goes first and on its own line. Training win always improves —
+                that is what was maximised — so it is not evidence, and putting the two
+                side by side invites reading the bigger number as the real one. */}
+            {state.optimizationResult.testEvaluation ? (
+              <div className="flex flex-wrap items-center gap-2 text-sm rounded-md border border-border/60 px-3 py-2">
+                <span className="font-medium">Holdout win</span>
+                {state.baselineTestEval && (
+                  <>
+                    <span className="text-muted-foreground line-through">
+                      {(state.baselineTestEval.winAccuracy * 100).toFixed(1)}%
+                    </span>
+                    <span>→</span>
+                  </>
+                )}
+                <span className="font-medium">
+                  {(state.optimizationResult.testEvaluation.winAccuracy * 100).toFixed(1)}%
+                </span>
+                {state.baselineTestEval && (() => {
+                  const delta =
+                    (state.optimizationResult!.testEvaluation!.winAccuracy
+                      - state.baselineTestEval.winAccuracy) * 100;
+                  return (
+                    <span className={deltaColor(delta)}>
+                      {delta >= 0 ? '▲' : '▼'}{Math.abs(delta).toFixed(1)}pp
+                    </span>
+                  );
+                })()}
+                <span className="text-muted-foreground text-xs">
+                  on {state.testDataset?.length ?? 0} unseen date{(state.testDataset?.length ?? 0) !== 1 ? 's' : ''} — the only number here the optimizer did not fit
+                </span>
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground rounded-md border border-border/60 px-3 py-2">
+                No holdout — the dataset was too small to hold dates back. Everything below
+                is measured on the data that was optimized against, so treat it as a fit,
+                not as accuracy.
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-4 text-sm">
               <span>
-                Win: <span className="text-muted-foreground line-through">{(state.optimizationResult.initialEvaluation.winAccuracy * 100).toFixed(1)}%</span>
+                Train win: <span className="text-muted-foreground line-through">{(state.optimizationResult.initialEvaluation.winAccuracy * 100).toFixed(1)}%</span>
                 {' → '}
-                <span className="font-medium text-green-500">{(state.optimizationResult.finalEvaluation.winAccuracy * 100).toFixed(1)}%</span>
+                <span className="font-medium">{(state.optimizationResult.finalEvaluation.winAccuracy * 100).toFixed(1)}%</span>
               </span>
               <span>
                 MRR: <span className="text-muted-foreground line-through">{state.optimizationResult.initialMAE.toFixed(3)}</span>
@@ -440,8 +590,8 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
                 {' · '}
                 Winner Top-5: <span className="font-medium">{(state.optimizationResult.finalEvaluation.winnerTop5Accuracy * 100).toFixed(1)}%</span>
               </span>
-              <span className={deltaColor(state.optimizationResult.improvementPct)}>
-                {state.optimizationResult.improvementPct >= 0 ? '▲' : '▼'}{Math.abs(state.optimizationResult.improvementPct).toFixed(1)}% better
+              <span className="text-muted-foreground">
+                {state.optimizationResult.improvementPct >= 0 ? '▲' : '▼'}{Math.abs(state.optimizationResult.improvementPct).toFixed(1)}% in-sample
               </span>
               <span className="text-muted-foreground text-xs">
                 {state.optimizationResult.passesCompleted} passes

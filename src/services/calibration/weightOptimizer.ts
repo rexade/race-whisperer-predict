@@ -71,16 +71,34 @@ export type OptimizeObjective = 'mrr' | 'pl';
 // temperature schedule and L2 penalty stay comparable across objectives.
 const PL_SCALE = 0.2;
 
-/** Regularized score: lower is better (negative fit + L2 penalty). */
+interface Scored {
+  /** Regularized objective: lower is better (negative fit + L2 penalty). */
+  score: number;
+  /** Plain winner MRR, unpenalized. Reported to the user regardless of objective —
+   *  the score is an internal quantity and reads ~0.03-0.05 lower than the real MRR. */
+  mrr: number;
+}
+
+/** Regularized score (lower is better) plus the raw MRR behind it. */
 async function regScore(
   dataset: CalibrationDataset,
   weights: NormalizationWeights,
   curves: PostPositionCurves,
   objective: OptimizeObjective = 'mrr'
-): Promise<number> {
+): Promise<Scored> {
   const eval_ = await evaluateWeights(dataset, weights, curves);
   const fit = objective === 'pl' ? eval_.plLogLik * PL_SCALE : eval_.winnerMRR;
-  return -fit + l2Penalty(weights);
+  return { score: -fit + l2Penalty(weights), mrr: eval_.winnerMRR };
+}
+
+/**
+ * Simulated-annealing proposal width, scaled by the current temperature so late moves
+ * are fine-grained. A fixed width would leave the tail of the anneal proposing coarse
+ * jumps that the cooling acceptance test almost always rejects — the schedule would
+ * run but do nothing.
+ */
+export function saStepSize(temperature: number, unitRandom: number): number {
+  return temperature * 16 * (0.1 + unitRandom);
 }
 
 const WEIGHT_KEYS: (keyof NormalizationWeights)[] = [
@@ -181,36 +199,40 @@ async function runSAPhase(
   onProgress?: (p: OptimizationProgress) => void,
   saSteps: number = SA_STEPS,
   rng: () => number = Math.random,
-  objective: OptimizeObjective = 'mrr'
-): Promise<{ weights: NormalizationWeights; score: number }> {
+  objective: OptimizeObjective = 'mrr',
+  maxPasses: number = MAX_PASSES
+): Promise<{ weights: NormalizationWeights; score: number; mrr: number }> {
   let curr = copyWeights(initial);
-  let currScore = await regScore(dataset, curr, curves, objective);
+  const currScored = await regScore(dataset, curr, curves, objective);
+  let currScore = currScored.score;
   let best = copyWeights(curr);
   let bestScore = currScore;
+  let bestMrr = currScored.mrr;
   let T = SA_T_START;
   const cooling = Math.pow(SA_T_END / SA_T_START, 1 / Math.max(saSteps, 1));
 
   for (let s = 0; s < saSteps; s++) {
     T *= cooling;
 
-    // Random weight key + random signed step (wider early, shrinks with T)
+    // Random weight key + random signed step, narrowing as the temperature falls.
     const key = WEIGHT_KEYS[Math.floor(rng() * WEIGHT_KEYS.length)];
-    const stepSize = SA_T_START * 16 * (0.1 + rng()); // 0.08–1.44 early, shrinks as T drops
+    const stepSize = saStepSize(T, rng());
     const delta = (rng() < 0.5 ? 1 : -1) * stepSize;
     const candidate = copyWeights(curr);
     candidate[key] = clamp((curr[key] ?? 0) + delta, WEIGHT_BOUNDS[0], WEIGHT_BOUNDS[1]);
 
     if (Math.abs(candidate[key] - (curr[key] ?? 0)) < 0.001) continue;
 
-    const score = await regScore(dataset, candidate, curves, objective);
-    const diff = score - currScore; // positive = worse
+    const scored = await regScore(dataset, candidate, curves, objective);
+    const diff = scored.score - currScore; // positive = worse
 
     // Accept if better, or probabilistically if worse
     if (diff < 0 || rng() < Math.exp(-diff / T)) {
       curr = candidate;
-      currScore = score;
+      currScore = scored.score;
       if (currScore < bestScore) {
         bestScore = currScore;
+        bestMrr = scored.mrr;
         best = copyWeights(curr);
       }
     }
@@ -218,16 +240,16 @@ async function runSAPhase(
     if (s % 50 === 0) {
       onProgress?.({
         pass: s,
-        maxPasses: saSteps + MAX_PASSES,
+        maxPasses: saSteps + maxPasses,
         currentMAE: bestScore,
         bestMAE: bestScore,
         step: T,
-        message: `SA ${s}/${saSteps} · T=${T.toFixed(4)} · MRR=${(-bestScore).toFixed(4)}`,
+        message: `SA ${s}/${saSteps} · T=${T.toFixed(4)} · MRR=${bestMrr.toFixed(4)}`,
       });
     }
   }
 
-  return { weights: best, score: bestScore };
+  return { weights: best, score: bestScore, mrr: bestMrr };
 }
 
 /**
@@ -268,12 +290,14 @@ export async function optimizeWeights(
   // MRR = mean(1/rank_given_to_winner). Range 0–1, higher is better.
   // L2 penalty discourages extreme weights to prevent overfitting.
   // Score = -MRR + λΣw² (lower is better).
-  const initialScore = await regScore(dataset, initial, startCurves, objective);
+  const initialScored = await regScore(dataset, initial, startCurves, objective);
+  const initialScore = initialScored.score;
 
   // Phase 0: Simulated annealing — explore broadly before refining (skipped when saSteps=0)
   let bestWeights = copyWeights(initial);
   let bestCurves = startCurves;
   let bestMAE = initialScore;
+  let bestMrr = initialScored.mrr;
 
   if (saSteps > 0) {
     onProgress?.({
@@ -282,11 +306,14 @@ export async function optimizeWeights(
       message: `SA phase: exploring weight space (${saSteps} steps)…`,
     });
     const rng = opts.seed !== undefined ? makeSeededRng(opts.seed) : Math.random;
-    const saResult = await runSAPhase(dataset, copyWeights(initial), startCurves, onProgress, saSteps, rng, objective);
+    const saResult = await runSAPhase(
+      dataset, copyWeights(initial), startCurves, onProgress, saSteps, rng, objective, maxPasses
+    );
     // Start coordinate descent from the best SA solution (or initial if SA didn't improve)
     if (saResult.score < initialScore) {
       bestWeights = saResult.weights;
       bestMAE = saResult.score;
+      bestMrr = saResult.mrr;
     }
   }
 
@@ -297,7 +324,10 @@ export async function optimizeWeights(
   // Run until both weight and curve steps have converged (or maxPasses)
   while (pass < maxPasses && (weightStep >= MIN_WEIGHT_STEP || curveStep >= MIN_CURVE_STEP)) {
     pass++;
-    let improved = false;
+    // Tracked separately: a shared flag lets an improving weight pass hold the curve
+    // step at a size curves have already exhausted, so curves stop being refined.
+    let weightsImproved = false;
+    let curvesImproved = false;
 
     // --- Phase A: optimize the 21 NormalizationWeights ---
     if (weightStep >= MIN_WEIGHT_STEP) {
@@ -307,11 +337,12 @@ export async function optimizeWeights(
           candidate[key] = clamp((bestWeights[key] ?? 0) + dir, WEIGHT_BOUNDS[0], WEIGHT_BOUNDS[1]);
           if (candidate[key] === bestWeights[key]) continue;
 
-          const score = await regScore(dataset, candidate, bestCurves, objective);
-          if (score < bestMAE) {
-            bestMAE = score;
+          const scored = await regScore(dataset, candidate, bestCurves, objective);
+          if (scored.score < bestMAE) {
+            bestMAE = scored.score;
+            bestMrr = scored.mrr;
             bestWeights = candidate;
-            improved = true;
+            weightsImproved = true;
             break;
           }
         }
@@ -322,7 +353,7 @@ export async function optimizeWeights(
           currentMAE: bestMAE,
           bestMAE,
           step: weightStep,
-          message: `CD pass ${pass}/${maxPasses} · weights · step=${weightStep.toFixed(3)} · MRR=${(-bestMAE).toFixed(4)}`,
+          message: `CD pass ${pass}/${maxPasses} · weights · step=${weightStep.toFixed(3)} · MRR=${bestMrr.toFixed(4)}`,
         });
       }
     }
@@ -363,11 +394,12 @@ export async function optimizeWeights(
             candidate.byDistance![axis.startType][axis.bucket][axis.pos] = newVal;
           }
 
-          const score = await regScore(dataset, bestWeights, candidate, objective);
-          if (score < bestMAE) {
-            bestMAE = score;
+          const scored = await regScore(dataset, bestWeights, candidate, objective);
+          if (scored.score < bestMAE) {
+            bestMAE = scored.score;
+            bestMrr = scored.mrr;
             bestCurves = candidate;
-            improved = true;
+            curvesImproved = true;
             break;
           }
         }
@@ -381,15 +413,13 @@ export async function optimizeWeights(
           currentMAE: bestMAE,
           bestMAE,
           step: curveStep,
-          message: `CD pass ${pass}/${maxPasses} · curves (${label}) · step=${curveStep.toFixed(3)} · MRR=${(-bestMAE).toFixed(4)}`,
+          message: `CD pass ${pass}/${maxPasses} · curves (${label}) · step=${curveStep.toFixed(3)} · MRR=${bestMrr.toFixed(4)}`,
         });
       }
     }
 
-    if (!improved) {
-      weightStep /= 2;
-      curveStep /= 2;
-    }
+    if (!weightsImproved) weightStep /= 2;
+    if (!curvesImproved) curveStep /= 2;
   }
 
   const finalEval = await evaluateWeights(dataset, bestWeights, bestCurves);
