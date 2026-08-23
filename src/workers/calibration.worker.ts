@@ -32,12 +32,13 @@ self.onmessage = async (event: MessageEvent) => {
   const { type, payload } = event.data;
 
   if (type === 'OPTIMIZE') {
-    const { dataset, initialWeights, initialCurves, testDataset, gameType } = payload as {
+    const { dataset, initialWeights, initialCurves, testDataset, gameType, objective } = payload as {
       dataset: CalibrationDataset;
       initialWeights: NormalizationWeights;
       initialCurves?: PostPositionCurves;
       testDataset?: CalibrationDataset;
       gameType?: GameType;
+      objective?: 'mrr' | 'pl';
     };
 
     try {
@@ -49,7 +50,8 @@ self.onmessage = async (event: MessageEvent) => {
           (self as any).postMessage({ type: 'PROGRESS', payload: p });
         },
         initialCurves,
-        testDataset
+        testDataset,
+        { objective: objective ?? 'mrr' }
       );
 
       (self as any).postMessage({ type: 'DONE', payload: result });

@@ -113,6 +113,10 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
   const [copiedSummary, setCopiedSummary] = useState(false);
   const [bucketedCurves, setBucketedCurves] = useState(false);
   const { state, runDataCollection, runOptimization, runMultiStartOptimization, runKFold, acceptResult, reset, cancelRun } = useCalibration(gameType);
+  // MRR scores one observation per race (where the winner landed) and throws the rest
+  // of the finish order away. Plackett-Luce uses every placing, which is a large gain
+  // in usable signal when the dataset is only a few hundred races.
+  const [objective, setObjective] = useState<'mrr' | 'pl'>('mrr');
 
   // The curves passed to the optimizer — bucketed when toggle on, otherwise the
   // raw legacy curves. We always seed byDistance from the current legacy curves
@@ -349,7 +353,7 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
         {hasDataset && (
           <Button
             size="sm"
-            onClick={() => runOptimization(currentWeights, curvesForOptimizer)}
+            onClick={() => runOptimization(currentWeights, curvesForOptimizer, objective)}
             disabled={isWorking}
             className="h-8 gap-1.5"
           >
@@ -377,9 +381,35 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
         )}
 
         {hasDataset && (
+          <div className="flex items-center gap-1.5 text-xs">
+            <span className="text-muted-foreground">Fit on</span>
+            <Button
+              size="sm"
+              variant={objective === 'mrr' ? 'default' : 'outline'}
+              onClick={() => setObjective('mrr')}
+              disabled={isWorking}
+              className="h-8 px-2"
+              title="Mean Reciprocal Rank — scores only where the actual winner was ranked."
+            >
+              MRR
+            </Button>
+            <Button
+              size="sm"
+              variant={objective === 'pl' ? 'default' : 'outline'}
+              onClick={() => setObjective('pl')}
+              disabled={isWorking}
+              className="h-8 px-2"
+              title="Plackett–Luce — scores the whole finish order, so every placing contributes instead of just the winner. Usually the better choice on a small dataset."
+            >
+              Plackett–Luce
+            </Button>
+          </div>
+        )}
+
+        {hasDataset && (
           <Button
             size="sm"
-            onClick={() => runKFold(currentWeights, curvesForOptimizer)}
+            onClick={() => runKFold(currentWeights, curvesForOptimizer, objective)}
             disabled={isWorking}
             className="h-8"
             title="Ranks starts by out-of-fold score instead of training fit, refits the winner, then reports the holdout. Slower, but the only mode whose comparison between starts means anything."
@@ -434,6 +464,19 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
           <Stat label="Horses (real data)" value={state.baselineEval.horsesEvaluated} />
           <Stat label="Estimated skipped" value={state.baselineEval.estimatedHorsesSkipped} />
           <Stat label="Win %" value={`${(state.baselineEval.winAccuracy * 100).toFixed(1)}%`} highlight />
+          <Stat
+            label="Market win %"
+            value={state.baselineEval.marketWinAccuracy !== null
+              ? `${(state.baselineEval.marketWinAccuracy * 100).toFixed(1)}%`
+              : 'n/a'}
+          />
+          <Stat
+            label="Edge vs market"
+            value={state.baselineEval.marketWinAccuracy !== null
+              ? `${((state.baselineEval.winAccuracy - state.baselineEval.marketWinAccuracy) * 100).toFixed(1)}pp`
+              : 'n/a'}
+            highlight
+          />
           <Stat label="Top-3 %" value={`${(state.baselineEval.topPickAccuracy * 100).toFixed(1)}%`} highlight />
           <Stat label="Winner Top-5" value={`${(state.baselineEval.winnerTop5Accuracy * 100).toFixed(1)}%`} highlight />
           <Stat label="MRR" value={state.baselineEval.winnerMRR.toFixed(3)} />
@@ -510,6 +553,28 @@ const CalibrationPanel: React.FC<CalibrationPanelProps> = ({
                   </span>
                 </div>
               ))}
+
+              {/* The market is a property of the races, not of any weight config, so it
+                  is one reference line rather than a column. It is the number that says
+                  whether any of the rows above are worth anything. */}
+              {(() => {
+                const ref = state.kfoldResult!.holdout[0]?.evaluation;
+                if (!ref || ref.marketWinAccuracy === null) return null;
+                const best = Math.max(...state.kfoldResult!.holdout.map(e => e.evaluation.winAccuracy));
+                const edge = (best - ref.marketWinAccuracy) * 100;
+                return (
+                  <div className="flex items-center gap-2 text-xs tabular-nums border-t border-border/60 pt-1 mt-1">
+                    <span className="w-44 truncate text-muted-foreground">Market favourite</span>
+                    <span className="font-medium">
+                      MRR {ref.marketMRR !== null ? ref.marketMRR.toFixed(4) : '—'}
+                    </span>
+                    <span>win {(ref.marketWinAccuracy * 100).toFixed(1)}%</span>
+                    <span className={edge >= 0 ? 'text-muted-foreground' : 'text-amber-500'}>
+                      best row is {edge >= 0 ? '+' : ''}{edge.toFixed(1)}pp vs market
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
           )}
 

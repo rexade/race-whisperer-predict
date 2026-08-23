@@ -12,6 +12,7 @@ import {
 import { getCalibrationCacheInfo } from '@/services/calibration/calibrationDatasetCache';
 import { chronologicalHoldout } from '@/services/calibration/datasetSplits';
 import type { KFoldResult, KFoldStart } from '@/services/calibration/kfoldCalibration';
+import type { OptimizeObjective } from '@/services/calibration/weightOptimizer';
 import { OptimizationResult } from '@/services/calibration/weightOptimizer';
 import { computeDriverRatings, saveDriverRatings, getDriverRatingCount } from '@/services/calibration/driverRatingService';
 import type { GameType } from '@/config/game';
@@ -305,7 +306,8 @@ export function useCalibration(gameType: GameType) {
    */
   const runOptimization = useCallback(async (
     currentWeights: NormalizationWeights,
-    currentCurves?: PostPositionCurves
+    currentCurves?: PostPositionCurves,
+    objective: OptimizeObjective = 'mrr'
   ) => {
     const dataset = datasetRef.current ?? state.dataset;
     if (!dataset) return;
@@ -320,7 +322,7 @@ export function useCalibration(gameType: GameType) {
     try {
       const result = await runInWorker<OptimizationResult>(
         () => new Worker(new URL('../../workers/calibration.worker.ts', import.meta.url), { type: 'module' }),
-        { type: 'OPTIMIZE', payload: { dataset, initialWeights: currentWeights, initialCurves: currentCurves, testDataset, gameType } },
+        { type: 'OPTIMIZE', payload: { dataset, initialWeights: currentWeights, initialCurves: currentCurves, testDataset, gameType, objective } },
         'DONE',
         (p) => updateState({
           progressMessage: p.message,
@@ -459,7 +461,8 @@ export function useCalibration(gameType: GameType) {
    */
   const runKFold = useCallback(async (
     currentWeights: NormalizationWeights,
-    currentCurves?: PostPositionCurves
+    currentCurves?: PostPositionCurves,
+    objective: OptimizeObjective = 'mrr'
   ) => {
     const trainWindow = datasetRef.current ?? state.dataset;
     if (!trainWindow) return;
@@ -497,7 +500,7 @@ export function useCalibration(gameType: GameType) {
             // The weights in use today, so the holdout table answers the only question
             // that matters: is this actually better than what is already shipped?
             baselines: [{ name: 'Current (production)', weights: currentWeights, curves: currentCurves }],
-            options: { gameType, optimizeCurves: false },
+            options: { gameType, optimizeCurves: false, objective },
           },
         },
         'KFOLD_DONE',

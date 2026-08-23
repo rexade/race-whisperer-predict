@@ -82,6 +82,18 @@ export interface CalibrationEvaluation {
   winnerTop5Accuracy: number;
   /** Fraction of races where our #1 ranked horse actually won */
   winAccuracy: number;
+  /**
+   * How often the betting market's favourite won, over the same races and the same
+   * evaluated horses. This is the number winAccuracy has to be read against: backing
+   * the favourite already wins roughly a third of Swedish trotting races, so a model
+   * win rate in the low thirties is consistent with adding no value at all. Null when
+   * no race carried usable market data.
+   */
+  marketWinAccuracy: number | null;
+  /** Market equivalent of winnerMRR — mean 1/(market rank given to the actual winner). */
+  marketMRR: number | null;
+  /** Races that had usable market data, so the coverage behind the two market figures. */
+  marketRacesEvaluated: number;
   racesEvaluated: number;
   /** Horses with real km-time data (estimated-fallback horses excluded) */
   horsesEvaluated: number;
@@ -325,6 +337,44 @@ export async function collectCalibrationData(
  * it uses fixed heuristics instead.  Only horses with actual measured times
  * challenge the weight system meaningfully.
  */
+/**
+ * Rank the evaluated horses the way the betting market did.
+ *
+ * Vinnare odds are the primary signal (lower = more favoured), with betDistribution
+ * (spelprocent, higher = more favoured) as the fallback. The two are never mixed
+ * inside one race: a ranking assembled from two different scales is not a market
+ * ranking. Every evaluated horse must carry the signal, otherwise the horse missing
+ * it might be the actual favourite and "market rank 1" would be a different claim
+ * than it appears. Races that fall short are excluded and counted, so the coverage
+ * behind the metric stays visible rather than silently shrinking it.
+ */
+export function marketRankByKey(
+  raceData: V75RaceData,
+  keys: string[]
+): Map<string, number> | null {
+  if (keys.length < 2) return null;
+
+  const byKey = new Map<string, { odds?: number; betDistribution?: number }>();
+  for (const horse of raceData.horses ?? []) {
+    if (horse.horseKey) byKey.set(horse.horseKey, horse);
+  }
+  const usable = (v?: number): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0;
+
+  let strength: ((key: string) => number) | null = null;
+  if (keys.every(k => usable(byKey.get(k)?.odds))) {
+    strength = k => -byKey.get(k)!.odds!;
+  } else if (keys.every(k => usable(byKey.get(k)?.betDistribution))) {
+    strength = k => byKey.get(k)!.betDistribution!;
+  }
+  if (!strength) return null;
+
+  const ranks = new Map<string, number>();
+  [...keys]
+    .sort((a, b) => strength!(b) - strength!(a))
+    .forEach((key, index) => ranks.set(key, index + 1));
+  return ranks;
+}
+
 export async function evaluateWeights(
   dataset: CalibrationDataset,
   weights: NormalizationWeights,
@@ -347,6 +397,9 @@ export async function evaluateWeights(
   let horsesEvaluated = 0;
   let estimatedHorsesSkipped = 0;
   let racesEvaluated = 0;
+  let marketWinCorrect = 0;
+  let marketMRRSum = 0;
+  let marketRacesEvaluated = 0;
 
   for (const dateData of dataset) {
     for (const race of dateData.races) {
@@ -406,6 +459,16 @@ export async function evaluateWeights(
             if (predictedWinnerRank <= 5) winnerTop5Correct++;
             winTotal++;
             if (predictedWinnerRank === 1) winCorrect++;
+
+            // Scored over exactly the horses the model was scored on, so the two
+            // win rates are directly comparable rather than measuring different fields.
+            const marketRanks = marketRankByKey(race.raceData, realHorses.map(horseKey));
+            const marketWinnerRank = marketRanks?.get(actualWinnerHorseKey);
+            if (marketWinnerRank !== undefined) {
+              marketRacesEvaluated++;
+              marketMRRSum += 1 / marketWinnerRank;
+              if (marketWinnerRank === 1) marketWinCorrect++;
+            }
           }
         }
 
@@ -463,6 +526,9 @@ export async function evaluateWeights(
     winnerTop3Accuracy:    winnerRacesCount > 0 ? winnerTop3Correct / winnerRacesCount : 0,
     winnerTop5Accuracy:    winnerRacesCount > 0 ? winnerTop5Correct / winnerRacesCount : 0,
     winAccuracy:           winTotal > 0 ? winCorrect / winTotal : 0,
+    marketWinAccuracy:     marketRacesEvaluated > 0 ? marketWinCorrect / marketRacesEvaluated : null,
+    marketMRR:             marketRacesEvaluated > 0 ? marketMRRSum / marketRacesEvaluated : null,
+    marketRacesEvaluated,
     racesEvaluated,
     horsesEvaluated,
     estimatedHorsesSkipped,
