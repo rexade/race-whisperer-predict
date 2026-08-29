@@ -94,6 +94,26 @@ describe('v75CalendarApi contracts', () => {
     expect(horse.liveOdds).toBe(8.66);
   });
 
+  it('preserves legitimate zero-valued career statistics', async () => {
+    const payload = racePayload();
+    Object.assign(payload.starts[0].horse.statistics.life, {
+      startPoints: 0,
+      placePercentage: 0,
+      winPercentage: 0,
+      earnings: 0,
+    });
+    vi.mocked(fetchRaceById).mockResolvedValue(payload);
+
+    const races = await fetchRaceDataForGame('2024-03-02', gameInfo, 'V75');
+
+    expect(races[0].horses[0].statistics).toEqual({
+      startPoints: 0,
+      placePercentage: 0,
+      winPercentage: 0,
+      earningsPerStart: 0,
+    });
+  });
+
   it('rejects an incomplete race card instead of returning fulfilled races', async () => {
     const incompleteInfo = { ...gameInfo, raceIds: ['race-1', 'race-2'] };
     vi.mocked(fetchRaceById)

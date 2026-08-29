@@ -9,8 +9,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Settings, RotateCcw, ChevronDown, ChevronRight, Save, Upload, Download, Info, TrendingUp } from "lucide-react";
-import { NormalizationWeights, getDefaultWeights } from '../services/modernKm/index';
+import { NormalizationWeights } from '../services/modernKm/index';
+import { DEFAULT_WEIGHTS } from '../services/modernKm/types';
 import { WEIGHT_PRESETS, type WeightPreset } from '../services/modernKm/presetWeights';
+import {
+  loadBrowserDefaultWeights,
+  NORMALIZATION_WEIGHT_MAX,
+  parseNormalizationWeights,
+} from '../services/modernKm/weightConfig';
 import { PostPositionCurveEditor, PostPositionCurves, getDefaultPostPositionCurves } from './PostPositionCurveEditor';
 import { useToast } from "@/hooks/use-toast";
 
@@ -51,7 +57,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({
 
   const handleDirectWeightChange = (factor: keyof NormalizationWeights, value: string) => {
     const numValue = parseFloat(value);
-    if (!isNaN(numValue) && numValue >= 0 && numValue <= 2.0) {
+    if (!isNaN(numValue) && numValue >= 0 && numValue <= NORMALIZATION_WEIGHT_MAX) {
       const newWeights = {
         ...weights,
         [factor]: numValue
@@ -61,7 +67,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({
   };
 
   const resetToDefaults = () => {
-    onWeightsChange(getDefaultWeights());
+    onWeightsChange({ ...DEFAULT_WEIGHTS });
   };
 
   const saveAsDefault = () => {
@@ -97,9 +103,8 @@ const WeightManager: React.FC<WeightManagerProps> = ({
 
   const loadCustomDefaults = () => {
     try {
-      const saved = localStorage.getItem('customDefaultWeights');
-      if (saved) {
-        const customDefaults = JSON.parse(saved);
+      const customDefaults = loadBrowserDefaultWeights();
+      if (customDefaults) {
         onWeightsChange(customDefaults);
         toast({
           title: "Custom Defaults Loaded",
@@ -159,14 +164,17 @@ const WeightManager: React.FC<WeightManagerProps> = ({
         reader.onload = (e) => {
           try {
             const imported = JSON.parse(e.target?.result as string);
+            const parsedWeights = parseNormalizationWeights(imported.weights ?? imported);
+            if (!parsedWeights) throw new Error('Invalid weights');
+
             if (imported.weights) {
-              onWeightsChange(imported.weights);
+              onWeightsChange(parsedWeights);
               if (imported.postPositionCurves && onPostPositionCurvesChange) {
                 onPostPositionCurvesChange(imported.postPositionCurves);
               }
             } else {
               // Backward compatible with old weight-only exports.
-              onWeightsChange(imported);
+              onWeightsChange(parsedWeights);
             }
             toast({
               title: "Model Imported",
@@ -229,6 +237,14 @@ const WeightManager: React.FC<WeightManagerProps> = ({
           description: 'American vs Volvo sulky impact',
           typicalRange: '-0.2s to +0.2s',
           baseEffect: 'American typically -0.1s advantage'
+        },
+        {
+          key: 'shoeChange' as keyof NormalizationWeights,
+          label: 'Shoe Change',
+          description: 'Intent signal when shoe configuration changes',
+          typicalRange: '-0.3s to +0.2s',
+          baseEffect: 'Switching to barefoot can indicate a faster setup',
+          isNew: true
         },
       ]
     },
@@ -346,11 +362,50 @@ const WeightManager: React.FC<WeightManagerProps> = ({
           isNew: true
         },
         {
+          key: 'driverEmpirical' as keyof NormalizationWeights,
+          label: 'Driver Empirical',
+          description: 'Race-format-specific driver win rate from calibration data',
+          typicalRange: '-0.3s to +0.3s',
+          baseEffect: 'Requires cached driver ratings from a calibration dataset',
+          isNew: true
+        },
+        {
           key: 'trainerPerformance' as keyof NormalizationWeights,
           label: 'Trainer Performance',
           description: 'Trainer win percentage — above 12% = faster, below = slower',
           typicalRange: '-0.2s to +0.2s',
           baseEffect: 'Top trainers: -0.15s, Poor trainers: +0.15s',
+          isNew: true
+        },
+      ]
+    },
+    {
+      id: 'market',
+      title: 'Market Signals',
+      description: 'Historical prices, live odds, and game bet distribution',
+      factors: [
+        {
+          key: 'oddsHistorical' as keyof NormalizationWeights,
+          label: 'Historical Odds',
+          description: 'Average market expectation from recent starts',
+          typicalRange: '-0.9s to +0.9s',
+          baseEffect: 'Lower historical odds imply a stronger horse',
+          isNew: true
+        },
+        {
+          key: 'oddsLive' as keyof NormalizationWeights,
+          label: 'Live Odds',
+          description: 'Current win-pool odds for this race',
+          typicalRange: '-0.9s to +0.9s',
+          baseEffect: 'Lower live odds reduce the predicted time',
+          isNew: true
+        },
+        {
+          key: 'betDistribution' as keyof NormalizationWeights,
+          label: 'Bet Distribution',
+          description: 'Share of game bets placed on the horse',
+          typicalRange: '-0.9s to +0.9s',
+          baseEffect: 'Higher betting support implies shorter odds',
           isNew: true
         },
       ]
@@ -574,12 +629,12 @@ const WeightManager: React.FC<WeightManagerProps> = ({
                               <div className="flex items-center gap-2">
                                 <Input
                                   type="number"
-                                  value={(weights[factor.key] ?? 0).toFixed(1)}
+                                  value={weights[factor.key] ?? 0}
                                   onChange={(e) => handleDirectWeightChange(factor.key, e.target.value)}
                                   className="w-16 h-8 text-center text-sm"
                                   min="0"
-                                  max="2.0"
-                                  step="0.1"
+                                  max={NORMALIZATION_WEIGHT_MAX}
+                                  step="0.001"
                                 />
                                 <Badge variant="secondary" className="hidden sm:inline-flex text-xs">
                                   {factor.typicalRange}
@@ -589,14 +644,14 @@ const WeightManager: React.FC<WeightManagerProps> = ({
                             <Slider
                               value={[weights[factor.key] ?? 0]}
                               onValueChange={(value) => handleWeightChange(factor.key, value)}
-                              max={2.0}
+                              max={NORMALIZATION_WEIGHT_MAX}
                               min={0.0}
-                              step={0.1}
+                              step={0.01}
                               className="w-full"
                             />
                             <div className="flex justify-between text-xs text-muted-foreground">
                               <span>0.0 (No impact)</span>
-                              <span>2.0 (Max impact)</span>
+                              <span>{NORMALIZATION_WEIGHT_MAX.toFixed(1)} (Max impact)</span>
                             </div>
                           </div>
                         ))}
@@ -612,7 +667,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({
                   {weightCategories.flatMap(category => category.factors).map((factor) => (
                     <div key={factor.key} className="flex justify-between">
                       <span className="text-foreground">{factor.label}:</span>
-                      <span className="font-mono font-medium text-primary">{(weights[factor.key] ?? 0).toFixed(1)}</span>
+                      <span className="font-mono font-medium text-primary">{(weights[factor.key] ?? 0).toFixed(3)}</span>
                     </div>
                   ))}
                 </div>

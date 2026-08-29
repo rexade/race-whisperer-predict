@@ -4,6 +4,8 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . .
+# This image serves FastAPI and the frontend from the same origin.
+ENV VITE_PERSISTENCE_API_ENABLED=true
 RUN npm run build
 
 # Stage 2: Python runtime

@@ -47,6 +47,7 @@ import {
 } from './normalizationConstants';
 import { log } from '@/lib/logger';
 import { assertResponseOk, isPersistenceApiEnabled } from '@/services/apiClient';
+import { loadBrowserDefaultWeights, parseNormalizationWeights } from './weightConfig';
 
 // Post position curves interface
 import type { DistanceBucket } from './postPositionCalculator';
@@ -277,8 +278,10 @@ let _cachedWeights: NormalizationWeights | null = null;
 
 /** Fetch active custom weights from backend and populate the cache. Call once on app startup. */
 export const initWeightsFromApi = async (): Promise<{ weights: NormalizationWeights; postPositionCurves?: PostPositionCurves }> => {
+  const fallbackWeights = loadBrowserDefaultWeights() ?? { ...DEFAULT_WEIGHTS };
+
   if (!isPersistenceApiEnabled()) {
-    _cachedWeights = { ...DEFAULT_WEIGHTS };
+    _cachedWeights = fallbackWeights;
     return { weights: _cachedWeights };
   }
 
@@ -289,22 +292,21 @@ export const initWeightsFromApi = async (): Promise<{ weights: NormalizationWeig
     if (data?.weights) {
       // Backfill weight keys added after the stored config was saved — otherwise
       // a schema addition would silently reset the user to factory defaults.
-      const merged = { ...DEFAULT_WEIGHTS, ...data.weights } as NormalizationWeights;
-      const defaultKeys = Object.keys(DEFAULT_WEIGHTS) as (keyof NormalizationWeights)[];
-      if (defaultKeys.every(key => key in merged)) {
-        _cachedWeights = merged;
+      const parsed = parseNormalizationWeights(data.weights);
+      if (parsed) {
+        _cachedWeights = parsed;
         return { weights: _cachedWeights, postPositionCurves: data.postPositionCurves };
       }
     }
   } catch {
-    log.warn('Failed to load custom weights from API, using factory defaults');
+    log.warn('Failed to load custom weights from API, using browser or factory defaults');
   }
-  _cachedWeights = { ...DEFAULT_WEIGHTS };
+  _cachedWeights = fallbackWeights;
   return { weights: _cachedWeights };
 };
 
 export const getDefaultWeights = (): NormalizationWeights => {
-  return _cachedWeights ?? { ...DEFAULT_WEIGHTS };
+  return _cachedWeights ?? loadBrowserDefaultWeights() ?? { ...DEFAULT_WEIGHTS };
 };
 
 // Re-export types for convenience

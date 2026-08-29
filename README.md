@@ -73,6 +73,8 @@ See `.env.example`. Notable:
   protected requests fail with HTTP 503 rather than running unauthenticated. A trusted
   operator can provide it through `localStorage.setItem('apiToken', '...')`; it must
   never be configured as a `VITE_*` build variable.
+- `VITE_PERSISTENCE_API_ENABLED` — build-time frontend capability flag. The Docker
+  image sets it to `true`; frontend-only Vercel/Netlify builds leave it unset.
 
 ## Deployment
 

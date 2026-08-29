@@ -227,6 +227,9 @@ const calculateEarningsPerStart = (totalEarnings: number, totalStarts: number): 
   return Math.round((totalEarnings / totalStarts) * 100);
 };
 
+const finiteNumberOr = (value: unknown, fallback: number): number =>
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+
 /**
  * Fetch race data for a specific game info
  * This avoids double-fetching the calendar/game info
@@ -491,9 +494,12 @@ const extractHorseData = (start: any, raceId: string, raceDate: string): V75Hors
 
   // Enhanced horse statistics extraction
   const horseLifeStats = start.horse?.statistics?.life || {};
-  const totalEarnings = horseLifeStats.earnings || horseLifeStats.totalEarnings || 0;
-  const totalStarts = horseLifeStats.starts || horseLifeStats.totalStarts || 0;
-  const earningsPerStart = calculateEarningsPerStart(totalEarnings, totalStarts);
+  const rawTotalEarnings = horseLifeStats.earnings ?? horseLifeStats.totalEarnings;
+  const rawTotalStarts = horseLifeStats.starts ?? horseLifeStats.totalStarts;
+  const hasEarningsData = Number.isFinite(rawTotalEarnings) && Number.isFinite(rawTotalStarts);
+  const earningsPerStart = hasEarningsData
+    ? calculateEarningsPerStart(rawTotalEarnings, rawTotalStarts)
+    : 300000;
 
   const horseId = start.horse?.id ?? start.horse?.horseId ?? 0;
   const startNumber = start.number ?? start.postPosition ?? 0;
@@ -514,10 +520,10 @@ const extractHorseData = (start: any, raceId: string, raceDate: string): V75Hors
       winPercentage2025: driverYearStats.winPercentage || 0,
     },
     statistics: {
-      startPoints: horseLifeStats.startPoints || 500,
-      placePercentage: horseLifeStats.placePercentage || 5000,
-      winPercentage: horseLifeStats.winPercentage || 1500,
-      earningsPerStart: earningsPerStart || 300000,
+      startPoints: finiteNumberOr(horseLifeStats.startPoints, 500),
+      placePercentage: finiteNumberOr(horseLifeStats.placePercentage, 5000),
+      winPercentage: finiteNumberOr(horseLifeStats.winPercentage, 1500),
+      earningsPerStart,
     },
     shoes: {
       front: frontShoes,
