@@ -2,7 +2,7 @@
 import { CachedRawTime, CachedV75RawTimes, CacheInfo } from './types';
 import { RawTimeCacheInput, toCachedRawTime } from './rawTimeCacheMapper';
 import { log } from '@/lib/logger';
-import { apiHeaders, assertResponseOk } from '../apiClient';
+import { apiHeaders, assertResponseOk, isPersistenceApiEnabled } from '../apiClient';
 
 export const RAW_TIMES_SCHEMA_VERSION = 7;
 
@@ -15,6 +15,8 @@ export class RawTimesCache {
     raceNumber: number,
     rawTimes: RawTimeCacheInput[]
   ): Promise<void> {
+    if (!isPersistenceApiEnabled()) return;
+
     log.debug(`[RawTimesCache] Storing raw KM times cache for race ${raceNumber} (${raceId})`);
 
     const updatedAt = new Date().toISOString();
@@ -43,6 +45,8 @@ export class RawTimesCache {
   }
 
   static async getRawTimes(raceId: string): Promise<CachedV75RawTimes | null> {
+    if (!isPersistenceApiEnabled()) return null;
+
     log.debug(`[RawTimesCache] Looking for cached raw times for race ${raceId}`);
 
     try {
@@ -80,12 +84,16 @@ export class RawTimesCache {
   }
 
   static async clearRawTimes(raceId: string): Promise<void> {
+    if (!isPersistenceApiEnabled()) return;
+
     const resp = await fetch(`/api/rawtimes/${raceId}`, { method: 'DELETE', headers: apiHeaders() });
     assertResponseOk(resp, `Clear raw times ${raceId}`);
     log.debug(`Cleared raw times cache for race ${raceId}`);
   }
 
   static async clearAllCache(): Promise<void> {
+    if (!isPersistenceApiEnabled()) return;
+
     const resp = await fetch('/api/rawtimes', { method: 'DELETE', headers: apiHeaders() });
     assertResponseOk(resp, 'Clear raw times cache');
     log.info(`Cleared all raw times cache entries`);
@@ -97,6 +105,8 @@ export class RawTimesCache {
   }
 
   static async getCacheInfoAsync(): Promise<CacheInfo> {
+    if (!isPersistenceApiEnabled()) return { raceIds: [], totalSize: 0, cacheEntries: [] };
+
     try {
       const resp = await fetch('/api/rawtimes');
       const rows: Array<{ raceId: string; raceNumber: number; date: string; horseCount: number }> = await resp.json();

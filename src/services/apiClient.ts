@@ -12,6 +12,13 @@ export function apiHeaders(extra: Record<string, string> = {}): Record<string, s
   return token ? { ...extra, 'X-Api-Token': token } : { ...extra };
 }
 
+/** Whether this build has a same-origin backend for optional persistence. */
+export function isPersistenceApiEnabled(): boolean {
+  const configured = import.meta.env.VITE_PERSISTENCE_API_ENABLED;
+  if (configured !== undefined) return configured === 'true';
+  return import.meta.env.DEV;
+}
+
 export class ApiRequestError extends Error {
   constructor(
     public readonly action: string,

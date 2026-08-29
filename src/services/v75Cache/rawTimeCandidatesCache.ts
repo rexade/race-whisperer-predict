@@ -1,9 +1,11 @@
 import { CachedRawTimeCandidates, RawTimeCandidateData } from './types';
 import { log } from '@/lib/logger';
-import { apiHeaders, assertResponseOk } from '../apiClient';
+import { apiHeaders, assertResponseOk, isPersistenceApiEnabled } from '../apiClient';
 
 export class RawTimeCandidatesCache {
   static async fetchUnfilteredCandidates(raceId: string, includeRaw = false): Promise<RawTimeCandidateData | null> {
+    if (!isPersistenceApiEnabled()) return null;
+
     try {
       const resp = await fetch(
         `/api/debug/races/${raceId}/rawtimes-unfiltered${includeRaw ? '?includeRaw=true' : ''}`,
@@ -27,6 +29,8 @@ export class RawTimeCandidatesCache {
     raceNumber: number,
     candidateData: RawTimeCandidateData
   ): Promise<void> {
+    if (!isPersistenceApiEnabled()) return;
+
     try {
       const response = await fetch('/api/rawtime-candidates', {
         method: 'POST',
@@ -62,6 +66,8 @@ export class RawTimeCandidatesCache {
   }
 
   static async getCandidates(raceId: string): Promise<CachedRawTimeCandidates | null> {
+    if (!isPersistenceApiEnabled()) return null;
+
     try {
       const resp = await fetch(`/api/rawtime-candidates/${raceId}`);
       if (!resp.ok) {
@@ -80,6 +86,8 @@ export class RawTimeCandidatesCache {
   }
 
   static async clearCandidates(raceId: string): Promise<void> {
+    if (!isPersistenceApiEnabled()) return;
+
     const response = await fetch(
       `/api/rawtime-candidates/${raceId}`,
       { method: 'DELETE', headers: apiHeaders() },
@@ -88,6 +96,8 @@ export class RawTimeCandidatesCache {
   }
 
   static async clearAllCandidates(): Promise<void> {
+    if (!isPersistenceApiEnabled()) return;
+
     const response = await fetch(
       '/api/rawtime-candidates',
       { method: 'DELETE', headers: apiHeaders() },

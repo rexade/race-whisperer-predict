@@ -22,7 +22,19 @@ describe('persistence write failures', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+  });
+
+  it('skips optional persistence when the build has no backend', async () => {
+    vi.stubEnv('VITE_PERSISTENCE_API_ENABLED', 'false');
+
+    await RaceAnalysisCache.storeRaceAnalysis('r1', 1, '2026-08-20', []);
+    await RawTimesCache.storeRawTimes('2026-08-20', 'g1', 'r1', 1, []);
+    await expect(RaceAnalysisCache.getAllMAEResults()).resolves.toEqual([]);
+    await expect(RawTimesCache.getRawTimes('r1')).resolves.toBeNull();
+
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('rejects a failed race-analysis write', async () => {

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { apiHeaders, ApiRequestError, describeApiFailure } from '@/services/apiClient';
+import { apiHeaders, ApiRequestError, describeApiFailure, isPersistenceApiEnabled } from '@/services/apiClient';
 import { Trophy, CalendarIcon, Settings2, Trash2, Play, Download, BarChart2, TrendingUp, Menu } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -113,6 +113,8 @@ const V75Analyzer: React.FC = () => {
 
   // Auto-persist weights to API
   useEffect(() => {
+    if (!isPersistenceApiEnabled()) return;
+
     if (skipNextWeightsSaveRef.current) {
       skipNextWeightsSaveRef.current = false;
       return;

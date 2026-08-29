@@ -46,6 +46,7 @@ import {
   DRIVER_CAP_S,
 } from './normalizationConstants';
 import { log } from '@/lib/logger';
+import { assertResponseOk, isPersistenceApiEnabled } from '@/services/apiClient';
 
 // Post position curves interface
 import type { DistanceBucket } from './postPositionCalculator';
@@ -276,8 +277,14 @@ let _cachedWeights: NormalizationWeights | null = null;
 
 /** Fetch active custom weights from backend and populate the cache. Call once on app startup. */
 export const initWeightsFromApi = async (): Promise<{ weights: NormalizationWeights; postPositionCurves?: PostPositionCurves }> => {
+  if (!isPersistenceApiEnabled()) {
+    _cachedWeights = { ...DEFAULT_WEIGHTS };
+    return { weights: _cachedWeights };
+  }
+
   try {
     const resp = await fetch('/api/weights');
+    assertResponseOk(resp, 'Load weights');
     const data = await resp.json();
     if (data?.weights) {
       // Backfill weight keys added after the stored config was saved — otherwise

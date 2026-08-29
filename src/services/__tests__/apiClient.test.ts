@@ -1,6 +1,16 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
-import { ApiRequestError, apiHeaders, assertResponseOk, describeApiFailure } from '../apiClient';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  ApiRequestError,
+  apiHeaders,
+  assertResponseOk,
+  describeApiFailure,
+  isPersistenceApiEnabled,
+} from '../apiClient';
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe('apiHeaders', () => {
   beforeEach(() => localStorage.clear());
@@ -39,6 +49,18 @@ describe('assertResponseOk', () => {
       expect(error).toMatchObject({ action: 'Save weights', status: 401 });
       expect((error as Error).message).toBe('Save weights failed: HTTP 401');
     }
+  });
+});
+
+describe('isPersistenceApiEnabled', () => {
+  it('honors an explicit production opt-in', () => {
+    vi.stubEnv('VITE_PERSISTENCE_API_ENABLED', 'true');
+    expect(isPersistenceApiEnabled()).toBe(true);
+  });
+
+  it('honors an explicit opt-out', () => {
+    vi.stubEnv('VITE_PERSISTENCE_API_ENABLED', 'false');
+    expect(isPersistenceApiEnabled()).toBe(false);
   });
 });
 
