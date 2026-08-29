@@ -94,6 +94,27 @@ describe('v75CalendarApi contracts', () => {
     expect(horse.liveOdds).toBe(8.66);
   });
 
+  it('reads the trainer from the horse, which is where ATG actually nests it', async () => {
+    // A trainer belongs to a horse; a driver is booked per start. ATG returns
+    // start.horse.trainer and never start.trainer, so reading the start-level
+    // path left trainerPerformance -- one of the largest weights -- silently
+    // contributing zero on every real race. The fixture below is the live shape.
+    const payload = racePayload();
+    delete (payload.starts[0] as Record<string, unknown>).trainer;
+    (payload.starts[0].horse as Record<string, unknown>).trainer = {
+      firstName: 'Daniel',
+      lastName: 'Wäjersten',
+      statistics: { years: { '2023': { winPercentage: 1900 }, '2024': { winPercentage: 2230 } } },
+    };
+    vi.mocked(fetchRaceById).mockResolvedValue(payload);
+
+    const races = await fetchRaceDataForGame('2024-03-02', gameInfo, 'V75');
+    const horse = races[0].horses[0];
+
+    expect(horse.trainer?.lastName).toBe('Wäjersten');
+    expect(horse.trainer?.winPercentage2025).toBe(2230);
+  });
+
   it('preserves legitimate zero-valued career statistics', async () => {
     const payload = racePayload();
     Object.assign(payload.starts[0].horse.statistics.life, {

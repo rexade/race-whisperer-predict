@@ -487,10 +487,16 @@ const extractHorseData = (start: any, raceId: string, raceDate: string): V75Hors
   const driverYearStats = start.driver?.statistics?.years?.[currentYear]
     || start.driver?.statistics?.years?.[previousYear] || {};
 
-  // Trainer statistics extraction (same structure as driver)
-  const trainerStats = start.trainer?.statistics || {};
-  const trainerYearStats = start.trainer?.statistics?.years?.[currentYear]
-    || start.trainer?.statistics?.years?.[previousYear] || {};
+  // Trainer statistics extraction (same structure as driver).
+  // ATG nests the trainer under the HORSE, not the start — a trainer belongs to
+  // a horse, while a driver is booked per start. Reading start.trainer silently
+  // yielded undefined on every race, so trainerPerformance (one of the largest
+  // weights) contributed exactly zero. The start-level path is kept as a
+  // fallback in case another endpoint shape supplies it there.
+  const trainer = start.horse?.trainer || start.trainer;
+  const trainerStats = trainer?.statistics || {};
+  const trainerYearStats = trainer?.statistics?.years?.[currentYear]
+    || trainer?.statistics?.years?.[previousYear] || {};
 
   // Enhanced horse statistics extraction
   const horseLifeStats = start.horse?.statistics?.life || {};
@@ -542,9 +548,9 @@ const extractHorseData = (start: any, raceId: string, raceDate: string): V75Hors
     age: start.horse?.age || undefined,
     // ATG sex codes: S=sto (mare), H=hingst (stallion), V=valack (gelding)
     sex: start.horse?.sex || start.horse?.gender || '',
-    trainer: start.trainer ? {
-      firstName: start.trainer.firstName || '',
-      lastName: start.trainer.lastName || '',
+    trainer: trainer ? {
+      firstName: trainer.firstName || '',
+      lastName: trainer.lastName || '',
       winPercentage: trainerStats.winPercentage || 0,
       winPercentage2025: trainerYearStats.winPercentage || 0,
     } : undefined,
