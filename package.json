@@ -13,6 +13,7 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
+    "audit:weights": "tsx scripts/weight-audit.ts",
     "evaluate:models": "tsx scripts/evaluate-models.ts"
   },
   "dependencies": {

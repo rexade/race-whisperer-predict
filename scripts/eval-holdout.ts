@@ -32,7 +32,9 @@ async function main() {
   const args = process.argv.slice(2);
   const holdoutIdx = args.indexOf('--holdout');
   const holdoutFrac = holdoutIdx >= 0 ? Number(args[holdoutIdx + 1]) : 0.2;
-  const rest = args.filter((a, i) => a !== '--holdout' && i !== holdoutIdx + 1);
+  const rest = args.filter((a, i) =>
+    holdoutIdx < 0 || (a !== '--holdout' && i !== holdoutIdx + 1)
+  );
 
   // First positional arg is always the dataset; the rest are config files.
   const datasetPath = rest.shift() ?? 'calibration-dataset-6mo.json';
