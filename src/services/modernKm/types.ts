@@ -160,7 +160,15 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   ageFactor: 0.000,
   genderAdjustment: 1.250,
   consistencyFactor: 1.348,
-  trainerPerformance: 2.059,
+  // 0 until refitted, not because trainers do not matter. extractHorseData read
+  // start.trainer, which ATG never populates, so this factor returned 0 on every
+  // race. Every optimizer run therefore had no gradient on it and 2.059 was
+  // fitted against zeros -- an arbitrary number, not a measured one. The path is
+  // fixed now, so leaving it at 2.059 would switch on a large unvalidated weight
+  // that no holdout in this repo covers, while 0 reproduces exactly the
+  // behaviour every result was measured under. Re-collect with trainer data and
+  // refit before raising it.
+  trainerPerformance: 0,
   oddsHistorical: 0.134,
   oddsLive: 0.577,
   betDistribution: 1.052,

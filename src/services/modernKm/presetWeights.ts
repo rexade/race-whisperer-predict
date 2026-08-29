@@ -48,7 +48,7 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
       ageFactor: 0.000,
       genderAdjustment: 1.250,
       consistencyFactor: 1.348,
-      trainerPerformance: 2.059,
+      trainerPerformance: 0.000,   // see DEFAULT_WEIGHTS: fitted against zeros, unvalidated
       oddsHistorical: 0.134,
       oddsLive: 2.000,
       betDistribution: 1.052,
@@ -120,7 +120,13 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
   },
   {
     name: 'V41 — Legacy 18mo + market signals (2026-07-04)',
-    description: 'Legacy V41 configuration retained as the current default. Its historical reports predate corrected driver-rating and estimated-horse evaluation, so performance is unverified under the current pipeline. Pair with these flat curves (tuned together).',
+    description:
+      'Legacy V41, superseded by V42 and kept as a historical record of what was actually run. ' +
+      'Its reports predate corrected driver-rating and estimated-horse evaluation, so performance ' +
+      'is unverified under the current pipeline, and its "flat curves" are in fact identical to the ' +
+      'built-in defaults rather than separately tuned. Weights are left untouched, which means its ' +
+      'trainerPerformance 2.059 is now LIVE: that number was fitted while the trainer lookup was ' +
+      'silently returning zero, so it is arbitrary rather than measured. V42 zeroes it. Prefer V42.',
     category: 'balanced',
     weights: {
       postPosition: 0.908,
