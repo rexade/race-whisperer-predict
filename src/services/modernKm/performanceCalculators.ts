@@ -298,26 +298,34 @@ export const calculateConsistencyAdjustment = (consistencyScore: number): number
 };
 
 /**
- * Odds → time adjustment (seconds).
+ * Odds → time adjustment (seconds). Lower odds = faster predicted time.
  *
- * Maps historical or live odds to a time bonus/penalty using a sigmoid curve.
- * Lower odds (strong favorite) = faster predicted time.
+ * Ranking by predicted time is a strength ordering, and strength is
+ * log-probability. Implied probability is ~1/odds, so log(odds) is the encoding
+ * that preserves it: each halving of implied probability costs the same number
+ * of seconds wherever it happens on the price ladder.
  *
- *   Odds 2–4  (strong favorite):  −0.3s to −0.1s bonus
- *   Odds 5–10 (mid-field):        roughly neutral
- *   Odds 15+  (outsider):         +0.1s to +0.3s penalty
+ *   Odds 1.5 → −0.37s      Odds 8 → 0 (neutral)      Odds 100 → +0.56s
  *
- * Uses tanh centered around odds=8 (neutral point).
+ * This replaced a tanh centred on odds 8, which saturated at exactly the wrong
+ * end. Under it a 66.7% chance and a 50% chance (odds 1.5 vs 2.0) separated by
+ * 0.006s once weighted — less than a tenth of a single gate of post position —
+ * so the favourites that decide races could not move the ranking, while odds
+ * 30, 50 and 100 all collapsed onto an identical +0.30s.
  */
+/** Price at which the adjustment is 0. */
 const ODDS_NEUTRAL = 8;
-const ODDS_SCALE = 6;
-const ODDS_MAX_S = 0.30;
+/** Seconds per natural-log unit of odds. */
+const ODDS_LOG_SCALE_S = 0.22;
+/** Clamp for extreme prices, so one 300-1 shot cannot dominate the score. */
+const ODDS_MAX_S = 0.90;
 
 export const calculateOddsAdjustment = (odds: number): number => {
   if (!Number.isFinite(odds) || odds <= 0) return 0;
-  const adj = ODDS_MAX_S * Math.tanh((odds - ODDS_NEUTRAL) / ODDS_SCALE);
-  log.debug(`[odds] ${odds.toFixed(1)} → ${adj >= 0 ? '+' : ''}${adj.toFixed(3)}s`);
-  return adj;
+  const adj = ODDS_LOG_SCALE_S * Math.log(odds / ODDS_NEUTRAL);
+  const clamped = Math.max(-ODDS_MAX_S, Math.min(ODDS_MAX_S, adj));
+  log.debug(`[odds] ${odds.toFixed(1)} → ${clamped >= 0 ? '+' : ''}${clamped.toFixed(3)}s`);
+  return clamped;
 };
 
 export const calculateGallopRiskAdjustment = (gallopRate: number): number => {
