@@ -354,15 +354,19 @@ export function marketRankByKey(
 ): Map<string, number> | null {
   if (keys.length < 2) return null;
 
-  const byKey = new Map<string, { odds?: number; betDistribution?: number }>();
+  // liveOdds is the field V75RaceData actually carries (see v75CalendarApi).
+  // Annotating this map with a bare `odds?` silently made the odds branch dead
+  // code — every horse typechecked and every read came back undefined — so the
+  // baseline was quietly the betDistribution fallback on every race.
+  const byKey = new Map<string, { liveOdds?: number; betDistribution?: number }>();
   for (const horse of raceData.horses ?? []) {
     if (horse.horseKey) byKey.set(horse.horseKey, horse);
   }
   const usable = (v?: number): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0;
 
   let strength: ((key: string) => number) | null = null;
-  if (keys.every(k => usable(byKey.get(k)?.odds))) {
-    strength = k => -byKey.get(k)!.odds!;
+  if (keys.every(k => usable(byKey.get(k)?.liveOdds))) {
+    strength = k => -byKey.get(k)!.liveOdds!;
   } else if (keys.every(k => usable(byKey.get(k)?.betDistribution))) {
     strength = k => byKey.get(k)!.betDistribution!;
   }

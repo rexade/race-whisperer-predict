@@ -3,16 +3,16 @@ import { describe, it, expect } from 'vitest';
 import { marketRankByKey } from '../historicalCalibrationService';
 import type { V75RaceData } from '@/services/v75CalendarApi';
 
-const race = (horses: Array<{ horseKey: string; odds?: number; betDistribution?: number }>) =>
+const race = (horses: Array<{ horseKey: string; liveOdds?: number; betDistribution?: number }>) =>
   ({ horses }) as unknown as V75RaceData;
 
 describe('marketRankByKey', () => {
   it('treats the shortest odds as the favourite', () => {
     const ranks = marketRankByKey(
       race([
-        { horseKey: 'a', odds: 8.5 },
-        { horseKey: 'b', odds: 2.1 },
-        { horseKey: 'c', odds: 4.0 },
+        { horseKey: 'a', liveOdds: 8.5 },
+        { horseKey: 'b', liveOdds: 2.1 },
+        { horseKey: 'c', liveOdds: 4.0 },
       ]),
       ['a', 'b', 'c']
     );
@@ -37,7 +37,7 @@ describe('marketRankByKey', () => {
     // would be meaningless, so the race is excluded rather than half-ranked.
     const ranks = marketRankByKey(
       race([
-        { horseKey: 'a', odds: 2.0 },
+        { horseKey: 'a', liveOdds: 2.0 },
         { horseKey: 'b', betDistribution: 0.5 },
       ]),
       ['a', 'b']
@@ -50,8 +50,8 @@ describe('marketRankByKey', () => {
     // "market rank 1" a claim about a different horse than it appears to be.
     const ranks = marketRankByKey(
       race([
-        { horseKey: 'a', odds: 2.0 },
-        { horseKey: 'b', odds: 3.0 },
+        { horseKey: 'a', liveOdds: 2.0 },
+        { horseKey: 'b', liveOdds: 3.0 },
         { horseKey: 'c' },
       ]),
       ['a', 'b', 'c']
@@ -61,14 +61,14 @@ describe('marketRankByKey', () => {
 
   it('ignores non-positive and non-finite odds rather than ranking them first', () => {
     expect(marketRankByKey(race([
-      { horseKey: 'a', odds: 0 }, { horseKey: 'b', odds: 3 },
+      { horseKey: 'a', liveOdds: 0 }, { horseKey: 'b', liveOdds: 3 },
     ]), ['a', 'b'])).toBeNull();
     expect(marketRankByKey(race([
-      { horseKey: 'a', odds: Number.NaN }, { horseKey: 'b', odds: 3 },
+      { horseKey: 'a', liveOdds: Number.NaN }, { horseKey: 'b', liveOdds: 3 },
     ]), ['a', 'b'])).toBeNull();
   });
 
   it('declines to rank a single-horse field', () => {
-    expect(marketRankByKey(race([{ horseKey: 'a', odds: 2 }]), ['a'])).toBeNull();
+    expect(marketRankByKey(race([{ horseKey: 'a', liveOdds: 2 }]), ['a'])).toBeNull();
   });
 });
