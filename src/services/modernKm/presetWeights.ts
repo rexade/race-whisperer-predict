@@ -16,6 +16,57 @@ export interface WeightPreset {
 
 export const WEIGHT_PRESETS: WeightPreset[] = [
   {
+    name: 'M4 — Minimal four-factor (2026-08-29)',
+    description:
+      'Km-time + live odds + post position + tillägg, everything else zero. Four free ' +
+      'parameters fitted on a 248-race train split, holdout MRR 0.5749 / win 37.5% against ' +
+      'a market baseline of 0.5849 / 35.9% — parity, not an edge: the win rate leads by one ' +
+      'race in 64 and still trails on MRR. Matches 25-weight V41 on the same holdout with a ' +
+      'sixth of the parameters, so far less of it is fitted noise. Needs no calibration ' +
+      'dataset: driverEmpirical is zero, so unlike V41 it cannot silently lose its largest ' +
+      'factor when driver ratings are missing. Requires the log-odds encoding.',
+    category: 'balanced',
+    weights: {
+      postPosition: 0.500,
+      shoeType: 0.000,
+      sulkyType: 0.000,
+      driverPerformance: 0.000,
+      driverForm: 0.000,
+      driverEmpirical: 0.000,
+      trackFamiliarity: 0.000,
+      form: 0.000,
+      distanceAdjustment: 1.500,
+      raceDistanceAdjustment: 1.556,
+      volteStartDistancePenalty: 0.250,
+      startPoints: 0.000,
+      placePercentage: 0.000,
+      horseWinPercentage: 0.000,
+      earningsPerStart: 0.000,
+      gallopRisk: 0.000,
+      layoffPenalty: 0.000,
+      ageFactor: 0.000,
+      genderAdjustment: 0.000,
+      consistencyFactor: 0.000,
+      trainerPerformance: 0.000,
+      oddsHistorical: 0.000,
+      oddsLive: 5.000,
+      betDistribution: 0.000,
+      shoeChange: 0.000,
+    },
+    postPositionCurves: {
+      auto: {
+        1: -0.138, 2: -0.075, 3: -0.150, 4: -0.250, 5: -0.025, 6: -0.050, 7: 0.300,
+        8: 0.350, 9: 0.550, 10: 0.750, 11: 0.675, 12: 0.800, 13: 1.000, 14: 0.875,
+        15: 0.850,
+      },
+      volte: {
+        1: -0.350, 2: -0.350, 3: -0.125, 4: 0.100, 5: 0.150, 6: -0.075, 7: 0.250,
+        8: 0.175, 9: 0.475, 10: 0.450, 11: 0.750, 12: 0.775, 13: 1.000, 14: 0.913,
+        15: 0.875,
+      },
+    },
+  },
+  {
     name: 'V41 — Legacy 18mo + market signals (2026-07-04)',
     description: 'Legacy V41 configuration retained as the current default. Its historical reports predate corrected driver-rating and estimated-horse evaluation, so performance is unverified under the current pipeline. Pair with these flat curves (tuned together).',
     category: 'balanced',
