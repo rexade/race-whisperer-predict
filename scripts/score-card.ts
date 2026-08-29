@@ -1,16 +1,21 @@
 /**
- * Score a finished card: model pick, market favourite, and pool-value flags
+ * Score a finished card: model picks, market favourite, and pool-value flags
  * against what actually won.
  *
- * One card is far too small to conclude anything, so every leg is appended to a
- * JSONL log keyed by raceId and re-running a date replaces rather than
- * duplicates it. Accumulated over weeks that log becomes the forward test --
- * the only honest way left to check whether the holdout edge is real, since the
- * config is frozen and every future card is genuinely out of sample. Re-tuning
- * against these results would destroy exactly the property that makes them
- * worth collecting.
+ * One card settles nothing, so every leg is appended to a JSONL log keyed by
+ * raceId and re-running a date replaces rather than duplicates it. Accumulated
+ * over weeks that log becomes the forward test -- the only honest way left to
+ * check the holdout claims, since the configs are frozen and every future card
+ * is genuinely out of sample. Refitting against these results would destroy
+ * exactly the property that makes them worth collecting.
  *
- *   npx tsx scripts/score-card.ts --date 2026-09-05 --type V85
+ * Several configs can be scored on the SAME legs, which is what makes a
+ * head-to-head meaningful: paired on identical races, the comparison is far
+ * more sensitive than two independent win rates, because the many legs where
+ * both agree contribute no noise to the difference.
+ *
+ *   npx tsx scripts/score-card.ts --date 2026-09-05 --type V85 \
+ *     --config data/cfg-ht-with-de.json,data/cfg-ht-without-de.json
  *   npx tsx scripts/score-card.ts --summary
  */
 import './node-polyfills';
@@ -30,10 +35,11 @@ import type { GameType } from '../src/config/game';
 
 const arg = (f: string) => { const i = process.argv.indexOf(f); return i >= 0 ? process.argv[i + 1] : undefined; };
 
+interface Pick { config: string; pick: string; hit: boolean }
 interface LegRecord {
-  date: string; type: string; raceId: string; leg: number; config: string;
-  winner: string; modelPick: string; marketFav: string;
-  modelHit: boolean; marketHit: boolean;
+  date: string; type: string; raceId: string; leg: number;
+  winner: string; marketFav: string; marketHit: boolean;
+  picks: Pick[];
   overbetFlagged: number; winnerFlag: 'overbet' | 'underbet' | null;
 }
 
@@ -41,7 +47,6 @@ function appendLog(logPath: string, records: LegRecord[]): void {
   const existing: LegRecord[] = fs.existsSync(logPath)
     ? fs.readFileSync(logPath, 'utf-8').split('\n').filter(Boolean).map(l => JSON.parse(l))
     : [];
-  // Re-running a date should correct it, not double-count it.
   const incoming = new Set(records.map(r => r.raceId));
   const merged = [...existing.filter(r => !incoming.has(r.raceId)), ...records];
   merged.sort((a, b) => (a.date + a.raceId).localeCompare(b.date + b.raceId));
@@ -51,26 +56,48 @@ function appendLog(logPath: string, records: LegRecord[]): void {
 
 function summarise(logPath: string): void {
   if (!fs.existsSync(logPath)) { console.log(`No forward-test log at ${logPath} yet.`); return; }
-  const rows: LegRecord[] = fs.readFileSync(logPath, 'utf-8').split('\n').filter(Boolean).map(l => JSON.parse(l));
-  if (rows.length === 0) { console.log('Log is empty.'); return; }
+  const rows: LegRecord[] = fs.readFileSync(logPath, 'utf-8').split('\n').filter(Boolean).map(l => JSON.parse(l))
+    .filter((r: LegRecord) => Array.isArray(r.picks));
+  if (rows.length === 0) { console.log('Log has no records in the current format.'); return; }
 
   const dates = [...new Set(rows.map(r => r.date))].sort();
-  const model = rows.filter(r => r.modelHit).length;
+  const n = rows.length;
+  const pct = (a: number, b: number) => b ? `${(a / b * 100).toFixed(1)}%` : 'n/a';
+  console.log(`\nForward test — ${dates.length} card(s), ${n} legs (${dates[0]} … ${dates[dates.length - 1]})\n`);
+
+  const configs = [...new Set(rows.flatMap(r => r.picks.map(p => p.config)))];
   const market = rows.filter(r => r.marketHit).length;
+  console.log(`  ${'market favourite'.padEnd(30)} ${String(market).padStart(4)}/${n}   ${pct(market, n)}`);
+  for (const c of configs) {
+    const hits = rows.filter(r => r.picks.find(p => p.config === c)?.hit).length;
+    const edge = (hits - market) / n * 100;
+    console.log(`  ${c.padEnd(30)} ${String(hits).padStart(4)}/${n}   ${pct(hits, n)}   edge ${edge >= 0 ? '+' : ''}${edge.toFixed(1)}pp`);
+  }
+
+  // Paired head-to-head: only legs where the two disagree carry information,
+  // so report those separately rather than letting agreement dilute the split.
+  if (configs.length === 2) {
+    const [a, b] = configs;
+    let aOnly = 0, bOnly = 0, both = 0, neither = 0;
+    for (const r of rows) {
+      const ha = !!r.picks.find(p => p.config === a)?.hit;
+      const hb = !!r.picks.find(p => p.config === b)?.hit;
+      if (ha && hb) both++; else if (ha) aOnly++; else if (hb) bOnly++; else neither++;
+    }
+    const disagreed = rows.filter(r => {
+      const pa = r.picks.find(p => p.config === a)?.pick;
+      const pb = r.picks.find(p => p.config === b)?.pick;
+      return pa && pb && pa !== pb;
+    }).length;
+    console.log(`\n  head-to-head: both hit ${both}, only "${a}" ${aOnly}, only "${b}" ${bOnly}, neither ${neither}`);
+    console.log(`  legs where they picked different horses: ${disagreed}/${n}`);
+    console.log(`  (only those ${disagreed} legs carry information about which is better)`);
+  }
+
   const flagged = rows.reduce((s, r) => s + r.overbetFlagged, 0);
   const overbetWins = rows.filter(r => r.winnerFlag === 'overbet').length;
-  const underbetWins = rows.filter(r => r.winnerFlag === 'underbet').length;
-  const pct = (n: number, d: number) => d ? `${(n / d * 100).toFixed(1)}%` : 'n/a';
-
-  console.log(`\nForward test — ${dates.length} card(s), ${rows.length} legs (${dates[0]} … ${dates[dates.length - 1]})\n`);
-  console.log(`  model            ${String(model).padStart(4)}/${rows.length}   ${pct(model, rows.length)}`);
-  console.log(`  market favourite ${String(market).padStart(4)}/${rows.length}   ${pct(market, rows.length)}`);
-  console.log(`  edge             ${((model - market) / rows.length * 100).toFixed(1)}pp\n`);
-  console.log(`  horses flagged OVERBET: ${flagged}, of which won: ${overbetWins} (${pct(overbetWins, flagged)})`);
-  console.log(`  legs won by an UNDERBET horse: ${underbetWins}/${rows.length}`);
-  // 604-race holdout put the model at 39.1% and the market at 36.9%; the
-  // 5-year pool study put overbet horses at roughly 13-15%. Those are the
-  // numbers these lines are being checked against.
+  console.log(`\n  horses flagged OVERBET: ${flagged}, of which won: ${overbetWins} (${pct(overbetWins, flagged)})`);
+  console.log(`  legs won by an UNDERBET horse: ${rows.filter(r => r.winnerFlag === 'underbet').length}/${n}`);
   console.log(`\n  reference: holdout model 39.1% / market 36.9%; overbet bucket ~13-15% win rate`);
 }
 
@@ -88,8 +115,8 @@ async function main() {
 
   const date = arg('--date') ?? new Date().toISOString().split('T')[0];
   const type = (arg('--type') ?? 'V85') as GameType;
-  const cfgPath = arg('--config') ?? 'data/cfg-full-refit.json';
-  const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
+  const cfgPaths = (arg('--config') ?? 'data/cfg-ht-with-de.json,data/cfg-ht-without-de.json').split(',').map(s => s.trim());
+  const configs = cfgPaths.map(p => ({ path: p, ...JSON.parse(fs.readFileSync(p, 'utf-8')) }));
   const datasetPath = arg('--dataset') ?? 'calibration-dataset-5y.json';
 
   if (fs.existsSync(datasetPath)) {
@@ -103,18 +130,14 @@ async function main() {
   const races = await fetchRaceDataForGame(date, info, type);
 
   const records: LegRecord[] = [];
-  let modelHit = 0, marketHit = 0, legs = 0, overbetWon = 0, underbetWon = 0, fadeFlagged = 0;
-  console.log(`\n${type} ${date} — config: ${cfg.label ?? cfgPath}\n`);
-  console.log('leg  winner                    model pick               market fav               flag');
-  console.log('------------------------------------------------------------------------------------------');
+  console.log(`\n${type} ${date} — configs: ${configs.map(c => c.label ?? c.path).join(' | ')}\n`);
 
   for (const race of races) {
     const winner = await winnerOf(race.raceId);
     if (!winner) continue;
-    legs++;
 
     const hs = (race.horses ?? []).filter((h: any) => h.liveOdds > 0 && h.betDistribution > 0);
-    let marketFav = '—', flag = '';
+    let marketFav = '—';
     let winnerFlag: 'overbet' | 'underbet' | null = null;
     let legFlagged = 0;
     if (hs.length >= 4) {
@@ -127,15 +150,13 @@ async function main() {
       }));
       marketFav = rows.reduce((a, b) => (a.odds <= b.odds ? a : b)).name;
       const win = rows.find(r => r.name === winner);
-      if (win) {
-        if (win.ratio < 0.8) { flag = 'OVERBET won'; overbetWon++; winnerFlag = 'overbet'; }
-        else if (win.ratio >= 1.25) { flag = 'UNDERBET won'; underbetWon++; winnerFlag = 'underbet'; }
-      }
+      if (win) winnerFlag = win.ratio < 0.8 ? 'overbet' : win.ratio >= 1.25 ? 'underbet' : null;
       legFlagged = rows.filter(r => r.ratio < 0.8).length;
-      fadeFlagged += legFlagged;
     }
-    if (marketFav === winner) marketHit++;
 
+    // Raw km-times are independent of weights, so compute once and score every
+    // config against the same inputs -- otherwise the comparison would include
+    // fetch-to-fetch variation rather than only the weight difference.
     const raw = await calculateRawKmTimesForRaceWithId(
       race.raceId,
       race.horses.map((h: any) => ({
@@ -145,30 +166,29 @@ async function main() {
       })) as any,
       undefined, date, 'live'
     );
-    const res = await RaceResultProcessor.processRaceResult(race, raw, cfg.weights, undefined, cfg.postPositionCurves);
-    const pick = res.analysisComplete
-      ? [...res.horses].sort((a: any, b: any) => (a.rank ?? 99) - (b.rank ?? 99))[0]
-      : null;
-    const pickName = (pick as any)?.horseName ?? '—';
-    if (pickName === winner) modelHit++;
 
-    console.log(`${String(race.raceNumber).padStart(3)}  ${winner.padEnd(24)}  ${String(pickName).padEnd(22)}  ${marketFav.padEnd(22)}  ${flag}`);
+    const picks: Pick[] = [];
+    for (const cfg of configs) {
+      const res = await RaceResultProcessor.processRaceResult(race, raw, cfg.weights, undefined, cfg.postPositionCurves);
+      const top = res.analysisComplete
+        ? [...res.horses].sort((a: any, b: any) => (a.rank ?? 99) - (b.rank ?? 99))[0]
+        : null;
+      const pick = (top as any)?.horseName ?? '—';
+      picks.push({ config: cfg.label ?? cfg.path, pick: String(pick), hit: pick === winner });
+    }
+
+    const line = picks.map(p => `${p.hit ? '*' : ' '}${p.pick}`.padEnd(24)).join('');
+    console.log(`${String(race.raceNumber).padStart(3)}  ${winner.padEnd(22)}  ${line}  mkt:${marketFav}`);
 
     records.push({
-      date, type, raceId: race.raceId, leg: race.raceNumber, config: cfg.label ?? cfgPath,
-      winner, modelPick: String(pickName), marketFav,
-      modelHit: pickName === winner, marketHit: marketFav === winner,
-      overbetFlagged: legFlagged, winnerFlag,
+      date, type, raceId: race.raceId, leg: race.raceNumber,
+      winner, marketFav, marketHit: marketFav === winner,
+      picks, overbetFlagged: legFlagged, winnerFlag,
     });
   }
 
   appendLog(logPath, records);
-
-  console.log('------------------------------------------------------------------------------------------');
-  console.log(`legs ${legs}   model ${modelHit}/${legs}   market favourite ${marketHit}/${legs}`);
-  console.log(`winners that were flagged OVERBET (should be rare): ${overbetWon}`);
-  console.log(`winners that were flagged UNDERBET: ${underbetWon}`);
-  console.log(`total horses flagged OVERBET across the card: ${fadeFlagged}`);
+  summarise(logPath);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });
