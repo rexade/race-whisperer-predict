@@ -16,15 +16,67 @@ export interface WeightPreset {
 
 export const WEIGHT_PRESETS: WeightPreset[] = [
   {
+    name: 'V42 — V41 with refitted oddsLive (2026-08-29)',
+    description:
+      'V41 with a single weight changed: oddsLive 0.577 → 2.0, refitted after the odds ' +
+      'encoding moved from a saturating tanh to log-odds. Best measured configuration in ' +
+      'the repo — on a 319-race holdout, MRR 0.5624 / win 36.4% against a market baseline ' +
+      'of 0.5799 / 38.2%, so 1.9pp behind the market and still not beating it. Beats M4 ' +
+      '(0.5325) clearly, which reverses an earlier reading taken from a 64-race holdout: ' +
+      'the full feature set does earn its place, and driverEmpirical in particular carries ' +
+      'real weight. Needs driver ratings present, or driverEmpirical (its largest weight) ' +
+      'silently contributes nothing.',
+    category: 'balanced',
+    weights: {
+      postPosition: 0.908,
+      shoeType: 0.000,
+      sulkyType: 0.300,
+      driverPerformance: 0.733,
+      driverForm: 0.200,
+      driverEmpirical: 3.194,
+      trackFamiliarity: 0.100,
+      form: 1.406,
+      distanceAdjustment: 0.000,
+      raceDistanceAdjustment: 1.556,
+      volteStartDistancePenalty: 0.800,
+      startPoints: 1.427,
+      placePercentage: 0.533,
+      horseWinPercentage: 1.379,
+      earningsPerStart: 2.075,
+      gallopRisk: 0.000,
+      layoffPenalty: 0.766,
+      ageFactor: 0.000,
+      genderAdjustment: 1.250,
+      consistencyFactor: 1.348,
+      trainerPerformance: 2.059,
+      oddsHistorical: 0.134,
+      oddsLive: 2.000,
+      betDistribution: 1.052,
+      shoeChange: 1.424,
+    },
+    postPositionCurves: {
+      auto: {
+        1: -0.138, 2: -0.075, 3: -0.150, 4: -0.250, 5: -0.025, 6: -0.050, 7: 0.300,
+        8: 0.350, 9: 0.550, 10: 0.750, 11: 0.675, 12: 0.800, 13: 1.000, 14: 0.875,
+        15: 0.850,
+      },
+      volte: {
+        1: -0.350, 2: -0.350, 3: -0.125, 4: 0.100, 5: 0.150, 6: -0.075, 7: 0.250,
+        8: 0.175, 9: 0.475, 10: 0.450, 11: 0.750, 12: 0.775, 13: 1.000, 14: 0.913,
+        15: 0.875,
+      },
+    },
+  },
+  {
     name: 'M4 — Minimal four-factor (2026-08-29)',
     description:
-      'Km-time + live odds + post position + tillägg, everything else zero. Four free ' +
-      'parameters fitted on a 248-race train split, holdout MRR 0.5749 / win 37.5% against ' +
-      'a market baseline of 0.5849 / 35.9% — parity, not an edge: the win rate leads by one ' +
-      'race in 64 and still trails on MRR. Matches 25-weight V41 on the same holdout with a ' +
-      'sixth of the parameters, so far less of it is fitted noise. Needs no calibration ' +
-      'dataset: driverEmpirical is zero, so unlike V41 it cannot silently lose its largest ' +
-      'factor when driver ratings are missing. Requires the log-odds encoding.',
+      'Km-time + live odds + post position + tillägg, everything else zero. Superseded by ' +
+      'V42: on a 319-race holdout M4 scores MRR 0.5325 / win 31.7% against V42 at 0.5624 / ' +
+      '36.4%, so dropping the driver, form and horse-quality features costs real accuracy. ' +
+      'The earlier claim that it matched 25-weight V41 came from a 64-race holdout that had ' +
+      'been examined repeatedly and did not survive a larger sample. Kept because it is the ' +
+      'only preset that needs no calibration dataset — driverEmpirical is zero, so it cannot ' +
+      'silently lose its largest factor when driver ratings are missing. Requires log-odds.',
     category: 'balanced',
     weights: {
       postPosition: 0.500,
