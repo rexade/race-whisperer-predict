@@ -41,7 +41,21 @@ async function main() {
   const presetKey = (argValue('--preset') ?? 'V41').toLowerCase();
   const datasetPath = argValue('--dataset') ?? 'calibration-dataset-full.json';
 
-  const preset = WEIGHT_PRESETS.find(p => p.name.toLowerCase().startsWith(presetKey));
+  // --config takes a tuned weights file (the shape eval-holdout and
+  // refit-market-weights use), so a configuration validated on the holdout can
+  // be run live without first being frozen into WEIGHT_PRESETS.
+  const configPath = argValue('--config');
+  let preset: { name: string; weights: any; postPositionCurves?: any } | undefined;
+  if (configPath) {
+    const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    if (!raw.weights) {
+      console.error(`Config "${configPath}" has no "weights" key.`);
+      process.exit(1);
+    }
+    preset = { name: raw.label ?? configPath, weights: raw.weights, postPositionCurves: raw.postPositionCurves };
+  } else {
+    preset = WEIGHT_PRESETS.find(p => p.name.toLowerCase().startsWith(presetKey));
+  }
   if (!preset) {
     console.error(`Preset "${presetKey}" not found. Available: ${WEIGHT_PRESETS.map(p => p.name.split(' ')[0]).join(', ')}`);
     process.exit(1);

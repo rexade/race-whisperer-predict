@@ -54,9 +54,25 @@ async function main() {
     ...configFiles.map(loadConfig),
   ];
 
+  // Every config is scored on the same holdout, so one market line describes all
+  // of them. Captured from the first evaluation rather than recomputed.
+  let market: { winAccuracy: number | null; mrr: number | null; races: number } | undefined;
+
   for (const cfg of configs) {
     const e = await evaluateWeights(holdout, cfg.weights, cfg.curves);
-    console.log(`${cfg.label.padEnd(45)} MRR=${e.winnerMRR.toFixed(4)}  win=${(e.winAccuracy * 100).toFixed(1)}%  top3=${(e.winnerTop3Accuracy * 100).toFixed(1)}%  top5=${(e.winnerTop5Accuracy * 100).toFixed(1)}%  rankMAE=${e.rankMAE.toFixed(2)}`);
+    market ??= { winAccuracy: e.marketWinAccuracy, mrr: e.marketMRR, races: e.marketRacesEvaluated };
+    const edge = e.marketWinAccuracy !== null
+      ? `  edge=${((e.winAccuracy - e.marketWinAccuracy) * 100 >= 0 ? '+' : '')}${((e.winAccuracy - e.marketWinAccuracy) * 100).toFixed(1)}pp`
+      : '';
+    console.log(`${cfg.label.padEnd(45)} MRR=${e.winnerMRR.toFixed(4)}  win=${(e.winAccuracy * 100).toFixed(1)}%  top3=${(e.winnerTop3Accuracy * 100).toFixed(1)}%  top5=${(e.winnerTop5Accuracy * 100).toFixed(1)}%  rankMAE=${e.rankMAE.toFixed(2)}${edge}`);
+  }
+
+  // Backing the favourite already wins roughly a third of Swedish trotting races,
+  // so a model win rate without this line is unanchored.
+  if (market?.winAccuracy != null && market.mrr != null) {
+    console.log(`\n${'MARKET (favourite)'.padEnd(45)} MRR=${market.mrr.toFixed(4)}  win=${(market.winAccuracy * 100).toFixed(1)}%  over ${market.races} of ${races} races`);
+  } else {
+    console.log(`\nMARKET (favourite): no usable odds/betDistribution in this holdout`);
   }
 }
 
