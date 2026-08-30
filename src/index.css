@@ -66,21 +66,24 @@
     --muted: 220 14% 94%;
     --muted-foreground: 220 9% 40%;
 
-    /* Accent: warm amber */
-    --accent: 35 85% 44%;
+    /* Accent: warm amber, darkened for the light ground. At 44% it read
+       2.96:1 against --background, which is a fail at any size. */
+    --accent: 35 85% 33%;
     --accent-foreground: 0 0% 100%;
-    --accent-hover: 35 85% 38%;
+    --accent-hover: 35 85% 27%;
 
-    /* Destructive: racing red */
-    --destructive: 4 72% 50%;
+    /* Destructive: racing red, nudged to clear 4.5:1 (was 4.48:1) */
+    --destructive: 4 72% 48%;
     --destructive-foreground: 0 0% 100%;
 
     /* Success: turf green (barfota, wins) */
     --success: 150 68% 29%;
     --success-foreground: 0 0% 100%;
 
-    /* Warning */
-    --warning: 40 95% 44%;
+    /* Warning. The worst offender on the light ground at 2.44:1, and it
+       carries the FAVORIT leg verdict and the uncertain/gallop chips at
+       10-12 px — the smallest text in the app, read outdoors. */
+    --warning: 40 95% 30%;
     --warning-foreground: 0 0% 100%;
 
     /* Border and Input: hairline rules */
