@@ -152,6 +152,10 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
   const isWinnerPick = rank === 1;
   const safeHorseName = ensureStringForDisplay(horse.horseName);
   const safeDriverName = ensureStringForDisplay(horse.driverName);
+  // Falls back to postPosition only when startNumber is genuinely absent; the two
+  // are equal in ordinary races and diverge in handicaps, where postPosition
+  // restarts per tillägg tier and is not the number on the card.
+  const programNumber = horse.startNumber ?? horse.postPosition;
   const latestKmTime = horse.kmTimeRecords?.length ? getLatestKmTimeDisplay(horse.kmTimeRecords) : null;
   const breakdownId = horseResultDomId(horse);
 
@@ -203,7 +207,13 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
       >
         {/* Main content - always visible */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Program numeral: rank above, spår below */}
+          {/* Programme number above, rank below. The programme number is what
+              identifies the horse on the ATG card and on a ticket, so it is the
+              prominent numeral; rank is already implied by the row's position in
+              a rank-sorted list. Post position moves to the meta line, because in
+              a handicap race it restarts at each tillägg tier -- three horses can
+              all be "Spår 1" -- and standing alone beside a horse it reads as a
+              programme number that does not match the card. */}
           <div className="flex flex-col items-center w-[44px] flex-shrink-0">
             <div
               className={`font-display leading-none ${
@@ -213,12 +223,12 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
                     ? 'text-xl font-semibold text-foreground/80'
                     : 'text-xl text-muted-foreground'
               }`}
-              aria-label={`Rank ${rank}`}
+              aria-label={`Programme number ${programNumber}`}
             >
-              {rank}
+              {programNumber}
             </div>
-            <div className="eyebrow num mt-0.5" aria-label={`Post position ${horse.postPosition}`}>
-              Spår {horse.postPosition}
+            <div className="eyebrow num mt-0.5" aria-label={`Rank ${rank}`}>
+              Rank {rank}
             </div>
           </div>
 
@@ -254,6 +264,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                   <div className="text-xs text-muted-foreground leading-tight truncate">{safeDriverName}</div>
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">Spår {horse.postPosition}</span>
                   {/* Barfota — the fast setup; "idag" when switched for this start */}
                   {isBarefoot && (
                     <Tooltip>
