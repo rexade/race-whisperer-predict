@@ -4,7 +4,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy } from "lucide-react";
 import V75RaceDetails from "../V75RaceDetails";
-import KupongView from "./KupongView";
 import { sortByPrediction, winnerMargin, legConfidence, LegConfidence } from "../utils/raceRanking";
 import { buildRaceLegs } from "../utils/raceTabs";
 
@@ -54,8 +53,6 @@ const V75Results: React.FC<V75ResultsProps> = ({
         
         <CardContent className="p-0">
 
-          {/* The whole ticket at a glance — tap a leg to open its race */}
-          <KupongView races={races} onSelectRace={onTabChange} />
 
           <Tabs value={selectedTab} onValueChange={onTabChange}>
             {/* Program-style race strip — horizontally scrollable, editorial underline */}
