@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChevronDown, ChevronUp, Zap, Banknote, Award, AlertTriangle, Clock, BarChart2, WifiOff } from "lucide-react";
+import { ChevronDown, Zap, Banknote, Award, AlertTriangle, Clock, BarChart2, WifiOff } from "lucide-react";
 import { V75HorseResult } from '../hooks/useV75Analysis';
 import { ensureStringForDisplay, formatKmTime, formatEarnings, getShoesDisplay, getShoesColor, getSulkyDisplay } from '../utils/v75DisplayUtils';
 import { getLatestKmTimeDisplay } from '../../../services/kmTimeRecords';
@@ -198,303 +197,278 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, fieldSec
   const relTooltip = buildReliabilityTooltip(relScore, horse);
 
   return (
-    <>
-      <div
-        className={`${getRowStyle(rank)} p-2 sm:p-3 min-h-[44px] transition-all duration-200 cursor-pointer`}
-        onClick={() => setExpanded(!expanded)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(!expanded); } }}
-        role="button"
-        tabIndex={0}
-        aria-expanded={expanded}
-        aria-controls={breakdownId}
-      >
-        {/* Main content - always visible */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Programme number above, rank below. The programme number is what
-              identifies the horse on the ATG card and on a ticket, so it is the
-              prominent numeral; rank is already implied by the row's position in
-              a rank-sorted list. Post position moves to the meta line, because in
-              a handicap race it restarts at each tillägg tier -- three horses can
-              all be "Spår 1" -- and standing alone beside a horse it reads as a
-              programme number that does not match the card. */}
-          <div className="flex flex-col items-center w-[44px] flex-shrink-0">
-            <div
-              className={`font-display leading-none ${
-                isWinnerPick
-                  ? 'text-[26px] font-bold text-primary'
-                  : isTopPerformer
-                    ? 'text-xl font-semibold text-foreground/80'
-                    : 'text-xl text-muted-foreground'
-              }`}
-              aria-label={`Programme number ${programNumber}`}
-            >
-              {programNumber}
-            </div>
-            <div className="eyebrow num mt-0.5" aria-label={`Rank ${rank}`}>
-              Rank {rank}
-            </div>
+    <div
+      className={`${getRowStyle(rank)} p-2 sm:p-3 min-h-[44px] transition-all duration-200 cursor-pointer`}
+      onClick={() => setExpanded(!expanded)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(!expanded); } }}
+      role="button"
+      tabIndex={0}
+      // Without this the name is computed from the whole subtree, and a screen
+      // reader reads out every chip, time and percentage before saying "button".
+      aria-label={`${programNumber} ${safeHorseName}`}
+      aria-expanded={expanded}
+      aria-controls={breakdownId}
+    >
+      {/* Main content - always visible */}
+      <div className="flex items-center gap-2 sm:gap-3">
+        {/* Programme number above, rank below. The programme number is what
+            identifies the horse on the ATG card and on a ticket, so it is the
+            prominent numeral; rank is already implied by the row's position in
+            a rank-sorted list. Post position moves to the meta line, because in
+            a handicap race it restarts at each tillägg tier -- three horses can
+            all be "Spår 1" -- and standing alone beside a horse it reads as a
+            programme number that does not match the card. */}
+        <div className="flex flex-col items-center w-[44px] flex-shrink-0">
+          <div
+            className={`font-display leading-none ${
+              isWinnerPick
+                ? 'text-[26px] font-bold text-primary'
+                : isTopPerformer
+                  ? 'text-xl font-semibold text-foreground/80'
+                  : 'text-xl text-muted-foreground'
+            }`}
+            aria-label={`Programme number ${programNumber}`}
+          >
+            {programNumber}
           </div>
-
-          {/* Horse Info - Primary column */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <div className={`font-display leading-tight truncate ${isWinnerPick ? 'font-bold text-base' : 'font-semibold text-[15px]'}`}>{safeHorseName}</div>
-                  {/* Value pick: model ranks this horse well above its betting support */}
-                  {isValuePick && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/15 text-success font-bold whitespace-nowrap cursor-default">
-                          VÄRDE
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        The model ranks this horse well above its betting support ({horse.betDistribution?.toFixed(1)}% of bets) — a potential value play
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  {/* History source badge */}
-                  {horse.historySource === "local" && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary whitespace-nowrap">Local</span>
-                  )}
-                  {horse.historySource === "abroad" && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground whitespace-nowrap">Abroad</span>
-                  )}
-                  {horse.historySource === "none" && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground whitespace-nowrap">No data</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                  <div className="text-xs text-muted-foreground leading-tight truncate">{safeDriverName}</div>
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">Spår {horse.postPosition}</span>
-                  {/* Barfota — the fast setup; "idag" when switched for this start */}
-                  {isBarefoot && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success font-semibold whitespace-nowrap cursor-default">
-                          barfota{shoesChangedToday ? ' idag' : ''} ✓
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        {shoesChangedToday
-                          ? 'Shoes pulled for this start — a go-fast signal'
-                          : 'Races barefoot (front and/or back)'}
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  {/* Confidence indicator */}
-                  {horse.confidence !== undefined && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div
-                          className="text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 cursor-default"
-                          aria-label={`Data confidence: ${horse.confidence}%`}
-                        >
-                          <span className={confidenceColor} aria-hidden="true">●</span>
-                          <span className="text-muted-foreground tabular-nums">{horse.confidence}%</span>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        Data confidence: {horse.confidence}%
-                        {horse.confidence < 50 && ' — limited historical data'}
-                        {horse.confidence >= 50 && horse.confidence < 80 && ' — moderate data coverage'}
-                        {horse.confidence >= 80 && ' — strong data coverage'}
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                </div>
-                {/* Per-horse confidence flags — only rendered when at least one flag is raised */}
-                {flags && <ConfidenceFlagStrip flags={flags} />}
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-                className="hidden sm:inline-flex h-5 w-5 p-0 opacity-60 hover:opacity-100 flex-shrink-0"
-                aria-label={expanded ? 'Collapse horse detail' : 'Expand horse detail'}
-                aria-expanded={expanded}
-                aria-controls={breakdownId}
-              >
-                {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              </Button>
-            </div>
+          <div className="eyebrow num mt-0.5" aria-label={`Rank ${rank}`}>
+            Rank {rank}
           </div>
+        </div>
 
-          {/* Times — Pred most prominent, Raw + Best secondary */}
-          <div className="flex flex-col gap-1 min-w-0">
-            {/* Predicted Time */}
-            <div className="text-center">
-              <div className={`num text-base sm:text-lg font-bold ${isTopPerformer ? 'text-primary' : 'text-foreground'} flex items-center justify-center gap-1`}>
-                {horse.uncertain && (
-                  <span className="text-warning" aria-hidden="true">≈</span>
-                )}
-                {formatKmTime(result.modernNormalizedTime)}
-                {horse.uncertain && (
+        {/* Horse Info - Primary column */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <div className={`font-display leading-tight truncate ${isWinnerPick ? 'font-bold text-base' : 'font-semibold text-[15px]'}`}>{safeHorseName}</div>
+                {/* Value pick: model ranks this horse well above its betting support */}
+                {isValuePick && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span
-                        className="text-[9px] px-1 py-0.5 rounded bg-warning/10 text-warning border border-warning/20 whitespace-nowrap cursor-default"
-                        aria-label={uncertainLabel[horse.uncertaintyReason ?? ''] ?? 'Approximation'}
-                      >
-                        uncertain
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/15 text-success font-bold whitespace-nowrap cursor-default">
+                        VÄRDE
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {uncertainLabel[horse.uncertaintyReason ?? ''] ?? 'Approximation'}
+                      The model ranks this horse well above its betting support ({horse.betDistribution?.toFixed(1)}% of bets) — a potential value play
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {/* History source badge */}
+                {horse.historySource === "local" && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary whitespace-nowrap">Local</span>
+                )}
+                {horse.historySource === "abroad" && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground whitespace-nowrap">Abroad</span>
+                )}
+                {horse.historySource === "none" && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground whitespace-nowrap">No data</span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <div className="text-xs text-muted-foreground leading-tight truncate">{safeDriverName}</div>
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">Spår {horse.postPosition}</span>
+                {/* Barfota — the fast setup; "idag" when switched for this start */}
+                {isBarefoot && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success font-semibold whitespace-nowrap cursor-default">
+                        barfota{shoesChangedToday ? ' idag' : ''} ✓
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {shoesChangedToday
+                        ? 'Shoes pulled for this start — a go-fast signal'
+                        : 'Races barefoot (front and/or back)'}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {/* Confidence indicator */}
+                {horse.confidence !== undefined && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className="text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 cursor-default"
+                        aria-label={`Data confidence: ${horse.confidence}%`}
+                      >
+                        <span className={confidenceColor} aria-hidden="true">●</span>
+                        <span className="text-muted-foreground tabular-nums">{horse.confidence}%</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Data confidence: {horse.confidence}%
+                      {horse.confidence < 50 && ' — limited historical data'}
+                      {horse.confidence >= 50 && horse.confidence < 80 && ' — moderate data coverage'}
+                      {horse.confidence >= 80 && ' — strong data coverage'}
                     </TooltipContent>
                   </Tooltip>
                 )}
               </div>
-              <div className="text-xs text-primary font-medium flex items-center justify-center gap-0.5">
-                Pred
-                <ReliabilityDot score={relScore} tooltip={relTooltip} />
-              </div>
+              {/* Per-horse confidence flags — only rendered when at least one flag is raised */}
+              {flags && <ConfidenceFlagStrip flags={flags} />}
             </div>
-
-            {/* Raw and Best */}
-            <div className="flex gap-2 justify-center">
-              <div className="text-center">
-                <div className="num text-xs font-medium text-muted-foreground">
-                  {horse.rawKmTime ? formatKmTime(horse.rawKmTime) : '—'}
-                </div>
-                <div className="text-xs text-muted-foreground">Raw</div>
-              </div>
-              <div className="text-center">
-                <div className="num text-xs font-medium text-muted-foreground">
-                  {horse.bestRecordTime ? formatKmTime(horse.bestRecordTime) : '—'}
-                </div>
-                <div className="text-xs text-muted-foreground">Best</div>
-              </div>
-            </div>
-
-            {/* Market line — the numbers a bettor cross-checks against */}
-            {(horse.liveOdds !== undefined || horse.betDistribution !== undefined) && (
-              <div className="num text-[11px] text-muted-foreground text-center whitespace-nowrap">
-                {horse.liveOdds !== undefined && <>odds <span className="font-semibold text-foreground/80">{horse.liveOdds.toFixed(2)}</span></>}
-                {horse.liveOdds !== undefined && horse.betDistribution !== undefined && ' · '}
-                {horse.betDistribution !== undefined && <>spel <span className="font-semibold text-foreground/80">{horse.betDistribution.toFixed(0)}%</span></>}
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Predicted time as a bar, scaled within this race. Lets the shape of a
-            leg be read without parsing thirteen km-times — a near-full bar with a
-            visible drop behind it is a spik at a glance. */}
-        <div className="h-[3px] rounded-sm bg-muted overflow-hidden mt-1.5" aria-hidden="true">
-          <div className="h-full bg-primary transition-all" style={{ width: `${strength * 100}%` }} />
-        </div>
+        {/* Times — Pred most prominent, Raw + Best secondary */}
+        <div className="flex flex-col gap-1 min-w-0">
+          {/* Predicted Time */}
+          <div className="text-center">
+            <div className={`num text-base sm:text-lg font-bold ${isTopPerformer ? 'text-primary' : 'text-foreground'} flex items-center justify-center gap-1`}>
+              {horse.uncertain && (
+                <span className="text-warning" aria-hidden="true">≈</span>
+              )}
+              {formatKmTime(result.modernNormalizedTime)}
+              {horse.uncertain && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className="text-[9px] px-1 py-0.5 rounded bg-warning/10 text-warning border border-warning/20 whitespace-nowrap cursor-default"
+                      aria-label={uncertainLabel[horse.uncertaintyReason ?? ''] ?? 'Approximation'}
+                    >
+                      uncertain
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {uncertainLabel[horse.uncertaintyReason ?? ''] ?? 'Approximation'}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+            <div className="text-xs text-primary font-medium flex items-center justify-center gap-0.5">
+              Pred
+              <ReliabilityDot score={relScore} tooltip={relTooltip} />
+            </div>
+          </div>
 
-        {/* Form detail — one tap away. Collapsed, the row carries number, name,
-            predicted time, market and the strength bar; that is what a field is
-            scanned on. */}
-        {expanded && (
-        <div className="flex items-center justify-between mt-1 sm:mt-2 gap-2">
-          <div className="flex items-center gap-2 text-xs flex-wrap">
-            {/* Horse win % */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-1 cursor-default" aria-label={`Horse win rate: ${winPercentage ? (winPercentage / 100).toFixed(0) : 0}%`}>
-                  <span className={`font-medium tabular-nums ${winPercentage > 0 ? 'text-success' : 'text-muted-foreground'}`}>
-                    {winPercentage ? (winPercentage / 100).toFixed(0) + '%' : '—'}
-                  </span>
-                  <span className="text-muted-foreground">win</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>Horse win rate (career)</TooltipContent>
-            </Tooltip>
-
-            {/* Driver win % */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-1 cursor-default" aria-label={`Driver win rate: ${driverWinPercentage ? (driverWinPercentage / 100).toFixed(0) : 0}%`}>
-                  <Zap className="h-3 w-3 text-success" aria-hidden="true" />
-                  <span className={`font-medium tabular-nums ${driverWinPercentage > 0 ? 'text-success' : 'text-muted-foreground'}`}>
-                    {driverWinPercentage ? (driverWinPercentage / 100).toFixed(0) + '%' : '—'}
-                  </span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>Driver win rate (2025)</TooltipContent>
-            </Tooltip>
-
-            {/* Start Points */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-1 cursor-default" aria-label={`Start points: ${startPoints || '—'}`}>
-                  <Award className="h-3 w-3 text-primary" aria-hidden="true" />
-                  <span className={`font-medium tabular-nums ${startPoints > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
-                    {startPoints ? startPoints : '—'}
-                  </span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>Start points (form rating)</TooltipContent>
-            </Tooltip>
-
-            {/* Earnings per start */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-1 cursor-default" aria-label={`Earnings per start: ${earningsPerStart > 0 ? formatEarnings(earningsPerStart) : '—'}`}>
-                  <Banknote className="h-3 w-3 text-warning" aria-hidden="true" />
-                  <span className={`font-medium tabular-nums ${earningsPerStart > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
-                    {earningsPerStart > 0 ? formatEarnings(earningsPerStart) : '—'}
-                  </span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>Earnings per start (class indicator)</TooltipContent>
-            </Tooltip>
-
-            {/* Home Track — only if different from race track */}
-            {horse.homeTrack && horse.homeTrack !== horse.track && (
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground" aria-hidden="true">@</span>
-                <span className="font-medium text-accent">{horse.homeTrack}</span>
+          {/* Raw and Best */}
+          <div className="flex gap-2 justify-center">
+            <div className="text-center">
+              <div className="num text-xs font-medium text-muted-foreground">
+                {horse.rawKmTime ? formatKmTime(horse.rawKmTime) : '—'}
               </div>
-            )}
-
-            {/* Equipment */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge variant="secondary" className="text-xs h-4 px-1 cursor-default">
-                  {getSulkyDisplay(horse.sulkyType)}
-                </Badge>
-              </TooltipTrigger>
-              <TooltipContent>Sulky type</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className={`font-medium text-xs cursor-default ${getShoesColor(horse.shoesFront || false, horse.shoesBack || false)}`}>
-                  {getShoesDisplay(horse.shoesFront || false, horse.shoesBack || false)}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>Shoe configuration (front / back)</TooltipContent>
-            </Tooltip>
+              <div className="text-xs text-muted-foreground">Raw</div>
+            </div>
+            <div className="text-center">
+              <div className="num text-xs font-medium text-muted-foreground">
+                {horse.bestRecordTime ? formatKmTime(horse.bestRecordTime) : '—'}
+              </div>
+              <div className="text-xs text-muted-foreground">Best</div>
+            </div>
           </div>
+
+          {/* Market line — the numbers a bettor cross-checks against */}
+          {(horse.liveOdds !== undefined || horse.betDistribution !== undefined) && (
+            <div className="num text-[11px] text-muted-foreground text-center whitespace-nowrap">
+              {horse.liveOdds !== undefined && <>odds <span className="font-semibold text-foreground/80">{horse.liveOdds.toFixed(2)}</span></>}
+              {horse.liveOdds !== undefined && horse.betDistribution !== undefined && ' · '}
+              {horse.betDistribution !== undefined && <>spel <span className="font-semibold text-foreground/80">{horse.betDistribution.toFixed(0)}%</span></>}
+            </div>
+          )}
         </div>
-        )}
-
-        {/* Winner card: margin-to-next confidence strip */}
-        {isWinnerPick && marginPct !== undefined && (
-          <div className="-mx-2 sm:-mx-3 -mb-2 sm:-mb-3 mt-2 rounded-b-xl overflow-hidden">
-            <div className="h-1.5 bg-muted" role="img" aria-label={`Margin to next horse: ${marginLabel} seconds`}>
-              <div className="h-full bg-primary transition-all" style={{ width: `${Math.max(marginPct, 4)}%` }} />
-            </div>
-            <div className="flex items-center justify-between px-3 py-1.5 bg-muted/40">
-              <span className="eyebrow">Marginal +{marginLabel}s</span>
-              <span className="eyebrow">
-                {marginToNext! >= 0.8 ? 'Spikkandidat' : marginToNext! >= 0.3 ? 'Klar favorit' : 'Jämnt lopp — gardera'}
-              </span>
-              <span className="eyebrow" aria-hidden="true">{expanded ? '▲ detaljer' : '▼ detaljer'}</span>
-            </div>
-          </div>
-        )}
+        <ChevronDown
+          className={`h-4 w-4 flex-shrink-0 text-muted-foreground/60 transition-transform ${expanded ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        />
       </div>
 
+      {/* Predicted time as a bar, scaled within this race. Lets the shape of a
+          leg be read without parsing thirteen km-times — a near-full bar with a
+          visible drop behind it is a spik at a glance. */}
+      <div className="h-[3px] rounded-sm bg-muted overflow-hidden mt-1.5" aria-hidden="true">
+        <div className="h-full bg-primary transition-all" style={{ width: `${strength * 100}%` }} />
+      </div>
+
+      {/* Form detail — one tap away. Collapsed, the row carries number, name,
+          predicted time, market and the strength bar; that is what a field is
+          scanned on. */}
       {expanded && (
-        <div id={breakdownId} className="bg-muted/50 sm:border-b sm:border-border/50">
-          {/* Sectional km-time details — only shown in debug panel */}
+        <div id={breakdownId} className="mt-1 sm:mt-2 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs flex-wrap">
+              {/* Horse win % */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 cursor-default" aria-label={`Horse win rate: ${winPercentage ? (winPercentage / 100).toFixed(0) : 0}%`}>
+                    <span className={`font-medium tabular-nums ${winPercentage > 0 ? 'text-success' : 'text-muted-foreground'}`}>
+                      {winPercentage ? (winPercentage / 100).toFixed(0) + '%' : '—'}
+                    </span>
+                    <span className="text-muted-foreground">win</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>Horse win rate (career)</TooltipContent>
+              </Tooltip>
+
+              {/* Driver win % */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 cursor-default" aria-label={`Driver win rate: ${driverWinPercentage ? (driverWinPercentage / 100).toFixed(0) : 0}%`}>
+                    <Zap className="h-3 w-3 text-success" aria-hidden="true" />
+                    <span className={`font-medium tabular-nums ${driverWinPercentage > 0 ? 'text-success' : 'text-muted-foreground'}`}>
+                      {driverWinPercentage ? (driverWinPercentage / 100).toFixed(0) + '%' : '—'}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>Driver win rate (2025)</TooltipContent>
+              </Tooltip>
+
+              {/* Start Points */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 cursor-default" aria-label={`Start points: ${startPoints || '—'}`}>
+                    <Award className="h-3 w-3 text-primary" aria-hidden="true" />
+                    <span className={`font-medium tabular-nums ${startPoints > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
+                      {startPoints ? startPoints : '—'}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>Start points (form rating)</TooltipContent>
+              </Tooltip>
+
+              {/* Earnings per start */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 cursor-default" aria-label={`Earnings per start: ${earningsPerStart > 0 ? formatEarnings(earningsPerStart) : '—'}`}>
+                    <Banknote className="h-3 w-3 text-warning" aria-hidden="true" />
+                    <span className={`font-medium tabular-nums ${earningsPerStart > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
+                      {earningsPerStart > 0 ? formatEarnings(earningsPerStart) : '—'}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>Earnings per start (class indicator)</TooltipContent>
+              </Tooltip>
+
+              {/* Home Track — only if different from race track */}
+              {horse.homeTrack && horse.homeTrack !== horse.track && (
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground" aria-hidden="true">@</span>
+                  <span className="font-medium text-accent">{horse.homeTrack}</span>
+                </div>
+              )}
+
+              {/* Equipment */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="secondary" className="text-xs h-4 px-1 cursor-default">
+                    {getSulkyDisplay(horse.sulkyType)}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>Sulky type</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className={`font-medium text-xs cursor-default ${getShoesColor(horse.shoesFront || false, horse.shoesBack || false)}`}>
+                    {getShoesDisplay(horse.shoesFront || false, horse.shoesBack || false)}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Shoe configuration (front / back)</TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+          {/* Sectional km-times from the most recent start */}
           {latestKmTime && (latestKmTime.first200 != null || latestKmTime.last200 != null || latestKmTime.best100 != null || latestKmTime.actualKMTime != null || latestKmTime.slipstreamDistance != null) && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground px-3 pt-2 pb-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground border-t border-border/60 pt-1.5">
               {latestKmTime.first200 != null && (
                 <span><span className="font-medium text-foreground/80">First 200:</span> <span className="tabular-nums">{latestKmTime.first200}</span></span>
               )}
@@ -517,7 +491,23 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, fieldSec
           )}
         </div>
       )}
-    </>
+
+      {/* Winner card: margin-to-next confidence strip */}
+      {isWinnerPick && marginPct !== undefined && (
+        <div className="-mx-2 sm:-mx-3 -mb-2 sm:-mb-3 mt-2 rounded-b-xl overflow-hidden">
+          <div className="h-1.5 bg-muted" role="img" aria-label={`Margin to next horse: ${marginLabel} seconds`}>
+            <div className="h-full bg-primary transition-all" style={{ width: `${Math.max(marginPct, 4)}%` }} />
+          </div>
+          <div className="flex items-center justify-between px-3 py-1.5 bg-muted/40">
+            <span className="eyebrow">Marginal +{marginLabel}s</span>
+            <span className="eyebrow">
+              {marginToNext! >= 0.8 ? 'Spikkandidat' : marginToNext! >= 0.3 ? 'Klar favorit' : 'Jämnt lopp — gardera'}
+            </span>
+            <span className="eyebrow" aria-hidden="true">{expanded ? '▲ detaljer' : '▼ detaljer'}</span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
