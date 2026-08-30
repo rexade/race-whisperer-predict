@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { sortByPrediction, winnerMargin, legConfidence, spreadSuggestion, valuePickKeys } from '../raceRanking';
+import { sortByPrediction, winnerMargin, legConfidence, spreadSuggestion, valuePickKeys, fieldStrength } from '../raceRanking';
 import { horseResultKey } from '../horseResultIdentity';
 import type { V75HorseResult } from '../../types/raceResultTypes';
 import { RaceScoreCalculator } from '../../services/raceScoreCalculator';
@@ -113,5 +113,36 @@ describe('valuePickKeys', () => {
     const sorted = sortByPrediction(horses);
 
     expect([...valuePickKeys(sorted)]).toEqual(['r1:start:4']);
+  });
+});
+
+describe('fieldStrength', () => {
+  const field = [72, 73, 75];
+
+  it('gives the fastest horse a full bar and the slowest the floor', () => {
+    expect(fieldStrength(72, field)).toBeCloseTo(1, 5);
+    expect(fieldStrength(75, field)).toBeCloseTo(0.08, 5);
+  });
+
+  it('interpolates linearly between them', () => {
+    // 73 is 1/3 of the way from 72 to 75, so strength drops 1/3 of the range.
+    expect(fieldStrength(73, field)).toBeCloseTo(1 - (1 - 0.08) / 3, 5);
+  });
+
+  it('scales within the race, not against absolute km-times', () => {
+    // A slow stayer field and a fast sprint field must produce the same shape,
+    // otherwise every bar in a 3140m race reads empty and says nothing.
+    const sprint = [66, 67, 69];
+    expect(fieldStrength(67, sprint)).toBeCloseTo(fieldStrength(73, field), 5);
+  });
+
+  it('gives every horse a full bar when the field is tied', () => {
+    expect(fieldStrength(72, [72, 72])).toBeCloseTo(1, 5);
+  });
+
+  it('handles a single-horse field and non-finite input', () => {
+    expect(fieldStrength(72, [72])).toBeCloseTo(1, 5);
+    expect(fieldStrength(Number.NaN, field)).toBe(0);
+    expect(fieldStrength(72, [])).toBe(0);
   });
 });

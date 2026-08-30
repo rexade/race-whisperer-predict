@@ -119,3 +119,28 @@ export function valuePickKeys(sorted: V75HorseResult[]): Set<string> {
   });
   return value;
 }
+
+/** Shortest bar drawn, so the slowest horse still reads as present rather than absent. */
+const STRENGTH_FLOOR = 0.08;
+
+/**
+ * A horse's predicted time as a 0-1 bar, scaled within its own race.
+ *
+ * Ranking is a within-race problem. Scaling against absolute km-times would
+ * make every bar in a 1640m sprint look full and every bar in a 3140m stayer
+ * look empty, which carries no information about who wins. Fastest fills the
+ * bar, slowest gets the floor, the rest interpolate.
+ */
+export function fieldStrength(seconds: number, fieldSeconds: number[]): number {
+  if (!Number.isFinite(seconds)) return 0;
+  const valid = fieldSeconds.filter(Number.isFinite);
+  if (valid.length === 0) return 0;
+
+  const fastest = Math.min(...valid);
+  const slowest = Math.max(...valid);
+  if (slowest === fastest) return 1;
+
+  const position = (seconds - fastest) / (slowest - fastest);
+  const strength = 1 - position * (1 - STRENGTH_FLOOR);
+  return Math.max(STRENGTH_FLOOR, Math.min(1, strength));
+}
