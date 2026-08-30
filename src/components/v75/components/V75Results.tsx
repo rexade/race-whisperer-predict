@@ -52,8 +52,6 @@ const V75Results: React.FC<V75ResultsProps> = ({
         </CardHeader>
         
         <CardContent className="p-0">
-
-
           <Tabs value={selectedTab} onValueChange={onTabChange}>
             {/* Program-style race strip — horizontally scrollable, editorial underline */}
             <div className="sticky top-[116px] sm:top-[57px] z-10 bg-background border-b border-border mb-4">
