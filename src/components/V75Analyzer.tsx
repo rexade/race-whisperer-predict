@@ -443,6 +443,7 @@ const V75Analyzer: React.FC = () => {
                 weights={weights}
                 onWeightsChange={setWeights}
                 postPositionCurves={postPositionCurves}
+                onPostPositionCurvesChange={setPostPositionCurves}
               />
             </Suspense>
           </DebugErrorBoundary>

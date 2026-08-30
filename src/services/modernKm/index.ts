@@ -311,7 +311,7 @@ export const getDefaultWeights = (): NormalizationWeights => {
 
 // V41 default (2026-07-04): the flat calculator curves the V41 weights were
 // calibrated with. Pairing V41 with the V39 bucketed set scored slightly worse
-// on the clean holdout — bucketed curves remain available via presets/editor.
+// on the clean holdout — bucketed curves remain available via the presets.
 export const getDefaultPostPositionCurves = (): PostPositionCurves => ({
   auto: { ...DEFAULT_AUTO_CURVE },
   volte: { ...DEFAULT_VOLTE_CURVE },
