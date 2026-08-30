@@ -2,8 +2,9 @@
 import { describe, expect, it } from 'vitest';
 import { WEIGHT_PRESETS, type WeightPreset } from '@/services/modernKm/presetWeights';
 import { getDefaultPostPositionCurves, type PostPositionCurves } from '@/services/modernKm/index';
+import type { NormalizationWeights } from '@/services/modernKm/types';
 import { calculatePostPositionAdjustment } from '@/services/modernKm/postPositionCalculator';
-import { resolvePresetModel } from '../weightPresetModel';
+import { applyPresetModel, resolvePresetModel, type PresetTargets } from '../weightPresetModel';
 
 /**
  * These probes stand in for the analysis path. `calculatePostPositionAdjustment`
@@ -78,5 +79,43 @@ describe('resolvePresetModel', () => {
 
     expect(at(getDefaultPostPositionCurves())).toBeCloseTo(0.55, 5);
     expect(at(v39.postPositionCurves)).not.toBeCloseTo(0.55, 5);
+  });
+});
+
+describe('applyPresetModel', () => {
+  /** Stands in for V75Analyzer's two state setters. */
+  const recorder = () => {
+    const received: { weights: NormalizationWeights[]; curves: PostPositionCurves[] } = { weights: [], curves: [] };
+    const targets: PresetTargets = {
+      applyWeights: w => { received.weights.push(w); },
+      applyPostPositionCurves: c => { received.curves.push(c); },
+    };
+    return { received, targets };
+  };
+
+  it('delivers the curves a divergent preset was fitted with', () => {
+    // The regression this suite exists for: severing preset -> curves left the
+    // weights arriving and the curves silently falling back to flat V41. Every
+    // preset that would visibly change is checked, not just a sampled one.
+    for (const preset of divergentPresets) {
+      const { received, targets } = recorder();
+      applyPresetModel(preset, targets);
+
+      expect(received.weights).toEqual([preset.weights]);
+      expect(received.curves).toHaveLength(1);
+      expect(adjustments(received.curves[0])).toEqual(adjustments(preset.postPositionCurves!));
+      expect(adjustments(received.curves[0])).not.toEqual(defaultAdjustments);
+    }
+  });
+
+  it('leaves the current curves alone for a preset that carries none', () => {
+    // Not the same as applying the defaults: a curve set loaded from the API or
+    // an imported config should survive a weights-only preset.
+    const plain = WEIGHT_PRESETS.find(p => !p.postPositionCurves)!;
+    const { received, targets } = recorder();
+    applyPresetModel(plain, targets);
+
+    expect(received.weights).toEqual([plain.weights]);
+    expect(received.curves).toEqual([]);
   });
 });

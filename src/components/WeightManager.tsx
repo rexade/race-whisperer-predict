@@ -17,7 +17,7 @@ import {
   parseNormalizationWeights,
   saveBrowserDefaultWeights,
 } from '../services/modernKm/weightConfig';
-import { resolvePresetModel } from '../utils/weightPresetModel';
+import { applyPresetModel } from '../utils/weightPresetModel';
 import { useToast } from "@/hooks/use-toast";
 
 interface WeightManagerProps {
@@ -26,9 +26,11 @@ interface WeightManagerProps {
   postPositionCurves?: PostPositionCurves;
   /**
    * Applies a preset's (or an imported config's) post-position curves. Weights
-   * and curves are two halves of one model — see `resolvePresetModel`.
+   * and curves are two halves of one model — see `applyPresetModel`. Required,
+   * not optional: dropping it is how the preset -> curves path was lost, and a
+   * required prop makes the same mistake a type error.
    */
-  onPostPositionCurvesChange?: (curves: PostPositionCurves) => void;
+  onPostPositionCurvesChange: (curves: PostPositionCurves) => void;
 }
 
 const WeightManager: React.FC<WeightManagerProps> = ({
@@ -166,7 +168,7 @@ const WeightManager: React.FC<WeightManagerProps> = ({
               && typeof curves.volte === 'object' && curves.volte !== null;
 
             onWeightsChange(parsedWeights);
-            if (hasCurves) onPostPositionCurvesChange?.(curves as PostPositionCurves);
+            if (hasCurves) onPostPositionCurvesChange(curves as PostPositionCurves);
             toast({
               title: "Model Imported",
               description: !imported.weights
@@ -190,13 +192,14 @@ const WeightManager: React.FC<WeightManagerProps> = ({
   };
 
   const applyPreset = (preset: WeightPreset) => {
-    const model = resolvePresetModel(preset);
     setSelectedPreset(preset.name);
-    onWeightsChange(model.weights);
-    // Curves are half the model. Seven presets were fitted against curves that
-    // differ from the flat defaults, so applying the weights alone runs a
-    // configuration that was never measured.
-    if (preset.postPositionCurves) onPostPositionCurvesChange?.(model.postPositionCurves);
+    // Both halves of the model, together. Seven presets were fitted against
+    // curves that differ from the flat defaults, so applying the weights alone
+    // runs a configuration that was never measured.
+    const model = applyPresetModel(preset, {
+      applyWeights: onWeightsChange,
+      applyPostPositionCurves: onPostPositionCurvesChange,
+    });
     // Selecting a preset IS choosing a default. Without this the choice is lost
     // on reload — which is why re-picking V42 every session was part of the
     // routine on a deployment with no backend to persist to.
