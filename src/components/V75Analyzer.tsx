@@ -64,6 +64,7 @@ const V75Analyzer: React.FC = () => {
     error,
     v75Results,
     analysisDate,
+    analysisGameType,
     runAnalysis,
     reanalyzeWithNewWeights,
     clearError
@@ -184,9 +185,9 @@ const V75Analyzer: React.FC = () => {
                 nothing about which game and date the results below belong to. */}
             <div className="flex items-center gap-2 min-w-0">
               <span className="font-display italic font-bold text-lg tracking-tight truncate">TrotAnalyzer</span>
-              {v75Results.length > 0 && analysisDate && (
+              {v75Results.length > 0 && analysisGameType && analysisDate && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs num text-muted-foreground whitespace-nowrap">
-                  {gameType} · {analysisDate}
+                  {analysisGameType} · {analysisDate}
                 </span>
               )}
             </div>
@@ -230,7 +231,7 @@ const V75Analyzer: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => exportV75ToExcel(v75Results, analysisDate, gameType)}
+                  onClick={() => exportV75ToExcel(v75Results, analysisDate, analysisGameType ?? gameType)}
                   title="Export to Excel"
                   className="flex-shrink-0 h-9"
                 >
@@ -301,7 +302,7 @@ const V75Analyzer: React.FC = () => {
                   <nav className="mt-3 flex flex-col">
                     {v75Results.length > 0 && (
                       <button
-                        onClick={() => { exportV75ToExcel(v75Results, analysisDate, gameType); setMenuOpen(false); }}
+                        onClick={() => { exportV75ToExcel(v75Results, analysisDate, analysisGameType ?? gameType); setMenuOpen(false); }}
                         className="flex items-center gap-3 h-12 px-3 rounded-md text-sm font-medium hover:bg-muted transition-colors"
                       >
                         <Download className="h-4 w-4 text-muted-foreground" /> Export to Excel

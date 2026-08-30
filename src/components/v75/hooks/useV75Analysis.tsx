@@ -22,6 +22,10 @@ export type { V75HorseResult, V75RaceResult };
 
 export const useV75Analysis = () => {
   const [analysisDate, setAnalysisDate] = useState<string>("");
+  // The game the results on screen were produced from. The picker's `gameType`
+  // is live state and changing it does not clear the results, so labelling the
+  // results with it would caption a V85 card "V65" the moment the user browses.
+  const [analysisGameType, setAnalysisGameType] = useState<GameType | null>(null);
   const { toast } = useToast();
   const { validateAndFixRaces } = useV75DataValidation();
   const { getOrCalculateRawTimes } = useV75Cache();
@@ -60,6 +64,7 @@ export const useV75Analysis = () => {
     resetProgress();
     startProgress();
     setAnalysisDate(date);
+    setAnalysisGameType(gameType);
 
     try {
       if (races.length === 0) {
@@ -178,6 +183,7 @@ export const useV75Analysis = () => {
     error,
     v75Results,
     analysisDate,
+    analysisGameType,
     runAnalysis,
     reanalyzeWithNewWeights,
     clearError: resetProgress
