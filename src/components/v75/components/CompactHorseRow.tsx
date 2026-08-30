@@ -5,7 +5,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ChevronDown, ChevronUp, Zap, Banknote, Award, AlertTriangle, Clock, BarChart2, WifiOff } from "lucide-react";
 import { V75HorseResult } from '../hooks/useV75Analysis';
 import { ensureStringForDisplay, formatKmTime, formatEarnings, getShoesDisplay, getShoesColor, getSulkyDisplay } from '../utils/v75DisplayUtils';
-import { V75TimeCalculationDebug } from './V75TimeCalculationDebug';
 import { useIsMobile } from '../../../hooks/use-mobile';
 import { getLatestKmTimeDisplay } from '../../../services/kmTimeRecords';
 import { hasAnyFlag, computeReliabilityScore, type HorseConfidenceFlags } from '../utils/confidenceFlags';
@@ -501,7 +500,6 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
               )}
             </div>
           )}
-          <V75TimeCalculationDebug horse={horse} />
         </div>
       )}
     </>

@@ -1,21 +1,19 @@
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { apiHeaders, ApiRequestError, describeApiFailure, isPersistenceApiEnabled } from '@/services/apiClient';
-import { Trophy, CalendarIcon, Settings2, Trash2, Play, Download, BarChart2, TrendingUp, Menu } from "lucide-react";
+import { Trophy, CalendarIcon, Settings2, Play, Download, Menu } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import V75DatePicker from "./v75/V75DatePicker";
-import { PostPositionCurves, getDefaultPostPositionCurves } from "./PostPositionCurveEditor";
 import ErrorDisplay from "./modernAnalyzer/ErrorDisplay";
 import DebugErrorBoundary from "./DebugErrorBoundary";
 import ThemeToggle from "./ThemeToggle";
 import { useV75Analysis } from "./v75/hooks/useV75Analysis";
-import { NormalizationWeights, getDefaultWeights, initWeightsFromApi } from '../services/modernKm/index';
+import { NormalizationWeights, PostPositionCurves, getDefaultWeights, getDefaultPostPositionCurves, initWeightsFromApi } from '../services/modernKm/index';
 import { exportV75ToExcel } from '../utils/excelExport';
-import { getAggregateMAEStats, type AggregateMAEStats } from '../services/raceMAEService';
 import { useGameInfo, useRaceData, useAvailableGameTypes } from '@/queries/v75';
 import { GAME_TYPE, GameType } from '@/config/game';
 import { useToast } from '@/hooks/use-toast';
@@ -30,20 +28,14 @@ import V75Summary from "./v75/components/V75Summary";
 
 // Lazy load heavy components for better performance
 const V75Results = lazy(() => import("./v75/components/V75Results"));
-const V75CacheManager = lazy(() => import("./v75/components/V75CacheManager"));
-const MAEPanel = lazy(() => import("./v75/components/MAEPanel"));
 const WeightManager = lazy(() => import("./WeightManager"));
-const CalibrationPanel = lazy(() => import("./calibration/CalibrationPanel"));
 
 const V75Analyzer: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [weights, setWeights] = useState<NormalizationWeights>(getDefaultWeights);
   const [postPositionCurves, setPostPositionCurves] = useState<PostPositionCurves>(getDefaultPostPositionCurves());
   const [activeTab, setActiveTab] = useState("");
-  const [showCacheManager, setShowCacheManager] = useState(false);
   const [showWeights, setShowWeights] = useState(false);
-  const [maeStats, setMaeStats] = useState<AggregateMAEStats | null>(null);
-  const [showCalibration, setShowCalibration] = useState(false);
   const [showInput, setShowInput] = useState(true);
   const [gameType, setGameType] = useState<GameType>(GAME_TYPE);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -92,7 +84,7 @@ const V75Analyzer: React.FC = () => {
     }
   }, [weights, postPositionCurves]);
 
-  // Load weights + MAE stats from API on mount. Also restore driver empirical
+  // Load weights from API on mount. Also restore driver empirical
   // ratings from the cached calibration dataset if localStorage lost them —
   // without ratings the driverEmpirical weight is silently inactive and saved
   // presets cannot reproduce a previous session's ranking.
@@ -102,7 +94,6 @@ const V75Analyzer: React.FC = () => {
       setWeights(r.weights);
       if (r.postPositionCurves) setPostPositionCurves(r.postPositionCurves);
     });
-    getAggregateMAEStats().then(s => setMaeStats(s));
   }, []);
 
   useEffect(() => {
@@ -157,13 +148,6 @@ const V75Analyzer: React.FC = () => {
     }
   }, [v75Results]);
 
-  // Refresh MAE stats when cache drawer closes (user may have computed new MAE data)
-  useEffect(() => {
-    if (!showCacheManager) {
-      getAggregateMAEStats().then(s => setMaeStats(s));
-    }
-  }, [showCacheManager]);
-
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -195,28 +179,9 @@ const V75Analyzer: React.FC = () => {
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b-2 border-foreground/70">
         <div className="container mx-auto px-3 sm:px-6">
           <div className="flex items-center justify-between h-14 gap-2 sm:gap-4">
-            {/* Left: masthead brand + accuracy badge */}
+            {/* Left: masthead brand */}
             <div className="flex items-center gap-2 min-w-0">
               <span className="font-display italic font-bold text-lg tracking-tight truncate">TrotAnalyzer</span>
-              {maeStats && (
-                <button
-                  onClick={() => setShowCacheManager(true)}
-                  className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs num text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                  title={[
-                    maeStats.meanRankError !== null
-                      ? `±${maeStats.meanRankError.toFixed(1)} mean rank error over ${maeStats.raceCount} race${maeStats.raceCount !== 1 ? 's' : ''}, ${maeStats.meanHorsesEvaluated.toFixed(1)} horses evaluated per race`
-                      : 'Mean rank error unavailable — every stored race predates the current metric',
-                    `${(maeStats.winRate * 100).toFixed(0)}% win · ${(maeStats.top3Rate * 100).toFixed(0)}% top-3 over ${maeStats.hitRateRaceCount} race${maeStats.hitRateRaceCount !== 1 ? 's' : ''}`,
-                    maeStats.excludedLegacyRaces > 0
-                      ? `${maeStats.excludedLegacyRaces} legacy race${maeStats.excludedLegacyRaces !== 1 ? 's' : ''} excluded from rank error`
-                      : null,
-                    'Click to view details.',
-                  ].filter(Boolean).join(' · ')}
-                >
-                  <TrendingUp className="h-3 w-3" />
-                  {maeStats.meanRankError !== null && `±${maeStats.meanRankError.toFixed(1)} · `}{(maeStats.winRate * 100).toFixed(0)}%W
-                </button>
-              )}
             </div>
 
             {/* Desktop center: game switcher · date · analyze · export */}
@@ -272,12 +237,6 @@ const V75Analyzer: React.FC = () => {
               <Button variant="ghost" size="icon" onClick={() => setShowWeights((v) => !v)} title="Weights" className="h-9 w-9">
                 <Settings2 className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => setShowCalibration((v) => !v)} title="Calibrate weights" className="h-9 w-9">
-                <BarChart2 className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={() => setShowCacheManager((v) => !v)} title="Cache" className="h-9 w-9">
-                <Trash2 className="h-4 w-4" />
-              </Button>
               <ThemeToggle />
             </div>
 
@@ -331,15 +290,6 @@ const V75Analyzer: React.FC = () => {
                 <SheetContent side="right" className="w-72">
                   <SheetHeader className="text-left border-b-2 border-foreground/70 pb-3">
                     <SheetTitle className="font-display italic font-bold">TrotAnalyzer</SheetTitle>
-                    {maeStats && (
-                      <button
-                        onClick={() => { setShowCacheManager(true); setMenuOpen(false); }}
-                        className="flex items-center gap-1.5 text-xs num text-muted-foreground"
-                      >
-                        <TrendingUp className="h-3 w-3" />
-                        {maeStats.meanRankError !== null && `±${maeStats.meanRankError.toFixed(1)} rank · `}{(maeStats.winRate * 100).toFixed(0)}% win · {(maeStats.top3Rate * 100).toFixed(0)}% top-3
-                      </button>
-                    )}
                   </SheetHeader>
                   <nav className="mt-3 flex flex-col">
                     {v75Results.length > 0 && (
@@ -355,18 +305,6 @@ const V75Analyzer: React.FC = () => {
                       className="flex items-center gap-3 h-12 px-3 rounded-md text-sm font-medium hover:bg-muted transition-colors"
                     >
                       <Settings2 className="h-4 w-4 text-muted-foreground" /> Weights
-                    </button>
-                    <button
-                      onClick={() => { setShowCalibration((v) => !v); setMenuOpen(false); }}
-                      className="flex items-center gap-3 h-12 px-3 rounded-md text-sm font-medium hover:bg-muted transition-colors"
-                    >
-                      <BarChart2 className="h-4 w-4 text-muted-foreground" /> Calibrate weights
-                    </button>
-                    <button
-                      onClick={() => { setShowCacheManager((v) => !v); setMenuOpen(false); }}
-                      className="flex items-center gap-3 h-12 px-3 rounded-md text-sm font-medium hover:bg-muted transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4 text-muted-foreground" /> Cache
                     </button>
                     <div className="flex items-center justify-between h-12 px-3 text-sm font-medium">
                       <span>Theme</span>
@@ -490,38 +428,6 @@ const V75Analyzer: React.FC = () => {
           <V75Summary races={v75Results} analysisDate={analysisDate} />
         )}
 
-        {/* Cache Manager + MAE accuracy panel */}
-        {showCacheManager && (
-          <DebugErrorBoundary>
-            <Suspense fallback={<div className="p-4 text-center text-muted-foreground">Loading cache manager...</div>}>
-              <V75CacheManager />
-            </Suspense>
-          </DebugErrorBoundary>
-        )}
-        {showCacheManager && (
-          <DebugErrorBoundary>
-            <Suspense fallback={null}>
-              <MAEPanel />
-            </Suspense>
-          </DebugErrorBoundary>
-        )}
-
-        {/* Calibration Panel — keep mounted so the loaded dataset survives Apply */}
-        <div style={{ display: showCalibration ? undefined : 'none' }}>
-          <DebugErrorBoundary>
-            <Suspense fallback={<div className="p-4 text-center text-muted-foreground">Loading calibration…</div>}>
-              <CalibrationPanel
-                key={gameType}
-                currentWeights={weights}
-                gameType={gameType}
-                onApplyWeights={(w) => { setWeights(w); setShowCalibration(false); }}
-                postPositionCurves={postPositionCurves}
-                onPostPositionCurvesChange={(c) => { setPostPositionCurves(c); }}
-              />
-            </Suspense>
-          </DebugErrorBoundary>
-        </div>
-
         {/* Weight Manager */}
         {v75Results.length > 0 && showWeights && (
           <DebugErrorBoundary>
@@ -530,7 +436,6 @@ const V75Analyzer: React.FC = () => {
                 weights={weights}
                 onWeightsChange={setWeights}
                 postPositionCurves={postPositionCurves}
-                onPostPositionCurvesChange={setPostPositionCurves}
               />
             </Suspense>
           </DebugErrorBoundary>

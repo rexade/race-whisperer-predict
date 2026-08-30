@@ -6,7 +6,7 @@ import {
   NormalizationWeights,
   DEFAULT_WEIGHTS
 } from './types';
-import { calculatePostPositionAdjustment } from './postPositionCalculator';
+import { calculatePostPositionAdjustment, DEFAULT_AUTO_CURVE, DEFAULT_VOLTE_CURVE } from './postPositionCalculator';
 import {
   calculateRobustShoeAdjustment,
   calculateRobustSulkyAdjustment,
@@ -308,6 +308,14 @@ export const initWeightsFromApi = async (): Promise<{ weights: NormalizationWeig
 export const getDefaultWeights = (): NormalizationWeights => {
   return _cachedWeights ?? loadBrowserDefaultWeights() ?? { ...DEFAULT_WEIGHTS };
 };
+
+// V41 default (2026-07-04): the flat calculator curves the V41 weights were
+// calibrated with. Pairing V41 with the V39 bucketed set scored slightly worse
+// on the clean holdout — bucketed curves remain available via presets/editor.
+export const getDefaultPostPositionCurves = (): PostPositionCurves => ({
+  auto: { ...DEFAULT_AUTO_CURVE },
+  volte: { ...DEFAULT_VOLTE_CURVE },
+});
 
 // Re-export types for convenience
 export type {
