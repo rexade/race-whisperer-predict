@@ -162,7 +162,9 @@ Append to `src/services/modernKm/__tests__/weightConfig.test.ts`, inside the exi
   });
 ```
 
-Add `saveBrowserDefaultWeights` and `DEFAULT_WEIGHTS` to the file's existing imports.
+Add `saveBrowserDefaultWeights` to the existing `../weightConfig` import list. `DEFAULT_WEIGHTS` is already imported from `../types` — do not add it twice.
+
+The file already carries `// @vitest-environment jsdom` on line 1 and a `beforeEach(() => localStorage.clear())`, so `localStorage` and `Storage.prototype` are available and cleared between tests. Do not change the environment directive; `vitest.config.ts` defaults to `node` and these tests need the override.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
