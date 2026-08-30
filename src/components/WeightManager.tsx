@@ -15,6 +15,7 @@ import {
   loadBrowserDefaultWeights,
   NORMALIZATION_WEIGHT_MAX,
   parseNormalizationWeights,
+  saveBrowserDefaultWeights,
 } from '../services/modernKm/weightConfig';
 import { useToast } from "@/hooks/use-toast";
 
@@ -67,33 +68,20 @@ const WeightManager: React.FC<WeightManagerProps> = ({
   };
 
   const saveAsDefault = () => {
-    // Weights are auto-saved on every change; this is a manual confirmation.
-    // If localStorage is full (calibration datasets), clear them first.
-    const blob = JSON.stringify(weights);
-    try {
-      localStorage.setItem('customDefaultWeights', blob);
+    // Selecting a preset already persists; this is the manual confirmation for
+    // hand-tuned weights. The quota eviction lives in saveBrowserDefaultWeights
+    // so both paths behave identically.
+    if (saveBrowserDefaultWeights(weights)) {
       toast({
         title: "Default Weights Saved",
         description: "Current weights have been saved as your new defaults.",
       });
-    } catch {
-      // Storage full — evict calibration caches and retry
-      Object.keys(localStorage)
-        .filter(k => k.startsWith('calibration_dataset_'))
-        .forEach(k => localStorage.removeItem(k));
-      try {
-        localStorage.setItem('customDefaultWeights', blob);
-        toast({
-          title: "Default Weights Saved",
-          description: "Saved (cleared old calibration cache to free space).",
-        });
-      } catch {
-        toast({
-          title: "Save Failed",
-          description: "Browser storage is full and could not be cleared. Try closing other tabs or clearing site data.",
-          variant: "destructive",
-        });
-      }
+    } else {
+      toast({
+        title: "Save Failed",
+        description: "Browser storage is full and could not be cleared. Try closing other tabs or clearing site data.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -187,6 +175,10 @@ const WeightManager: React.FC<WeightManagerProps> = ({
   const applyPreset = (preset: WeightPreset) => {
     setSelectedPreset(preset.name);
     onWeightsChange(preset.weights);
+    // Selecting a preset IS choosing a default. Without this the choice is lost
+    // on reload — which is why re-picking V42 every session was part of the
+    // routine on a deployment with no backend to persist to.
+    saveBrowserDefaultWeights(preset.weights);
   };
 
   const toggleCategory = (category: string) => {

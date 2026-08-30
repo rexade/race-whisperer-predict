@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_WEIGHTS } from '../types';
 import {
   loadBrowserDefaultWeights,
+  saveBrowserDefaultWeights,
   NORMALIZATION_WEIGHT_MAX,
   parseNormalizationWeights,
 } from '../weightConfig';
@@ -45,5 +46,35 @@ describe('weight configuration', () => {
     await expect(initWeightsFromApi()).resolves.toEqual({
       weights: { ...DEFAULT_WEIGHTS, oddsLive: 2 },
     });
+  });
+
+  it('saves weights as the browser default', () => {
+    expect(saveBrowserDefaultWeights({ ...DEFAULT_WEIGHTS, oddsLive: 2 })).toBe(true);
+    expect(loadBrowserDefaultWeights()?.oddsLive).toBe(2);
+  });
+
+  it('evicts calibration caches and retries when storage is full', () => {
+    localStorage.setItem('calibration_dataset_6mo', 'x');
+    let firstCall = true;
+    const real = Storage.prototype.setItem;
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (k === 'customDefaultWeights' && firstCall) { firstCall = false; throw new Error('QuotaExceededError'); }
+      return real.call(this, k, v);
+    });
+
+    const ok = saveBrowserDefaultWeights({ ...DEFAULT_WEIGHTS, oddsLive: 3 });
+
+    expect(ok).toBe(true);
+    expect(localStorage.getItem('calibration_dataset_6mo')).toBeNull();
+    expect(loadBrowserDefaultWeights()?.oddsLive).toBe(3);
+    spy.mockRestore();
+  });
+
+  it('reports failure when storage cannot be written at all', () => {
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError');
+    });
+    expect(saveBrowserDefaultWeights({ ...DEFAULT_WEIGHTS })).toBe(false);
+    spy.mockRestore();
   });
 });
