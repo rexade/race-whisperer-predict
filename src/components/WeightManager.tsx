@@ -158,12 +158,22 @@ const WeightManager: React.FC<WeightManagerProps> = ({
             const parsedWeights = parseNormalizationWeights(imported.weights ?? imported);
             if (!parsedWeights) throw new Error('Invalid weights');
 
+            // `exportWeights` writes both halves of the model, so import has to
+            // read both back or a round trip silently returns flat curves.
+            const curves = imported.postPositionCurves;
+            const hasCurves = !!curves
+              && typeof curves.auto === 'object' && curves.auto !== null
+              && typeof curves.volte === 'object' && curves.volte !== null;
+
             onWeightsChange(parsedWeights);
+            if (hasCurves) onPostPositionCurvesChange?.(curves as PostPositionCurves);
             toast({
               title: "Model Imported",
-              description: imported.weights
-                ? "Weights imported successfully."
-                : "Legacy weight configuration imported successfully.",
+              description: !imported.weights
+                ? "Legacy weight configuration imported successfully."
+                : hasCurves
+                  ? "Weights and post-position curves imported successfully."
+                  : "Weights imported successfully. The file carried no post-position curves.",
             });
           } catch (error) {
             toast({
