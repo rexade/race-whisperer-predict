@@ -5,14 +5,16 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ChevronDown, ChevronUp, Zap, Banknote, Award, AlertTriangle, Clock, BarChart2, WifiOff } from "lucide-react";
 import { V75HorseResult } from '../hooks/useV75Analysis';
 import { ensureStringForDisplay, formatKmTime, formatEarnings, getShoesDisplay, getShoesColor, getSulkyDisplay } from '../utils/v75DisplayUtils';
-import { useIsMobile } from '../../../hooks/use-mobile';
 import { getLatestKmTimeDisplay } from '../../../services/kmTimeRecords';
 import { hasAnyFlag, computeReliabilityScore, type HorseConfidenceFlags } from '../utils/confidenceFlags';
 import { horseResultDomId } from '../utils/horseResultIdentity';
+import { fieldStrength, rankingScoreSeconds } from '../utils/raceRanking';
 
 interface CompactHorseRowProps {
   horse: V75HorseResult;
   rank: number;
+  /** Every horse's ranking score in this race, so the bar scales within the leg. */
+  fieldSeconds: number[];
   /** Predicted-time gap to the next-ranked horse (seconds) — winner card confidence bar. */
   marginToNext?: number;
   /** Model ranks this horse well above its betting support — highlight as value. */
@@ -143,9 +145,10 @@ const ReliabilityDot: React.FC<{ score: number; tooltip: string }> = ({ score, t
 
 // ──────────────────────────────────────────────────────────────────────────────
 
-const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginToNext, isValuePick }) => {
-  const [showDebug, setShowDebug] = useState(false);
-  const isMobile = useIsMobile();
+const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, fieldSeconds, marginToNext, isValuePick }) => {
+  // Collapsed by default. A handicap field runs to thirteen horses; showing every
+  // form signal for all of them puts about three on a phone screen.
+  const [expanded, setExpanded] = useState(false);
   const result = horse.modernNormalizedResult!;
   const isTopPerformer = rank <= 3;
   const isWinnerPick = rank === 1;
@@ -157,6 +160,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
   const programNumber = horse.startNumber ?? horse.postPosition;
   const latestKmTime = horse.kmTimeRecords?.length ? getLatestKmTimeDisplay(horse.kmTimeRecords) : null;
   const breakdownId = horseResultDomId(horse);
+  const strength = fieldStrength(rankingScoreSeconds(horse), fieldSeconds);
 
   // Barefoot ("barfota") is the fast setup; the change flag means it's new for this start
   const isBarefoot = horse.shoesFront === false || horse.shoesBack === false;
@@ -196,12 +200,12 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
   return (
     <>
       <div
-        className={`${getRowStyle(rank)} p-2 sm:p-3 transition-all duration-200 ${isMobile ? 'cursor-pointer' : ''}`}
-        onClick={isMobile ? () => setShowDebug(!showDebug) : undefined}
-        onKeyDown={isMobile ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowDebug(!showDebug); } } : undefined}
-        role={isMobile ? 'button' : undefined}
-        tabIndex={isMobile ? 0 : -1}
-        aria-expanded={showDebug}
+        className={`${getRowStyle(rank)} p-2 sm:p-3 min-h-[44px] transition-all duration-200 cursor-pointer`}
+        onClick={() => setExpanded(!expanded)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(!expanded); } }}
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
         aria-controls={breakdownId}
       >
         {/* Main content - always visible */}
@@ -306,13 +310,13 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={(e) => { e.stopPropagation(); setShowDebug(!showDebug); }}
+                onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
                 className="hidden sm:inline-flex h-5 w-5 p-0 opacity-60 hover:opacity-100 flex-shrink-0"
-                aria-label={showDebug ? 'Collapse normalization breakdown' : 'Expand normalization breakdown'}
-                aria-expanded={showDebug}
+                aria-label={expanded ? 'Collapse horse detail' : 'Expand horse detail'}
+                aria-expanded={expanded}
                 aria-controls={breakdownId}
               >
-                {showDebug ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               </Button>
             </div>
           </div>
@@ -375,7 +379,17 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
           </div>
         </div>
 
-        {/* Secondary info row */}
+        {/* Predicted time as a bar, scaled within this race. Lets the shape of a
+            leg be read without parsing thirteen km-times — a near-full bar with a
+            visible drop behind it is a spik at a glance. */}
+        <div className="h-[3px] rounded-sm bg-muted overflow-hidden mt-1.5" aria-hidden="true">
+          <div className="h-full bg-primary transition-all" style={{ width: `${strength * 100}%` }} />
+        </div>
+
+        {/* Form detail — one tap away. Collapsed, the row carries number, name,
+            predicted time, market and the strength bar; that is what a field is
+            scanned on. */}
+        {expanded && (
         <div className="flex items-center justify-between mt-1 sm:mt-2 gap-2">
           <div className="flex items-center gap-2 text-xs flex-wrap">
             {/* Horse win % */}
@@ -457,6 +471,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
             </Tooltip>
           </div>
         </div>
+        )}
 
         {/* Winner card: margin-to-next confidence strip */}
         {isWinnerPick && marginPct !== undefined && (
@@ -469,13 +484,13 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, marginTo
               <span className="eyebrow">
                 {marginToNext! >= 0.8 ? 'Spikkandidat' : marginToNext! >= 0.3 ? 'Klar favorit' : 'Jämnt lopp — gardera'}
               </span>
-              <span className="eyebrow" aria-hidden="true">{showDebug ? '▲ detaljer' : '▼ detaljer'}</span>
+              <span className="eyebrow" aria-hidden="true">{expanded ? '▲ detaljer' : '▼ detaljer'}</span>
             </div>
           </div>
         )}
       </div>
 
-      {showDebug && (
+      {expanded && (
         <div id={breakdownId} className="bg-muted/50 sm:border-b sm:border-border/50">
           {/* Sectional km-time details — only shown in debug panel */}
           {latestKmTime && (latestKmTime.first200 != null || latestKmTime.last200 != null || latestKmTime.best100 != null || latestKmTime.actualKMTime != null || latestKmTime.slipstreamDistance != null) && (
