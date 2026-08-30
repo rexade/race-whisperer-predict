@@ -44,14 +44,14 @@
 @layer base {
   :root {
     /* Day edition — warm paper & ink */
-    --background: 40 45% 96%;
-    --foreground: 30 16% 12%;
+    --background: 220 20% 98%;
+    --foreground: 222 15% 12%;
 
-    --card: 45 60% 98%;
-    --card-foreground: 30 16% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 15% 12%;
 
-    --popover: 45 60% 98%;
-    --popover-foreground: 30 16% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 15% 12%;
 
     /* Primary: burnt orange (program accent) */
     --primary: 22 71% 41%;
@@ -59,12 +59,12 @@
     --primary-hover: 22 71% 34%;
 
     /* Secondary: deeper paper */
-    --secondary: 39 35% 90%;
+    --secondary: 220 14% 94%;
     --secondary-foreground: 30 16% 12%;
 
     /* Muted: aged paper */
-    --muted: 39 30% 90%;
-    --muted-foreground: 35 13% 46%;
+    --muted: 220 14% 94%;
+    --muted-foreground: 220 9% 40%;
 
     /* Accent: warm amber */
     --accent: 35 85% 44%;
@@ -84,8 +84,8 @@
     --warning-foreground: 0 0% 100%;
 
     /* Border and Input: hairline rules */
-    --border: 38 26% 81%;
-    --input: 38 26% 81%;
+    --border: 220 13% 88%;
+    --input: 220 13% 88%;
     --ring: 22 71% 41%;
 
     /* Semantic color aliases (legacy names kept; values follow the theme) */

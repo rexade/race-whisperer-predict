@@ -7,7 +7,7 @@ import './App.css';
 
 function App() {
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" disableTransitionOnChange>
+    <ThemeProvider attribute="class" defaultTheme="light" disableTransitionOnChange>
       <TooltipProvider delayDuration={300}>
       <DebugErrorBoundary>
         <div className="min-h-screen bg-background font-primary">
