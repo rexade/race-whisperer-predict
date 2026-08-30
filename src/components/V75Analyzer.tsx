@@ -179,9 +179,16 @@ const V75Analyzer: React.FC = () => {
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b-2 border-foreground/70">
         <div className="container mx-auto px-3 sm:px-6">
           <div className="flex items-center justify-between h-14 gap-2 sm:gap-4">
-            {/* Left: masthead brand */}
+            {/* Left: masthead brand + what is currently on screen. On a phone the
+                controls sit behind the menu, so without this the header says
+                nothing about which game and date the results below belong to. */}
             <div className="flex items-center gap-2 min-w-0">
               <span className="font-display italic font-bold text-lg tracking-tight truncate">TrotAnalyzer</span>
+              {v75Results.length > 0 && analysisDate && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs num text-muted-foreground whitespace-nowrap">
+                  {gameType} · {analysisDate}
+                </span>
+              )}
             </div>
 
             {/* Desktop center: game switcher · date · analyze · export */}
