@@ -18,6 +18,8 @@ interface CompactHorseRowProps {
   marginToNext?: number;
   /** Model ranks this horse well above its betting support — highlight as value. */
   isValuePick?: boolean;
+  /** Shortest distance in the field — the front line a handicap's tillägg is measured from. */
+  frontLineDistance?: number;
 }
 
 const uncertainLabel: Record<string, string> = {
@@ -144,7 +146,7 @@ const ReliabilityDot: React.FC<{ score: number; tooltip: string }> = ({ score, t
 
 // ──────────────────────────────────────────────────────────────────────────────
 
-const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, fieldSeconds, marginToNext, isValuePick }) => {
+const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, fieldSeconds, marginToNext, isValuePick, frontLineDistance }) => {
   // Collapsed by default. A handicap field runs to thirteen horses; showing every
   // form signal for all of them puts about three on a phone screen.
   const [expanded, setExpanded] = useState(false);
@@ -160,6 +162,14 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, fieldSec
   const latestKmTime = horse.kmTimeRecords?.length ? getLatestKmTimeDisplay(horse.kmTimeRecords) : null;
   const breakdownId = horseResultDomId(horse);
   const strength = fieldStrength(rankingScoreSeconds(horse), fieldSeconds);
+
+  // Tillägg: metres this horse gives away to the front line. Measured against the
+  // shortest distance actually in the field rather than the race's headline
+  // distance, because that is what "behind the front line" means in a handicap
+  // and it is 0 for every horse in an ordinary race.
+  const tillagg = frontLineDistance !== undefined && Number.isFinite(horse.distance)
+    ? horse.distance - frontLineDistance
+    : 0;
 
   // Barefoot ("barfota") is the fast setup; the change flag means it's new for this start
   const isBarefoot = horse.shoesFront === false || horse.shoesBack === false;
@@ -214,7 +224,7 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, fieldSec
         {/* Programme number above, rank below. The programme number is what
             identifies the horse on the ATG card and on a ticket, so it is the
             prominent numeral; rank is already implied by the row's position in
-            a rank-sorted list. Post position moves to the meta line, because in
+            a rank-sorted list. Post position is expanded-row detail, because in
             a handicap race it restarts at each tillägg tier -- three horses can
             all be "Spår 1" -- and standing alone beside a horse it reads as a
             programme number that does not match the card. */}
@@ -236,82 +246,29 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, fieldSec
           </div>
         </div>
 
-        {/* Horse Info - Primary column */}
+        {/* Horse Info — name only. Driver, spår, tillägg, barfota, confidence
+            and the flag strip are expanded-row content per the spec; carrying
+            them on every row is what put three horses on a phone screen. */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start gap-2">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <div className={`font-display leading-tight truncate ${isWinnerPick ? 'font-bold text-base' : 'font-semibold text-[15px]'}`}>{safeHorseName}</div>
-                {/* Value pick: model ranks this horse well above its betting support */}
-                {isValuePick && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/15 text-success font-bold whitespace-nowrap cursor-default">
-                        VÄRDE
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      The model ranks this horse well above its betting support ({horse.betDistribution?.toFixed(1)}% of bets) — a potential value play
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-                {/* History source badge */}
-                {horse.historySource === "local" && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary whitespace-nowrap">Local</span>
-                )}
-                {horse.historySource === "abroad" && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground whitespace-nowrap">Abroad</span>
-                )}
-                {horse.historySource === "none" && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground whitespace-nowrap">No data</span>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                <div className="text-xs text-muted-foreground leading-tight truncate">{safeDriverName}</div>
-                <span className="text-[10px] text-muted-foreground whitespace-nowrap">Spår {horse.postPosition}</span>
-                {/* Barfota — the fast setup; "idag" when switched for this start */}
-                {isBarefoot && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success font-semibold whitespace-nowrap cursor-default">
-                        barfota{shoesChangedToday ? ' idag' : ''} ✓
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {shoesChangedToday
-                        ? 'Shoes pulled for this start — a go-fast signal'
-                        : 'Races barefoot (front and/or back)'}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-                {/* Confidence indicator */}
-                {horse.confidence !== undefined && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div
-                        className="text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 cursor-default"
-                        aria-label={`Data confidence: ${horse.confidence}%`}
-                      >
-                        <span className={confidenceColor} aria-hidden="true">●</span>
-                        <span className="text-muted-foreground tabular-nums">{horse.confidence}%</span>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      Data confidence: {horse.confidence}%
-                      {horse.confidence < 50 && ' — limited historical data'}
-                      {horse.confidence >= 50 && horse.confidence < 80 && ' — moderate data coverage'}
-                      {horse.confidence >= 80 && ' — strong data coverage'}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-              {/* Per-horse confidence flags — only rendered when at least one flag is raised */}
-              {flags && <ConfidenceFlagStrip flags={flags} />}
-            </div>
+          <div className="flex items-center gap-1.5">
+            <div className={`font-display leading-tight truncate ${isWinnerPick ? 'font-bold text-base' : 'font-semibold text-[15px]'}`}>{safeHorseName}</div>
+            {/* Value pick: model ranks this horse well above its betting support */}
+            {isValuePick && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/15 text-success font-bold whitespace-nowrap cursor-default">
+                    VÄRDE
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  The model ranks this horse well above its betting support ({horse.betDistribution?.toFixed(1)}% of bets) — a potential value play
+                </TooltipContent>
+              </Tooltip>
+            )}
           </div>
         </div>
 
-        {/* Times — Pred most prominent, Raw + Best secondary */}
+        {/* Times — the predicted km-time, which is what the ranking is */}
         <div className="flex flex-col gap-1 min-w-0">
           {/* Predicted Time */}
           <div className="text-center">
@@ -342,22 +299,6 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, fieldSec
             </div>
           </div>
 
-          {/* Raw and Best */}
-          <div className="flex gap-2 justify-center">
-            <div className="text-center">
-              <div className="num text-xs font-medium text-muted-foreground">
-                {horse.rawKmTime ? formatKmTime(horse.rawKmTime) : '—'}
-              </div>
-              <div className="text-xs text-muted-foreground">Raw</div>
-            </div>
-            <div className="text-center">
-              <div className="num text-xs font-medium text-muted-foreground">
-                {horse.bestRecordTime ? formatKmTime(horse.bestRecordTime) : '—'}
-              </div>
-              <div className="text-xs text-muted-foreground">Best</div>
-            </div>
-          </div>
-
           {/* Market line — the numbers a bettor cross-checks against */}
           {(horse.liveOdds !== undefined || horse.betDistribution !== undefined) && (
             <div className="num text-[11px] text-muted-foreground text-center whitespace-nowrap">
@@ -380,11 +321,85 @@ const CompactHorseRow: React.FC<CompactHorseRowProps> = ({ horse, rank, fieldSec
         <div className="h-full bg-primary transition-all" style={{ width: `${strength * 100}%` }} />
       </div>
 
-      {/* Form detail — one tap away. Collapsed, the row carries number, name,
-          predicted time, market and the strength bar; that is what a field is
-          scanned on. */}
+      {/* Form detail — one tap away, and the region `aria-controls` names.
+          Collapsed, the row carries number, name, predicted time, market and
+          the strength bar; that is what a field is scanned on. */}
       {expanded && (
-        <div id={breakdownId} className="mt-1 sm:mt-2 space-y-1.5">
+        <div id={breakdownId} className="mt-1.5 sm:mt-2 space-y-1.5">
+          {/* Who drives it, where it starts from, and what it is wearing */}
+          <div className="flex items-center gap-x-2 gap-y-1 flex-wrap">
+            <span className="text-xs text-muted-foreground leading-tight">{safeDriverName}</span>
+            <span className="text-[10px] text-muted-foreground whitespace-nowrap">Spår {horse.postPosition}</span>
+            {/* Tillägg — metres behind the front line in a handicap. Absent in an
+                ordinary race, where the whole field starts off the same mark. */}
+            {tillagg > 0 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="num text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground whitespace-nowrap cursor-default">
+                    +{tillagg} m tillägg
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Starts {tillagg} m behind the front line — {horse.distance} m against {frontLineDistance} m
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {/* Barfota — the fast setup; "idag" when switched for this start */}
+            {isBarefoot && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-success font-semibold whitespace-nowrap cursor-default">
+                    barfota{shoesChangedToday ? ' idag' : ''} ✓
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {shoesChangedToday
+                    ? 'Shoes pulled for this start — a go-fast signal'
+                    : 'Races barefoot (front and/or back)'}
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {/* Confidence indicator */}
+            {horse.confidence !== undefined && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    className="text-[10px] rounded flex items-center gap-1 cursor-default"
+                    aria-label={`Data confidence: ${horse.confidence}%`}
+                  >
+                    <span className={confidenceColor} aria-hidden="true">●</span>
+                    <span className="text-muted-foreground tabular-nums">{horse.confidence}%</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Data confidence: {horse.confidence}%
+                  {horse.confidence < 50 && ' — limited historical data'}
+                  {horse.confidence >= 50 && horse.confidence < 80 && ' — moderate data coverage'}
+                  {horse.confidence >= 80 && ' — strong data coverage'}
+                </TooltipContent>
+              </Tooltip>
+            )}
+            {/* Where the history behind the prediction came from */}
+            {horse.historySource === "local" && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary whitespace-nowrap">Local</span>
+            )}
+            {horse.historySource === "abroad" && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground whitespace-nowrap">Abroad</span>
+            )}
+            {horse.historySource === "none" && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground whitespace-nowrap">No data</span>
+            )}
+          </div>
+
+          {/* Per-horse confidence flags — only rendered when at least one flag is raised */}
+          {flags && <ConfidenceFlagStrip flags={flags} />}
+
+          {/* The two unnormalised times the prediction is built from */}
+          <div className="flex items-center gap-3 num text-xs text-muted-foreground">
+            <span>Raw <span className="font-medium text-foreground/80">{horse.rawKmTime ? formatKmTime(horse.rawKmTime) : '—'}</span></span>
+            <span>Best <span className="font-medium text-foreground/80">{horse.bestRecordTime ? formatKmTime(horse.bestRecordTime) : '—'}</span></span>
+          </div>
+
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-xs flex-wrap">
               {/* Horse win % */}

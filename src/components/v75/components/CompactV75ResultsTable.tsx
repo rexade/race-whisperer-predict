@@ -42,6 +42,12 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race, l
   const fieldSeconds = sortedHorses.map(rankingScoreSeconds);
   const verdict = legConfidence(winnerMargin);
 
+  // Handicap front line: the shortest distance anyone in this leg actually runs.
+  // Every horse's tillägg is the gap to it, which is 0 across the board in an
+  // ordinary race — so the row can decide for itself whether to show anything.
+  const runDistances = race.horses.map(h => h.distance).filter(Number.isFinite);
+  const frontLineDistance = runDistances.length ? Math.min(...runDistances) : undefined;
+
   const startMethodLabel = race.startMethod?.toLowerCase() === 'volte' ? 'VOLTSTART' : 'AUTOSTART';
 
   return (
@@ -82,6 +88,7 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race, l
               fieldSeconds={fieldSeconds}
               marginToNext={index === 0 ? winnerMargin : undefined}
               isValuePick={valuePicks.has(horseResultKey(horse))}
+              frontLineDistance={frontLineDistance}
             />
           ))}
           
