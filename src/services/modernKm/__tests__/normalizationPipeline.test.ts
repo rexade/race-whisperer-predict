@@ -326,23 +326,28 @@ describe('calculateTrackFamiliarityAdjustment', () => {
 });
 
 describe('calculateVolteStartDistancePenalty', () => {
+  // The penalty is now the exact km-time cost of the ground given away rather
+  // than a flat rate; the arithmetic itself is covered in tillaggPenalty.test.ts.
+  const KM = 75;
+
   it('returns 0 for non-volte start methods', () => {
-    expect(calculateVolteStartDistancePenalty('auto', 2200, 2140)).toBe(0);
-    expect(calculateVolteStartDistancePenalty('',     2200, 2140)).toBe(0);
+    expect(calculateVolteStartDistancePenalty('auto', 2200, 2140, KM)).toBe(0);
+    expect(calculateVolteStartDistancePenalty('',     2200, 2140, KM)).toBe(0);
   });
 
   it('returns 0 in a volte when horse distance ≤ race distance', () => {
-    expect(calculateVolteStartDistancePenalty('volte', 2140, 2140)).toBe(0);
-    expect(calculateVolteStartDistancePenalty('volte', 2000, 2140)).toBe(0);
+    expect(calculateVolteStartDistancePenalty('volte', 2140, 2140, KM)).toBe(0);
+    expect(calculateVolteStartDistancePenalty('volte', 2000, 2140, KM)).toBe(0);
   });
 
-  it('returns VOLTE_BACK_MARKER_PENALTY_S (+0.40) when back-marker in volte', () => {
-    expect(calculateVolteStartDistancePenalty('volte', 2200, 2140)).toBeCloseTo(0.4, 5);
+  it('charges the km-time cost of the tillägg for a back-marker', () => {
+    // 75 * 60 / 2200
+    expect(calculateVolteStartDistancePenalty('volte', 2200, 2140, KM)).toBeCloseTo(2.045, 3);
   });
 
   it('matches case-insensitively on "volte"', () => {
-    expect(calculateVolteStartDistancePenalty('Volte', 2200, 2140)).toBeCloseTo(0.4, 5);
-    expect(calculateVolteStartDistancePenalty('VOLTE START', 2200, 2140)).toBeCloseTo(0.4, 5);
+    expect(calculateVolteStartDistancePenalty('Volte', 2200, 2140, KM)).toBeCloseTo(2.045, 3);
+    expect(calculateVolteStartDistancePenalty('VOLTE START', 2200, 2140, KM)).toBeCloseTo(2.045, 3);
   });
 });
 

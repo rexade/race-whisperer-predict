@@ -4,7 +4,6 @@ import {
   SHORTER_DISTANCE_RATE_S_PER_KM,
   LONGER_DISTANCE_RATE_S_PER_KM,
   HOME_TRACK_ADJ_S,
-  VOLTE_BACK_MARKER_PENALTY_S,
   TRIP_DEPENDENCY_OUTSIDE_THRESHOLD,
   TRIP_DEPENDENCY_MIN_OUTSIDE,
   TRIP_DEPENDENCY_MIN_RECORDS,
@@ -85,18 +84,34 @@ export const calculateTrackFamiliarityAdjustment = (
 export const calculateVolteStartDistancePenalty = (
   startMethod: string,
   horseDistance: number,
-  raceDistance: number
+  raceDistance: number,
+  kmTimeSeconds: number
 ): number => {
   const isVolte = Boolean(startMethod) &&
     startMethod.toLowerCase().includes('volte');
 
-  if (!isVolte || horseDistance <= raceDistance) {
+  const tillagg = horseDistance - raceDistance;
+  if (!isVolte || tillagg <= 0) {
     log.debug(`[voltePenalty] not applicable → 0.000s`);
     return 0;
   }
+  if (!Number.isFinite(kmTimeSeconds) || kmTimeSeconds <= 0) {
+    log.debug(`[voltePenalty] no usable km-time → 0.000s`);
+    return 0;
+  }
 
-  log.debug(`[voltePenalty] volte back-marker (${horseDistance}m > ${raceDistance}m) → +${VOLTE_BACK_MARKER_PENALTY_S.toFixed(3)}s`);
-  return VOLTE_BACK_MARKER_PENALTY_S;
+  // Exact, not fitted. Two horses crossing together cover D and D+d, so their
+  // km-times are 1000T/D and 1000T/(D+d); for the back-marker to dead-heat its
+  // km-time must be faster by kmTime * d / (D + d). That is what its predicted
+  // time has to carry before the two are comparable.
+  //
+  // This replaced a flat 0.4s charged to every back-marker regardless of
+  // distance, which over-penalised the common 20m tillagg by more than double
+  // and under-penalised 60m and beyond -- nearly all of the charge was flat
+  // where the real cost is linear in the ground given away.
+  const penalty = kmTimeSeconds * tillagg / (raceDistance + tillagg);
+  log.debug(`[voltePenalty] +${tillagg}m over ${raceDistance}m at ${kmTimeSeconds.toFixed(1)}s/km → +${penalty.toFixed(3)}s`);
+  return penalty;
 };
 
 /**

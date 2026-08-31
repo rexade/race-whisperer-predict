@@ -151,7 +151,11 @@ export const applyModernKmNormalization = (
   adjustments.distance =
     calculateDistanceAdjustment(factors.distance, factors.raceDistance) * weights.distanceAdjustment;
   adjustments.volteStartDistancePenalty =
-    calculateVolteStartDistancePenalty(factors.startMethod, factors.distance, factors.raceDistance)
+    calculateVolteStartDistancePenalty(
+      factors.startMethod, factors.distance, factors.raceDistance,
+      // The horse's own km-time: a tillagg costs more seconds in a slower race.
+      baseTime.minutes * 60 + baseTime.seconds + baseTime.tenths / 10
+    )
     * weights.volteStartDistancePenalty
     * (factors.enableTripDependencyModifier ? calculateTripDependencyModifier(factors.recentRaces) : 1);
 

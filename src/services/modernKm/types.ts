@@ -160,7 +160,7 @@ export const DEFAULT_WEIGHTS: NormalizationWeights = {
   form: 2.000,
   distanceAdjustment: 3.000,
   raceDistanceAdjustment: 1.556,
-  volteStartDistancePenalty: 3.000,
+  volteStartDistancePenalty: 1.000,
   startPoints: 0.000,
   placePercentage: 0.000,
   horseWinPercentage: 2.000,
