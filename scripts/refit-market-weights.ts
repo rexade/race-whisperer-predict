@@ -20,6 +20,27 @@ function argValue(f: string) { const i = process.argv.indexOf(f); return i >= 0 
 // small: this dataset supports a handful of free parameters, not 25.
 const DEFAULT_KNOBS = 'oddsLive,betDistribution,oddsHistorical';
 const KNOBS = (argValue('--knobs') ?? DEFAULT_KNOBS).split(',').map(s => s.trim()) as Array<keyof NormalizationWeights>;
+/**
+ * What the search maximises. MRR scores one observation per race -- where the
+ * winner landed -- and throws the rest of the finish order away.
+ *
+ * 'pl' is kept for completeness but MEASURED DEGENERATE as a fit target, and
+ * the reason is structural rather than a tuning accident. plLogLik builds
+ * strengths as -predSeconds / PL_TAU_SECONDS with tau = 0.5, so a 75s km-time
+ * becomes a strength near -150 and a three-second spread across a field becomes
+ * roughly a 400:1 probability ratio. The model picks the winner about 39% of
+ * the time, so confident-and-wrong dominates the average log-likelihood, and
+ * the cheapest way to raise it is to stop predicting: flatten the field until
+ * every horse looks alike.
+ *
+ * Run on 2026-08-31 it did exactly that -- drove oddsLive and betDistribution
+ * to 0, discarding the strongest signal in the model -- and scored holdout MRR
+ * 0.4625 / win 27.2% against 0.5829 / 39.1% for the MRR-fitted default. Fitting
+ * on it requires a tau on the order of the field's time spread first.
+ */
+const OBJECTIVE = (argValue('--objective') ?? 'mrr') as 'mrr' | 'pl';
+const objectiveOf = (e: { winnerMRR: number; plLogLik: number }) =>
+  OBJECTIVE === 'pl' ? e.plLogLik : e.winnerMRR;
 const COARSE = [0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0, 5.0];
 const GRID = (knob: string): number[] => (knob === 'oddsHistorical' ? [0, 0.25, 0.5, 1.0] : COARSE);
 
@@ -31,15 +52,15 @@ async function main() {
   console.log(`train ${train.reduce((s, d) => s + d.races.length, 0)} races / holdout ${holdout.reduce((s, d) => s + d.races.length, 0)} races\n`);
 
   let best: NormalizationWeights = { ...cfg.weights };
-  let bestMRR = (await evaluateWeights(train, best, cfg.postPositionCurves)).winnerMRR;
-  console.log(`start  trainMRR=${bestMRR.toFixed(4)}  tuning: ${KNOBS.join(', ')}`);
+  let bestMRR = objectiveOf(await evaluateWeights(train, best, cfg.postPositionCurves));
+  console.log(`start  trainMRR=${bestMRR.toFixed(4)}  objective=${OBJECTIVE} tuning: ${KNOBS.join(', ')}`);
 
   for (let round = 1; round <= 2; round++) {
     for (const knob of KNOBS) {
       for (const value of GRID(knob)) {
         if (value === best[knob]) continue;
         const candidate = { ...best, [knob]: value };
-        const mrr = (await evaluateWeights(train, candidate, cfg.postPositionCurves)).winnerMRR;
+        const mrr = objectiveOf(await evaluateWeights(train, candidate, cfg.postPositionCurves));
         if (mrr > bestMRR) { bestMRR = mrr; best = candidate; console.log(`  r${round} ${knob}=${value} → trainMRR=${mrr.toFixed(4)} *`); }
       }
     }
