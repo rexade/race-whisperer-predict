@@ -16,6 +16,58 @@ export interface WeightPreset {
 
 export const WEIGHT_PRESETS: WeightPreset[] = [
   {
+    name: 'V43 — Forward-selected (2026-08-30)',
+    description:
+      'Current DEFAULT_WEIGHTS, and the best measured configuration in the repo. ' +
+      'Forward-selected over 24 weights on 2163 training races, read once on a ' +
+      '604-race holdout: MRR 0.5829 / win 39.1%, against V42 at 0.5578 and the ' +
+      'market favourite at 0.5741 / 36.9%. Its +2.2pp over the market is one race ' +
+      'in 604 by McNemar (z = 1.57) — best available, not a demonstrated edge. ' +
+      'postPosition is 0 because the odds already price the gate, not because the ' +
+      'gate stopped mattering: refit without market access and it returns at 1.0. ' +
+      'Needs driver ratings present, or driverEmpirical contributes nothing.',
+    category: 'balanced',
+    weights: {
+      postPosition: 0.000,
+      shoeType: 1.500,
+      sulkyType: 2.000,
+      driverPerformance: 0.250,
+      driverForm: 0.000,
+      driverEmpirical: 3.000,
+      trackFamiliarity: 3.000,
+      form: 2.000,
+      distanceAdjustment: 3.000,
+      raceDistanceAdjustment: 1.556,
+      volteStartDistancePenalty: 3.000,
+      startPoints: 0.000,
+      placePercentage: 0.000,
+      horseWinPercentage: 2.000,
+      earningsPerStart: 0.000,
+      gallopRisk: 0.000,
+      layoffPenalty: 2.000,
+      ageFactor: 0.000,
+      genderAdjustment: 0.500,
+      consistencyFactor: 1.000,
+      trainerPerformance: 0.000,
+      oddsHistorical: 0.000,
+      oddsLive: 5.000,
+      betDistribution: 5.000,
+      shoeChange: 3.000,
+    },
+    postPositionCurves: {
+      auto: {
+        1: -0.138, 2: -0.075, 3: -0.150, 4: -0.250, 5: -0.025, 6: -0.050, 7: 0.300,
+        8: 0.350, 9: 0.550, 10: 0.750, 11: 0.675, 12: 0.800, 13: 1.000, 14: 0.875,
+        15: 0.850,
+      },
+      volte: {
+        1: -0.350, 2: -0.350, 3: -0.125, 4: 0.100, 5: 0.150, 6: -0.075, 7: 0.250,
+        8: 0.175, 9: 0.475, 10: 0.450, 11: 0.750, 12: 0.775, 13: 1.000, 14: 0.913,
+        15: 0.875,
+      },
+    },
+  },
+  {
     name: 'V42 — V41 with refitted oddsLive (2026-08-29)',
     description:
       'V41 with a single weight changed: oddsLive 0.577 → 2.0, refitted after the odds ' +

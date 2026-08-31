@@ -135,42 +135,48 @@ export interface NormalizationWeights {
   shoeChange?: number;
 }
 
-// Legacy V41 preset retained as the current default. Its historical reports predate
-// the corrected driver-rating and estimated-horse evaluation pipeline, so the old
-// holdout metrics are not evidence for performance under the current implementation.
-// Pairs with the FLAT curves in getDefaultPostPositionCurves() (tuned together).
+/**
+ * Forward-selected on 2163 training races and read once on a 604-race holdout it
+ * never saw: MRR 0.5829 / win 39.1%, against 0.5578 for V42 and 0.5741 for the
+ * market favourite. Best measured configuration in the repo.
+ *
+ * Read the shape before changing it. oddsLive and betDistribution are both at
+ * the search ceiling because the market carries most of the signal, and
+ * postPosition is 0 not because the gate stops mattering but because the odds
+ * already price it -- a refit without market access revives it at 1.0. The
+ * +2.2pp over the market is one race in 604 by McNemar (z = 1.57): this is the
+ * best available configuration, not a demonstrated edge.
+ *
+ * trainerPerformance stays 0 -- see the note below.
+ */
 export const DEFAULT_WEIGHTS: NormalizationWeights = {
-  postPosition: 0.908,
-  shoeType: 0.000,
-  sulkyType: 0.300,
-  driverPerformance: 0.733,
-  driverForm: 0.200,
-  driverEmpirical: 3.194,
-  trackFamiliarity: 0.100,
-  form: 1.406,
-  distanceAdjustment: 0.000,
+  postPosition: 0.000,
+  shoeType: 1.500,
+  sulkyType: 2.000,
+  driverPerformance: 0.250,
+  driverForm: 0.000,
+  driverEmpirical: 3.000,
+  trackFamiliarity: 3.000,
+  form: 2.000,
+  distanceAdjustment: 3.000,
   raceDistanceAdjustment: 1.556,
-  volteStartDistancePenalty: 0.800,
-  startPoints: 1.427,
-  placePercentage: 0.533,
-  horseWinPercentage: 1.379,
-  earningsPerStart: 2.075,
+  volteStartDistancePenalty: 3.000,
+  startPoints: 0.000,
+  placePercentage: 0.000,
+  horseWinPercentage: 2.000,
+  earningsPerStart: 0.000,
   gallopRisk: 0.000,
-  layoffPenalty: 0.766,
+  layoffPenalty: 2.000,
   ageFactor: 0.000,
-  genderAdjustment: 1.250,
-  consistencyFactor: 1.348,
+  genderAdjustment: 0.500,
+  consistencyFactor: 1.000,
   // 0 until refitted, not because trainers do not matter. extractHorseData read
   // start.trainer, which ATG never populates, so this factor returned 0 on every
-  // race. Every optimizer run therefore had no gradient on it and 2.059 was
-  // fitted against zeros -- an arbitrary number, not a measured one. The path is
-  // fixed now, so leaving it at 2.059 would switch on a large unvalidated weight
-  // that no holdout in this repo covers, while 0 reproduces exactly the
-  // behaviour every result was measured under. Re-collect with trainer data and
-  // refit before raising it.
-  trainerPerformance: 0,
-  oddsHistorical: 0.134,
-  oddsLive: 0.577,
-  betDistribution: 1.052,
-  shoeChange: 1.424,
+  // race and 2.059 was fitted against zeros -- an arbitrary number. The path is
+  // fixed now; re-collect with trainer data and refit before raising it.
+  trainerPerformance: 0.000,
+  oddsHistorical: 0.000,
+  oddsLive: 5.000,
+  betDistribution: 5.000,
+  shoeChange: 3.000,
 };
