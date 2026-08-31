@@ -24,7 +24,13 @@ import { GAME_TYPE, GameType } from '@/config/game';
 import { fromCachedRawTime } from '@/services/v75Cache/rawTimeCacheMapper';
 
 /** Strength temperature: 0.5 s predicted-time gap ≈ e:1 odds in the PL model. */
-const PL_TAU_SECONDS = 0.5;
+// Softmax temperature converting predicted seconds to a strength. It must be on
+// the order of the spread of predicted times WITHIN a race, or the likelihood
+// stops measuring what it is meant to: at 0.5 a three-second field becomes a
+// ~400:1 probability ratio, confident-and-wrong dominates the average, and the
+// cheapest way to raise the score is to stop predicting. Overridable so the
+// scale can be swept rather than assumed.
+const PL_TAU_SECONDS = Number(process.env.PL_TAU ?? 5);
 /** Only the first K placings count — deep-field order is noise. */
 const PL_TOP_K = 5;
 
