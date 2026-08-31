@@ -32,6 +32,10 @@ interface Row {
   agrees: boolean;
   margin: number;
   fieldSize: number;
+  distance: number;
+  startMethod: string;
+  /** Handicap: runners start off more than one distance (tillägg tiers). */
+  isHandicap: boolean;
 }
 
 function mrr(rows: Row[], pick: (r: Row) => number | undefined): string {
@@ -85,12 +89,18 @@ async function main() {
       const marketWinnerRank = mkt?.get(winner);
       const marketTop = mkt ? [...mkt.entries()].find(([, v]) => v === 1)?.[0] : undefined;
 
+      const horseDistances = (race.raceData?.horses ?? [])
+        .map((h: any) => h.distance)
+        .filter((d: any) => Number.isFinite(d));
       rows.push({
         winnerRank,
         marketWinnerRank,
         agrees: marketTop !== undefined && marketTop === key(real[0]),
         margin,
         fieldSize: real.length,
+        distance: race.raceData?.distance ?? 0,
+        startMethod: String(race.raceData?.startMethod ?? '').toLowerCase(),
+        isHandicap: new Set(horseDistances).size > 1,
       });
     }
   }
@@ -113,6 +123,31 @@ async function main() {
   console.log();
   report('field <= 9', rows.filter(r => r.fieldSize <= 9), n);
   report('field >= 13', rows.filter(r => r.fieldSize >= 13), n);
+  console.log();
+  // Distance bands follow the calculator's own buckets (postPositionCalculator:
+  // SHORT_DISTANCE_MAX 1640, MEDIUM_DISTANCE_MAX 2400) so the slices line up
+  // with how the model already treats distance.
+  report('sprint  (<= 1640m)', rows.filter(r => r.distance > 0 && r.distance <= 1640), n);
+  report('mid     (1641-2400m)', rows.filter(r => r.distance > 1640 && r.distance <= 2400), n);
+  report('stayer  (> 2400m)', rows.filter(r => r.distance > 2400), n);
+  console.log();
+  report('autostart', rows.filter(r => r.startMethod === 'auto'), n);
+  report('volte', rows.filter(r => r.startMethod === 'volte'), n);
+  console.log();
+  report('handicap (tillagg tiers)', rows.filter(r => r.isHandicap), n);
+  report('level start', rows.filter(r => !r.isHandicap), n);
+  console.log();
+  // volte, handicap and stayer may be three views of the same races -- Swedish
+  // handicaps are usually volte over distance -- so cross-tab before reading
+  // them as three separate findings.
+  const volte = rows.filter(r => r.startMethod === 'volte');
+  const hcp = rows.filter(r => r.isHandicap);
+  const both = rows.filter(r => r.startMethod === 'volte' && r.isHandicap);
+  const stayers = rows.filter(r => r.distance > 2400);
+  const stayerVolte = stayers.filter(r => r.startMethod === 'volte');
+  console.log(`overlap: volte ${volte.length}, handicap ${hcp.length}, both ${both.length}`);
+  console.log(`         stayers ${stayers.length}, of which volte ${stayerVolte.length}`);
+  report('autostart AND level start', rows.filter(r => r.startMethod === 'auto' && !r.isHandicap), n);
   console.log('-'.repeat(96));
   console.log('\nA subset only counts if it is both above 0.60 AND large enough to bet.');
 }
