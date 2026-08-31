@@ -104,7 +104,12 @@ export const buildHorseResult = (
   const confidenceFlags = computeConfidenceFlags(
     rawTimeData,
     rawKmTime,
-    horse.driver?.winPercentage2025
+    horse.driver?.winPercentage2025,
+    // Staleness is relative to the RACE, not to now. Defaulting to new Date()
+    // is right only while analysing today's card: replaying a race from last
+    // season asked "is this form 90 days old today", which is true for almost
+    // every horse and made staleForm fire on 81% of top picks in evaluation.
+    race?.date ? new Date(race.date) : undefined
   );
 
   const normalizedTime = finalNormalizedResult?.modernNormalizedTime;
