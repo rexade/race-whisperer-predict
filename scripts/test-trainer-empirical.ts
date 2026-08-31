@@ -39,6 +39,16 @@ const arg = (f: string) => { const i = process.argv.indexOf(f); return i >= 0 ? 
 // near the base rate rather than at 0% or 100%.
 const PRIOR_RATE = 0.12;
 const PRIOR_STARTS = 10;
+/**
+ * Trainers below this many starts are left unrated rather than smoothed toward
+ * the prior. With a median of 2 starts, most of the field is prior-dominated:
+ * including them adds a near-constant to almost every horse and buries whatever
+ * the well-sampled trainers know. calculateDriverAdjustment is centred on the
+ * same 12% baseline the prior uses, so an unrated trainer scores 0 — the prior
+ * and "no adjustment" coincide, and thin trainers cost nothing rather than
+ * biasing their horses.
+ */
+const MIN_STARTS = Number(arg('--min-starts') ?? 0);
 
 const trainerName = (h: any): string =>
   `${(h?.trainer?.firstName ?? '').trim()} ${(h?.trainer?.lastName ?? '').trim()}`.trim().toLowerCase();
@@ -61,7 +71,10 @@ function computeTrainerRatings(dataset: any[]): Map<string, number> {
   }
   const out = new Map<string, number>();
   const priorWins = PRIOR_RATE * PRIOR_STARTS;
-  for (const [name, c] of counts) out.set(name, (c.wins + priorWins) / (c.starts + PRIOR_STARTS));
+  for (const [name, c] of counts) {
+    if (c.starts < MIN_STARTS) continue;
+    out.set(name, (c.wins + priorWins) / (c.starts + PRIOR_STARTS));
+  }
   return out;
 }
 
