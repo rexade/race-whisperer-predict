@@ -49,7 +49,7 @@ const realFetch = globalThis.fetch.bind(globalThis);
   realFetch(typeof i === 'string' && i.startsWith('/api/atg/') ? ATG + i.slice('/api/atg'.length) : i, o);
 
 import { fetchV75GameInfo, fetchRaceDataForGame } from '../src/services/v75CalendarApi';
-import { isWorthRecording } from '../src/services/analysis/oddsDrift';
+import { isRealPrice, isWorthRecording } from '../src/services/analysis/oddsDrift';
 import type { GameType } from '../src/config/game';
 
 const arg = (f: string) => { const i = process.argv.indexOf(f); return i >= 0 ? process.argv[i + 1] : undefined; };
@@ -114,7 +114,7 @@ async function snapshotCard(date: string, type: GameType, out: string): Promise<
   let withOdds = 0;
   for (const race of races as any[]) {
     for (const h of race.horses ?? []) {
-      const odds = typeof h.liveOdds === 'number' && h.liveOdds > 0 ? h.liveOdds : null;
+      const odds = isRealPrice(typeof h.liveOdds === 'number' ? h.liveOdds : null) ? h.liveOdds : null;
       if (odds !== null) withOdds++;
       rows.push({
         capturedAt, date, type,

@@ -55,6 +55,18 @@ describe('pairByAnchors drop accounting', () => {
     expect(dropped).toEqual({ noEarly: 1, noLate: 1, noOdds: 1, outsideWindow: 0 });
   });
 
+  it('treats a 1.00 price as unpriced, not as a certainty', () => {
+    // ATG reports 1.00 for a hot favourite before the pool develops. Taken at
+    // face value that is an implied probability of 1.0, which would swamp the
+    // within-race normalization and corrupt every other horse in the race.
+    const { paired, dropped } = pairByAnchors([
+      horse('r1', 1, 1440, 1.0), horse('r1', 1, 45, 1.0),
+    ]);
+
+    expect(paired).toHaveLength(0);
+    expect(dropped.noOdds).toBe(1);
+  });
+
   it('counts horses whose captures all fell outside the recording window', () => {
     // Otherwise they vanish between the horse count and the drop totals, and
     // the diagnostics stop adding up - which is how a biased sample hides.

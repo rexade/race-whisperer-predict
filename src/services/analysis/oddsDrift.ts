@@ -23,6 +23,17 @@ export const impliedProbabilities = (odds: number[]): number[] => {
  */
 export const RECORDING_WINDOW = { from: 0, to: 1500 };
 
+/**
+ * Shortest price treated as real. ATG reports 1.00 for a hot favourite before
+ * the pool develops - a tote cannot pay stake-back-and-nothing, and 1/1.00 is
+ * an implied probability of 1.0, which would swamp the within-race
+ * normalization and corrupt every other horse in that race.
+ */
+export const MIN_REAL_ODDS = 1.02;
+
+export const isRealPrice = (odds: number | null): odds is number =>
+  odds !== null && odds >= MIN_REAL_ODDS;
+
 /** Whether a capture this far from the betting deadline is worth a row. */
 export const isWorthRecording = (minutesToDeadline: number | null): boolean =>
   minutesToDeadline !== null
@@ -123,7 +134,7 @@ export const pairByAnchors = (
     const inWindow = group.filter(r => isWorthRecording(r.minutesToDeadline));
     if (inWindow.length === 0) { dropped.outsideWindow++; continue; }
 
-    const priced = inWindow.filter(r => r.odds !== null && r.odds > 0);
+    const priced = inWindow.filter(r => isRealPrice(r.odds));
     if (priced.length === 0) { dropped.noOdds++; continue; }
 
     const early = nearest(priced, anchors.early, anchors.earlyTolerance);
