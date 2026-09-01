@@ -1,4 +1,4 @@
-import { GAME_TYPE, IS_DEBUG, GameType } from "@/config/game";
+import { GAME_TYPE, IS_DEBUG, GameType, SUPPORTED_GAME_TYPES } from "@/config/game";
 import { log } from "@/lib/logger";
 import { fetchRaceById } from "@/services/raceDataCache";
 import { makeHorseKey } from "@/services/horseIdentity";
@@ -137,28 +137,58 @@ export interface V75HorseData {
   };
 }
 
-const SUPPORTED_GAME_TYPES: readonly GameType[] = ['V75', 'V85', 'V86', 'V65'];
-
-const isSupportedGameType = (value: string): value is GameType =>
-  SUPPORTED_GAME_TYPES.includes(value as GameType);
+/** One concrete playable game on a race day — what the picker offers. */
+export interface DayGame extends V75GameInfo {
+  gameType: GameType;
+  trackId: number;
+  raceCount: number;
+}
 
 /**
- * Return analyzer-supported game types that have at least one game on a given date.
+ * Every trot game running on a date, across all supported bet types.
+ *
+ * Several types (V4, V5, V3, vinnare) run at many tracks the same day, so a
+ * game has to be identified by id rather than by type alone. Gallop cards are
+ * excluded: the km-time model is trained on trot and would score them
+ * confidently and wrongly.
  */
-export const fetchAvailableGameTypes = async (date: string): Promise<GameType[]> => {
-  try {
-    const response = await fetch(`/api/atg/calendar/day/${date}`);
-    if (!response.ok) return [];
-    const data = await response.json();
-    if (!data.games || typeof data.games !== 'object') return [];
-    return Object.keys(data.games).filter(
-      (key): key is GameType => isSupportedGameType(key)
-        && Array.isArray(data.games[key])
-        && data.games[key].length > 0
-    );
-  } catch {
-    return [];
+export const fetchGamesForDate = async (date: string): Promise<DayGame[]> => {
+  const response = await fetch(`/api/atg/calendar/day/${date}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch calendar data: ${response.statusText}`);
   }
+
+  const data = await response.json();
+  const trackById = new Map<number, any>(
+    (data.tracks ?? []).map((track: any) => [track.id, track])
+  );
+
+  const games: DayGame[] = [];
+  for (const gameType of SUPPORTED_GAME_TYPES) {
+    for (const game of data.games?.[gameType] ?? []) {
+      const trackId = game.tracks?.[0];
+      const track = trackById.get(trackId);
+      // No track entry means no sport to verify and no name to render — the
+      // game could be a gallop card and would list as an unlabelled row.
+      if (!track || track.sport !== 'trot') continue;
+
+      const raceIds: string[] = game.races ?? [];
+      if (raceIds.length === 0) continue;
+
+      games.push({
+        gameId: game.id,
+        gameType,
+        raceIds,
+        raceCount: raceIds.length,
+        startTime: game.startTime,
+        jackpotAmount: game.jackpotAmount ?? 0,
+        track: track.name,
+        trackId,
+      });
+    }
+  }
+
+  return games.sort((a, b) => a.startTime.localeCompare(b.startTime));
 };
 
 /**

@@ -2,7 +2,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchRaceById } from '@/services/raceDataCache';
 import {
-  fetchAvailableGameTypes,
   fetchRaceDataForGame,
   fetchV75GameInfo,
   type V75GameInfo,
@@ -155,17 +154,6 @@ describe('v75CalendarApi contracts', () => {
     await expect(fetchRaceDataForGame('2024-03-02', gameInfo, 'V75'))
       .rejects.toThrow('Incomplete V75 race card');
     expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it('only returns game types supported by the analyzer', async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        games: { V75: [{}], V85: [{}], V86: [], V65: [{}], GS75: [{}], LD: [{}] },
-      }),
-    } as Response);
-
-    await expect(fetchAvailableGameTypes('2026-08-22')).resolves.toEqual(['V75', 'V85', 'V65']);
   });
 
   it('rejects operational calendar failures but returns null for a genuine no-game day', async () => {

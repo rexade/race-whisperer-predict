@@ -7,7 +7,7 @@ import { useV75Progress } from './useV75Progress';
 import { useV75Cache } from './useV75Cache';
 import { useV75ResultsProcessor } from './useV75ResultsProcessor';
 import type { V75HorseResult, V75RaceResult } from '../types/raceResultTypes';
-import type { GameType } from '@/config/game';
+import { GAME_TYPE_LABELS, type GameType } from '@/config/game';
 import { log } from '@/lib/logger';
 import { V75CacheService } from '@/services/v75CacheService';
 import { useAnalysisWorker } from './useAnalysisWorker';
@@ -65,10 +65,11 @@ export const useV75Analysis = () => {
     startProgress();
     setAnalysisDate(date);
     setAnalysisGameType(gameType);
+    const gameLabel = GAME_TYPE_LABELS[gameType] ?? gameType;
 
     try {
       if (races.length === 0) {
-        const errorMsg = `No race data provided for ${gameType} analysis`;
+        const errorMsg = `No race data provided for ${gameLabel} analysis`;
         setErrorState(errorMsg);
         return;
       }
@@ -85,7 +86,7 @@ export const useV75Analysis = () => {
 
       // Workers cannot access localStorage or the main thread's module cache.
       await primeDriverRatingsIfMissing(gameType);
-      const driverRatings = getDriverRatingsSnapshot(gameType);
+      const driverRatings = getDriverRatingsSnapshot();
 
       const results: V75RaceResult[] = [];
 
@@ -123,7 +124,6 @@ export const useV75Analysis = () => {
             analysisDate: date,
             postPositionCurves,
             driverRatings,
-            gameType,
           };
 
           const workerResult = await runWorker(payload) as { raceResult: V75RaceResult };
@@ -158,18 +158,18 @@ export const useV75Analysis = () => {
       const totalHorses = results.reduce((sum, race) => sum + race.horses.length, 0);
 
       toast({
-        title: `${gameType} Analysis Complete`,
+        title: `${gameLabel} Analysis Complete`,
         description: `Processed ${successfulRaces}/${results.length} races • ${totalHorses} horses`,
       });
 
     } catch (err) {
-      log.error(`Error during ${gameType} analysis:`, err);
+      log.error(`Error during ${gameLabel} analysis:`, err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
 
-      setErrorState(`${gameType} analysis failed: ${errorMessage}`);
+      setErrorState(`${gameLabel} analysis failed: ${errorMessage}`);
 
       toast({
-        title: `${gameType} Analysis Error`,
+        title: `${gameLabel} Analysis Error`,
         description: "Check console for details.",
         variant: "destructive",
       });

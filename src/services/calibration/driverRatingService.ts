@@ -15,28 +15,32 @@
  */
 
 import { CalibrationDataset } from './historicalCalibrationService';
-import { GAME_TYPE, type GameType } from '@/config/game';
+import { SUPPORTED_GAME_TYPES, GAME_TYPE, type GameType } from '@/config/game';
 
+/**
+ * One pool of ratings for every game type. Ratings used to be keyed by game
+ * type, which meant a V4 or enloppsspel card -- neither of which has a
+ * calibration dataset of its own -- started from an empty pool and silently
+ * dropped the driverEmpirical factor out of the ranking.
+ */
+const STORAGE_KEY = 'driver_empirical_ratings';
+/** Where ratings lived before the pool was shared; read once, then superseded. */
 const LEGACY_STORAGE_KEY = 'driver_empirical_ratings_V85';
-const storageKey = (gameType: GameType) => `driver_empirical_ratings_${gameType}`;
 const PRIOR_RATE   = 0.12;  // 12% baseline win rate
 const PRIOR_STARTS = 10;    // equivalent to 10 "imaginary" prior races
 
 // Module-level cache — loaded once from localStorage, then served synchronously
 let _cache: Map<string, number> | null = null;
-let _activeGameType: GameType | null = null;
 
-function activateStoredRatings(gameType: GameType): void {
+function activateStoredRatings(): void {
   try {
-    const raw = localStorage.getItem(storageKey(gameType))
-      ?? (gameType === 'V85' ? localStorage.getItem(LEGACY_STORAGE_KEY) : null);
+    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
     _cache = raw
       ? new Map<string, number>(Object.entries(JSON.parse(raw) as Record<string, number>))
       : new Map();
   } catch {
     _cache = new Map();
   }
-  _activeGameType = gameType;
 }
 
 function normalizeName(firstName: string, lastName: string): string {
@@ -82,16 +86,12 @@ export function computeDriverRatings(dataset: CalibrationDataset): Map<string, n
 }
 
 /** Persist driver ratings to localStorage and update the in-memory cache. */
-export function saveDriverRatings(
-  ratings: Map<string, number>,
-  gameType: GameType = GAME_TYPE
-): void {
+export function saveDriverRatings(ratings: Map<string, number>): void {
   const obj: Record<string, number> = {};
   ratings.forEach((v, k) => { obj[k] = v; });
   _cache = ratings;
-  _activeGameType = gameType;
   try {
-    localStorage.setItem(storageKey(gameType), JSON.stringify(obj));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
   } catch {
     // Ignore unavailable storage/quota errors. The in-memory cache still works
     // for Web Workers and one-shot CLI evaluation runs.
@@ -101,39 +101,34 @@ export function saveDriverRatings(
 /** Look up a driver's empirical win rate. Returns null if not in dataset. */
 export function getDriverEmpiricalRate(firstName: string, lastName: string): number | null {
   if (_cache === null) {
-    activateStoredRatings(GAME_TYPE);
+    activateStoredRatings();
   }
   const name = normalizeName(firstName, lastName);
   return _cache?.get(name) ?? null;
 }
 
 /** How many unique drivers are in the cached ratings. */
-export function getDriverRatingCount(gameType: GameType = GAME_TYPE): number {
-  if (_cache === null || _activeGameType !== gameType) activateStoredRatings(gameType);
+export function getDriverRatingCount(): number {
+  if (_cache === null) activateStoredRatings();
   return _cache?.size ?? 0;
 }
 
 /** Return a structured-clone-safe snapshot for the analysis worker. */
-export function getDriverRatingsSnapshot(gameType: GameType = GAME_TYPE): Record<string, number> {
-  if (_cache === null || _activeGameType !== gameType) activateStoredRatings(gameType);
+export function getDriverRatingsSnapshot(): Record<string, number> {
+  if (_cache === null) activateStoredRatings();
   return Object.fromEntries(_cache ?? []);
 }
 
 /** Prime this JavaScript realm (main thread, worker, or CLI) with a snapshot. */
-export function primeDriverRatingCache(
-  ratings: Record<string, number>,
-  gameType: GameType = GAME_TYPE
-): void {
+export function primeDriverRatingCache(ratings: Record<string, number>): void {
   _cache = new Map(
     Object.entries(ratings).filter(([, rate]) => Number.isFinite(rate) && rate >= 0 && rate <= 1)
   );
-  _activeGameType = gameType;
 }
 
 /** Invalidate the in-memory cache (e.g. after saving new ratings). */
 export function invalidateDriverRatingCache(): void {
   _cache = null;
-  _activeGameType = null;
 }
 
 /**
@@ -144,24 +139,37 @@ export function invalidateDriverRatingCache(): void {
  * cannot reproduce a previous session's ranking. If localStorage has no
  * ratings but a calibration dataset is cached in IndexedDB, recompute them
  * from the most recently used window. Returns the number of rated drivers.
+ *
+ * Datasets are still collected per game type, but the ratings derived from them
+ * are not: any cached dataset will do, so a V4 card can be scored with ratings
+ * computed from V85 races. `preferredGameType` is only a search order.
  */
-export async function primeDriverRatingsIfMissing(gameType: GameType = GAME_TYPE): Promise<number> {
-  const existing = getDriverRatingCount(gameType);
+export async function primeDriverRatingsIfMissing(
+  preferredGameType: GameType = GAME_TYPE
+): Promise<number> {
+  const existing = getDriverRatingCount();
   if (existing > 0) return existing;
 
+  const searchOrder: GameType[] = [
+    preferredGameType,
+    ...SUPPORTED_GAME_TYPES.filter(type => type !== preferredGameType),
+  ];
+
   const { loadCalibrationDataset, getCalibrationCacheInfo } = await import('./calibrationDatasetCache');
-  for (const monthsBack of [6, 3, 2, 12, 1]) {
-    try {
-      const info = await getCalibrationCacheInfo(monthsBack, gameType);
-      if (!info.exists || info.dateCount === 0) continue;
-      const dataset = await loadCalibrationDataset(monthsBack, gameType);
-      if (!dataset || dataset.length === 0) continue;
-      const ratings = computeDriverRatings(dataset);
-      saveDriverRatings(ratings, gameType);
-      return ratings.size;
-    } catch {
-      // Cache unavailable (private mode, quota) — predictions fall back
-      // to ATG career stats for the driver factor.
+  for (const datasetGameType of searchOrder) {
+    for (const monthsBack of [6, 3, 2, 12, 1]) {
+      try {
+        const info = await getCalibrationCacheInfo(monthsBack, datasetGameType);
+        if (!info.exists || info.dateCount === 0) continue;
+        const dataset = await loadCalibrationDataset(monthsBack, datasetGameType);
+        if (!dataset || dataset.length === 0) continue;
+        const ratings = computeDriverRatings(dataset);
+        saveDriverRatings(ratings);
+        return ratings.size;
+      } catch {
+        // Cache unavailable (private mode, quota) — predictions fall back
+        // to ATG career stats for the driver factor.
+      }
     }
   }
   return 0;

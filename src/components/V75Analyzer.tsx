@@ -8,14 +8,16 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import V75DatePicker from "./v75/V75DatePicker";
+import GamePicker from "./v75/GamePicker";
 import ErrorDisplay from "./modernAnalyzer/ErrorDisplay";
 import DebugErrorBoundary from "./DebugErrorBoundary";
 import ThemeToggle from "./ThemeToggle";
 import { useV75Analysis } from "./v75/hooks/useV75Analysis";
 import { NormalizationWeights, PostPositionCurves, getDefaultWeights, getDefaultPostPositionCurves, initWeightsFromApi } from '../services/modernKm/index';
 import { exportV75ToExcel } from '../utils/excelExport';
-import { useGameInfo, useRaceData, useAvailableGameTypes } from '@/queries/v75';
-import { GAME_TYPE, GameType } from '@/config/game';
+import { useDayGames, useRaceData } from '@/queries/v75';
+import { GAME_TYPE, GAME_TYPE_LABELS } from '@/config/game';
+import type { DayGame } from '@/services/v75CalendarApi';
 import { useToast } from '@/hooks/use-toast';
 
 // Shared components
@@ -37,25 +39,30 @@ const V75Analyzer: React.FC = () => {
   const [activeTab, setActiveTab] = useState("");
   const [showWeights, setShowWeights] = useState(false);
   const [showInput, setShowInput] = useState(true);
-  const [gameType, setGameType] = useState<GameType>(GAME_TYPE);
+  const [selectedGame, setSelectedGame] = useState<DayGame | undefined>();
   const [menuOpen, setMenuOpen] = useState(false);
   const [chipOpen, setChipOpen] = useState(false);
+  const [gamePickerOpen, setGamePickerOpen] = useState(false);
   const { toast } = useToast();
   const skipNextWeightsSaveRef = React.useRef(true);
   const lastSaveFailureRef = React.useRef<string | null>(null);
 
-  // React Query Data Fetching
+  // React Query Data Fetching -- the date drives the menu of games, and the
+  // picked game carries its own race ids, so there is no second lookup left to
+  // guess which of a day's eleven V4 cards was meant.
   const dateStr = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null;
-  const { data: gameInfo, isLoading: isLoadingGame, error: gameError } = useGameInfo(dateStr, gameType);
-  const { data: races, isLoading: isLoadingRaces, error: raceError } = useRaceData(dateStr, gameInfo, gameType);
-  const noGameFound = !!dateStr && !isLoadingGame && !gameInfo && !gameError;
-  const { data: availableGameTypes } = useAvailableGameTypes(dateStr, !noGameFound);
+  const { data: dayGames, isLoading: isLoadingDay, error: dayError } = useDayGames(dateStr);
+  const gameType = selectedGame?.gameType ?? GAME_TYPE;
+  const { data: races, isLoading: isLoadingRaces, error: raceError } = useRaceData(dateStr, selectedGame, gameType);
 
   const isDataReady = !!races
-    && !!gameInfo
+    && !!selectedGame
     && races.length > 0
-    && races.length === gameInfo.raceIds.length;
-  const isFetching = isLoadingGame || isLoadingRaces;
+    && races.length === selectedGame.raceIds.length;
+  const isFetching = isLoadingDay || isLoadingRaces;
+  const selectionLabel = selectedGame
+    ? `${GAME_TYPE_LABELS[selectedGame.gameType]} · ${selectedGame.track}`
+    : 'Välj spel';
 
   const {
     loading: isAnalyzing,
@@ -71,11 +78,24 @@ const V75Analyzer: React.FC = () => {
   } = useV75Analysis();
 
   const handleAnalyzeV75 = () => {
-    if (!selectedDate || !races || !gameInfo || races.length !== gameInfo.raceIds.length) return;
+    if (!selectedGame || !races || races.length !== selectedGame.raceIds.length) return;
     clearError(); // Clear any previous errors
     setShowInput(false);
     // Use the fetched data for analysis
-    runAnalysis(races, dateStr!, gameInfo.gameId, weights, postPositionCurves, gameType);
+    runAnalysis(races, dateStr!, selectedGame.gameId, weights, postPositionCurves, selectedGame.gameType);
+  };
+
+  // A game belongs to its date -- keeping the old selection across a date change
+  // would analyze yesterday's card under today's heading.
+  const handleDateSelect = (date: Date | undefined) => {
+    setSelectedDate(date);
+    setSelectedGame(undefined);
+  };
+
+  const handleGameSelect = (game: DayGame) => {
+    setSelectedGame(game);
+    setGamePickerOpen(false);
+    setChipOpen(false);
   };
 
   // Recalculate when weights or post position curves change
@@ -166,13 +186,13 @@ const V75Analyzer: React.FC = () => {
         }
       }
       // A to analyze
-      if (e.key.toLowerCase() === "a" && !isAnalyzing && selectedDate && isDataReady) {
+      if (e.key.toLowerCase() === "a" && !isAnalyzing && isDataReady) {
         handleAnalyzeV75();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [v75Results, isAnalyzing, selectedDate, isDataReady, races, gameInfo]);
+  }, [v75Results, isAnalyzing, isDataReady, races, selectedGame]);
 
   return (
     <DebugErrorBoundary>
@@ -187,39 +207,45 @@ const V75Analyzer: React.FC = () => {
               <span className="font-display italic font-bold text-lg tracking-tight truncate">TrotAnalyzer</span>
               {v75Results.length > 0 && analysisGameType && analysisDate && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs num text-muted-foreground whitespace-nowrap">
-                  {analysisGameType} · {analysisDate}
+                  {GAME_TYPE_LABELS[analysisGameType] ?? analysisGameType} · {analysisDate}
                 </span>
               )}
             </div>
 
-            {/* Desktop center: game switcher · date · analyze · export */}
+            {/* Desktop center: date · game · analyze · export */}
             <div className="hidden sm:flex items-center gap-2 flex-1 justify-center max-w-2xl min-w-0">
-              <div className="flex-shrink-0 flex rounded-md border border-foreground/30 overflow-hidden">
-                {(['V75', 'V86', 'V85', 'V65'] as GameType[]).map((gt) => (
-                  <button
-                    key={gt}
-                    onClick={() => setGameType(gt)}
-                    className={`px-2.5 py-1.5 text-xs font-bold num transition-colors ${
-                      gameType === gt
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-background text-muted-foreground hover:text-foreground hover:bg-muted'
-                    }`}
-                  >
-                    {gt}
-                  </button>
-                ))}
-              </div>
               <div className="flex-shrink-0">
                 <V75DatePicker
                   selectedDate={selectedDate}
-                  onDateSelect={setSelectedDate}
+                  onDateSelect={handleDateSelect}
                 />
               </div>
+              <Popover open={gamePickerOpen} onOpenChange={setGamePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!selectedDate}
+                    className="h-9 flex-shrink-0 min-w-0 max-w-[15rem] justify-start font-medium"
+                  >
+                    <Trophy className="h-3.5 w-3.5 mr-2 flex-shrink-0" />
+                    <span className="truncate">{selectionLabel}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-[320px] p-2 max-h-[70vh] overflow-y-auto">
+                  <GamePicker
+                    games={dayGames ?? []}
+                    selectedGameId={selectedGame?.gameId}
+                    loading={isLoadingDay}
+                    onSelect={handleGameSelect}
+                  />
+                </PopoverContent>
+              </Popover>
               <Button
                 size="sm"
                 onClick={handleAnalyzeV75}
-                disabled={!selectedDate || isAnalyzing || !isDataReady}
-                title={selectedDate && !isFetching && !isDataReady ? `No ${gameType} game on this date` : undefined}
+                disabled={isAnalyzing || !isDataReady}
+                title={!selectedGame ? 'Välj datum och spel först' : undefined}
                 className="flex-shrink-0 h-9 font-bold tracking-wide"
               >
                 <Play className="h-4 w-4" />
@@ -257,36 +283,32 @@ const V75Analyzer: React.FC = () => {
                     className="h-11 rounded-full px-4 text-xs font-bold num border-foreground/40"
                   >
                     <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
-                    {gameType}{selectedDate ? ` · ${format(selectedDate, "d/M")}` : ""}
+                    {selectedGame ? GAME_TYPE_LABELS[selectedGame.gameType] : "Välj"}
+                    {selectedDate ? ` · ${format(selectedDate, "d/M")}` : ""}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent align="end" className="w-[300px] p-3">
-                  <div className="eyebrow mb-2">Spelform</div>
-                  <div className="grid grid-cols-4 gap-1.5 mb-3">
-                    {(['V75', 'V86', 'V85', 'V65'] as GameType[]).map((gt) => (
-                      <button
-                        key={gt}
-                        onClick={() => setGameType(gt)}
-                        className={`h-11 rounded-md text-xs font-bold num transition-colors ${
-                          gameType === gt
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        {gt}
-                      </button>
-                    ))}
-                  </div>
+                <PopoverContent align="end" className="w-[320px] p-3 max-h-[80vh] overflow-y-auto">
                   <div className="eyebrow mb-1">Datum</div>
                   <Calendar
                     mode="single"
                     selected={selectedDate}
-                    onSelect={(d) => { setSelectedDate(d); setChipOpen(false); }}
+                    onSelect={handleDateSelect}
                     captionLayout="dropdown-buttons"
                     fromYear={2020}
                     toYear={new Date().getFullYear() + 1}
                     className="p-0 pointer-events-auto"
                   />
+                  {selectedDate && (
+                    <>
+                      <div className="eyebrow mt-3 mb-1">Spel</div>
+                      <GamePicker
+                        games={dayGames ?? []}
+                        selectedGameId={selectedGame?.gameId}
+                        loading={isLoadingDay}
+                        onSelect={handleGameSelect}
+                      />
+                    </>
+                  )}
                 </PopoverContent>
               </Popover>
               <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
@@ -329,8 +351,8 @@ const V75Analyzer: React.FC = () => {
         <div className="sm:hidden container mx-auto px-3 pb-2.5">
           <Button
             onClick={handleAnalyzeV75}
-            disabled={!selectedDate || isAnalyzing || !isDataReady}
-            title={selectedDate && !isFetching && !isDataReady ? `No ${gameType} game on this date` : undefined}
+            disabled={isAnalyzing || !isDataReady}
+            title={!selectedGame ? 'Välj datum och spel först' : undefined}
             className="w-full h-12 text-sm font-bold tracking-widest uppercase"
           >
             <Play className="h-4 w-4 mr-1.5" />
@@ -353,53 +375,25 @@ const V75Analyzer: React.FC = () => {
         {showInput && !error && v75Results.length === 0 && (
           <AnalyzerCard
             title="Today's racing program"
-            description={`Pick a date and game type, then run the analysis — every horse in the ${gameType} card ranked by predicted km-time, with odds, spelprocent and barfota signals.`}
+            description="Pick a date, then pick from every game running that day — the whole card ranked by predicted km-time, with odds, spelprocent and barfota signals."
+
             icon={<Trophy className="h-6 w-6" />}
           />
         )}
 
-        {/* No game found for selected date */}
-        {noGameFound && selectedDate && (
-          <AnalyzerCard>
-            <div className="text-center py-3 text-muted-foreground text-sm space-y-3">
-              <p>No <strong>{gameType}</strong> game found for {format(selectedDate, "MMMM d, yyyy")}.</p>
-              {availableGameTypes && availableGameTypes.length > 0 ? (
-                <div className="space-y-1">
-                  <p className="text-xs">Available on this date:</p>
-                  <div className="flex gap-2 justify-center flex-wrap">
-                    {availableGameTypes.map((gt) => (
-                      <Button
-                        key={gt}
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs"
-                        onClick={() => setGameType(gt as GameType)}
-                      >
-                        {gt}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-xs">No multi-race games scheduled on this date.</p>
-              )}
-            </div>
-          </AnalyzerCard>
-        )}
-
         {/* React Query error display */}
-        {(gameError || raceError) && (
+        {(dayError || raceError) && (
           <AnalyzerCard>
             <div className="space-y-3">
               <ErrorDisplay
-                error={gameError ? `Failed to fetch game info: ${gameError.message}` : `Failed to fetch race data: ${raceError?.message}`}
+                error={dayError ? `Failed to fetch the race day: ${dayError.message}` : `Failed to fetch race data: ${raceError?.message}`}
               />
               <div className="flex justify-end">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setSelectedDate(undefined);
+                    handleDateSelect(undefined);
                     setTimeout(() => setShowInput(true), 100);
                   }}
                 >

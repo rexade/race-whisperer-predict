@@ -31,18 +31,32 @@ describe('driverRatingService', () => {
     expect(getDriverEmpiricalRate('Valid', 'Driver')).toBe(0.3);
   });
 
-  it('keeps persisted ratings isolated by game type', () => {
+  it('still reads ratings written before the pool was shared', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) =>
+        key === 'driver_empirical_ratings_V85' ? JSON.stringify({ 'legacy driver': 0.4 }) : null,
+      setItem: () => {},
+    });
+    invalidateDriverRatingCache();
+
+    expect(getDriverEmpiricalRate('Legacy', 'Driver')).toBe(0.4);
+  });
+
+  it('persists one shared rating pool rather than one per game type', () => {
+    // A driver's win rate is a property of the driver, not of the pool they are
+    // driving in. Keying storage by game type left every newly-enabled type
+    // (V4, dd, enloppsspel...) with an empty pool, silently zeroing the
+    // driverEmpirical weight instead of reusing the ratings we already have.
     const values = new Map<string, string>();
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => values.get(key) ?? null,
       setItem: (key: string, value: string) => values.set(key, value),
     });
 
-    saveDriverRatings(new Map([['v75 driver', 0.25]]), 'V75');
-    saveDriverRatings(new Map([['v86 driver', 0.35]]), 'V86');
+    saveDriverRatings(new Map([['shared driver', 0.25]]));
     invalidateDriverRatingCache();
 
-    expect(getDriverRatingsSnapshot('V75')).toEqual({ 'v75 driver': 0.25 });
-    expect(getDriverRatingsSnapshot('V86')).toEqual({ 'v86 driver': 0.35 });
+    expect([...values.keys()]).toEqual(['driver_empirical_ratings']);
+    expect(getDriverRatingsSnapshot()).toEqual({ 'shared driver': 0.25 });
   });
 });

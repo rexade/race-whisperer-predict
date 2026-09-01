@@ -22,7 +22,6 @@
 
 import type { NormalizationWeights } from '@/services/modernKm/types';
 import type { PostPositionCurves } from '@/services/modernKm/index';
-import type { GameType } from '@/config/game';
 import {
   CalibrationDataset,
   CalibrationEvaluation,
@@ -79,7 +78,6 @@ export interface KFoldOptions {
   maxPasses?: number;
   optimizeCurves?: boolean;
   objective?: OptimizeObjective;
-  gameType?: GameType;
 }
 
 const mean = (xs: number[]): number =>
@@ -91,8 +89,8 @@ const std = (xs: number[]): number => {
   return Math.sqrt(mean(xs.map(x => (x - m) ** 2)));
 };
 
-function primeRatings(dataset: CalibrationDataset, gameType?: GameType): void {
-  saveDriverRatings(computeDriverRatings(dataset), gameType);
+function primeRatings(dataset: CalibrationDataset): void {
+  saveDriverRatings(computeDriverRatings(dataset));
 }
 
 export async function runKFoldCalibration(
@@ -108,7 +106,6 @@ export async function runKFoldCalibration(
   const maxPasses = opts.maxPasses ?? 8;
   const optimizeCurves = opts.optimizeCurves ?? false;
   const objective = opts.objective ?? 'mrr';
-  const gameType = opts.gameType;
 
   if (starts.length === 0) throw new Error('No starting configurations supplied');
   if (trainWindow.length < k) {
@@ -134,7 +131,7 @@ export async function runKFoldCalibration(
         message: `${start.name} · fold ${f + 1}/${folds.length}`,
       });
 
-      primeRatings(folds[f].train, gameType);
+      primeRatings(folds[f].train);
       const opt = await optimizeWeights(
         folds[f].train, start.weights, undefined, start.curves, undefined,
         // Deterministic per-(start, fold) seed so a rerun reproduces exactly.
@@ -159,7 +156,7 @@ export async function runKFoldCalibration(
   const winner = starts.find(s => s.name === winnerName)!;
 
   onProgress?.({ completed, total, message: `Refitting "${winnerName}" on the full training window…` });
-  primeRatings(trainWindow, gameType);
+  primeRatings(trainWindow);
   const refit = await optimizeWeights(
     trainWindow, winner.weights, undefined, winner.curves, undefined,
     { saSteps: saSteps * 2, maxPasses: Math.max(maxPasses, 12), optimizeCurves, objective, seed: 7 }

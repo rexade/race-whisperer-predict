@@ -1,32 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchV75GameInfo, fetchRaceDataForGame, fetchAvailableGameTypes, V75GameInfo } from "@/services/v75CalendarApi";
+import { fetchRaceDataForGame, fetchGamesForDate, V75GameInfo } from "@/services/v75CalendarApi";
 import { GAME_TYPE, GameType } from "@/config/game";
 
 /**
- * Hook to fetch game info for a specific date and game type
+ * Hook to fetch every playable game on a date — the picker's whole menu.
  */
-export const useGameInfo = (date: string | undefined | null, gameType: GameType = GAME_TYPE) =>
+export const useDayGames = (date: string | undefined | null) =>
     useQuery({
-        queryKey: ["gameInfo", gameType, date],
-        queryFn: () => {
-            if (!date) return null;
-            return fetchV75GameInfo(date, gameType);
-        },
-        enabled: !!date,
-        staleTime: 5 * 60 * 1000, // 5 minutes
-    });
-
-/**
- * Hook to fetch all available game types for a date (only fires when gameInfo is null)
- */
-export const useAvailableGameTypes = (date: string | undefined | null, skip: boolean) =>
-    useQuery({
-        queryKey: ["availableGameTypes", date],
+        queryKey: ["dayGames", date],
         queryFn: () => {
             if (!date) return [];
-            return fetchAvailableGameTypes(date);
+            return fetchGamesForDate(date);
         },
-        enabled: !!date && !skip,
+        enabled: !!date,
         staleTime: 5 * 60 * 1000,
     });
 
