@@ -3,21 +3,21 @@
  *
  * The hypothesis: money arriving late is better informed, so a horse shortening
  * from 12 to 7 in the final hours is telling you something the number "7" alone
- * does not. This is the one idea that a single snapshot cannot answer by
+ * does not. This is the one idea a single snapshot cannot answer by
  * construction -- drift is a property of the price CHANGING -- which is why
  * scripts/snapshot-odds.ts exists and why this cannot be backtested.
  *
  * The test is deliberately narrow: does drift add anything ON TOP OF the final
- * price? Final odds are a strong baseline that already contains most of what
- * the crowd knows, so beating them is the only result worth acting on.
+ * price? Closing odds already contain most of what the crowd knows, so anything
+ * that cannot beat them is not worth acting on.
  *
  *   npx tsx scripts/odds-drift.ts
  *
- * Reads data/odds-snapshots.jsonl, pairs each horse's capture nearest 24h out
- * with its capture nearest 1h out, normalizes both across the race so the
- * tightening overround is not mistaken for drift, joins finishing positions,
- * and fits a race-level conditional logit. Results are cached in
- * data/race-results-cache.json so reruns cost nothing.
+ * Two fits are reported. The primary one pairs a reading ~6h out against ~1h
+ * out, both inside the densely captured final hours, isolating late money. The
+ * second pairs the single 24h baseline against the same late reading; it exists
+ * so that a null on the short window can be told apart from "the movement
+ * happened earlier and we did not look" rather than being a dead end.
  */
 import './node-polyfills';
 import * as fs from 'fs';
@@ -28,14 +28,14 @@ const realFetch = globalThis.fetch.bind(globalThis);
   realFetch(typeof i === 'string' && i.startsWith('/api/atg/') ? ATG + i.slice('/api/atg'.length) : i, o);
 
 import {
+  BASELINE_ANCHORS, LATE_MONEY_ANCHORS,
   buildRaceObservations, conditionalLogit, pairByAnchors,
-  EARLY_ANCHOR, LATE_ANCHOR,
 } from '../src/services/analysis/oddsDrift';
-import type { SnapshotRow } from '../src/services/analysis/oddsDrift';
+import type { Anchors, SnapshotRow } from '../src/services/analysis/oddsDrift';
 
 const arg = (f: string) => { const i = process.argv.indexOf(f); return i >= 0 ? process.argv[i + 1] : undefined; };
-
 const pct = (n: number, d: number) => (d === 0 ? '0.0%' : `${((100 * n) / d).toFixed(1)}%`);
+const hrs = (m: number) => (m % 60 === 0 ? `${m / 60}h` : `${m}min`);
 
 async function winnerNameOf(raceId: string, cache: Record<string, string>): Promise<string | null> {
   if (cache[raceId]) return cache[raceId];
@@ -49,6 +49,49 @@ async function winnerNameOf(raceId: string, cache: Record<string, string>): Prom
   return name;
 }
 
+function report(label: string, anchors: Anchors, rows: SnapshotRow[], winnerNames: Map<string, string>) {
+  const { paired, dropped } = pairByAnchors(rows, anchors);
+  const horses = new Set(rows.map(r => `${r.raceId}|${r.startNumber}`)).size;
+
+  console.log(`\n── ${label}: ${hrs(anchors.early)} out vs ${hrs(anchors.late)} out ──`);
+  console.log(`  ${paired.length}/${horses} horses paired (${pct(paired.length, horses)})`);
+  console.log(`  dropped: ${dropped.noEarly} no early, ${dropped.noLate} no late, ${dropped.noOdds} unpriced`);
+
+  const winners = new Map<string, number>();
+  for (const [raceId, name] of winnerNames) {
+    const match = paired.find(p => p.raceId === raceId && p.horseName === name);
+    if (match) winners.set(raceId, match.startNumber);
+  }
+
+  const { observations, droppedRaces, droppedThinFields } = buildRaceObservations(paired, winners);
+  console.log(`  ${observations.length} fittable races`
+    + ` (${droppedRaces} winner not in field, ${droppedThinFields} field collapsed)`);
+
+  // One race contributes ONE winner, so races -- not horses -- are the sample
+  // size. Two covariates want well over a hundred before a null means anything.
+  if (observations.length < 40) {
+    console.log(`  not enough to fit: ${observations.length} races, need ~40 minimum and 300+ to trust a null`);
+    return;
+  }
+
+  const fit = conditionalLogit(observations);
+  if (!fit.converged) console.log(`  ! did not converge in ${fit.iterations} iterations - treat with suspicion`);
+
+  console.log(`    log(final prob)  b=${fit.coefficients[0].toFixed(4)}`
+    + `  se=${fit.standardErrors[0].toFixed(4)}  z=${fit.z[0].toFixed(2)}`);
+  console.log(`    drift            b=${fit.coefficients[1].toFixed(4)}`
+    + `  se=${fit.standardErrors[1].toFixed(4)}  z=${fit.z[1].toFixed(2)}`);
+
+  const z = Math.abs(fit.z[1]);
+  if (z < 1.96) {
+    console.log(`    => nothing detectable beyond the closing price (|z|=${z.toFixed(2)} < 1.96);`
+      + ` ${observations.length} races rules out a large effect, not a small one`);
+  } else {
+    console.log(`    => drift carries information the closing price does not (|z|=${z.toFixed(2)});`
+      + ` ${fit.coefficients[1] > 0 ? 'shortening' : 'drifting out'} predicts winning`);
+  }
+}
+
 async function main() {
   const inPath = arg('--in') ?? 'data/odds-snapshots.jsonl';
   const cachePath = arg('--cache') ?? 'data/race-results-cache.json';
@@ -60,69 +103,24 @@ async function main() {
 
   const rows: SnapshotRow[] = fs.readFileSync(inPath, 'utf8')
     .split('\n').filter(l => l.trim()).map(l => JSON.parse(l));
-
   const captures = new Set(rows.map((r: any) => `${r.capturedAt}|${r.raceId}`)).size;
-  console.log(`\n${rows.length} rows, ${captures} card-captures, from ${inPath}\n`);
-
-  const { paired, dropped } = pairByAnchors(rows);
-  const horses = new Set(rows.map(r => `${r.raceId}|${r.startNumber}`)).size;
-
-  console.log(`Pairing (${EARLY_ANCHOR}min out vs ${LATE_ANCHOR}min out):`);
-  console.log(`  ${paired.length}/${horses} horses paired (${pct(paired.length, horses)})`);
-  console.log(`  dropped: ${dropped.noEarly} no early capture, ${dropped.noLate} no late, ${dropped.noOdds} unpriced`);
-  if (dropped.noLate > paired.length) {
-    console.log(`  ! late captures dominate the drops - the surviving sample is skewed`);
-    console.log(`    toward cards the scheduler caught near post, which is the variable under test.`);
-  }
+  console.log(`\n${rows.length} rows, ${captures} card-captures, from ${inPath}`);
 
   const cache: Record<string, string> = fs.existsSync(cachePath)
     ? JSON.parse(fs.readFileSync(cachePath, 'utf8')) : {};
 
-  const raceIds = [...new Set(paired.map(p => p.raceId))];
-  const winners = new Map<string, number>();
+  const winnerNames = new Map<string, string>();
   let unrun = 0;
-  for (const raceId of raceIds) {
+  for (const raceId of [...new Set(rows.map(r => r.raceId))]) {
     const name = await winnerNameOf(raceId, cache);
-    if (!name) { unrun++; continue; }
-    const match = paired.find(p => p.raceId === raceId && p.horseName === name);
-    if (match) winners.set(raceId, match.startNumber);
+    if (name) winnerNames.set(raceId, name);
+    else unrun++;
   }
   fs.writeFileSync(cachePath, JSON.stringify(cache, null, 2));
+  console.log(`${winnerNames.size} races settled, ${unrun} not yet run`);
 
-  const { observations, droppedRaces, droppedThinFields } = buildRaceObservations(paired, winners);
-
-  console.log(`\nRaces:`);
-  console.log(`  ${observations.length} fittable, ${unrun} not yet run,`
-    + ` ${droppedRaces} winner not in paired field, ${droppedThinFields} field collapsed`);
-
-  // One race contributes ONE winner, so races -- not horses -- are the sample
-  // size. Two covariates want well over a hundred before a null means anything.
-  if (observations.length < 40) {
-    console.log(`\nNot enough to fit yet. ${observations.length} races is below the ~40 minimum,`);
-    console.log(`and a trustworthy answer wants 300+. Keep the scheduled capture running.`);
-    return;
-  }
-
-  const fit = conditionalLogit(observations);
-  if (!fit.converged) console.log(`\n! fit did not converge in ${fit.iterations} iterations - treat with suspicion`);
-
-  const [market, drift] = [0, 1];
-  console.log(`\nConditional logit, win ~ log(final prob) + drift:`);
-  console.log(`  log(final prob)  b=${fit.coefficients[market].toFixed(4)}`
-    + `  se=${fit.standardErrors[market].toFixed(4)}  z=${fit.z[market].toFixed(2)}`);
-  console.log(`  drift            b=${fit.coefficients[drift].toFixed(4)}`
-    + `  se=${fit.standardErrors[drift].toFixed(4)}  z=${fit.z[drift].toFixed(2)}`);
-
-  const z = Math.abs(fit.z[drift]);
-  console.log('');
-  if (z < 1.96) {
-    console.log(`  Drift adds nothing detectable beyond the closing price (|z|=${z.toFixed(2)} < 1.96).`);
-    console.log(`  With ${observations.length} races this rules out a large effect, not a small one.`);
-  } else {
-    console.log(`  Drift carries information the closing price does not (|z|=${z.toFixed(2)}).`);
-    console.log(`  ${fit.coefficients[drift] > 0 ? 'Shortening' : 'Drifting out'} predicts winning.`);
-    console.log(`  Before acting: re-run after more cards, and check it is not one card driving it.`);
-  }
+  report('LATE MONEY (primary)', LATE_MONEY_ANCHORS, rows, winnerNames);
+  report('24h BASELINE (rule-out)', BASELINE_ANCHORS, rows, winnerNames);
   console.log('');
 }
 

@@ -12,12 +12,12 @@ name: Snapshot odds
 
 on:
   schedule:
-    # Hourly across Swedish race hours, in UTC: V85 posts ~14:20Z, V86 ~18:30Z.
-    # Hourly is what buys a reading close to post, and late money is the whole
-    # hypothesis - a card sampled only once a day cannot answer the question.
-    - cron: '0 8-21 * * *'
-    # Two overnight readings give each card the day-out baseline to drift from.
-    - cron: '0 1,4 * * *'
+    # Hourly, round the clock. The script decides what is worth storing (final
+    # ~8h before post, plus one baseline near 24h), so extra runs cost only API
+    # calls - and this repo is public, so Actions minutes are unlimited. Firing
+    # every hour covers the dense window whatever time a card posts, including
+    # lunch cards, rather than assuming a race-hours band.
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 # Every run appends and pushes; two overlapping runs would race on one file.

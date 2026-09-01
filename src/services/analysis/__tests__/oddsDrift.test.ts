@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRaceObservations, conditionalLogit, impliedProbabilities, pairByAnchors } from '../oddsDrift';
+import { BASELINE_ANCHORS, buildRaceObservations, conditionalLogit, impliedProbabilities, isWorthRecording, pairByAnchors } from '../oddsDrift';
 
 describe('impliedProbabilities', () => {
   it('strips the overround so a race sums to one', () => {
@@ -31,7 +31,7 @@ describe('pairByAnchors', () => {
     ]);
 
     expect(paired).toHaveLength(1);
-    expect(paired[0].early.minutesToPost).toBe(1400);
+    expect(paired[0].early.minutesToPost).toBe(300);
     expect(paired[0].late.minutesToPost).toBe(65);
   });
 });
@@ -45,10 +45,10 @@ describe('pairByAnchors drop accounting', () => {
     // surviving sample is biased toward cards the scheduler happened to catch
     // near post, which is exactly the variable under test.
     const { paired, dropped } = pairByAnchors([
-      horse('r1', 1, 1400), horse('r1', 1, 65),
+      horse('r1', 1, 300), horse('r1', 1, 65),
       horse('r1', 2, 65),
-      horse('r1', 3, 1400),
-      horse('r1', 4, 1400, null), horse('r1', 4, 65, null),
+      horse('r1', 3, 300),
+      horse('r1', 4, 300, null), horse('r1', 4, 65, null),
     ]);
 
     expect(paired.map(p => p.startNumber)).toEqual([1]);
@@ -183,5 +183,45 @@ describe('buildRaceObservations', () => {
 
     expect(observations).toHaveLength(0);
     expect(droppedThinFields).toBe(1);
+  });
+});
+
+describe('isWorthRecording', () => {
+  it('records the final hours densely and a baseline near 24h, nothing between', () => {
+    // Prices barely move more than a day out, so storing that stretch costs
+    // megabytes per card and buys nothing. The 24h baselines are kept because
+    // they are cheap and keep the wider comparison askable later.
+    expect(isWorthRecording(30)).toBe(true);     // deep in the dense window
+    expect(isWorthRecording(480)).toBe(true);    // 8h, edge of dense
+    expect(isWorthRecording(600)).toBe(false);   // 10h, the dead zone
+    expect(isWorthRecording(1440)).toBe(true);   // 24h baseline
+    expect(isWorthRecording(1600)).toBe(false);  // too early to have settled
+  });
+
+  it('leaves a 24h baseline narrow enough to catch exactly one hourly run', () => {
+    // A window wider than an hour would land two captures for the price of a
+    // check we only need once. 60 minutes still absorbs the ~15min GitHub
+    // routinely delays a scheduled run by before it would miss entirely.
+    expect(isWorthRecording(1410)).toBe(true);
+    expect(isWorthRecording(1470)).toBe(true);
+    expect(isWorthRecording(1400)).toBe(false);
+    expect(isWorthRecording(1480)).toBe(false);
+  });
+
+  it('refuses captures taken after the race started', () => {
+    expect(isWorthRecording(-5)).toBe(false);
+    expect(isWorthRecording(null)).toBe(false);
+  });
+});
+
+describe('pairByAnchors anchor selection', () => {
+  it('pairs against the 24h baseline when asked to rule out the wider window', () => {
+    // The default is the late-money test inside the dense window. The baseline
+    // anchors exist so a null at 6h can be checked against 24h rather than
+    // being a dead end.
+    const rows = [horse('r1', 1, 1440), horse('r1', 1, 300), horse('r1', 1, 65)];
+
+    expect(pairByAnchors(rows).paired[0].early.minutesToPost).toBe(300);
+    expect(pairByAnchors(rows, BASELINE_ANCHORS).paired[0].early.minutesToPost).toBe(1440);
   });
 });

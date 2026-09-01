@@ -17,9 +17,16 @@
  *   npx tsx scripts/snapshot-odds.ts --date 2026-09-05 --type V85   one card
  *   npx tsx scripts/snapshot-odds.ts --auto                          scheduled
  *
- * --auto scans the calendar for today through +3 days, snapshots every V75/V85/
- * V86 card it finds, and skips cards that have already run. It takes no
- * arguments so a scheduler can run it blind.
+ * --auto scans the calendar for today and tomorrow, snapshots every V75/V85/V86
+ * card it finds, and skips cards that have already run. It takes no arguments
+ * so a scheduler can run it blind.
+ *
+ * Not every capture is stored. Rows are written only for legs in the final ~8
+ * hours before post, plus a single baseline reading around 24h out. Prices do
+ * not settle before then, and storing the whole run-up costs ~1.4MB per card -
+ * enough to pass GitHub's 100MB file limit inside six months. The baseline
+ * exists purely so a null result on the short window can be distinguished from
+ * having looked in the wrong place. See isWorthRecording.
  *
  * .github/workflows/snapshot-odds.yml runs --auto hourly through Swedish race
  * hours and commits the result, so capture does not depend on any one machine
@@ -41,6 +48,7 @@ const realFetch = globalThis.fetch.bind(globalThis);
   realFetch(typeof i === 'string' && i.startsWith('/api/atg/') ? ATG + i.slice('/api/atg'.length) : i, o);
 
 import { fetchV75GameInfo, fetchRaceDataForGame } from '../src/services/v75CalendarApi';
+import { isWorthRecording } from '../src/services/analysis/oddsDrift';
 import type { GameType } from '../src/config/game';
 
 const arg = (f: string) => { const i = process.argv.indexOf(f); return i >= 0 ? process.argv[i + 1] : undefined; };
@@ -84,10 +92,16 @@ async function snapshotCard(date: string, type: GameType, out: string): Promise<
   const now = Date.now();
   const rows: Row[] = [];
   let withOdds = 0;
+  const legMinutes: number[] = [];
 
   for (const race of races as any[]) {
     const startTime = starts.get(race.raceId) ?? null;
     const minutesToPost = startTime ? Math.round((new Date(startTime).getTime() - now) / 60000) : null;
+    if (minutesToPost !== null) legMinutes.push(minutesToPost);
+    // Only the final hours plus one 24h baseline are stored. Capturing the
+    // whole run-up costs ~1.4MB a card for prices that have not settled, and
+    // would pass GitHub's 100MB file limit inside six months.
+    if (!isWorthRecording(minutesToPost)) continue;
     for (const h of race.horses ?? []) {
       const odds = typeof h.liveOdds === 'number' && h.liveOdds > 0 ? h.liveOdds : null;
       if (odds !== null) withOdds++;
@@ -105,11 +119,17 @@ async function snapshotCard(date: string, type: GameType, out: string): Promise<
     }
   }
 
-  const mins = rows.map(r => r.minutesToPost).filter((v): v is number => v !== null);
   // A card whose last leg ran more than half an hour ago has nothing left to
   // capture; appending post-race odds would only pad the log.
-  if (mins.length && Math.max(...mins) < -30) {
+  if (legMinutes.length && Math.max(...legMinutes) < -30) {
     console.log(`${capturedAt}  ${type} ${date}  — already run, skipped`);
+    return null;
+  }
+
+  const mins = rows.map(r => r.minutesToPost).filter((v): v is number => v !== null);
+  if (rows.length === 0) {
+    const nearest = legMinutes.length ? `${Math.min(...legMinutes)} min to post` : 'no start times';
+    console.log(`${capturedAt}  ${type} ${date}  — outside capture windows (${nearest}), skipped`);
     return null;
   }
 
@@ -118,7 +138,8 @@ async function snapshotCard(date: string, type: GameType, out: string): Promise<
 
   const window = mins.length ? `${Math.min(...mins)}..${Math.max(...mins)} min to post` : 'start times unavailable';
   console.log(`${capturedAt}  ${type} ${date}`);
-  console.log(`  ${rows.length} horses across ${races.length} legs, ${withOdds} with live odds (${window})`);
+  const legsRecorded = new Set(rows.map(r => r.leg)).size;
+  console.log(`  ${rows.length} horses across ${legsRecorded}/${races.length} legs in window, ${withOdds} with live odds (${window})`);
   return rows.length;
 }
 
@@ -138,7 +159,7 @@ async function main() {
   // snapshots the drift question needs.
   const types = ['V75', 'V85', 'V86'] as GameType[];
   let captured = 0;
-  for (let ahead = 0; ahead <= 3; ahead++) {
+  for (let ahead = 0; ahead <= 1; ahead++) {
     const d = new Date(Date.now() + ahead * 86400000).toISOString().split('T')[0];
     for (const t of types) {
       try {

@@ -11,6 +11,28 @@ export const impliedProbabilities = (odds: number[]): number[] => {
   return raw.map(p => p / total);
 };
 
+/**
+ * Minutes-to-post ranges worth storing.
+ *
+ * Capturing the whole four-day run-up costs ~1.4MB per card and buys almost
+ * nothing: prices barely move before the final day, and at ~90 horses a card
+ * the file would pass GitHub's 100MB limit inside six months. The dense window
+ * is where V-game pools actually fill. The baseline is ONE capture at 24h, kept
+ * only to rule out the possibility that the short window misses the movement -
+ * 60 minutes wide so hourly runs land exactly one, while still absorbing the
+ * ~15min GitHub routinely delays a scheduled run by.
+ */
+export const DENSE_WINDOW = { from: 0, to: 500 };
+export const BASELINE_WINDOW = { from: 1410, to: 1470 };
+
+const inWindow = (m: number, w: { from: number; to: number }) => m >= w.from && m <= w.to;
+
+/** Whether a capture this far from post is worth a row. */
+export const isWorthRecording = (minutesToPost: number | null): boolean => {
+  if (minutesToPost === null || minutesToPost < 0) return false;
+  return inWindow(minutesToPost, DENSE_WINDOW) || inWindow(minutesToPost, BASELINE_WINDOW);
+};
+
 export interface SnapshotRow {
   raceId: string;
   startNumber: number;
@@ -27,11 +49,32 @@ export interface Pair {
   late: SnapshotRow;
 }
 
-/** Minutes before post that "a day out" and "near the deadline" mean. */
-export const EARLY_ANCHOR = 1440;
-export const LATE_ANCHOR = 60;
-const EARLY_TOLERANCE = 720;
-const LATE_TOLERANCE = 90;
+export interface Anchors {
+  early: number;
+  earlyTolerance: number;
+  late: number;
+  lateTolerance: number;
+}
+
+/**
+ * The primary test. Both readings sit inside the dense window, so this asks
+ * the narrow question directly: does the money arriving in the final hours
+ * predict, over and above where the price ended up?
+ */
+export const LATE_MONEY_ANCHORS: Anchors = {
+  early: 360, earlyTolerance: 140,
+  late: 60, lateTolerance: 90,
+};
+
+/**
+ * The rule-out. Pairs the single 24h baseline against the same late reading,
+ * so a null at six hours can be checked against the wider window instead of
+ * being a dead end - the whole reason the baseline is recorded at all.
+ */
+export const BASELINE_ANCHORS: Anchors = {
+  early: 1440, earlyTolerance: 30,
+  late: 60, lateTolerance: 90,
+};
 
 const nearest = (rows: SnapshotRow[], anchor: number, tolerance: number) => {
   const within = rows.filter(r => Math.abs((r.minutesToPost as number) - anchor) <= tolerance);
@@ -69,7 +112,10 @@ export interface DropCounts {
  * scheduler caught near post - which is the variable under test, so a silent
  * drop rate would bias the result in the direction of the hypothesis.
  */
-export const pairByAnchors = (rows: SnapshotRow[]): { paired: Pair[]; dropped: DropCounts } => {
+export const pairByAnchors = (
+  rows: SnapshotRow[],
+  anchors: Anchors = LATE_MONEY_ANCHORS
+): { paired: Pair[]; dropped: DropCounts } => {
   const byHorse = new Map<string, SnapshotRow[]>();
   for (const row of rows) {
     // A capture taken after the race started cannot inform a prediction.
@@ -87,10 +133,10 @@ export const pairByAnchors = (rows: SnapshotRow[]): { paired: Pair[]; dropped: D
     const priced = group.filter(r => r.odds !== null && r.odds > 0);
     if (priced.length === 0) { dropped.noOdds++; continue; }
 
-    const early = nearest(priced, EARLY_ANCHOR, EARLY_TOLERANCE);
+    const early = nearest(priced, anchors.early, anchors.earlyTolerance);
     if (!early) { dropped.noEarly++; continue; }
 
-    const late = nearest(priced, LATE_ANCHOR, LATE_TOLERANCE);
+    const late = nearest(priced, anchors.late, anchors.lateTolerance);
     if (!late || late === early) { dropped.noLate++; continue; }
 
     paired.push({
