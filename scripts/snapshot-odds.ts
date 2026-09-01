@@ -39,6 +39,13 @@
  * a dozen cards of history first. Snapshots are cheap and unrepeatable — a card
  * you did not capture is gone — so capture generously and decide later.
  */
+// ATG timestamps carry no timezone and are Swedish local time. Node parses a
+// bare datetime as MACHINE local, so a UTC CI runner reads 20:30 as 20:30Z
+// rather than 18:30Z and computes every deadline two hours late - which would
+// keep recording for two hours after betting closed. Pin the zone before any
+// Date is constructed.
+process.env.TZ = 'Europe/Stockholm';
+
 import './node-polyfills';
 import * as fs from 'fs';
 import * as path from 'path';

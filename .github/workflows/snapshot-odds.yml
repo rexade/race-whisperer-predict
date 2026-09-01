@@ -42,6 +42,10 @@ jobs:
         run: npm ci
 
       - name: Capture
+        # Belt and braces with the pin inside the script: ATG start times are
+        # Swedish local with no zone, and this runner is UTC.
+        env:
+          TZ: Europe/Stockholm
         run: npx tsx scripts/snapshot-odds.ts --auto
 
       - name: Commit new rows
