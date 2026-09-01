@@ -12,32 +12,29 @@ export const impliedProbabilities = (odds: number[]): number[] => {
 };
 
 /**
- * Minutes-to-post ranges worth storing.
+ * How long before the betting deadline a capture is worth storing.
  *
- * Capturing the whole four-day run-up costs ~1.4MB per card and buys almost
- * nothing: prices barely move before the final day, and at ~90 horses a card
- * the file would pass GitHub's 100MB limit inside six months. The dense window
- * is where V-game pools actually fill. The baseline is ONE capture at 24h, kept
- * only to rule out the possibility that the short window misses the movement -
- * 60 minutes wide so hourly runs land exactly one, while still absorbing the
- * ~15min GitHub routinely delays a scheduled run by.
+ * For a V85/V86 the whole ticket must be in before the FIRST leg runs, so the
+ * deadline is that leg's start -- not each leg's own post time. Odds keep
+ * moving through the rest of the card, but that movement is unbettable, and
+ * fitting on it would be look-ahead leakage.
+ *
+ * Nothing before ~25h: prices have not settled and it is the bulk of the bytes.
  */
-export const DENSE_WINDOW = { from: 0, to: 500 };
-export const BASELINE_WINDOW = { from: 1410, to: 1470 };
+export const RECORDING_WINDOW = { from: 0, to: 1500 };
 
-const inWindow = (m: number, w: { from: number; to: number }) => m >= w.from && m <= w.to;
-
-/** Whether a capture this far from post is worth a row. */
-export const isWorthRecording = (minutesToPost: number | null): boolean => {
-  if (minutesToPost === null || minutesToPost < 0) return false;
-  return inWindow(minutesToPost, DENSE_WINDOW) || inWindow(minutesToPost, BASELINE_WINDOW);
-};
+/** Whether a capture this far from the betting deadline is worth a row. */
+export const isWorthRecording = (minutesToDeadline: number | null): boolean =>
+  minutesToDeadline !== null
+  && minutesToDeadline >= RECORDING_WINDOW.from
+  && minutesToDeadline <= RECORDING_WINDOW.to;
 
 export interface SnapshotRow {
   raceId: string;
   startNumber: number;
   horseName: string;
-  minutesToPost: number | null;
+  /** Minutes from capture to the card's betting deadline (first leg's start). */
+  minutesToDeadline: number | null;
   odds: number | null;
 }
 
@@ -57,30 +54,20 @@ export interface Anchors {
 }
 
 /**
- * The primary test. Both readings sit inside the dense window, so this asks
- * the narrow question directly: does the money arriving in the final hours
- * predict, over and above where the price ended up?
+ * Which two readings get compared. Recording is continuous, so these can be
+ * swept later once the data shows where the movement actually is -- that is
+ * the point of storing the whole 24h rather than just these two moments.
  */
-export const LATE_MONEY_ANCHORS: Anchors = {
-  early: 360, earlyTolerance: 140,
-  late: 60, lateTolerance: 90,
-};
-
-/**
- * The rule-out. Pairs the single 24h baseline against the same late reading,
- * so a null at six hours can be checked against the wider window instead of
- * being a dead end - the whole reason the baseline is recorded at all.
- */
-export const BASELINE_ANCHORS: Anchors = {
-  early: 1440, earlyTolerance: 30,
-  late: 60, lateTolerance: 90,
+export const DEFAULT_ANCHORS: Anchors = {
+  early: 1440, earlyTolerance: 90,
+  late: 45, lateTolerance: 45,
 };
 
 const nearest = (rows: SnapshotRow[], anchor: number, tolerance: number) => {
-  const within = rows.filter(r => Math.abs((r.minutesToPost as number) - anchor) <= tolerance);
+  const within = rows.filter(r => Math.abs((r.minutesToDeadline as number) - anchor) <= tolerance);
   if (within.length === 0) return null;
   return within.reduce((best, r) =>
-    Math.abs((r.minutesToPost as number) - anchor) < Math.abs((best.minutesToPost as number) - anchor) ? r : best
+    Math.abs((r.minutesToDeadline as number) - anchor) < Math.abs((best.minutesToDeadline as number) - anchor) ? r : best
   );
 };
 
@@ -98,6 +85,8 @@ export interface DropCounts {
   noLate: number;
   /** Scratched, or the pool never priced it. */
   noOdds: number;
+  /** Every capture fell outside the recording window. */
+  outsideWindow: number;
 }
 
 /**
@@ -114,12 +103,11 @@ export interface DropCounts {
  */
 export const pairByAnchors = (
   rows: SnapshotRow[],
-  anchors: Anchors = LATE_MONEY_ANCHORS
+  anchors: Anchors = DEFAULT_ANCHORS
 ): { paired: Pair[]; dropped: DropCounts } => {
   const byHorse = new Map<string, SnapshotRow[]>();
   for (const row of rows) {
-    // A capture taken after the race started cannot inform a prediction.
-    if (row.minutesToPost === null || row.minutesToPost < 0) continue;
+    // A capture taken after betting closed cannot inform a bet.
     const key = `${row.raceId}|${row.startNumber}`;
     const group = byHorse.get(key);
     if (group) group.push(row);
@@ -127,10 +115,15 @@ export const pairByAnchors = (
   }
 
   const paired: Pair[] = [];
-  const dropped: DropCounts = { noEarly: 0, noLate: 0, noOdds: 0 };
+  const dropped: DropCounts = { noEarly: 0, noLate: 0, noOdds: 0, outsideWindow: 0 };
 
   for (const group of byHorse.values()) {
-    const priced = group.filter(r => r.odds !== null && r.odds > 0);
+    // A capture taken after betting closed cannot inform a bet, and one taken
+    // before prices settle is not stored at all.
+    const inWindow = group.filter(r => isWorthRecording(r.minutesToDeadline));
+    if (inWindow.length === 0) { dropped.outsideWindow++; continue; }
+
+    const priced = inWindow.filter(r => r.odds !== null && r.odds > 0);
     if (priced.length === 0) { dropped.noOdds++; continue; }
 
     const early = nearest(priced, anchors.early, anchors.earlyTolerance);

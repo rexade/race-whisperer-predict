@@ -21,12 +21,12 @@
  * card it finds, and skips cards that have already run. It takes no arguments
  * so a scheduler can run it blind.
  *
- * Not every capture is stored. Rows are written only for legs in the final ~8
- * hours before post, plus a single baseline reading around 24h out. Prices do
- * not settle before then, and storing the whole run-up costs ~1.4MB per card -
- * enough to pass GitHub's 100MB file limit inside six months. The baseline
- * exists purely so a null result on the short window can be distinguished from
- * having looked in the wrong place. See isWorthRecording.
+ * Captures run from ~25h before the card's betting deadline until the deadline
+ * itself, and stop there. For a V85/V86 the whole ticket must be in before the
+ * FIRST leg runs, so odds after that are unbettable however much they move.
+ * Recording is continuous rather than at two chosen moments, because WHICH two
+ * readings to compare is the open question and cannot be answered from hours
+ * that were never stored.
  *
  * .github/workflows/snapshot-odds.yml runs --auto hourly through Swedish race
  * hours and commits the result, so capture does not depend on any one machine
@@ -41,6 +41,7 @@
  */
 import './node-polyfills';
 import * as fs from 'fs';
+import * as path from 'path';
 
 const ATG = 'https://www.atg.se/services/racinginfo/v1/api';
 const realFetch = globalThis.fetch.bind(globalThis);
@@ -60,8 +61,8 @@ interface Row {
   raceId: string;
   leg: number;
   startTime: string | null;
-  /** Minutes from capture to this leg's start. Negative once it has run. */
-  minutesToPost: number | null;
+  /** Minutes from capture to the betting deadline (the card's FIRST leg). */
+  minutesToDeadline: number | null;
   startNumber: number;
   horseName: string;
   odds: number | null;
@@ -76,7 +77,7 @@ async function raceStartTimes(raceIds: string[]): Promise<Map<string, string>> {
       if (!r.ok) continue;
       const d: any = await r.json();
       if (d?.startTime) out.set(id, d.startTime);
-    } catch { /* a missing start time only costs the minutesToPost column */ }
+    } catch { /* a missing start time only costs the deadline clock */ }
   }
   return out;
 }
@@ -90,18 +91,28 @@ async function snapshotCard(date: string, type: GameType, out: string): Promise<
 
   const capturedAt = new Date().toISOString();
   const now = Date.now();
+
+  // The whole ticket must be in before the FIRST leg runs, so that is the
+  // betting deadline for every leg on the card. Odds keep moving through the
+  // rest of the afternoon, but nothing can be staked on them by then, and
+  // storing that movement would put unbettable information in the dataset.
+  const times = races
+    .map((r: any) => starts.get(r.raceId))
+    .filter((t): t is string => Boolean(t))
+    .map(t => new Date(t).getTime());
+  const minutesToDeadline = times.length ? Math.round((Math.min(...times) - now) / 60000) : null;
+
+  if (!isWorthRecording(minutesToDeadline)) {
+    const why = minutesToDeadline === null ? 'no start times'
+      : minutesToDeadline < 0 ? 'betting closed'
+      : `${minutesToDeadline} min out, too early`;
+    console.log(`${capturedAt}  ${type} ${date}  — ${why}, skipped`);
+    return null;
+  }
+
   const rows: Row[] = [];
   let withOdds = 0;
-  const legMinutes: number[] = [];
-
   for (const race of races as any[]) {
-    const startTime = starts.get(race.raceId) ?? null;
-    const minutesToPost = startTime ? Math.round((new Date(startTime).getTime() - now) / 60000) : null;
-    if (minutesToPost !== null) legMinutes.push(minutesToPost);
-    // Only the final hours plus one 24h baseline are stored. Capturing the
-    // whole run-up costs ~1.4MB a card for prices that have not settled, and
-    // would pass GitHub's 100MB file limit inside six months.
-    if (!isWorthRecording(minutesToPost)) continue;
     for (const h of race.horses ?? []) {
       const odds = typeof h.liveOdds === 'number' && h.liveOdds > 0 ? h.liveOdds : null;
       if (odds !== null) withOdds++;
@@ -109,8 +120,8 @@ async function snapshotCard(date: string, type: GameType, out: string): Promise<
         capturedAt, date, type,
         raceId: race.raceId,
         leg: race.raceNumber,
-        startTime,
-        minutesToPost,
+        startTime: starts.get(race.raceId) ?? null,
+        minutesToDeadline,
         startNumber: h.startNumber ?? h.postPosition,
         horseName: String(h.name),
         odds,
@@ -119,27 +130,12 @@ async function snapshotCard(date: string, type: GameType, out: string): Promise<
     }
   }
 
-  // A card whose last leg ran more than half an hour ago has nothing left to
-  // capture; appending post-race odds would only pad the log.
-  if (legMinutes.length && Math.max(...legMinutes) < -30) {
-    console.log(`${capturedAt}  ${type} ${date}  — already run, skipped`);
-    return null;
-  }
-
-  const mins = rows.map(r => r.minutesToPost).filter((v): v is number => v !== null);
-  if (rows.length === 0) {
-    const nearest = legMinutes.length ? `${Math.min(...legMinutes)} min to post` : 'no start times';
-    console.log(`${capturedAt}  ${type} ${date}  — outside capture windows (${nearest}), skipped`);
-    return null;
-  }
-
-  fs.mkdirSync(out.replace(/[^/\\]+$/, '') || '.', { recursive: true });
+  fs.mkdirSync(path.dirname(out) || '.', { recursive: true });
   fs.appendFileSync(out, rows.map(r => JSON.stringify(r)).join('\n') + '\n');
 
-  const window = mins.length ? `${Math.min(...mins)}..${Math.max(...mins)} min to post` : 'start times unavailable';
   console.log(`${capturedAt}  ${type} ${date}`);
-  const legsRecorded = new Set(rows.map(r => r.leg)).size;
-  console.log(`  ${rows.length} horses across ${legsRecorded}/${races.length} legs in window, ${withOdds} with live odds (${window})`);
+  console.log(`  ${rows.length} horses across ${races.length} legs, ${withOdds} with live odds`
+    + ` (${minutesToDeadline} min to deadline)`);
   return rows.length;
 }
 
@@ -157,7 +153,8 @@ async function main() {
   // Scheduled mode: no arguments, so the scheduler stays dumb and this stays in
   // charge of what a card is. Today through +3 days covers the day-ahead
   // snapshots the drift question needs.
-  const types = ['V75', 'V85', 'V86'] as GameType[];
+  // V85 and V86 only: those are the cards the verdict is about.
+  const types = ['V85', 'V86'] as GameType[];
   let captured = 0;
   for (let ahead = 0; ahead <= 1; ahead++) {
     const d = new Date(Date.now() + ahead * 86400000).toISOString().split('T')[0];

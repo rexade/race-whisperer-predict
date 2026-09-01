@@ -13,11 +13,11 @@
  *
  *   npx tsx scripts/odds-drift.ts
  *
- * Two fits are reported. The primary one pairs a reading ~6h out against ~1h
- * out, both inside the densely captured final hours, isolating late money. The
- * second pairs the single 24h baseline against the same late reading; it exists
- * so that a null on the short window can be told apart from "the movement
- * happened earlier and we did not look" rather than being a dead end.
+ * Two readings per horse are compared: one ~24h before the card's betting
+ * deadline, one shortly before it. Both are clocked to the deadline -- the
+ * first leg's start -- because that is when the ticket locks; odds later in the
+ * afternoon move but cannot be acted on. Anchors are a parameter, so once
+ * enough cards are in, the best pair can be swept for rather than guessed.
  */
 import './node-polyfills';
 import * as fs from 'fs';
@@ -28,8 +28,7 @@ const realFetch = globalThis.fetch.bind(globalThis);
   realFetch(typeof i === 'string' && i.startsWith('/api/atg/') ? ATG + i.slice('/api/atg'.length) : i, o);
 
 import {
-  BASELINE_ANCHORS, LATE_MONEY_ANCHORS,
-  buildRaceObservations, conditionalLogit, pairByAnchors,
+  DEFAULT_ANCHORS, buildRaceObservations, conditionalLogit, pairByAnchors,
 } from '../src/services/analysis/oddsDrift';
 import type { Anchors, SnapshotRow } from '../src/services/analysis/oddsDrift';
 
@@ -55,7 +54,12 @@ function report(label: string, anchors: Anchors, rows: SnapshotRow[], winnerName
 
   console.log(`\n── ${label}: ${hrs(anchors.early)} out vs ${hrs(anchors.late)} out ──`);
   console.log(`  ${paired.length}/${horses} horses paired (${pct(paired.length, horses)})`);
-  console.log(`  dropped: ${dropped.noEarly} no early, ${dropped.noLate} no late, ${dropped.noOdds} unpriced`);
+  console.log(`  dropped: ${dropped.noEarly} no early, ${dropped.noLate} no late,`
+    + ` ${dropped.noOdds} unpriced, ${dropped.outsideWindow} outside window`);
+  // Paired plus dropped must equal the horse count. If it does not, horses are
+  // going missing somewhere and every ratio below is measuring the wrong thing.
+  const accounted = paired.length + dropped.noEarly + dropped.noLate + dropped.noOdds + dropped.outsideWindow;
+  if (accounted !== horses) console.log(`  ! ${horses - accounted} horses unaccounted for - diagnostics are wrong`);
 
   const winners = new Map<string, number>();
   for (const [raceId, name] of winnerNames) {
@@ -119,8 +123,7 @@ async function main() {
   fs.writeFileSync(cachePath, JSON.stringify(cache, null, 2));
   console.log(`${winnerNames.size} races settled, ${unrun} not yet run`);
 
-  report('LATE MONEY (primary)', LATE_MONEY_ANCHORS, rows, winnerNames);
-  report('24h BASELINE (rule-out)', BASELINE_ANCHORS, rows, winnerNames);
+  report('drift', DEFAULT_ANCHORS, rows, winnerNames);
   console.log('');
 }
 

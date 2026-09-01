@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BASELINE_ANCHORS, buildRaceObservations, conditionalLogit, impliedProbabilities, isWorthRecording, pairByAnchors } from '../oddsDrift';
+import { buildRaceObservations, conditionalLogit, impliedProbabilities, isWorthRecording, pairByAnchors } from '../oddsDrift';
 
 describe('impliedProbabilities', () => {
   it('strips the overround so a race sums to one', () => {
@@ -18,8 +18,8 @@ describe('impliedProbabilities', () => {
   });
 });
 
-const capture = (minutesToPost: number, odds = 5) =>
-  ({ raceId: 'r1', startNumber: 1, horseName: 'Horse', minutesToPost, odds });
+const capture = (minutesToDeadline: number, odds = 5) =>
+  ({ raceId: 'r1', startNumber: 1, horseName: 'Horse', minutesToDeadline, odds });
 
 describe('pairByAnchors', () => {
   it('takes the capture nearest each anchor, not the first and last', () => {
@@ -31,13 +31,13 @@ describe('pairByAnchors', () => {
     ]);
 
     expect(paired).toHaveLength(1);
-    expect(paired[0].early.minutesToPost).toBe(300);
-    expect(paired[0].late.minutesToPost).toBe(65);
+    expect(paired[0].early.minutesToDeadline).toBe(1400);
+    expect(paired[0].late.minutesToDeadline).toBe(65);
   });
 });
 
-const horse = (raceId: string, startNumber: number, minutesToPost: number, odds: number | null = 5) =>
-  ({ raceId, startNumber, horseName: `H${startNumber}`, minutesToPost, odds });
+const horse = (raceId: string, startNumber: number, minutesToDeadline: number, odds: number | null = 5) =>
+  ({ raceId, startNumber, horseName: `H${startNumber}`, minutesToDeadline, odds });
 
 describe('pairByAnchors drop accounting', () => {
   it('counts why each unpaired horse was dropped', () => {
@@ -45,14 +45,23 @@ describe('pairByAnchors drop accounting', () => {
     // surviving sample is biased toward cards the scheduler happened to catch
     // near post, which is exactly the variable under test.
     const { paired, dropped } = pairByAnchors([
-      horse('r1', 1, 300), horse('r1', 1, 65),
+      horse('r1', 1, 1400), horse('r1', 1, 65),
       horse('r1', 2, 65),
-      horse('r1', 3, 300),
-      horse('r1', 4, 300, null), horse('r1', 4, 65, null),
+      horse('r1', 3, 1400),
+      horse('r1', 4, 1400, null), horse('r1', 4, 65, null),
     ]);
 
     expect(paired.map(p => p.startNumber)).toEqual([1]);
-    expect(dropped).toEqual({ noEarly: 1, noLate: 1, noOdds: 1 });
+    expect(dropped).toEqual({ noEarly: 1, noLate: 1, noOdds: 1, outsideWindow: 0 });
+  });
+
+  it('counts horses whose captures all fell outside the recording window', () => {
+    // Otherwise they vanish between the horse count and the drop totals, and
+    // the diagnostics stop adding up - which is how a biased sample hides.
+    const { paired, dropped } = pairByAnchors([horse('r1', 1, 3000), horse('r1', 1, 2500)]);
+
+    expect(paired).toHaveLength(0);
+    expect(dropped.outsideWindow).toBe(1);
   });
 });
 
@@ -141,8 +150,8 @@ const pairOf = (startNumber: number, earlyOdds: number, lateOdds: number) => ({
   raceId: 'r1',
   startNumber,
   horseName: `H${startNumber}`,
-  early: { raceId: 'r1', startNumber, horseName: `H${startNumber}`, minutesToPost: 1440, odds: earlyOdds },
-  late: { raceId: 'r1', startNumber, horseName: `H${startNumber}`, minutesToPost: 60, odds: lateOdds },
+  early: { raceId: 'r1', startNumber, horseName: `H${startNumber}`, minutesToDeadline: 1440, odds: earlyOdds },
+  late: { raceId: 'r1', startNumber, horseName: `H${startNumber}`, minutesToDeadline: 60, odds: lateOdds },
 });
 
 describe('buildRaceObservations', () => {
@@ -187,25 +196,17 @@ describe('buildRaceObservations', () => {
 });
 
 describe('isWorthRecording', () => {
-  it('records the final hours densely and a baseline near 24h, nothing between', () => {
-    // Prices barely move more than a day out, so storing that stretch costs
-    // megabytes per card and buys nothing. The 24h baselines are kept because
-    // they are cheap and keep the wider comparison askable later.
-    expect(isWorthRecording(30)).toBe(true);     // deep in the dense window
-    expect(isWorthRecording(480)).toBe(true);    // 8h, edge of dense
-    expect(isWorthRecording(600)).toBe(false);   // 10h, the dead zone
-    expect(isWorthRecording(1440)).toBe(true);   // 24h baseline
-    expect(isWorthRecording(1600)).toBe(false);  // too early to have settled
-  });
-
-  it('leaves a 24h baseline narrow enough to catch exactly one hourly run', () => {
-    // A window wider than an hour would land two captures for the price of a
-    // check we only need once. 60 minutes still absorbs the ~15min GitHub
-    // routinely delays a scheduled run by before it would miss entirely.
-    expect(isWorthRecording(1410)).toBe(true);
-    expect(isWorthRecording(1470)).toBe(true);
-    expect(isWorthRecording(1400)).toBe(false);
-    expect(isWorthRecording(1480)).toBe(false);
+  it('records continuously through the final 24h', () => {
+    // The end state compares two readings, but WHICH two is the open question,
+    // and it cannot be answered from hours that were never recorded. Dense
+    // coverage now, narrow once the data says where the movement is. Nothing
+    // before ~25h: prices have not settled and it is the bulk of the bytes.
+    expect(isWorthRecording(30)).toBe(true);
+    expect(isWorthRecording(480)).toBe(true);
+    expect(isWorthRecording(600)).toBe(true);    // no dead zone while learning
+    expect(isWorthRecording(1440)).toBe(true);
+    expect(isWorthRecording(1500)).toBe(true);   // headroom past 24h
+    expect(isWorthRecording(1560)).toBe(false);  // 26h - unsettled, not stored
   });
 
   it('refuses captures taken after the race started', () => {
@@ -215,13 +216,13 @@ describe('isWorthRecording', () => {
 });
 
 describe('pairByAnchors anchor selection', () => {
-  it('pairs against the 24h baseline when asked to rule out the wider window', () => {
-    // The default is the late-money test inside the dense window. The baseline
-    // anchors exist so a null at 6h can be checked against 24h rather than
-    // being a dead end.
+  it('accepts custom anchors so the best pair can be swept for later', () => {
+    // Recording is continuous through the 24h, so which two readings to compare
+    // is a question the data answers - not one baked into the collector.
     const rows = [horse('r1', 1, 1440), horse('r1', 1, 300), horse('r1', 1, 65)];
+    const sixHours = { early: 360, earlyTolerance: 140, late: 45, lateTolerance: 45 };
 
-    expect(pairByAnchors(rows).paired[0].early.minutesToPost).toBe(300);
-    expect(pairByAnchors(rows, BASELINE_ANCHORS).paired[0].early.minutesToPost).toBe(1440);
+    expect(pairByAnchors(rows).paired[0].early.minutesToDeadline).toBe(1440);
+    expect(pairByAnchors(rows, sixHours).paired[0].early.minutesToDeadline).toBe(300);
   });
 });
