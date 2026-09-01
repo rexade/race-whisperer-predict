@@ -12,10 +12,20 @@
  * API returns only current odds with no history or timestamps. The series has to
  * be built going forward, which is what this does.
  *
- * Run it several times before a card — the useful shape is one snapshot a day
- * ahead and one close to post, with a couple in between:
+ * Two modes:
  *
- *   npx tsx scripts/snapshot-odds.ts --date 2026-09-05 --type V85
+ *   npx tsx scripts/snapshot-odds.ts --date 2026-09-05 --type V85   one card
+ *   npx tsx scripts/snapshot-odds.ts --auto                          scheduled
+ *
+ * --auto scans the calendar for today through +3 days, snapshots every V75/V85/
+ * V86 card it finds, and skips cards that have already run. It takes no
+ * arguments so a scheduler can run it blind.
+ *
+ * .github/workflows/snapshot-odds.yml runs --auto hourly through Swedish race
+ * hours and commits the result, so capture does not depend on any one machine
+ * being awake. scripts/snapshot-odds.cmd is the local fallback (Windows Task
+ * Scheduler). Vercel cannot host this: that deploy is static and a serverless
+ * filesystem is ephemeral, so there is nothing there to append to.
  *
  * Each run appends one row per horse to data/odds-snapshots.jsonl, carrying the
  * minutes remaining until that leg starts. Nothing analyses it yet; that needs
@@ -63,13 +73,10 @@ async function raceStartTimes(raceIds: string[]): Promise<Map<string, string>> {
   return out;
 }
 
-async function main() {
-  const date = arg('--date') ?? new Date().toISOString().split('T')[0];
-  const type = (arg('--type') ?? 'V85') as GameType;
-  const out = arg('--out') ?? 'data/odds-snapshots.jsonl';
-
+/** Snapshot one card. Returns rows appended, or null when absent/already run. */
+async function snapshotCard(date: string, type: GameType, out: string): Promise<number | null> {
   const info = await fetchV75GameInfo(date, type);
-  if (!info) { console.error(`No ${type} game on ${date}`); process.exit(1); }
+  if (!info) return null;
   const races = await fetchRaceDataForGame(date, info, type);
   const starts = await raceStartTimes(races.map((r: any) => r.raceId));
 
@@ -98,20 +105,53 @@ async function main() {
     }
   }
 
+  const mins = rows.map(r => r.minutesToPost).filter((v): v is number => v !== null);
+  // A card whose last leg ran more than half an hour ago has nothing left to
+  // capture; appending post-race odds would only pad the log.
+  if (mins.length && Math.max(...mins) < -30) {
+    console.log(`${capturedAt}  ${type} ${date}  — already run, skipped`);
+    return null;
+  }
+
   fs.mkdirSync(out.replace(/[^/\\]+$/, '') || '.', { recursive: true });
   fs.appendFileSync(out, rows.map(r => JSON.stringify(r)).join('\n') + '\n');
 
-  const mins = rows.map(r => r.minutesToPost).filter((v): v is number => v !== null);
   const window = mins.length ? `${Math.min(...mins)}..${Math.max(...mins)} min to post` : 'start times unavailable';
   console.log(`${capturedAt}  ${type} ${date}`);
   console.log(`  ${rows.length} horses across ${races.length} legs, ${withOdds} with live odds (${window})`);
-  console.log(`  appended to ${out}`);
+  return rows.length;
+}
 
-  if (withOdds === 0) {
-    console.log('\n  No live odds yet — the win pool usually opens on raceday. An empty');
-    console.log('  early snapshot still records that the pool was closed, which is itself');
-    console.log('  the baseline the first priced snapshot moves away from.');
+async function main() {
+  const out = arg('--out') ?? 'data/odds-snapshots.jsonl';
+
+  if (!process.argv.includes('--auto')) {
+    const date = arg('--date') ?? new Date().toISOString().split('T')[0];
+    const type = (arg('--type') ?? 'V85') as GameType;
+    const n = await snapshotCard(date, type, out);
+    if (n === null) { console.error(`No ${type} game on ${date} (or already run)`); process.exit(1); }
+    return;
   }
+
+  // Scheduled mode: no arguments, so the scheduler stays dumb and this stays in
+  // charge of what a card is. Today through +3 days covers the day-ahead
+  // snapshots the drift question needs.
+  const types = ['V75', 'V85', 'V86'] as GameType[];
+  let captured = 0;
+  for (let ahead = 0; ahead <= 3; ahead++) {
+    const d = new Date(Date.now() + ahead * 86400000).toISOString().split('T')[0];
+    for (const t of types) {
+      try {
+        const n = await snapshotCard(d, t, out);
+        if (n !== null) captured++;
+      } catch (e: any) {
+        // One broken card must not stop the sweep — the whole point of the
+        // schedule is that missed captures are unrecoverable.
+        console.error(`  ${t} ${d}: ${e?.message ?? e}`);
+      }
+    }
+  }
+  console.log(`--auto done: ${captured} card(s) captured`);
 }
 
 main().catch(e => { console.error(e); process.exit(1); });

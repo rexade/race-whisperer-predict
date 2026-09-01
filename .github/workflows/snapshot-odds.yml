@@ -1,0 +1,59 @@
+name: Snapshot odds
+
+# Odds drift can only ever be captured going forward: ATG serves current odds
+# with no history and no timestamps, so a capture missed is a capture gone. That
+# makes the schedule the experiment. Running here rather than on a laptop means
+# it fires whether or not anyone is awake, and the series is committed back so
+# it survives a lost disk.
+#
+# Deliberately NOT on Vercel: that deploy is static (vite -> dist, and /api/atg
+# is a rewrite proxy, not a function), so there is no runtime to schedule, and a
+# serverless filesystem is ephemeral so nothing there could append to a .jsonl.
+
+on:
+  schedule:
+    # Hourly across Swedish race hours, in UTC: V85 posts ~14:20Z, V86 ~18:30Z.
+    # Hourly is what buys a reading close to post, and late money is the whole
+    # hypothesis - a card sampled only once a day cannot answer the question.
+    - cron: '0 8-21 * * *'
+    # Two overnight readings give each card the day-out baseline to drift from.
+    - cron: '0 1,4 * * *'
+  workflow_dispatch:
+
+# Every run appends and pushes; two overlapping runs would race on one file.
+concurrency:
+  group: snapshot-odds
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Capture
+        run: npx tsx scripts/snapshot-odds.ts --auto
+
+      - name: Commit new rows
+        run: |
+          if git diff --quiet -- data/odds-snapshots.jsonl; then
+            echo "No upcoming card in the window - nothing to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/odds-snapshots.jsonl
+          git commit -m "Odds snapshot $(date -u +'%Y-%m-%dT%H:%MZ')"
+          # A neighbouring run may have landed while this one was fetching.
+          git pull --rebase --autostash
+          git push
