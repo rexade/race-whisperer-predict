@@ -12,12 +12,13 @@ name: Snapshot odds
 
 on:
   schedule:
-    # Hourly, round the clock. The script decides what is worth storing (final
-    # ~8h before post, plus one baseline near 24h), so extra runs cost only API
-    # calls - and this repo is public, so Actions minutes are unlimited. Firing
-    # every hour covers the dense window whatever time a card posts, including
-    # lunch cards, rather than assuming a race-hours band.
-    - cron: '0 * * * *'
+    # Twice hourly, and deliberately NOT on the hour. Measured delivery at
+    # '0 * * * *' was 7 of 27 expected runs (26%) with gaps up to 292 minutes:
+    # every repo on GitHub schedules at :00 and queued jobs there get dropped
+    # first. Off-peak minutes plus a second slot per hour is the cheap fix. It
+    # matters because the reading closest to the deadline IS the hypothesis -
+    # a 4-hour gap can miss the late money entirely.
+    - cron: '13,43 * * * *'
   workflow_dispatch:
 
 # Every run appends and pushes; two overlapping runs would race on one file.
