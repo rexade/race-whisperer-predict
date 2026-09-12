@@ -10,15 +10,20 @@ name: Snapshot odds
 # is a rewrite proxy, not a function), so there is no runtime to schedule, and a
 # serverless filesystem is ephemeral so nothing there could append to a .jsonl.
 
+# STOPPED 2026-09-12. Scheduled capture is off; this now runs only on demand.
+#
+# Result of the experiment, so it is not re-run blind: over 6 cards / 40 races,
+# drift from 24h out to 2.5h out added nothing to the closing price - coefficient
+# -0.004, log-likelihood gain 0.000, 95% CI [-0.50, 0.49]. The same races found
+# the market signal at z=4.76, so the test worked; the effect was not there.
+#
+# What was never tested: the final ~2.5h before the deadline. GitHub delivered a
+# scheduled run only every ~3.5h regardless of the cron, so the last reading
+# landed 115-224 min out on 5 of 6 cards. That stretch holds ~24% of all price
+# movement. To test it, a run would need to sleep until ~10 min before the
+# deadline and capture there, rather than relying on cron timing.
+
 on:
-  schedule:
-    # Twice hourly, and deliberately NOT on the hour. Measured delivery at
-    # '0 * * * *' was 7 of 27 expected runs (26%) with gaps up to 292 minutes:
-    # every repo on GitHub schedules at :00 and queued jobs there get dropped
-    # first. Off-peak minutes plus a second slot per hour is the cheap fix. It
-    # matters because the reading closest to the deadline IS the hypothesis -
-    # a 4-hour gap can miss the late money entirely.
-    - cron: '13,43 * * * *'
   workflow_dispatch:
 
 # Every run appends and pushes; two overlapping runs would race on one file.
