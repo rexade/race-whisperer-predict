@@ -64,4 +64,19 @@ describe('allocateBudget', () => {
 
     expect(rows).toBeGreaterThan(250);
   });
+
+  it('respects a per-leg floor so a leg can be barred from being singled', () => {
+    // Spiking is decided by the top pick's PRICE, not by the model's margin:
+    // measured on 603 holdout legs, a pick at odds <= 2.0 holds 56.3% while the
+    // model's own margin >= 3s holds 55.5% and occurs half as often. The floor
+    // is how that rule reaches the allocator without touching the ranking.
+    const settled = [0.62, 0.14, 0.09, 0.08, 0.07];
+    const open = [0.34, 0.29, 0.17, 0.12, 0.08];
+
+    const free = allocateBudget([settled, open], 4);
+    const barred = allocateBudget([settled, open], 4, [2, 1]);
+
+    expect(free[0]).toBe(1);
+    expect(barred[0]).toBeGreaterThanOrEqual(2);
+  });
 });

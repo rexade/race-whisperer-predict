@@ -40,13 +40,21 @@ export const calibrateWinProbabilities = (predictedSeconds: number[], temperatur
  * always wrong - a near-settled leg and a wide-open one deserve very different
  * money for the same rows.
  */
-export const allocateBudget = (legProbabilities: number[][], maxRows: number): number[] => {
-  const counts = legProbabilities.map(() => 1);
+export const allocateBudget = (
+  legProbabilities: number[][],
+  maxRows: number,
+  minCover?: number[],
+): number[] => {
+  // A floor per leg, so a caller can bar a leg from being singled without
+  // touching the ranking. Used to keep the spik decision on the top pick's
+  // price rather than on the model's own margin.
+  const counts = legProbabilities.map((leg, i) =>
+    Math.min(Math.max(minCover?.[i] ?? 1, 1), leg.length));
   // Cumulative probability that leg i is covered by its top n horses.
   const covered = (leg: number[], n: number) =>
     leg.slice(0, n).reduce((a, b) => a + b, 0);
 
-  let rows = 1;
+  let rows = counts.reduce((a, b) => a * b, 1);
   for (;;) {
     let bestLeg = -1;
     let bestRatio = 0;

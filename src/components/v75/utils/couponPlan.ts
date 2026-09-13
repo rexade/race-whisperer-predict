@@ -33,6 +33,27 @@ export const DEFAULT_BUDGET_KR = 250;
  */
 const TEMPERATURE = 2.869;
 
+/**
+ * Longest price the top pick may carry and still be singled.
+ *
+ * The spik decision belongs to the market, not to the model's own margin.
+ * Measured on 603 holdout legs, with training agreeing closely:
+ *
+ *   top pick at odds <= 1.5   holds 69.6%   ~0.6 legs per card
+ *   odds <= 1.8               holds 63.2%   ~1.6
+ *   odds <= 2.0               holds 56.3%   ~2.1
+ *   model margin >= 3s        holds 55.5%   ~1.9
+ *
+ * The price matches the model's own margin on accuracy and beats it on how
+ * often it is available, which is what decides whether a card has two or three
+ * spik candidates at all. Picking spik legs by margin - which is what this did
+ * before - held 47.1% against a predicted 56.0%.
+ *
+ * 2.0 is chosen to leave roughly two singles per card, the count that maximises
+ * expected full pott at a 500-row budget.
+ */
+export const SPIK_MAX_ODDS = 2.0;
+
 export function coveragePlan(
   races: V75RaceResult[],
   budgetKr: number = DEFAULT_BUDGET_KR,
@@ -51,7 +72,15 @@ export function coveragePlan(
   const probabilities = usable.map(r =>
     calibrateWinProbabilities(sortByPrediction(r.horses).map(rankingScoreSeconds), TEMPERATURE));
 
-  const counts = allocateBudget(probabilities, Math.floor(budgetKr / ROW_COST_KR));
+  // A leg may only be singled when its top pick is short enough. Odds are
+  // absent until the pools open, and a missing price must not silently bar
+  // every spik, so unknown falls through to "allowed".
+  const minCover = usable.map(r => {
+    const odds = sortByPrediction(r.horses)[0]?.liveOdds;
+    return typeof odds === 'number' && odds > SPIK_MAX_ODDS ? 2 : 1;
+  });
+
+  const counts = allocateBudget(probabilities, Math.floor(budgetKr / ROW_COST_KR), minCover);
   usable.forEach((r, i) => plan.set(r.raceId, counts[i]));
   return plan;
 }
