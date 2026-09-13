@@ -98,6 +98,7 @@ async function main() {
   const temperature = fitTemperature(trainLegs);
   console.log(`
 temperature fitted on ${trainLegs.length} training legs: ${temperature.toFixed(3)}`);
+  console.log(`  (couponPlan.ts hard-codes this; if they differ, the app is not building the coupon measured here)`);
 
   // Isotonic correction on the CUMULATIVE coverage - that is what the allocator
   // consumes, and calibrating it directly is what makes its arithmetic honest.

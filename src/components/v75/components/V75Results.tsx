@@ -4,17 +4,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy } from "lucide-react";
 import V75RaceDetails from "../V75RaceDetails";
-import { sortByPrediction, winnerMargin, legConfidence, LegConfidence } from "../utils/raceRanking";
 import { buildRaceLegs } from "../utils/raceTabs";
+import { coveragePlan } from "../utils/couponPlan";
 
 import { V75RaceResult } from "../hooks/useV75Analysis";
 import DebugErrorBoundary from "../../DebugErrorBoundary";
 
-const DOT_CLASS: Record<LegConfidence, string> = {
-  spik: 'text-success',
-  favorit: 'text-warning',
-  oppet: 'text-primary',
-};
+/** One horse is a spik and reads differently from a leg you have to spread. */
+const coverClass = (n: number) => (n === 1 ? 'text-success' : n <= 3 ? 'text-warning' : 'text-primary');
 
 interface V75ResultsProps {
   races: V75RaceResult[];
@@ -29,6 +26,10 @@ const V75Results: React.FC<V75ResultsProps> = ({
   onTabChange
 }) => {
   const legs = buildRaceLegs(races);
+  // Allocation is a whole-card decision - how deep to go in one leg depends on
+  // every other leg competing for the same rows - so it is computed once here
+  // and handed down, never per leg.
+  const plan = React.useMemo(() => coveragePlan(races), [races]);
   const firstTab = legs[0]?.tabValue ?? '';
   const selectedTab = legs.some(leg => leg.tabValue === activeTab) ? activeTab : firstTab;
 
@@ -57,17 +58,17 @@ const V75Results: React.FC<V75ResultsProps> = ({
             <div className="sticky top-[116px] sm:top-[57px] z-10 bg-background border-b border-border mb-4">
               <TabsList className="bg-transparent p-0 gap-4 sm:gap-5 w-full h-12 flex justify-start overflow-x-auto no-scrollbar px-1 rounded-none">
                 {legs.map(({ race, legNumber, tabValue }) => {
-                  const confidence = legConfidence(winnerMargin(sortByPrediction(race.horses)));
+                  const cover = plan.get(race.raceId) ?? 1;
                   return (
                     <TabsTrigger
                       key={race.raceId}
                       value={tabValue}
-                      aria-label={`Lopp ${legNumber} — ${confidence}`}
+                      aria-label={`Lopp ${legNumber} — ${cover === 1 ? "spika" : `ta ${cover} hästar`}`}
                       title={`Lopp ${legNumber}`}
                       className="num shrink-0 rounded-none border-b-[3px] border-transparent px-1.5 h-12 text-sm whitespace-nowrap bg-transparent text-muted-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:font-extrabold"
                     >
                       {selectedTab === tabValue ? `Lopp ${legNumber}` : legNumber}
-                      <span className={`ml-1 text-[8px] ${DOT_CLASS[confidence]}`} aria-hidden="true">●</span>
+                      <span className={`ml-1 text-[10px] font-bold ${coverClass(cover)}`} aria-hidden="true">{cover}</span>
                     </TabsTrigger>
                   );
                 })}
@@ -78,7 +79,7 @@ const V75Results: React.FC<V75ResultsProps> = ({
             {legs.map(({ race, legNumber, tabValue }) => (
               <TabsContent key={race.raceId} value={tabValue} className="mt-3 sm:mt-6">
                 <DebugErrorBoundary>
-                  <V75RaceDetails race={race} legNumber={legNumber} />
+                  <V75RaceDetails race={race} legNumber={legNumber} cover={plan.get(race.raceId) ?? 1} />
                 </DebugErrorBoundary>
               </TabsContent>
             ))}

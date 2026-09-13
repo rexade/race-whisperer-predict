@@ -6,10 +6,12 @@ import CompactV75ResultsTable from './components/CompactV75ResultsTable';
 
 interface V75RaceDetailsProps {
   race: V75RaceResult;
+  /** Horses to cover in this leg, decided across the whole card. */
+  cover?: number;
   legNumber: number;
 }
 
-const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race, legNumber }) => {
+const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race, legNumber, cover }) => {
   if (!race.analysisComplete) {
     return (
       <Card className="border-destructive bg-gradient-card shadow-md">
@@ -30,7 +32,7 @@ const V75RaceDetails: React.FC<V75RaceDetailsProps> = ({ race, legNumber }) => {
 
   return (
     <div className="space-y-4">
-      <CompactV75ResultsTable race={race} legNumber={legNumber} />
+      <CompactV75ResultsTable race={race} legNumber={legNumber} cover={cover} />
     </div>
   );
 };

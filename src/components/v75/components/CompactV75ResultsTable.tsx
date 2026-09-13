@@ -3,27 +3,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { V75RaceResult } from '../hooks/useV75Analysis';
 import CompactHorseRow from './CompactHorseRow';
-import { sortByPrediction, winnerMargin as calcWinnerMargin, valuePickKeys, rankingScoreSeconds, legConfidence, type LegConfidence } from '../utils/raceRanking';
+import { sortByPrediction, winnerMargin as calcWinnerMargin, valuePickKeys, rankingScoreSeconds } from '../utils/raceRanking';
 import { horseResultKey } from '../utils/horseResultIdentity';
 
 interface CompactV75ResultsTableProps {
   race: V75RaceResult;
   legNumber: number;
+  /** Horses to cover in this leg, decided across the whole card. */
+  cover?: number;
 }
 
-const VERDICT_LABEL: Record<LegConfidence, string> = {
-  spik: 'SPIK',
-  favorit: 'FAVORIT',
-  oppet: 'ÖPPET',
-};
+/**
+ * What to actually do with this leg, not a verdict on how it feels.
+ *
+ * The old spik/favorit/oppet labels were measured on a 604-race holdout and
+ * were wrong in both directions: "spik" fired on 67% of all legs and was right
+ * 43.5% of the time, and "favorit" (27.0%) performed WORSE than "oppet"
+ * (34.1%). A coverage count is decided across the whole card against a real row
+ * budget, so it says something a single leg cannot.
+ */
+const coverLabel = (n: number) => (n === 1 ? 'SPIKA' : `TA ${n}`);
 
-const VERDICT_CLASS: Record<LegConfidence, string> = {
-  spik: 'text-success',
-  favorit: 'text-warning',
-  oppet: 'text-primary',
-};
 
-const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race, legNumber }) => {
+const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race, legNumber, cover }) => {
   const sortedHorses = sortByPrediction(race.horses);
   const horsesWithoutTimes = race.horses.filter(horse => !horse.modernNormalizedResult);
 
@@ -40,7 +42,7 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race, l
   // the same field, so the bars are comparable within the leg and meaningless
   // across legs — which is the point.
   const fieldSeconds = sortedHorses.map(rankingScoreSeconds);
-  const verdict = legConfidence(winnerMargin);
+
 
   // Handicap front line: the shortest distance anyone in this leg actually runs.
   // Every horse's tillägg is the gap to it, which is 0 across the board in an
@@ -56,10 +58,14 @@ const CompactV75ResultsTable: React.FC<CompactV75ResultsTableProps> = ({ race, l
         <div className="flex flex-col gap-0.5">
           <div className="eyebrow flex items-center gap-2 flex-wrap">
             <span>{race.distance} M · {startMethodLabel} · {race.track}</span>
-            {/* Whether to single this leg or spread it — the model's most useful
-                output, since it cannot out-pick the market but can say how tight
-                a race is. Reuses legConfidence; no new ranking logic. */}
-            <span className={`font-bold ${VERDICT_CLASS[verdict]}`}>{VERDICT_LABEL[verdict]}</span>
+            {/* How many horses to cover here, allocated across the whole card
+                against the row budget. Not a per-leg opinion: going one deeper
+                in this leg is paid for by going shallower in another. */}
+            {cover !== undefined && (
+              <span className={`font-bold ${cover === 1 ? 'text-success' : cover <= 3 ? 'text-warning' : 'text-primary'}`}>
+                {coverLabel(cover)}
+              </span>
+            )}
             {winnerMargin !== undefined && (
               <span className="text-muted-foreground">
                 marginal +{winnerMargin.toFixed(1).replace('.', ',')}s
